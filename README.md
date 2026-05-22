@@ -139,6 +139,12 @@ Atliera runtime infrastructure is parsed through `parseAtlieraRuntimeConfig(env)
 
 The seam intentionally does not read `process.env` at import time and does not invent production infrastructure defaults. Missing infrastructure fields remain `undefined` until an environment supplies them.
 
+## Job queue seam
+
+Atliera background work should target a logical queue interface before any production queue backend is chosen. `JobQueue` defines a minimal enqueue/dequeue/complete interface and `InMemoryJobQueue` provides deterministic test/dev behavior without binding product logic to Redis, a database table, one process, or one server.
+
+Queue names are logical identifiers, not URLs, paths, IP addresses, host:port strings, or broker addresses. Unsafe queue names are rejected before enqueue/dequeue.
+
 ## Artifact store seam
 
 Atliera artifacts should be addressable through implementation-neutral keys before any production storage backend is chosen. `ArtifactStore` defines a minimal text-artifact interface and `InMemoryArtifactStore` provides deterministic test/dev behavior without binding product logic to a local filesystem, bucket, queue, or server.

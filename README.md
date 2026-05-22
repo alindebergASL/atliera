@@ -123,7 +123,7 @@ or via stdin:
 cat path/to/bundle.json | npm run gate:fixture -- -
 ```
 
-The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. The safety tests enforce this contract.
+The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. Safety tests enforce this contract and also guard app/deploy-oriented files against hardcoded infrastructure locations such as production URLs, literal IP addresses, database URLs/paths, infrastructure host assignments, and Atliera server-local paths.
 
 ## File-backed graph store
 

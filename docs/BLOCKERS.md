@@ -64,6 +64,19 @@ Required before broader use beyond the initial user:
 - Unsupported/inferred material is visibly labeled.
 - Legacy comparison protocol has been run externally where relevant.
 
+### Gate 4 enforcement status
+
+The current validator and quality gate enforce per-bundle invariants and thresholds. They do not yet enforce aggregate launch-readiness thresholds across a selected gate corpus.
+
+Before launch-readiness assessment, Atliera needs an aggregate report layer that evaluates:
+
+- zero-output incident rate across usable gate-corpus accounts
+- material-claim coverage across verified/high-confidence claims
+- lens usefulness across Signals / Maps / Plays
+- hard-invariant pass/fail across at least N selected accounts
+
+See `docs/architecture/atliera-product-architecture.md#launch-readiness-gating-layers`.
+
 ## Explicit non-goals for first launch
 
 - Legacy brief_json import as a runtime path.

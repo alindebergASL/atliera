@@ -17,7 +17,8 @@ Required before implementation:
 Required before real provider calls:
 
 - SourceDocument/EvidenceExcerpt/Claim/ClaimEvidence/AccountObject schemas exist.
-- Deterministic validators exist.
+- Deterministic validators exist alongside the schemas, not as a later retrofit.
+- Adversarial tests cover both schema validity and validator rejection behavior.
 - Fixture-mode hard invariant tests pass.
 - Import-side-effect tests prove no provider SDK import, env read, or network call in fixture/fake modes.
 - Model mode fails closed until explicitly activated.
@@ -51,10 +52,15 @@ Required before broader use beyond the initial user:
 
 - Deliberate gate corpus is documented.
 - Zero hard invariant failures.
-- No verified/high-confidence unsupported claims.
+- Zero false-verified claims/objects/lens items.
+- Zero invented source/excerpt/claim/object IDs.
+- Zero accepted paraphrases treated as excerpts.
+- Zero unbudgeted/default-path model calls.
+- Accepted excerpt rate >= 50% on proposed excerpts for accounts with usable source material.
+- Zero-output incidents < 10% of gate-corpus accounts with usable source material.
+- Material-claim coverage >= 80% for verified/high-confidence claims.
 - Useful end-to-end output for usable gate accounts.
-- Low zero-output rate.
-- Signals/Maps/Plays render from shared graph-backed objects.
+- Signals/Maps/Plays render from shared graph-backed objects and do not fork validators, research logic, provenance logic, or data paths.
 - Unsupported/inferred material is visibly labeled.
 - Legacy comparison protocol has been run externally where relevant.
 

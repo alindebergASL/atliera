@@ -35,19 +35,25 @@ Atliera should not rely on “LLM with citations” as the trust model. The targ
 
 ## Hard invariants
 
-Any graph-first run fails if any occur:
+Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 safety properties and should be tested with adversarial fixtures before real provider mode is enabled:
 
 - schema parse failure
 - invented SourceDocument IDs
 - invented EvidenceExcerpt IDs
-- dangling claim/evidence/object references
+- invented Claim, ClaimEvidence, AccountObject, or edge IDs
+- dangling claim/evidence/object/edge references
 - accepted excerpt text not found in stored source text after deterministic normalization
+- accepted paraphrase treated as an excerpt rather than being rejected or stored as an unsupported proposal
 - verified or high-confidence claim without accepted supporting excerpt
+- false-verified claim, object, map item, signal, or play
 - object marked verified without linked verified/supporting claim
+- UI lens renders unsupported model prose as verified graph output
 - production write during validation mode
+- automatic model/provider call from default app paths, fixture mode, fake mode, import time, test setup, or validation-only commands
 - provider/model call outside explicit model mode
 - model mode without cost cap/provider/model/run approval
 - projected or observed budget violation
+- provider SDK import, API key read, or network call before explicit activation gates pass
 
 ## Model/provider safety gates
 
@@ -60,13 +66,17 @@ Any graph-first run fails if any occur:
 
 ## Quality thresholds
 
-Hard invariant pass is necessary but not sufficient. Launch quality also requires useful account intelligence on a deliberate gate corpus:
+Hard invariant pass is necessary but not sufficient. Launch quality also requires useful account intelligence on a deliberate gate corpus. Initial quantitative targets, carried forward from the A.7 discipline and revisable only after a documented internal validation run, are:
 
-- useful graph-backed output for accounts with usable source material
-- low zero-output rate
-- accepted excerpt coverage high enough that Workshop is not mostly unsupported summaries
-- Signals, Maps, and Plays lenses all render from shared graph-backed AccountObjects
-- unsupported/inferred material visibly labeled
+- 100% hard invariant pass rate: zero false-verified outputs, zero invented IDs, zero dangling references, zero accepted paraphrases, zero unbudgeted/default-path model calls
+- accepted excerpt rate >= 50% on proposed excerpts for accounts with usable source material
+- zero-output incidents < 10% of gate-corpus accounts with usable source material
+- material-claim coverage >= 80%: at least 80% of material verified/high-confidence claims must have accepted supporting evidence
+- every usable gate account produces at least one useful graph-backed AccountObject
+- at least two launch lenses are materially useful for each usable gate account; all three lenses must render from the same graph where applicable
+- unsupported/inferred material is visibly labeled and never styled as verified
+
+Qualitative review still matters, but numbers prevent launch-quality arguments from becoming subjective.
 
 ## Legacy comparison protocol
 

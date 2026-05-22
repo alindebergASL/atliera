@@ -86,7 +86,7 @@ Hard naming constraints:
 7. One graph, many lenses
    - Signals, Maps, and Plays are launch lenses over the same evidence graph.
    - They must share claim/evidence/object primitives and validators.
-   - Do not fork research, provenance, or validation logic per lens.
+   - Architectural constraint: lenses may be added, renamed, hidden, or packaged differently, but lenses may not fork provenance logic, validators, research logic, data paths, source fetching, excerpt matching, model activation rules, or budget enforcement.
 
 8. Agent proposes, system validates, human ratifies
    - The model proposes candidate evidence, claims, objects, maps, signals, and plays.
@@ -454,10 +454,10 @@ Out of scope:
 - server deploy
 - paid provider calls
 
-### Phase 1 — Atliera Graph foundation
+### Phase 1 — Atliera Graph foundation: schema, validators, and adversarial tests
 
 Goal:
-- Build evidence graph schemas, DB foundation, deterministic validators, and empty-DB bootstrap.
+- Build evidence graph schemas, DB foundation, deterministic validators, adversarial tests for both schema and validators, and empty-DB bootstrap. Validation lands with schema rather than as a later retrofit.
 
 Deliverables:
 - Team/User/Account minimal scaffolding
@@ -634,12 +634,18 @@ Gate corpus expectations:
 Launch pass criteria:
 
 - zero hard invariant failures
+- zero false-verified claims, objects, map items, signals, or plays
 - no verified/high-confidence claim without accepted evidence
-- no invented source/excerpt/object references
+- no invented source/excerpt/claim/object/edge references
+- zero accepted paraphrases treated as excerpts
+- zero unbudgeted/default-path model calls
+- accepted excerpt rate >= 50% on proposed excerpts for accounts with usable source material
+- zero-output incidents < 10% of gate-corpus accounts with usable source material
+- material-claim coverage >= 80% for verified/high-confidence claims
 - useful end-to-end research output for each launch gate account with usable source material
-- accepted excerpt coverage high enough that Workshop output is not mostly unsupported summaries
-- zero-output rate low enough that Atliera feels useful rather than decorative
-- Signals, Maps, and Plays lenses all render from the same graph-backed account objects
+- every usable gate account produces at least one useful graph-backed AccountObject
+- at least two launch lenses are materially useful for each usable gate account where source material supports them
+- Signals, Maps, and Plays lenses all render from the same graph-backed account objects and do not fork validation/research/provenance/data paths
 - unsupported or inferred material visibly labeled
 - old legacy reports used only for external comparison, not runtime data
 

@@ -6,7 +6,7 @@ Date: 2026-05-22
 
 ## Context
 
-Atliera.com is registered and becomes the clean-slate product direction after the account-research/Atlas exploration. The legacy account-research application contains useful evidence-graph and validation work, but it is also tied to generated reports, `brief_json`, migration/backfill tooling, and old Canvas/report surfaces. Atliera needs a clean product foundation without carrying those runtime dependencies forward.
+Atliera.com is registered and becomes the clean-slate product direction after the account-research/Atlas exploration. This ADR establishes Atliera as a fresh-deployment product that supersedes the legacy account-research system for future product work. The legacy account-research application remains historical context and an external comparison reference only: it contains useful evidence-graph and validation work, but it is also tied to generated reports, `brief_json`, migration/backfill tooling, and old Canvas/report surfaces. Atliera needs a clean product foundation without carrying those runtime dependencies forward.
 
 ## Decision
 
@@ -43,8 +43,8 @@ The core thesis is:
 
 Carry forward into Atliera:
 
-- SourceDocument, EvidenceExcerpt, Claim, ClaimEvidence, AccountObject, and relationship/edge primitives after review.
-- Model adapter pattern.
+- SourceDocument, EvidenceExcerpt, Claim, ClaimEvidence, AccountObject, and relationship/edge primitives after review. The evidence graph schema carries forward as a conceptual blueprint, not as copy-pasted legacy code; Atliera should re-implement it fresh against its own data model, naming, module boundaries, and chosen DB.
+- Model adapter pattern. A.5-A.7 validation infrastructure also carries forward as patterns and safety properties, not as a literal import of the legacy directory structure, file names, or test organization.
 - Fixture/fake/model mode separation.
 - Pre-call budget enforcement.
 - Activation flag discipline.

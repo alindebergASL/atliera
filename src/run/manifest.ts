@@ -33,6 +33,30 @@ export interface RunArtifactManifestQualityGateSummary {
   metrics: QualityGateReport["metrics"];
 }
 
+export interface RunArtifactManifestModelRunPlaceholder {
+  provider: string | null;
+  model: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface RunArtifactManifestCostLedgerPlaceholder {
+  currency: string | null;
+  total_cost: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+}
+
+export interface RunArtifactManifestAdapterRecord {
+  adapter: string;
+  provider: string | null;
+  model: string | null;
+  request_id: string | null;
+  status: "pending" | "success" | "error";
+  started_at: string | null;
+  completed_at: string | null;
+}
+
 export interface RunArtifactManifest {
   schema_version: typeof RUN_ARTIFACT_MANIFEST_SCHEMA_VERSION;
   run_slug: string;
@@ -41,6 +65,9 @@ export interface RunArtifactManifest {
   created_at: string;
   artifacts: RunArtifactManifestArtifact[];
   quality_gate: RunArtifactManifestQualityGateSummary;
+  model_run: RunArtifactManifestModelRunPlaceholder;
+  cost_ledger: RunArtifactManifestCostLedgerPlaceholder;
+  adapter_records: RunArtifactManifestAdapterRecord[];
 }
 
 export interface WriteRunArtifactManifestOptions {
@@ -177,6 +204,19 @@ function buildManifest(options: {
       reason_codes: options.qualityGateReport.reasons.map((reason) => reason.code),
       metrics: options.qualityGateReport.metrics,
     },
+    model_run: {
+      provider: null,
+      model: null,
+      started_at: null,
+      completed_at: null,
+    },
+    cost_ledger: {
+      currency: null,
+      total_cost: null,
+      input_tokens: null,
+      output_tokens: null,
+    },
+    adapter_records: [],
   };
 }
 

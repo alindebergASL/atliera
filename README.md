@@ -123,6 +123,16 @@ cat path/to/bundle.json | npm run gate:fixture -- -
 
 The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. The safety tests enforce this contract.
 
+## File-backed graph store
+
+Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:
+
+- loads GraphBundle JSON files from disk
+- validates bundles before save by default
+- writes atomically through temp-file + rename
+- refuses saves in `validation`, `fixture`, and `fake` safe modes
+- performs no network, provider, or DB work
+
 ## Continuous integration
 
 GitHub Actions runs `.github/workflows/ci.yml` on pull requests to `main`, pushes to `main`, and manual dispatch.

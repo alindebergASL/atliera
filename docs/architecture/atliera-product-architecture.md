@@ -655,6 +655,21 @@ Recommended initial quality bands:
 - Borderline: all hard invariants pass, but one gate account has sparse output or one lens is weak; proceed only with documented fix/rerun decision.
 - Fail: any hard invariant failure, most output unsupported, zero-output for a usable account, or evidence labels are misleading.
 
+### Launch readiness gating layers
+
+Launch readiness is not satisfied by one successful fixture, one passing GraphBundle, or pages rendering. It requires gates at multiple layers. Per-bundle gates are necessary but not sufficient: a bundle can pass while the corpus still fails due to sparse output, weak lens usefulness, or too many zero-output accounts.
+
+| Gate | Threshold / rule | Enforcement layer | Target phase | Status |
+| --- | --- | --- | --- | --- |
+| Per-bundle hard invariants | Zero invented IDs; zero false-verified records; accepted excerpts must match source text/spans; verified lens items must trace to verified graph records | Graph validator | Phase 1+ | Implemented for local GraphBundle validation |
+| Per-bundle quality thresholds | Accepted excerpt rate >= 50%; verified/high-confidence claim evidence coverage = 100%; invented ID failures = 0; zero-output bundle fails | Quality gate runner | Phase 1+; integrated into run artifacts in Phase 1.5+ | Runner implemented; manifest integration pending |
+| Aggregate corpus thresholds | Zero-output incidents < 10% of usable gate-corpus accounts; aggregate material-claim coverage meets launch threshold | Aggregate report layer over multiple run manifests | Phase 4+ | Not implemented |
+| Lens usefulness thresholds | At least two launch lenses materially useful per usable gate account where source material supports them | Aggregate report plus human/product review | Phase 6+ | Not implemented |
+| Launch gate corpus hard-invariant pass | All hard invariants pass across the selected launch gate corpus of at least N accounts | Aggregate report layer over selected gate corpus | Phase 6+ | Not implemented; N and corpus selection criteria must be set before launch-readiness assessment |
+| Model/runtime safety | Zero default-path provider calls; budgeted/model mode only after explicit approval; no production writes from validation/fixture modes | Safety tests, runtime mode guards, CI, review checklist | Phase 1+; expanded before model mode | Partially implemented; model-mode activation tests still pending |
+
+Aggregate launch readiness must be evaluated only after multiple usable gate accounts have been processed through the same manifest/report pipeline. Until the aggregate report layer exists, quality-gate `pass` means only that a single GraphBundle passed its local gates.
+
 ---
 
 ## 9. Fresh EC2 setup checklist

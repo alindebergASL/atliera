@@ -123,6 +123,25 @@ cat path/to/bundle.json | npm run gate:fixture -- -
 
 The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. The safety tests enforce this contract.
 
+## File-backed graph store
+
+Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:
+
+- loads GraphBundle JSON files from disk
+- validates bundles before save by default
+- writes atomically through temp-file + rename
+- refuses saves in `validation`, `fixture`, and `fake` safe modes
+- performs no network, provider, or DB work
+
+CLI smoke commands:
+
+```bash
+npm run graph:load -- fixtures/graph/valid/minimal-pass.json
+npm run graph:save-copy -- fixtures/graph/valid/minimal-pass.json /tmp/atliera-graph-copy.json --mode model
+```
+
+`graph:save-copy` intentionally requires an explicit mode. Passing a safe mode such as `--mode fixture` is expected to fail because file-store writes go through the production-write guard.
+
 ## Continuous integration
 
 GitHub Actions runs `.github/workflows/ci.yml` on pull requests to `main`, pushes to `main`, and manual dispatch.

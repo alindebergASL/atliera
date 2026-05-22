@@ -1,0 +1,127 @@
+{
+  "sources": [
+    {
+      "id": "src_acme_press_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_acme_robotics",
+      "url": "https://example.invalid/acme/press/001",
+      "canonical_url": "https://example.invalid/acme/press/001",
+      "title": "Acme Robotics launches logistics platform",
+      "publisher": "Acme Robotics",
+      "source_type": "press_release",
+      "fetched_at": "2026-03-02T12:00:00Z",
+      "accessed_at": "2026-03-02T12:00:00Z",
+      "content_hash": "sha256:fixture",
+      "raw_text": "Acme Robotics announced a new logistics platform on March 1, 2026. The platform integrates with existing warehouse management systems and is generally available to enterprise customers.",
+      "reliability": "high",
+      "status": "active"
+    }
+  ],
+  "excerpts": [
+    {
+      "id": "exc_acme_launch_001",
+      "source_document_id": "src_acme_press_001",
+      "text": "Acme Robotics announced a new logistics platform on March 1, 2026.",
+      "kind": "literal",
+      "char_start": 0,
+      "char_end": 66,
+      "captured_at": "2026-03-02T12:00:01Z",
+      "validation_status": "accepted",
+      "rejection_reason": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "clm_acme_launch",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_acme_robotics",
+      "claim_type": "product_launch",
+      "text": "Acme Robotics launched a logistics platform on March 1, 2026.",
+      "normalized_subject": "acme_robotics:logistics_platform_launch",
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-03-02T12:00:02Z"
+    }
+  ],
+  "claim_evidence": [
+    {
+      "id": "cev_acme_launch_001",
+      "claim_id": "clm_acme_launch",
+      "evidence_excerpt_id": "exc_acme_launch_001",
+      "relationship": "supports",
+      "rationale": "Excerpt directly states the launch date and product type.",
+      "confidence": "high",
+      "created_at": "2026-03-02T12:00:03Z"
+    }
+  ],
+  "account_objects": [
+    {
+      "id": "obj_acme_signal_launch",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_acme_robotics",
+      "object_type": "signal",
+      "title": "New logistics platform launch",
+      "summary": "Acme Robotics shipped a logistics platform on March 1, 2026.",
+      "payload_json": {
+        "source_type": "press_release"
+      },
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-03-02T12:00:04Z",
+      "updated_at": "2026-03-02T12:00:04Z"
+    }
+  ],
+  "account_object_claims": [
+    {
+      "id": "oclm_acme_signal_launch_001",
+      "account_object_id": "obj_acme_signal_launch",
+      "claim_id": "clm_acme_launch",
+      "relationship": "primary"
+    }
+  ],
+  "research_runs": [
+    {
+      "id": "run_acme_phase1_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_acme_robotics",
+      "mode": "fixture",
+      "provider": null,
+      "model": null,
+      "status": "completed",
+      "cost_cap_usd": 0,
+      "observed_cost_usd": 0,
+      "started_at": "2026-03-02T11:59:00Z",
+      "completed_at": "2026-03-02T12:00:05Z"
+    }
+  ],
+  "run_artifacts": [
+    {
+      "id": "art_acme_phase1_report",
+      "research_run_id": "run_acme_phase1_001",
+      "artifact_type": "validation_report",
+      "payload_json": {
+        "note": "phase1 fixture"
+      },
+      "created_at": "2026-03-02T12:00:05Z"
+    }
+  ],
+  "audit_events": [
+    {
+      "id": "aud_acme_phase1_001",
+      "team_id": "team_atliera_lab",
+      "actor_type": "system",
+      "actor_id": "atliera-validator",
+      "event_type": "graph.validated",
+      "target_type": "research_run",
+      "target_id": "run_acme_phase1_001",
+      "payload_json": {
+        "ok": true
+      },
+      "created_at": "2026-03-02T12:00:06Z"
+    }
+  ]
+}

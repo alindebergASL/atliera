@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -62,7 +62,7 @@ describe("graph-store CLI", () => {
     });
   });
 
-  test("save-copy writes through the file store when explicitly in model mode", async () => {
+  test("save-copy requires an explicit output root", async () => {
     await withTempDir(async (dir) => {
       const output = join(dir, "copy.json");
 
@@ -74,12 +74,112 @@ describe("graph-store CLI", () => {
         "model",
       ]);
 
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /--out-root/);
+    });
+  });
+
+  test("save-copy writes through the file store when output is inside explicit output root", async () => {
+    await withTempDir(async (dir) => {
+      const outputRoot = join(dir, "output");
+      await mkdir(outputRoot);
+      const output = join(outputRoot, "copy.json");
+
+      const result = await runCli([
+        "save-copy",
+        "fixtures/graph/valid/minimal-pass.json",
+        output,
+        "--mode",
+        "model",
+        "--out-root",
+        outputRoot,
+      ]);
+
       assert.equal(result.code, 0, result.stderr);
       const parsed = JSON.parse(result.stdout);
       assert.equal(parsed.ok, true);
       assert.equal(parsed.command, "save-copy");
       assert.equal(parsed.counts.sources, 1);
+      assert.equal(parsed.output_root, outputRoot);
 
+      const saved = JSON.parse(await readFile(output, "utf8"));
+      assert.equal(saved.sources.length, 1);
+    });
+  });
+
+  test("save-copy refuses output outside explicit output root", async () => {
+    await withTempDir(async (dir) => {
+      const outputRoot = join(dir, "output");
+      await mkdir(outputRoot);
+      const output = join(dir, "outside", "copy.json");
+
+      const result = await runCli([
+        "save-copy",
+        "fixtures/graph/valid/minimal-pass.json",
+        output,
+        "--mode",
+        "model",
+        "--out-root",
+        outputRoot,
+      ]);
+
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /outside output root/);
+    });
+  });
+
+  test("save-copy rejects unexpected trailing positional arguments", async () => {
+    await withTempDir(async (dir) => {
+      const outputRoot = join(dir, "output");
+      await mkdir(outputRoot);
+      const output = join(outputRoot, "copy.json");
+
+      const result = await runCli([
+        "save-copy",
+        "fixtures/graph/valid/minimal-pass.json",
+        output,
+        "--mode",
+        "model",
+        "--out-root",
+        outputRoot,
+        "extra",
+      ]);
+
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /usage:/);
+    });
+  });
+
+  test("save-copy refuses existing output unless allow-overwrite is present", async () => {
+    await withTempDir(async (dir) => {
+      const outputRoot = join(dir, "output");
+      await mkdir(outputRoot);
+      const output = join(outputRoot, "copy.json");
+      await writeFile(output, "{}\n", "utf8");
+
+      const rejected = await runCli([
+        "save-copy",
+        "fixtures/graph/valid/minimal-pass.json",
+        output,
+        "--mode",
+        "model",
+        "--out-root",
+        outputRoot,
+      ]);
+      assert.equal(rejected.code, 2);
+      assert.match(rejected.stderr, /already exists/);
+
+      const accepted = await runCli([
+        "save-copy",
+        "fixtures/graph/valid/minimal-pass.json",
+        output,
+        "--mode",
+        "model",
+        "--out-root",
+        outputRoot,
+        "--allow-overwrite",
+      ]);
+      assert.equal(accepted.code, 0, accepted.stderr);
       const saved = JSON.parse(await readFile(output, "utf8"));
       assert.equal(saved.sources.length, 1);
     });
@@ -87,7 +187,9 @@ describe("graph-store CLI", () => {
 
   test("save-copy refuses safe-mode writes", async () => {
     await withTempDir(async (dir) => {
-      const output = join(dir, "copy.json");
+      const outputRoot = join(dir, "output");
+      await mkdir(outputRoot);
+      const output = join(outputRoot, "copy.json");
 
       const result = await runCli([
         "save-copy",
@@ -95,6 +197,8 @@ describe("graph-store CLI", () => {
         output,
         "--mode",
         "fixture",
+        "--out-root",
+        outputRoot,
       ]);
 
       assert.equal(result.code, 1);

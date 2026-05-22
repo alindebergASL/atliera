@@ -139,6 +139,12 @@ Atliera runtime infrastructure is parsed through `parseAtlieraRuntimeConfig(env)
 
 The seam intentionally does not read `process.env` at import time and does not invent production infrastructure defaults. Missing infrastructure fields remain `undefined` until an environment supplies them.
 
+## Artifact store seam
+
+Atliera artifacts should be addressable through implementation-neutral keys before any production storage backend is chosen. `ArtifactStore` defines a minimal text-artifact interface and `InMemoryArtifactStore` provides deterministic test/dev behavior without binding product logic to a local filesystem, bucket, queue, or server.
+
+Artifact keys are relative slash-delimited identifiers, not URLs or absolute paths. Unsafe keys with traversal, empty segments, URL schemes, or backslashes are rejected before reads or writes.
+
 ## File-backed graph store
 
 Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:

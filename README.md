@@ -130,6 +130,8 @@ Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON fi
 - loads GraphBundle JSON files from disk
 - validates bundles before save by default
 - writes atomically through temp-file + rename
+- requires an explicit output root for saves
+- rejects writes outside the output root, `.git` paths, repo working-tree paths by default, git-tracked files, symlink escapes, and implicit overwrites
 - refuses saves in `validation`, `fixture`, and `fake` safe modes
 - performs no network, provider, or DB work
 
@@ -137,10 +139,11 @@ CLI smoke commands:
 
 ```bash
 npm run graph:load -- fixtures/graph/valid/minimal-pass.json
-npm run graph:save-copy -- fixtures/graph/valid/minimal-pass.json /tmp/atliera-graph-copy.json --mode model
+mkdir -p /tmp/atliera-graph-output
+npm run graph:save-copy -- fixtures/graph/valid/minimal-pass.json /tmp/atliera-graph-output/copy.json --mode model --out-root /tmp/atliera-graph-output
 ```
 
-`graph:save-copy` intentionally requires an explicit mode. Passing a safe mode such as `--mode fixture` is expected to fail because file-store writes go through the production-write guard.
+`graph:save-copy` intentionally requires both an explicit mode and an explicit `--out-root`. Passing a safe mode such as `--mode fixture` is expected to fail because file-store writes go through the production-write guard. Existing output files are refused unless `--allow-overwrite` is passed.
 
 ## Continuous integration
 

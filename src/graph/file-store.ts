@@ -7,9 +7,10 @@
 // mode-gated writes.
 
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
+import { guardOutputPath } from "../io/path-guard.ts";
 import { assertProductionWriteAllowed, type RuntimeMode } from "../modes/index.ts";
 import { parseGraphBundle } from "./schema.ts";
 import type { ValidationReport } from "./report.ts";
@@ -37,6 +38,10 @@ export type LoadGraphBundleFileOptions = {
 export type SaveGraphBundleFileOptions = {
   mode: RuntimeMode;
   validate?: boolean;
+  outputRoot: string;
+  allowOverwrite?: boolean;
+  rejectRepoPaths?: boolean;
+  repoRoot?: string | null;
 };
 
 export type SaveGraphBundleFileResult = {
@@ -103,15 +108,23 @@ export async function saveGraphBundleFile(
 ): Promise<SaveGraphBundleFileResult> {
   assertProductionWriteAllowed(options.mode);
 
+  const guarded = await guardOutputPath({
+    outputRoot: options.outputRoot,
+    targetPath: path,
+    allowOverwrite: options.allowOverwrite,
+    rejectRepoPaths: options.rejectRepoPaths,
+    repoRoot: options.repoRoot === undefined ? process.cwd() : options.repoRoot,
+  });
+  const resolved = guarded.targetPath;
+  const directory = guarded.targetDirectory;
+
   const report = options.validate === false
     ? null
     : validateGraphBundleRaw(bundle, { mode: "fixture" });
   if (report && !report.ok) {
-    throw new GraphFileSchemaError(resolve(path), report);
+    throw new GraphFileSchemaError(resolved, report);
   }
 
-  const resolved = resolve(path);
-  const directory = dirname(resolved);
   await mkdir(directory, { recursive: true });
 
   const tempPath = `${resolved}.${process.pid}.${randomUUID()}.tmp`;

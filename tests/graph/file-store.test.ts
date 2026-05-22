@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
+import { PathGuardError } from "../../src/io/path-guard.ts";
 import {
   FileGraphStore,
   GraphFileParseError,
@@ -52,7 +53,7 @@ describe("file-backed graph store", () => {
       bundle.excerpts[0]!.source_document_id = "src_missing_source";
 
       await assert.rejects(
-        () => saveGraphBundleFile(path, bundle, { mode: "model" }),
+        () => saveGraphBundleFile(path, bundle, { mode: "model", outputRoot: dir }),
         (e: unknown) => e instanceof GraphFileSchemaError &&
           e.report.hard_failures.some(
             (failure) => failure.code === "invented_source_document_id",
@@ -66,7 +67,7 @@ describe("file-backed graph store", () => {
       const path = join(dir, "nested", "graph.json");
       const bundle = makeValidBundle();
 
-      const result = await saveGraphBundleFile(path, bundle, { mode: "model" });
+      const result = await saveGraphBundleFile(path, bundle, { mode: "model", outputRoot: dir });
       const loaded = await loadGraphBundleFile(path);
       const text = await readFile(path, "utf8");
 
@@ -82,6 +83,48 @@ describe("file-backed graph store", () => {
     });
   });
 
+  test("refuses saves outside the explicit output root", async () => {
+    await withTempDir(async (dir) => {
+      const outputRoot = join(dir, "allowed");
+      await mkdir(outputRoot);
+      const outside = join(dir, "outside", "graph.json");
+
+      await assert.rejects(
+        () => saveGraphBundleFile(outside, makeValidBundle(), { mode: "model", outputRoot }),
+        PathGuardError,
+      );
+    });
+  });
+
+  test("refuses overwriting existing output files by default", async () => {
+    await withTempDir(async (dir) => {
+      const path = join(dir, "graph.json");
+      await writeFile(path, "{}\n", "utf8");
+
+      await assert.rejects(
+        () => saveGraphBundleFile(path, makeValidBundle(), { mode: "model", outputRoot: dir }),
+        (e: unknown) => e instanceof PathGuardError && /already exists/.test(e.message),
+      );
+    });
+  });
+
+  test("allows overwriting existing output files when explicitly requested", async () => {
+    await withTempDir(async (dir) => {
+      const path = join(dir, "graph.json");
+      await writeFile(path, "{}\n", "utf8");
+
+      const result = await saveGraphBundleFile(path, makeValidBundle(), {
+        mode: "model",
+        outputRoot: dir,
+        allowOverwrite: true,
+      });
+
+      assert.equal(result.path, path);
+      const saved = JSON.parse(await readFile(path, "utf8"));
+      assert.equal(saved.sources.length, 1);
+    });
+  });
+
   test("refuses file saves in validation/fixture/fake safe modes", async () => {
     await withTempDir(async (dir) => {
       const path = join(dir, "graph.json");
@@ -89,7 +132,7 @@ describe("file-backed graph store", () => {
 
       for (const mode of ["validation", "fixture", "fake"] as const) {
         await assert.rejects(
-          () => saveGraphBundleFile(path, bundle, { mode }),
+          () => saveGraphBundleFile(path, bundle, { mode, outputRoot: dir }),
           ProductionWriteForbiddenError,
         );
       }
@@ -102,7 +145,7 @@ describe("file-backed graph store", () => {
       const store = new FileGraphStore(path);
       const bundle = makeValidBundle();
 
-      await store.save(bundle, { mode: "model" });
+      await store.save(bundle, { mode: "model", outputRoot: dir });
       const loaded = await store.load();
 
       assert.equal(loaded.account_objects[0]?.id, bundle.account_objects[0]?.id);

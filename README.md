@@ -56,6 +56,22 @@ Validate the canonical fixture through the no-spend fixture CLI:
 npm run validate:fixture:valid
 ```
 
+Run the Phase 1.2 quality gate against the canonical fixture:
+
+```bash
+npm run gate:fixture:valid
+```
+
+The quality gate consumes one or more GraphBundle JSON files, runs deterministic validation, computes launch-quality metrics, and emits `pass`, `borderline`, or `fail`. It exits `0` only for `pass`.
+
+Quality gate checks include:
+
+- hard validation failures
+- invented ID failures
+- zero-output incidents
+- accepted excerpt rate
+- verified/high-confidence claim evidence coverage
+
 Generate the valid fixture JSON without validating it:
 
 ```bash
@@ -74,6 +90,18 @@ or via stdin:
 cat path/to/bundle.json | npm run validate:fixture -- -
 ```
 
+Run the quality gate on one or more local GraphBundle JSON files:
+
+```bash
+npm run gate:fixture -- path/to/bundle.json another-bundle.json
+```
+
+or via stdin:
+
+```bash
+cat path/to/bundle.json | npm run gate:fixture -- -
+```
+
 The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. The safety tests enforce this contract.
 
 ## Continuous integration
@@ -86,3 +114,4 @@ CI steps:
 2. `npm run typecheck`
 3. `npm run build`
 4. `npm test`
+5. `npm run gate:fixture:valid`

@@ -37,3 +37,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Quality gate smoke test
+        run: npm run gate:fixture:valid

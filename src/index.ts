@@ -11,5 +11,6 @@ export * from "./graph/schema.ts";
 export * from "./graph/report.ts";
 export * from "./graph/validate.ts";
 export * from "./graph/store.ts";
+export * from "./gate/quality-gate.ts";
 export * from "./modes/index.ts";
 export * from "./agent/model-adapter.ts";

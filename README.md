@@ -145,6 +145,25 @@ npm run graph:save-copy -- fixtures/graph/valid/minimal-pass.json /tmp/atliera-g
 
 `graph:save-copy` intentionally requires both an explicit mode and an explicit `--out-root`. Passing a safe mode such as `--mode fixture` is expected to fail because file-store writes go through the production-write guard. Existing output files are refused unless `--allow-overwrite` is passed.
 
+## Local run artifact manifests
+
+Phase 1.5 packages a local GraphBundle, its per-bundle quality-gate report, and a manifest into one explicit output-root directory. This is still local JSON file output only: no provider calls, no network, no database, and no app/runtime persistence.
+
+CLI smoke command:
+
+```bash
+mkdir -p /tmp/atliera-run-output
+npm run run:manifest -- fixtures/graph/valid/minimal-pass.json --mode model --out-root /tmp/atliera-run-output --run-slug fixture-valid-run
+```
+
+The manifest package contains:
+
+- `graph-bundle.json`
+- `quality-gate-report.json`
+- `manifest.json`
+
+`run:manifest` writes through the same path guard as the file-backed graph store. It requires `--out-root` and `--run-slug`, refuses safe-mode writes, refuses implicit overwrites, records the per-bundle quality-gate status in `manifest.json`, and uses relative artifact paths inside the manifest.
+
 ## Continuous integration
 
 GitHub Actions runs `.github/workflows/ci.yml` on pull requests to `main`, pushes to `main`, and manual dispatch.

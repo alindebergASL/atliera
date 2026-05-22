@@ -491,6 +491,9 @@ Deliverables:
 - Evidence drawer/provenance status visual language
 - no legacy report dependency
 
+Implementation note:
+- Phase 2.1 starts with a static, fixture-backed Workshop shell renderer before choosing a full app framework. This locks graph-to-lens/trust semantics without adding DB/auth/deploy/provider scope.
+
 Verification:
 - `npm test`
 - `npm run build`

@@ -125,6 +125,20 @@ cat path/to/bundle.json | npm run gate:fixture -- -
 
 The fixture/default validation path is deterministic and must not import provider SDKs, read provider API keys, or make network calls. Safety tests enforce this contract and also guard app/deploy-oriented files against hardcoded infrastructure locations such as production URLs, literal IP addresses, database URLs/paths, infrastructure host assignments, and Atliera server-local paths.
 
+## Runtime config seam
+
+Atliera runtime infrastructure is parsed through `parseAtlieraRuntimeConfig(env)` rather than hidden module-level defaults. The parser accepts explicit env input and returns a typed config object for:
+
+- environment (`ATL_ENV`)
+- public base URL (`APP_BASE_URL`)
+- bind host/port (`HOST`, `PORT`)
+- database location (`DATABASE_URL`)
+- artifact storage (`ARTIFACT_STORE`)
+- queue backend (`QUEUE_BACKEND`)
+- model provider (`MODEL_PROVIDER`)
+
+The seam intentionally does not read `process.env` at import time and does not invent production infrastructure defaults. Missing infrastructure fields remain `undefined` until an environment supplies them.
+
 ## File-backed graph store
 
 Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:

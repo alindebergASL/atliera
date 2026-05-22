@@ -1,0 +1,74 @@
+# Atliera Blockers and Phase Gates
+
+This file tracks gates that must be satisfied before Atliera moves from architecture to implementation, lab, and launch.
+
+## Gate 0: Architecture docs land
+
+Required before implementation:
+
+- ADR for fresh Atliera system exists.
+- Product architecture doc exists.
+- Provenance/validation doc exists.
+- Legacy carry-forward vs leave-behind split is explicit.
+- Signals/Maps/Plays are framed as graph-backed lenses, not separate early modules.
+
+## Gate 1: Graph foundation before real model/provider work
+
+Required before real provider calls:
+
+- SourceDocument/EvidenceExcerpt/Claim/ClaimEvidence/AccountObject schemas exist.
+- Deterministic validators exist alongside the schemas, not as a later retrofit.
+- Adversarial tests cover both schema validity and validator rejection behavior.
+- Fixture-mode hard invariant tests pass.
+- Import-side-effect tests prove no provider SDK import, env read, or network call in fixture/fake modes.
+- Model mode fails closed until explicitly activated.
+
+## Gate 2: Model/provider activation
+
+Required before any paid/model run:
+
+- Human approval is recorded.
+- Provider and model IDs are explicit/configurable.
+- Cost projection is documented.
+- Per-run budget cap is set.
+- Pre-call budget enforcement exists.
+- Fake adapter dry-run passes.
+- Adversarial activation/budget tests pass.
+
+## Gate 3: Lab deployment
+
+Required before deploying to `lab.atliera.com`:
+
+- App boots from empty DB.
+- Build/test pass from exact commit.
+- No legacy report JSON runtime dependency.
+- nginx/PM2/Certbot deployment plan exists.
+- Healthcheck route exists.
+- Backup path/script exists before meaningful data is created.
+
+## Gate 4: Launch quality
+
+Required before broader use beyond the initial user:
+
+- Deliberate gate corpus is documented.
+- Zero hard invariant failures.
+- Zero false-verified claims/objects/lens items.
+- Zero invented source/excerpt/claim/object IDs.
+- Zero accepted paraphrases treated as excerpts.
+- Zero unbudgeted/default-path model calls.
+- Accepted excerpt rate >= 50% on proposed excerpts for accounts with usable source material.
+- Zero-output incidents < 10% of gate-corpus accounts with usable source material.
+- Material-claim coverage >= 80% for verified/high-confidence claims.
+- Useful end-to-end output for usable gate accounts.
+- Signals/Maps/Plays render from shared graph-backed objects and do not fork validators, research logic, provenance logic, or data paths.
+- Unsupported/inferred material is visibly labeled.
+- Legacy comparison protocol has been run externally where relevant.
+
+## Explicit non-goals for first launch
+
+- Legacy brief_json import as a runtime path.
+- dual-render old/new UI.
+- production graph-first writes from external triggers.
+- broad multi-user collaboration beyond basic team/user boundaries.
+- advanced workflow automation.
+- full resident autonomous shell agent on the production host.

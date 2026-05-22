@@ -109,7 +109,7 @@ describe("guardOutputPath", () => {
     });
   });
 
-  test("rejects dangling target symlinks unless overwrite is explicit", async () => {
+  test("rejects dangling target symlinks even when overwrite is explicit", async () => {
     await withTempDir(async (root) => {
       const target = join(root, "dangling.json");
       await symlink(join(root, "missing.json"), target);
@@ -117,6 +117,11 @@ describe("guardOutputPath", () => {
       await assert.rejects(
         () => guardOutputPath({ outputRoot: root, targetPath: target }),
         (e: unknown) => e instanceof PathGuardError && /already exists/.test(e.message),
+      );
+
+      await assert.rejects(
+        () => guardOutputPath({ outputRoot: root, targetPath: target, allowOverwrite: true }),
+        (e: unknown) => e instanceof PathGuardError && /symlink/.test(e.message),
       );
     });
   });

@@ -43,13 +43,7 @@ export async function guardOutputPath(options: GuardOutputPathOptions): Promise<
       throw new PathGuardError(`target path already exists; pass allowOverwrite to replace it: ${targetPath}`);
     }
     if (existingTarget.isSymbolicLink()) {
-      const targetRealPath = await realpath(targetPath).catch(() => null);
-      if (targetRealPath && !isInside(outputRoot, targetRealPath)) {
-        throw new PathGuardError(`target path follows a symlink escape outside output root: ${targetPath}`);
-      }
-      if (targetRealPath) {
-        rejectGitPath(outputRoot, targetRealPath);
-      }
+      throw new PathGuardError(`target path must not be a symlink: ${targetPath}`);
     }
   }
 

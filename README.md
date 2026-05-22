@@ -83,6 +83,8 @@ Use the checked-in fixture corpus:
 ```bash
 npm run validate:fixture -- fixtures/graph/valid/minimal-pass.json
 npm run gate:fixture -- fixtures/graph/valid/minimal-pass.json
+npm run validate:fixture -- fixtures/graph/valid/workshop-three-lane.json
+npm run gate:fixture -- fixtures/graph/valid/workshop-three-lane.json
 npm run validate:fixture -- fixtures/graph/invalid/excerpt-span-mismatch.json
 npm run gate:fixture -- fixtures/graph/valid/borderline-low-excerpt-rate.json
 ```
@@ -172,13 +174,14 @@ The v1 manifest also reserves stable future model-run fields so later provider p
 
 ## Workshop shell smoke HTML
 
-Phase 2.1 adds a deterministic static Workshop shell renderer. It renders a GraphBundle into an Atliera Workshop HTML page with Signals, Maps, and Plays lens panels from the same graph-derived view model.
+Phase 2.1 adds a deterministic static Workshop shell renderer. It renders a GraphBundle into an Atliera Workshop HTML page with Signals, Maps, and Plays lens panels from the same graph-derived view model. `fixtures/graph/valid/workshop-three-lane.json` is the richer preview fixture for seeing all three lanes populated at once.
 
 CLI smoke command:
 
 ```bash
 mkdir -p /tmp/atliera-workshop
 npm run workshop:shell -- fixtures/graph/valid/minimal-pass.json --out-root /tmp/atliera-workshop --out-file acme-workshop.html
+npm run workshop:shell -- fixtures/graph/valid/workshop-three-lane.json --out-root /tmp/atliera-workshop --out-file acme-workshop-three-lane.html
 ```
 
 The output is local static HTML only. It does not call providers, read API keys, use the network, touch a database, or deploy. The shell is intentionally fixture/graph-backed: unsupported or inferred material must be visibly labeled, and verified-looking items must carry evidence/provenance metadata.

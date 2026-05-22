@@ -28,6 +28,11 @@ const CASES: CorpusCase[] = [
     expectedReasonCodes: ["accepted_excerpt_rate_below_threshold"],
   },
   {
+    path: "fixtures/graph/valid/workshop-three-lane.json",
+    validationOk: true,
+    gateStatus: "pass",
+  },
+  {
     path: "fixtures/graph/invalid/invented-source-id.json",
     validationOk: false,
     gateStatus: "fail",

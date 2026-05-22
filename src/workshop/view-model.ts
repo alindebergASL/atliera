@@ -1,4 +1,11 @@
-import type { AccountObject, GraphBundle, ProvenanceStatus } from "../graph/types.ts";
+import type {
+  AccountObject,
+  Claim,
+  EvidenceExcerpt,
+  GraphBundle,
+  ProvenanceStatus,
+  SourceDocument,
+} from "../graph/types.ts";
 
 export type WorkshopLens = "signals" | "maps" | "plays";
 
@@ -15,6 +22,12 @@ export interface WorkshopTrustSummary {
   label: "Verified" | "Source-backed" | "Unverified" | "Unsupported" | "Stale";
 }
 
+export interface WorkshopEvidencePacket {
+  claim: Pick<Claim, "id" | "text" | "claim_type" | "confidence" | "provenance_status">;
+  excerpt: Pick<EvidenceExcerpt, "id" | "text" | "validation_status" | "kind">;
+  source: Pick<SourceDocument, "id" | "title" | "url" | "publisher" | "source_type" | "reliability">;
+}
+
 export interface WorkshopLensItemViewModel {
   id: string;
   lens: WorkshopLens;
@@ -26,6 +39,7 @@ export interface WorkshopLensItemViewModel {
   claim_ids: string[];
   source_ids: string[];
   excerpt_ids: string[];
+  evidence_packets: WorkshopEvidencePacket[];
 }
 
 export interface WorkshopViewModel {
@@ -116,6 +130,41 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
     const acceptedExcerptCount = excerptIds.filter(
       (excerptId) => excerptById.get(excerptId)?.validation_status === "accepted",
     ).length;
+    const evidencePackets: WorkshopEvidencePacket[] = obj.provenance_status === "unsupported"
+      ? []
+      : supportingClaimEvidence.flatMap((ce) => {
+          const claim = claimById.get(ce.claim_id);
+          const excerpt = excerptById.get(ce.evidence_excerpt_id);
+          const source = excerpt ? sourceById.get(excerpt.source_document_id) : undefined;
+          if (!claim || !excerpt || !source || excerpt.validation_status !== "accepted" || claim.provenance_status === "unsupported") {
+            return [];
+          }
+          return [
+            {
+              claim: {
+                id: claim.id,
+                text: claim.text,
+                claim_type: claim.claim_type,
+                confidence: claim.confidence,
+                provenance_status: claim.provenance_status,
+              },
+              excerpt: {
+                id: excerpt.id,
+                text: excerpt.text,
+                validation_status: excerpt.validation_status,
+                kind: excerpt.kind,
+              },
+              source: {
+                id: source.id,
+                title: source.title,
+                url: source.url,
+                publisher: source.publisher,
+                source_type: source.source_type,
+                reliability: source.reliability,
+              },
+            },
+          ];
+        });
     const lens = LENS_BY_OBJECT_TYPE[obj.object_type];
 
     lenses[lens].push({
@@ -138,6 +187,7 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
       claim_ids: claimIds,
       source_ids: sourceIds,
       excerpt_ids: excerptIds,
+      evidence_packets: evidencePackets,
     });
   }
 

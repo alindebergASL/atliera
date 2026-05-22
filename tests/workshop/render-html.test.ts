@@ -17,7 +17,25 @@ describe("renderWorkshopHtml", () => {
     assert.match(html, /New logistics platform launch/);
     assert.match(html, /Verified/);
     assert.match(html, /1 accepted excerpt/);
-    assert.match(html, /Evidence/);
+    assert.match(html, /Evidence packet/);
+    assert.match(html, /Claim/);
+    assert.match(html, /Acme Robotics launched a logistics platform on March 1, 2026\./);
+    assert.match(html, /Accepted excerpt/);
+    assert.match(html, /Acme Robotics announced a new logistics platform on March 1, 2026\./);
+    assert.match(html, /Source/);
+    assert.match(html, /Acme Robotics launches logistics platform/);
+    assert.match(html, /https:\/\/example\.invalid\/acme\/press\/001/);
+  });
+
+  test("does not render unsafe source URLs as clickable links", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources[0]!.url = "javascript:alert(1)";
+
+    const html = renderWorkshopHtml(buildWorkshopViewModel(bundle));
+
+    assert.doesNotMatch(html, /href="javascript:alert\(1\)"/);
+    assert.match(html, /Unsafe source URL omitted/);
+    assert.match(html, /Acme Robotics launches logistics platform/);
   });
 
   test("renders an empty graph state without pretending intelligence exists", () => {

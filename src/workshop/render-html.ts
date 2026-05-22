@@ -19,6 +19,40 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`): 
   return `${count} ${count === 1 ? singular : pluralValue}`;
 }
 
+function safeHttpUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderSourceReference(source: WorkshopLensItemViewModel["evidence_packets"][number]["source"]): string {
+  const label = escapeHtml(source.title);
+  const url = safeHttpUrl(source.url);
+  const sourceLabel = url ? `<a href="${escapeHtml(url)}">${label}</a>` : `${label} <span class="unsafe-url">Unsafe source URL omitted</span>`;
+  return `${sourceLabel} · ${escapeHtml(source.publisher ?? "unknown publisher")} · ${escapeHtml(source.reliability)} reliability`;
+}
+
+function renderEvidencePackets(item: WorkshopLensItemViewModel): string {
+  if (item.evidence_packets.length === 0) {
+    return `<p class="empty-evidence">No accepted supporting evidence packets for this object.</p>`;
+  }
+  return item.evidence_packets
+    .map(
+      (packet) => `<section class="evidence-packet">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>${escapeHtml(packet.claim.text)}</dd>
+          <dt>Accepted excerpt</dt><dd><blockquote>${escapeHtml(packet.excerpt.text)}</blockquote></dd>
+          <dt>Source</dt><dd>${renderSourceReference(packet.source)}</dd>
+        </dl>
+      </section>`,
+    )
+    .join("\n");
+}
+
 function renderLensItem(item: WorkshopLensItemViewModel): string {
   const evidence = item.trust.evidence;
   return `<article class="workshop-card" data-lens="${item.lens}" data-object-id="${escapeHtml(item.id)}">
@@ -38,6 +72,7 @@ function renderLensItem(item: WorkshopLensItemViewModel): string {
         <dt>Excerpts</dt><dd>${escapeHtml(item.excerpt_ids.join(", ") || "none")}</dd>
         <dt>Sources</dt><dd>${escapeHtml(item.source_ids.join(", ") || "none")}</dd>
       </dl>
+      ${renderEvidencePackets(item)}
     </details>
   </article>`;
 }
@@ -80,6 +115,12 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
     .trust-verified { background: #0f5132; color: #d1fae5; }
     .trust-unsupported { background: #5c1d1d; color: #fee2e2; }
     .evidence-drawer { margin-top: 10px; color: #cbd5e1; }
+    .evidence-packet { border-top: 1px solid #283044; margin-top: 12px; padding-top: 10px; }
+    .evidence-packet h4 { margin: 0 0 8px; color: #edf2ff; }
+    .evidence-packet blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #54658d; color: #e5edff; }
+    .evidence-packet a { color: #93c5fd; }
+    .unsafe-url { color: #fca5a5; }
+    .empty-evidence { color: #93a4c8; }
     dt { color: #93a4c8; }
     dd { margin: 0 0 8px; word-break: break-word; }
     @media (max-width: 900px) { .lens-grid { grid-template-columns: 1fr; } }

@@ -184,7 +184,7 @@ npm run workshop:shell -- fixtures/graph/valid/minimal-pass.json --out-root /tmp
 npm run workshop:shell -- fixtures/graph/valid/workshop-three-lane.json --out-root /tmp/atliera-workshop --out-file acme-workshop-three-lane.html
 ```
 
-The output is local static HTML only. It does not call providers, read API keys, use the network, touch a database, or deploy. The shell is intentionally fixture/graph-backed: unsupported or inferred material must be visibly labeled, and verified-looking items must carry evidence/provenance metadata.
+The output is local static HTML only. It does not call providers, read API keys, use the network, touch a database, or deploy. The shell is intentionally fixture/graph-backed: unsupported or inferred material must be visibly labeled, and verified-looking items must carry evidence/provenance metadata. Each card includes a deterministic evidence packet drawer that shows supporting claim text, accepted excerpt text, and source metadata directly from the GraphBundle.
 
 ## Continuous integration
 

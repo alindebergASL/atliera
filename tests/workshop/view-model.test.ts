@@ -34,11 +34,15 @@ describe("buildWorkshopViewModel", () => {
     const item = vm.lenses.signals[0]!;
     assert.equal(item.id, "obj_acme_signal_launch");
     assert.equal(item.lens, "signals");
-    assert.equal(item.trust.label, "Verified");
-    assert.equal(item.trust.evidence.accepted_excerpt_count, 1);
+    assert.equal(item.title, "New logistics platform launch");
     assert.deepEqual(item.claim_ids, ["clm_acme_launch"]);
     assert.deepEqual(item.excerpt_ids, ["exc_acme_launch_001"]);
     assert.deepEqual(item.source_ids, ["src_acme_press_001"]);
+    assert.equal(item.evidence_packets.length, 1);
+    assert.equal(item.evidence_packets[0]?.claim.text, "Acme Robotics launched a logistics platform on March 1, 2026.");
+    assert.equal(item.evidence_packets[0]?.excerpt.text, "Acme Robotics announced a new logistics platform on March 1, 2026.");
+    assert.equal(item.evidence_packets[0]?.source.title, "Acme Robotics launches logistics platform");
+    assert.equal(item.trust.label, "Verified");
   });
 
   test("routes account-object kinds into Signals, Maps, and Plays without separate data paths", () => {
@@ -95,10 +99,26 @@ describe("buildWorkshopViewModel", () => {
     const bundle = clone(makeValidBundle());
     bundle.claim_evidence[0]!.relationship = "context";
     let vm = buildWorkshopViewModel(bundle);
+    assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
 
     bundle.claim_evidence[0]!.relationship = "contradicts";
     vm = buildWorkshopViewModel(bundle);
+    assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
+  });
+
+  test("does not emit evidence packets for unsupported claims or objects", () => {
+    const unsupportedObject = clone(makeValidBundle());
+    unsupportedObject.account_objects[0]!.provenance_status = "unsupported";
+    let vm = buildWorkshopViewModel(unsupportedObject);
+    assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
+    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 1);
+
+    const unsupportedClaim = clone(makeValidBundle());
+    unsupportedClaim.claims[0]!.provenance_status = "unsupported";
+    vm = buildWorkshopViewModel(unsupportedClaim);
+    assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
+    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 1);
   });
 });

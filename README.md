@@ -78,7 +78,26 @@ Generate the valid fixture JSON without validating it:
 npm run fixture:valid-json
 ```
 
-Validate any GraphBundle JSON file manually:
+Use the checked-in fixture corpus:
+
+```bash
+npm run validate:fixture -- fixtures/graph/valid/minimal-pass.json
+npm run gate:fixture -- fixtures/graph/valid/minimal-pass.json
+npm run validate:fixture -- fixtures/graph/invalid/excerpt-span-mismatch.json
+npm run gate:fixture -- fixtures/graph/valid/borderline-low-excerpt-rate.json
+```
+
+Corpus shortcuts:
+
+```bash
+npm run corpus:validate:valid
+npm run corpus:gate:valid
+npm run corpus:gate:all # expected to exit 1 because it includes invalid/borderline fixtures
+```
+
+The fixture corpus is intentionally deterministic JSON, not generated at test time. It gives future agents and humans concrete examples of pass, borderline, and fail graph/gate behavior.
+
+Validate a local GraphBundle JSON file:
 
 ```bash
 npm run validate:fixture -- path/to/bundle.json

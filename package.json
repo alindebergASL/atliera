@@ -13,7 +13,10 @@
     "validate:fixture": "tsx src/cli/validate.ts",
     "validate:fixture:valid": "npm run fixture:valid-json --silent | tsx src/cli/validate.ts -",
     "gate:fixture": "tsx src/cli/gate.ts",
-    "gate:fixture:valid": "npm run fixture:valid-json --silent | tsx src/cli/gate.ts -"
+    "gate:fixture:valid": "npm run fixture:valid-json --silent | tsx src/cli/gate.ts -",
+    "corpus:validate:valid": "tsx src/cli/validate.ts fixtures/graph/valid/minimal-pass.json fixtures/graph/valid/borderline-low-excerpt-rate.json",
+    "corpus:gate:valid": "tsx src/cli/gate.ts fixtures/graph/valid/minimal-pass.json",
+    "corpus:gate:all": "tsx src/cli/gate.ts fixtures/graph/valid/minimal-pass.json fixtures/graph/valid/borderline-low-excerpt-rate.json fixtures/graph/invalid/invented-source-id.json fixtures/graph/invalid/excerpt-span-mismatch.json fixtures/graph/invalid/unsupported-verified-claim.json fixtures/graph/invalid/zero-output.json"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -37,6 +37,19 @@ describe("writeRunArtifactManifest", () => {
       assert.equal(result.manifest.run_slug, "fixture-valid-run");
       assert.equal(result.manifest.input_path, "fixtures/graph/valid/minimal-pass.json");
       assert.equal(result.manifest.quality_gate.status, "pass");
+      assert.deepEqual(result.manifest.model_run, {
+        provider: null,
+        model: null,
+        started_at: null,
+        completed_at: null,
+      });
+      assert.deepEqual(result.manifest.cost_ledger, {
+        currency: null,
+        total_cost: null,
+        input_tokens: null,
+        output_tokens: null,
+      });
+      assert.deepEqual(result.manifest.adapter_records, []);
       assert.equal(result.manifest.artifacts.length, 2);
       assert.deepEqual(
         result.manifest.artifacts.map((a) => a.artifact_type).sort(),

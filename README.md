@@ -164,6 +164,12 @@ The manifest package contains:
 
 `run:manifest` writes through the same path guard as the file-backed graph store. It requires `--out-root` and `--run-slug`, refuses safe-mode writes, refuses implicit overwrites, records the per-bundle quality-gate status in `manifest.json`, and uses relative artifact paths inside the manifest.
 
+The v1 manifest also reserves stable future model-run fields so later provider phases can populate the same schema shape instead of forcing early consumers to handle a second manifest shape immediately:
+
+- `model_run`: currently `provider`, `model`, `started_at`, and `completed_at` are `null`
+- `cost_ledger`: currently `currency`, `total_cost`, `input_tokens`, and `output_tokens` are `null`
+- `adapter_records`: currently an empty array
+
 ## Continuous integration
 
 GitHub Actions runs `.github/workflows/ci.yml` on pull requests to `main`, pushes to `main`, and manual dispatch.

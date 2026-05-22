@@ -18,7 +18,8 @@
     "corpus:gate:valid": "tsx src/cli/gate.ts fixtures/graph/valid/minimal-pass.json",
     "corpus:gate:all": "tsx src/cli/gate.ts fixtures/graph/valid/minimal-pass.json fixtures/graph/valid/borderline-low-excerpt-rate.json fixtures/graph/invalid/invented-source-id.json fixtures/graph/invalid/excerpt-span-mismatch.json fixtures/graph/invalid/unsupported-verified-claim.json fixtures/graph/invalid/zero-output.json",
     "graph:load": "tsx src/cli/graph-store.ts load",
-    "graph:save-copy": "tsx src/cli/graph-store.ts save-copy"
+    "graph:save-copy": "tsx src/cli/graph-store.ts save-copy",
+    "run:manifest": "tsx src/cli/run-manifest.ts write"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

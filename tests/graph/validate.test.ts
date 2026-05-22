@@ -147,6 +147,103 @@ describe("validateGraphBundle — excerpt text integrity", () => {
   });
 });
 
+describe("validateGraphBundle — accepted excerpt span validation", () => {
+  it("rejects an accepted excerpt whose char_end runs past the source", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.char_end = b.sources[0]!.raw_text.length + 50;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_out_of_bounds"));
+  });
+
+  it("rejects an accepted excerpt with a flipped span (char_end <= char_start)", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.char_start = 30;
+    b.excerpts[0]!.char_end = 10;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_out_of_bounds"));
+  });
+
+  it("rejects an accepted excerpt with a zero-length span", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.char_start = 5;
+    b.excerpts[0]!.char_end = 5;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_out_of_bounds"));
+  });
+
+  it("rejects an accepted excerpt with a negative char_start", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.char_start = -1;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_out_of_bounds"));
+  });
+
+  it("rejects an accepted excerpt with a non-integer char_start", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.char_start = 0.5;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_out_of_bounds"));
+  });
+
+  it("rejects an accepted excerpt whose declared span points at a different substring of the source", () => {
+    // The excerpt text remains a real, literal substring of the source,
+    // but the declared char_start/char_end point at a different region.
+    // This is the canonical "right citation, wrong offset" attack.
+    const b = clone(makeValidBundle());
+    const src = b.sources[0]!.raw_text;
+    const text = "logistics platform";
+    const realStart = src.indexOf(text);
+    assert.ok(realStart > 0, "test setup: expected substring");
+    b.excerpts[0]!.text = text;
+    // Declare offsets that point somewhere else in the source.
+    b.excerpts[0]!.char_start = 0;
+    b.excerpts[0]!.char_end = text.length;
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("excerpt_span_text_mismatch"));
+  });
+
+  it("accepts an excerpt whose declared span correctly indexes the source", () => {
+    const b = clone(makeValidBundle());
+    const src = b.sources[0]!.raw_text;
+    const text = "logistics platform";
+    const realStart = src.indexOf(text);
+    b.excerpts[0]!.text = text;
+    b.excerpts[0]!.char_start = realStart;
+    b.excerpts[0]!.char_end = realStart + text.length;
+    const report = run(b);
+    assert.equal(
+      report.ok,
+      true,
+      "expected ok, got: " + JSON.stringify(report.hard_failures),
+    );
+  });
+
+  it("does not enforce span rules on proposed or rejected excerpts", () => {
+    const b = clone(makeValidBundle());
+    b.excerpts[0]!.validation_status = "proposed";
+    b.excerpts[0]!.char_start = -999;
+    b.excerpts[0]!.char_end = -1;
+    // Downgrade the verified claim so the absent evidence doesn't trip a
+    // different invariant.
+    b.claims[0]!.provenance_status = "unverified";
+    b.claims[0]!.confidence = "low";
+    b.account_objects[0]!.provenance_status = "unverified";
+    const report = run(b);
+    assert.equal(
+      report.ok,
+      true,
+      "expected ok for proposed excerpt, got: " +
+        JSON.stringify(report.hard_failures),
+    );
+  });
+});
+
 describe("validateGraphBundle — verified records need evidence", () => {
   it("rejects a verified/high-confidence claim with no accepted supporting excerpt", () => {
     const b = clone(makeValidBundle());

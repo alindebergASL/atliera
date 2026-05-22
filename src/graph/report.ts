@@ -6,6 +6,7 @@
 
 export type HardFailureCode =
   | "schema_parse_failure"
+  | "unknown_field"
   | "invalid_id_format"
   | "wrong_id_prefix"
   | "duplicate_id"
@@ -17,6 +18,8 @@ export type HardFailureCode =
   | "invented_account_object_claim_id"
   | "dangling_reference"
   | "excerpt_text_not_found_in_source"
+  | "excerpt_span_out_of_bounds"
+  | "excerpt_span_text_mismatch"
   | "accepted_paraphrase"
   | "verified_claim_without_evidence"
   | "verified_object_without_supporting_claim"

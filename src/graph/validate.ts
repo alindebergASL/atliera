@@ -14,7 +14,7 @@ import {
   isWellFormedId,
   type RecordKind,
 } from "./ids.ts";
-import { sourceContainsExcerpt } from "./normalize.ts";
+import { normalizeText, sourceContainsExcerpt } from "./normalize.ts";
 import { parseGraphBundle } from "./schema.ts";
 import {
   emptyMetrics,
@@ -156,7 +156,9 @@ export function validateGraphBundleRaw(
   const parsed = parseGraphBundle(raw);
   if (!parsed.ok) {
     for (const e of parsed.errors) {
-      fail(failures, "schema_parse_failure", `${e.path}: ${e.message}`);
+      const code: HardFailureCode =
+        e.kind === "unknown_field" ? "unknown_field" : "schema_parse_failure";
+      fail(failures, code, `${e.path}: ${e.message}`);
     }
     return { ok: false, hard_failures: failures, metrics };
   }
@@ -365,6 +367,59 @@ export function validateGraphBundle(
     }
     const src = sourceById.get(e.source_document_id);
     if (!src) continue; // already reported as invented
+
+    // 5a. char_start/char_end must be integers, in-bounds, and form a
+    //     non-empty half-open span [char_start, char_end). This catches
+    //     spans that point at nothing, run past the end of the source,
+    //     or are flipped/zero-length.
+    const len = src.raw_text.length;
+    const spanOk =
+      Number.isInteger(e.char_start) &&
+      Number.isInteger(e.char_end) &&
+      e.char_start >= 0 &&
+      e.char_end > e.char_start &&
+      e.char_end <= len;
+    if (!spanOk) {
+      fail(
+        failures,
+        "excerpt_span_out_of_bounds",
+        `accepted excerpt ${e.id} has invalid span [${e.char_start}, ${e.char_end}) ` +
+          `against source of length ${len}`,
+        {
+          record_kind: "evidence_excerpt",
+          record_id: e.id,
+          field: "char_start",
+        },
+      );
+      continue;
+    }
+
+    // 5b. The text at [char_start, char_end) must equal the excerpt's
+    //     own text after deterministic normalisation. This is the
+    //     primary defense against a model proposing a literal-looking
+    //     excerpt whose declared offsets actually point at a different
+    //     substring of the source.
+    const spanText = src.raw_text.slice(e.char_start, e.char_end);
+    const spanMatches =
+      normalizeText(spanText) === normalizeText(e.text);
+    if (!spanMatches) {
+      fail(
+        failures,
+        "excerpt_span_text_mismatch",
+        `accepted excerpt ${e.id} text does not match source[${e.char_start}:${e.char_end}) after normalisation`,
+        {
+          record_kind: "evidence_excerpt",
+          record_id: e.id,
+          field: "char_start",
+        },
+      );
+    }
+
+    // 5c. Independently of the span check, the excerpt text must
+    //     literally appear somewhere in the source after normalisation.
+    //     When this fires together with 5b, the bundle gets two
+    //     distinct hard failures — "the offsets are wrong" and "the
+    //     text is not in the source at all" — which is the truth.
     if (!sourceContainsExcerpt(src.raw_text, e.text)) {
       fail(
         failures,

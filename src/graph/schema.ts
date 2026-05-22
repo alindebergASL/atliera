@@ -27,17 +27,44 @@ import type {
   SourceDocument,
 } from "./types.ts";
 
+export type SchemaErrorKind = "unknown_field" | "shape";
+
 export interface SchemaError {
   path: string;
   message: string;
+  kind: SchemaErrorKind;
 }
 
 type ParseResult<T> =
   | { ok: true; value: T }
   | { ok: false; errors: SchemaError[] };
 
-function err(path: string, message: string): SchemaError {
-  return { path, message };
+function err(path: string, message: string, kind: SchemaErrorKind = "shape"): SchemaError {
+  return { path, message, kind };
+}
+
+// Strict envelope policy: every record envelope and the bundle itself
+// rejects unknown fields. Hallucinated fields are a common failure mode
+// for model proposals, and silently accepting them lets payloads grow
+// past what the validator can reason about.
+function rejectUnknownFields(
+  obj: Record<string, unknown>,
+  knownKeys: readonly string[],
+  path: string,
+  errors: SchemaError[],
+): void {
+  const allowed = new Set(knownKeys);
+  for (const key of Object.keys(obj)) {
+    if (!allowed.has(key)) {
+      errors.push(
+        err(
+          `${path}.${key}`,
+          `unknown field '${key}' is not permitted on ${path}`,
+          "unknown_field",
+        ),
+      );
+    }
+  }
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -192,12 +219,137 @@ const RESEARCH_RUN_MODES: readonly ResearchRunMode[] = [
   "model",
 ];
 
+// Permitted top-level keys per record envelope. Anything outside these
+// sets fails with HardFailureCode `unknown_field`.
+const SOURCE_DOCUMENT_KEYS = [
+  "id",
+  "team_id",
+  "account_id",
+  "url",
+  "canonical_url",
+  "title",
+  "publisher",
+  "source_type",
+  "fetched_at",
+  "accessed_at",
+  "content_hash",
+  "raw_text",
+  "reliability",
+  "status",
+] as const;
+
+const EVIDENCE_EXCERPT_KEYS = [
+  "id",
+  "source_document_id",
+  "text",
+  "kind",
+  "char_start",
+  "char_end",
+  "captured_at",
+  "validation_status",
+  "rejection_reason",
+] as const;
+
+const CLAIM_KEYS = [
+  "id",
+  "team_id",
+  "account_id",
+  "claim_type",
+  "text",
+  "normalized_subject",
+  "confidence",
+  "provenance_status",
+  "status",
+  "created_by",
+  "created_at",
+] as const;
+
+const CLAIM_EVIDENCE_KEYS = [
+  "id",
+  "claim_id",
+  "evidence_excerpt_id",
+  "relationship",
+  "rationale",
+  "confidence",
+  "created_at",
+] as const;
+
+const ACCOUNT_OBJECT_KEYS = [
+  "id",
+  "team_id",
+  "account_id",
+  "object_type",
+  "title",
+  "summary",
+  "payload_json",
+  "confidence",
+  "provenance_status",
+  "status",
+  "created_by",
+  "created_at",
+  "updated_at",
+] as const;
+
+const ACCOUNT_OBJECT_CLAIM_KEYS = [
+  "id",
+  "account_object_id",
+  "claim_id",
+  "relationship",
+] as const;
+
+const RESEARCH_RUN_KEYS = [
+  "id",
+  "team_id",
+  "account_id",
+  "mode",
+  "provider",
+  "model",
+  "status",
+  "cost_cap_usd",
+  "observed_cost_usd",
+  "started_at",
+  "completed_at",
+] as const;
+
+const RUN_ARTIFACT_KEYS = [
+  "id",
+  "research_run_id",
+  "artifact_type",
+  "payload_json",
+  "created_at",
+] as const;
+
+const AUDIT_EVENT_KEYS = [
+  "id",
+  "team_id",
+  "actor_type",
+  "actor_id",
+  "event_type",
+  "target_type",
+  "target_id",
+  "payload_json",
+  "created_at",
+] as const;
+
+const GRAPH_BUNDLE_KEYS = [
+  "sources",
+  "excerpts",
+  "claims",
+  "claim_evidence",
+  "account_objects",
+  "account_object_claims",
+  "research_runs",
+  "run_artifacts",
+  "audit_events",
+] as const;
+
 export function parseSourceDocument(
   raw: unknown,
   path = "$",
 ): ParseResult<SourceDocument> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, SOURCE_DOCUMENT_KEYS, path, errors);
   const value: SourceDocument = {
     id: reqString(raw, "id", path, errors),
     team_id: reqString(raw, "team_id", path, errors),
@@ -235,6 +387,7 @@ export function parseEvidenceExcerpt(
 ): ParseResult<EvidenceExcerpt> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, EVIDENCE_EXCERPT_KEYS, path, errors);
   const value: EvidenceExcerpt = {
     id: reqString(raw, "id", path, errors),
     source_document_id: reqString(raw, "source_document_id", path, errors),
@@ -258,6 +411,7 @@ export function parseEvidenceExcerpt(
 export function parseClaim(raw: unknown, path = "$"): ParseResult<Claim> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, CLAIM_KEYS, path, errors);
   const value: Claim = {
     id: reqString(raw, "id", path, errors),
     team_id: reqString(raw, "team_id", path, errors),
@@ -292,6 +446,7 @@ export function parseClaimEvidence(
 ): ParseResult<ClaimEvidence> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, CLAIM_EVIDENCE_KEYS, path, errors);
   const value: ClaimEvidence = {
     id: reqString(raw, "id", path, errors),
     claim_id: reqString(raw, "claim_id", path, errors),
@@ -322,6 +477,7 @@ export function parseAccountObject(
 ): ParseResult<AccountObject> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, ACCOUNT_OBJECT_KEYS, path, errors);
   const value: AccountObject = {
     id: reqString(raw, "id", path, errors),
     team_id: reqString(raw, "team_id", path, errors),
@@ -370,6 +526,7 @@ export function parseAccountObjectClaim(
 ): ParseResult<AccountObjectClaim> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, ACCOUNT_OBJECT_CLAIM_KEYS, path, errors);
   const value: AccountObjectClaim = {
     id: reqString(raw, "id", path, errors),
     account_object_id: reqString(raw, "account_object_id", path, errors),
@@ -391,6 +548,7 @@ export function parseResearchRun(
 ): ParseResult<ResearchRun> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, RESEARCH_RUN_KEYS, path, errors);
   const startedAt = nullableString(raw, "started_at", path, errors);
   const completedAt = nullableString(raw, "completed_at", path, errors);
   const observedCost = nullableNumber(raw, "observed_cost_usd", path, errors);
@@ -422,6 +580,7 @@ export function parseRunArtifact(
 ): ParseResult<RunArtifact> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, RUN_ARTIFACT_KEYS, path, errors);
   const value: RunArtifact = {
     id: reqString(raw, "id", path, errors),
     research_run_id: reqString(raw, "research_run_id", path, errors),
@@ -438,6 +597,7 @@ export function parseAuditEvent(
 ): ParseResult<AuditEvent> {
   if (!isObj(raw)) return { ok: false, errors: [err(path, "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, AUDIT_EVENT_KEYS, path, errors);
   const value: AuditEvent = {
     id: reqString(raw, "id", path, errors),
     team_id: reqString(raw, "team_id", path, errors),
@@ -476,6 +636,7 @@ function parseArray<T>(
 export function parseGraphBundle(raw: unknown): ParseResult<GraphBundle> {
   if (!isObj(raw)) return { ok: false, errors: [err("$", "expected object")] };
   const errors: SchemaError[] = [];
+  rejectUnknownFields(raw, GRAPH_BUNDLE_KEYS, "$", errors);
   const sources = parseArray(raw["sources"], "$.sources", parseSourceDocument);
   const excerpts = parseArray(
     raw["excerpts"],

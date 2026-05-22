@@ -36,3 +36,98 @@ describe("parseGraphBundle", () => {
     assert.ok(report.hard_failures.some((f) => f.code === "schema_parse_failure"));
   });
 });
+
+describe("parseGraphBundle — strict unknown-field rejection", () => {
+  it("rejects unknown fields at the top of the bundle", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.workshop_views = [{ id: "wv_1" }];
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on SourceDocument", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.sources[0].secret_provenance_override = "trust me";
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    const f = report.hard_failures.find((f) => f.code === "unknown_field");
+    assert.ok(f, "expected unknown_field hard failure");
+    assert.ok(f!.message.includes("secret_provenance_override"));
+  });
+
+  it("rejects an unknown field on EvidenceExcerpt", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.excerpts[0].verified_by_model_alone = true;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on Claim", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.claims[0].auto_verified = true;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on ClaimEvidence", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.claim_evidence[0].override = "ignore_validator";
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on AccountObject", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.account_objects[0].render_as_verified = true;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on AccountObjectClaim", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.account_object_claims[0].weight = 9.9;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on ResearchRun", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.research_runs[0].bypass_budget = true;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on RunArtifact", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.run_artifacts[0].smuggle = "x";
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("rejects an unknown field on AuditEvent", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    raw.audit_events[0].privileged = true;
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(report.ok, false);
+    assert.ok(report.hard_failures.some((f) => f.code === "unknown_field"));
+  });
+
+  it("accepts the valid baseline after strict-field rejection is wired up", () => {
+    const raw = JSON.parse(JSON.stringify(makeValidBundle()));
+    const report = validateGraphBundleRaw(raw, { mode: "fixture" });
+    assert.equal(
+      report.ok,
+      true,
+      "valid baseline must still parse under strict-field rejection: " +
+        JSON.stringify(report.hard_failures),
+    );
+  });
+});

@@ -36,7 +36,7 @@ export function makeValidBundle(): GraphBundle {
         text: "Acme Robotics announced a new logistics platform on March 1, 2026.",
         kind: "literal",
         char_start: 0,
-        char_end: 65,
+        char_end: 66,
         captured_at: "2026-03-02T12:00:01Z",
         validation_status: "accepted",
         rejection_reason: null,

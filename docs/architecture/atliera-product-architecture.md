@@ -2,11 +2,11 @@
 
 > **For Hermes:** This is a plan-first architecture artifact. Do not implement, deploy, or mutate production from this plan without a separate approved implementation/deployment task.
 
-**Goal:** Define the clean-slate Atliera product architecture for the registered `atliera.com` domain and fresh EC2 deployment, with Atliera Workshop, Agent, and Graph as the core product structure and Signals/Maps/Plays as launch lenses over the graph rather than premature hard-separated modules.
+**Goal:** Define the clean-slate Atliera product architecture with Atliera Workshop, Agent, and Graph as the core product structure and Signals/Maps/Plays as launch lenses over the graph rather than premature hard-separated modules.
 
-**Architecture:** Atliera is a new graph-first product, not a legacy report migration. It must boot from an empty database, run on a fresh server, and produce durable source/excerpt/claim/object records before any user-facing account intelligence is treated as verified. Legacy account-research reports remain external comparison artifacts only, while the reusable A.5-A.7 validation patterns and graph schemas carry forward deliberately.
+**Architecture:** Atliera is a new graph-first product, not a legacy report migration. It must boot from an empty database, run in any approved deployment location that satisfies the runtime requirements, and produce durable source/excerpt/claim/object records before any user-facing account intelligence is treated as verified. Legacy account-research reports remain external comparison artifacts only, while the reusable A.5-A.7 validation patterns and graph schemas carry forward deliberately.
 
-**Tech Stack Assumption:** Next.js/Node app, PM2 runtime, nginx + Certbot HTTPS, SQLite initially unless a separate DB decision is made, worker process for research jobs, provider/model configuration via environment/admin config, deterministic validation harness before paid model execution.
+**Tech Stack Assumption:** Next.js/Node app, process manager or container runtime, reverse proxy or platform ingress with HTTPS, configurable database backend, worker process for research jobs, provider/model configuration via environment/admin config, deterministic validation harness before paid model execution.
 
 ---
 
@@ -79,16 +79,23 @@ Hard naming constraints:
    - Provider/model IDs come from config/env/admin settings.
    - Paid/model mode requires explicit budget caps and human approval.
 
-6. Safe agent boundary
+6. Portable, scale-ready systems
+   - Atliera must not hardcode production URLs, IP addresses, server locations, database hosts/paths, storage endpoints, queue endpoints, provider endpoints, callback URLs, or webhook URLs in app logic.
+   - Runtime-specific values come from environment/config/secret management and can differ across dev, lab, staging, and production.
+   - The first deployment may run small, but app, worker, database, queue, artifact storage, model providers, and ingress must retain a path to separate services and horizontal scale.
+   - Local fixtures, `example.invalid` URLs, and temp-file stores are allowed only for deterministic tests/dev artifacts; they must not become production assumptions.
+   - Hardcode behavior contracts and validation invariants, not infrastructure locations.
+
+7. Safe agent boundary
    - Atliera Agent is an app feature, not a full shell agent on the production host.
    - It should operate through app APIs/jobs/validators, not arbitrary server shell access.
 
-7. One graph, many lenses
+8. One graph, many lenses
    - Signals, Maps, and Plays are launch lenses over the same evidence graph.
    - They must share claim/evidence/object primitives and validators.
    - Architectural constraint: lenses may be added, renamed, hidden, or packaged differently, but lenses may not fork provenance logic, validators, research logic, data paths, source fetching, excerpt matching, model activation rules, or budget enforcement.
 
-8. Agent proposes, system validates, human ratifies
+9. Agent proposes, system validates, human ratifies
    - The model proposes candidate evidence, claims, objects, maps, signals, and plays.
    - The system deterministically validates source/excerpt/claim/object integrity.
    - The human can ratify, reject, edit, or request re-research before content becomes presentable strategy.
@@ -97,32 +104,39 @@ Hard naming constraints:
 
 ## 2. Target deployment topology
 
-Recommended starting topology:
+Recommended starting topology is logical, not location-bound:
 
-- `atliera.com` / `www.atliera.com`
-  - marketing or app redirect; decision pending
-- `app.atliera.com`
-  - primary Atliera application
-- `lab.atliera.com`
-  - fresh staging/lab deployment on the new EC2 first
-- `api.atliera.com`
+- Public marketing surface
+  - domain/env-specific hostname decided by deployment config
+  - may redirect to the app or host marketing pages
+- Primary application surface
+  - hostname comes from `APP_BASE_URL` / ingress config
+- Lab/staging surface
+  - hostname comes from environment-specific config
+- External API surface
   - defer until there is a real external API split
 
-Server runtime:
+Server/runtime shape:
 
-- Ubuntu EC2
-- nginx on public 80/443
-- Certbot/Let's Encrypt HTTPS
-- Next.js/Node app bound to `127.0.0.1:<app_port>`
-- PM2 process names:
+- Any approved host/platform that satisfies Node/runtime, network, storage, and security requirements.
+- Reverse proxy, platform ingress, or load balancer terminates HTTPS.
+- App process binds to configured `HOST`/`PORT`; the binding must not assume a fixed IP, domain, or server path.
+- Process names, container names, or service names are deployment config, not app logic. Suggested names may include:
   - `atliera-web`
   - `atliera-worker`
-- SQLite initially:
-  - server-local DB path outside repo, e.g. `/var/lib/atliera/atliera.db`
-  - backups under `/var/backups/atliera/`
-- Server-local secrets:
-  - `.env.local` or `/etc/atliera/atliera.env`
-  - mode 600, no secrets committed
+- Database backend is configured, not hardcoded:
+  - dev/test may use local fixture stores or ephemeral databases
+  - first small deployment may use a local DB only if explicitly selected by config
+  - production path should support a separate managed or self-hosted Postgres-compatible database when scale requires it
+- Durable artifact storage is configured, not hardcoded:
+  - local filesystem is acceptable for dev/test/local run artifacts
+  - production path should support external object storage or another durable artifact backend
+- Queues/workers are configured, not hardcoded:
+  - a simple local worker is acceptable first
+  - production path should support separate worker instances and an external queue/backend when load requires it
+- Secrets come from deployment-specific environment/secret management:
+  - no secrets committed
+  - no secrets embedded in docs/scripts/tests
 
 Deployment principle:
 
@@ -679,26 +693,36 @@ Aggregate launch readiness must be evaluated only after multiple usable gate acc
 
 ---
 
-## 9. Fresh EC2 setup checklist
+## 9. Deployment readiness checklist
 
 Before deploy:
 
-- DNS selected:
-  - `lab.atliera.com` first, or `app.atliera.com` if user approves direct app domain
-- SSH verified by Hermes/control environment
-- Security group allows 22 from trusted IPs and 80/443 public
-- Ubuntu package baseline installed
-- nginx active and config test passes
-- Node LTS installed
-- PM2 installed
-- deploy user chosen, preferably `ubuntu` initially then hardened later
-- app data dirs created:
-  - `/var/lib/atliera`
-  - `/var/backups/atliera`
-  - `/var/log/atliera` if not using PM2 only
-- env strategy chosen:
-  - `/etc/atliera/atliera.env` or app `.env.local`
-- backup script before any nontrivial data use
+- Target environment selected:
+  - dev, lab, staging, or production
+  - hostname and ingress configured outside app code
+- Access verified by Hermes/control environment or approved operator workflow
+- Network policy/firewall/security group allows only required ingress and egress
+- Runtime baseline installed or provisioned:
+  - Node LTS or approved container/runtime platform
+  - process manager, orchestrator, or platform service definition
+  - reverse proxy, platform ingress, or load balancer with HTTPS
+- App and worker services configured through environment/config:
+  - `APP_BASE_URL`
+  - `HOST`
+  - `PORT`
+  - database connection/config
+  - artifact storage backend/config
+  - queue/backend config if jobs are enabled
+  - provider/model config if model mode is enabled
+- Durable data locations/backends selected explicitly:
+  - database backend is not implied by code
+  - artifact storage backend is not implied by code
+  - backup/restore path documented for the selected backend
+- Secrets strategy chosen:
+  - environment file, platform secrets, or secret manager
+  - no secrets committed
+  - no secrets embedded in docs/scripts/tests
+- Backup/restore and rollback scripts/process documented before nontrivial data use
 
 Do not install a resident full autonomous shell agent on the production Atliera host yet.
 
@@ -737,11 +761,12 @@ Recommendation: A. Create a fresh GitHub repo named `atliera`. Use the legacy/la
 
 Recommendation: `lab.atliera.com` first for buildout, then `app.atliera.com`.
 
-3. DB choice
-   - A: SQLite initial
-   - B: Postgres from day one
+3. Persistence strategy
+   - A: local/ephemeral DB for dev and lab only
+   - B: Postgres-compatible production database from day one
+   - C: configurable persistence interface first, with adapters selected by environment
 
-Recommendation: SQLite initial is fine for speed if fresh EC2/single-tenant lab; design schema so Postgres migration is not painful.
+Recommendation: C. Keep persistence behind explicit interfaces/config. Local or SQLite-style storage can be useful for dev/lab speed, but product logic must not assume a single local DB file. Production should have a clean path to a separate Postgres-compatible database, external backups, and multiple app/worker instances.
 
 4. What codebase to start from
    - A: clean Next.js starter

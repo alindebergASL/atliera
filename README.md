@@ -189,6 +189,12 @@ Atliera artifacts should be addressable through implementation-neutral keys befo
 
 Artifact keys are relative slash-delimited identifiers, not URLs or absolute paths. Unsafe keys with traversal, empty segments, URL schemes, or backslashes are rejected before reads or writes. The S3-compatible adapter also validates bucket/prefix config, rejects oversized payloads before writing when `maxPayloadBytes` is configured, preserves missing objects as `undefined`, emits sanitized best-effort operation lifecycle events through an optional observer, and wraps backend failures with stable sanitized operation context so secret-bearing dependency errors do not leak.
 
+## Versioned graph store seam
+
+The core evidence/workshop graph path now has a versioned persistence contract before product code depends on a database. `VersionedGraphStore` addresses graphs by logical graph IDs and returns revision tokens with each committed snapshot. Writers must supply `expectedRevision`, using `null` only for graph creation. If another writer commits first, the store raises `GraphStoreConflictError` instead of silently overwriting.
+
+`InMemoryVersionedGraphStore` is deterministic test/dev behavior, not production durability. It still enforces the contract shape: safe logical graph IDs, schema validation before commit, safe-mode write refusal, defensive copies, read-your-writes behavior, and no env reads, SDK imports, client construction, network calls, deployment paths, DB URLs, or infrastructure addresses.
+
 ## File-backed graph store
 
 Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:

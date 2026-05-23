@@ -243,6 +243,20 @@ Adapters must expose these as diagnosable failures rather than silent drops.
 
 `GraphStore` is the durable evidence graph boundary. Current in-memory and local-file behavior is useful for deterministic tests and local fixtures, but production graph storage requires explicit durability, consistency, and concurrency semantics.
 
+### Versioned interface seam
+
+`VersionedGraphStore` is the first graph-store contract seam for database-backed persistence. It does not choose a database or deployment topology. It defines the product-facing behavior future durable adapters must preserve:
+
+- graph IDs are logical slash-delimited identifiers, not URLs, DB paths, bucket paths, hostnames, or infrastructure addresses
+- `load(graphId)` returns the current bundle plus a revision token, or the interface not-found shape
+- `commit(graphId, bundle, { expectedRevision })` validates the graph bundle before committing
+- `expectedRevision: null` means create-only and must conflict if the graph already exists
+- a non-null `expectedRevision` must match the currently stored revision or the commit fails with a conflict
+- successful commits return the new revision and must be read-your-writes visible through the same store
+- returned bundles must not let callers mutate stored state through object references
+
+The current `InMemoryVersionedGraphStore` is test/dev behavior only. It demonstrates the optimistic-concurrency contract without reading env, constructing clients, importing DB/storage SDKs, opening sockets, or picking a production database. A future durable adapter may use a database row version, transaction ID, etag, or equivalent token as long as stale writers cannot silently overwrite newer graph state.
+
 ### Atomicity
 
 A graph commit must be atomic at the chosen commit boundary. The adapter must document that boundary.
@@ -368,8 +382,9 @@ A durable adapter PR should answer all of these before merge:
 
 ## Current follow-up sequence
 
-After the first SDK-neutral S3-compatible `ArtifactStore` boundary:
+After the first SDK-neutral S3-compatible `ArtifactStore` boundary and injected artifact-store resource probe:
 
-1. Implement the next durable adapter one at a time, likely GraphStore or JobQueue depending on which product path needs persistence first.
+1. The graph path now has a `VersionedGraphStore` optimistic-concurrency seam. Next graph persistence work should implement a concrete durable adapter behind that interface, likely database-backed, with atomic commits and conflict detection.
 2. Keep app/server/worker wiring separate from adapter implementation PRs.
-3. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.
+3. Add job-queue durable implementation only after graph persistence is far enough to support the core evidence/workshop path.
+4. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.

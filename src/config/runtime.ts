@@ -11,7 +11,7 @@ export interface AtlieraRuntimeConfig {
   modelProvider: string | undefined;
 }
 
-type EnvInput = Record<string, string | undefined>;
+export type RuntimeConfigEnv = Record<string, string | undefined>;
 
 const ENVIRONMENTS: readonly AtlieraEnvironment[] = [
   "development",
@@ -21,7 +21,7 @@ const ENVIRONMENTS: readonly AtlieraEnvironment[] = [
   "production",
 ];
 
-function readNonEmpty(env: EnvInput, key: string): string | undefined {
+function readNonEmpty(env: RuntimeConfigEnv, key: string): string | undefined {
   const value = env[key]?.trim();
   return value === undefined || value === "" ? undefined : value;
 }
@@ -74,7 +74,7 @@ function parsePort(value: string | undefined): number | undefined {
   return parsed;
 }
 
-export function parseAtlieraRuntimeConfig(env: EnvInput): AtlieraRuntimeConfig {
+export function parseAtlieraRuntimeConfig(env: RuntimeConfigEnv): AtlieraRuntimeConfig {
   return {
     environment: parseEnvironment(readNonEmpty(env, "ATL_ENV")),
     publicBaseUrl: parsePublicBaseUrl(readNonEmpty(env, "APP_BASE_URL")),

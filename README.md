@@ -139,6 +139,12 @@ Atliera runtime infrastructure is parsed through `parseAtlieraRuntimeConfig(env)
 
 The seam intentionally does not read `process.env` at import time and does not invent production infrastructure defaults. Missing infrastructure fields remain `undefined` until an environment supplies them.
 
+## Runtime composition seam
+
+Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.
+
+The composition seam does not read `process.env`, create network clients, choose production infrastructure defaults, or hide deployment assumptions. `createInMemoryAtlieraRuntime` fails closed for staging/production so test/dev adapters cannot masquerade as production. Production wiring must pass explicit config and concrete adapters through this seam in a later PR.
+
 ## Job queue seam
 
 Atliera background work should target a logical queue interface before any production queue backend is chosen. `JobQueue` defines a minimal enqueue/dequeue/complete interface and `InMemoryJobQueue` provides deterministic test/dev behavior without binding product logic to Redis, a database table, one process, or one server.

@@ -12,7 +12,12 @@ import {
 } from "../modes/index.ts";
 import type { GraphBundle } from "./types.ts";
 
-export class InMemoryGraphStore {
+export interface GraphStore {
+  readonly snapshot: GraphBundle;
+  commit(bundle: GraphBundle, mode: RuntimeMode): void;
+}
+
+export class InMemoryGraphStore implements GraphStore {
   private committed: GraphBundle = empty();
 
   get snapshot(): GraphBundle {

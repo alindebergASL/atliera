@@ -521,6 +521,7 @@ Goal:
 Deliverables:
 - narrow `ModelAdapter` interface with fake/deterministic implementation only
 - Agent run orchestration records that can reference ResearchRun/RunArtifact
+  - first seam is pure record construction/status transition only: no persistence, queue polling, job execution, provider call, SDK import, env read, network call, or validator bypass
 - prompt-contract placeholders for proposing excerpts, claims, objects, and lens summaries
 - explicit activation flags that fail closed for real provider mode
 - no real provider SDK imports, API-key reads, network calls, or paid calls

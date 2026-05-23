@@ -7,8 +7,8 @@
 // S3-compatible adapter boundary, job-queue interfaces plus injected database
 // queue adapter boundary, runtime composition, app/worker launch planning
 // checks, config/resource preflight checks including injected ArtifactStore,
-// VersionedGraphStore, and JobQueue probes, pure model-provider contract, and the (no-op)
-// model adapter interface stub.
+// VersionedGraphStore, and JobQueue probes, pure model-provider contract,
+// deterministic model adapter stub, and pure AgentRun orchestration records.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -37,3 +37,4 @@ export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
 export * from "./model/provider.ts";
 export * from "./agent/model-adapter.ts";
+export * from "./agent/run-record.ts";

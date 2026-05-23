@@ -139,6 +139,12 @@ Atliera runtime infrastructure is parsed through `parseAtlieraRuntimeConfig(env)
 
 The seam intentionally does not read `process.env` at import time and does not invent production infrastructure defaults. Missing infrastructure fields remain `undefined` until an environment supplies them.
 
+## Runtime preflight seam
+
+Atliera production-like runtime launch should fail closed before any app server, worker, DB client, queue broker, artifact store, or model provider is created. `runRuntimePreflight` validates a parsed `AtlieraRuntimeConfig` for environment-level launch readiness without reading env, opening sockets, importing providers, or constructing clients.
+
+Production and staging currently require explicit `APP_BASE_URL`, `DATABASE_URL`, `ARTIFACT_STORE`, `QUEUE_BACKEND`, and `MODEL_PROVIDER` values. Non-production environments may remain partial so tests, local development, and lab fixtures do not invent hidden infrastructure defaults. `assertRuntimePreflightPasses` throws with failure codes for launch paths that want fail-fast behavior.
+
 ## Runtime composition seam
 
 Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.

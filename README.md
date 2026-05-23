@@ -153,6 +153,14 @@ Atliera worker launch planning flows through `prepareWorkerRuntimeLaunch(runtime
 
 These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, execute jobs, or perform live resource checks. Resource reachability belongs to a later resource preflight layer after durable adapters exist.
 
+## Model provider contract
+
+Atliera model work flows through the pure `ModelProvider` contract before any real provider adapter, SDK import, API key, transport endpoint, or budgeted model mode is introduced. `ModelProviderRequest` carries only logical operation/model/input references, mode, prompt, idempotency key, bounded generation parameters, and string metadata. It intentionally excludes API keys, SDK clients, base URLs, transport handles, and provider-specific request objects.
+
+`createModelProviderRequest` and `assertSafeModelProviderRequest` validate operation names, logical model ids, relative graph references, idempotency keys, output-token bounds, and temperature bounds before an implementation can run. `FakeModelProvider` is deterministic/no-spend for safe modes and still refuses `model` mode until a later explicit activation gate adds a real provider implementation.
+
+The contract also encodes the legacy A.7 provider-safety lessons as hard requirements for future real-provider adapters: every paid call needs pre-call cost estimation checked against remaining budget; post-call cost records are reporting-only; invalid JSON and schema mismatches get at most one corrective retry before stage failure; hallucinated source IDs, excerpt/source-text mismatches, and unevidenced claims are rejected without retry; real activation requires explicit model mode, provider/model, max cost, out-of-repo corpus path, and operator approval with aggregated missing-gate refusal; missing/invalid credentials must refuse before calls without printing secret values; provider SDKs must be dynamically imported only inside activated real-provider paths; and fake/real providers must share the same `ModelProvider` boundary rather than parallel paths.
+
 ## Runtime composition seam
 
 Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.

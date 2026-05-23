@@ -145,11 +145,13 @@ Atliera production-like runtime launch should fail closed before any app server,
 
 Production and staging currently require explicit `APP_BASE_URL`, `DATABASE_URL`, `ARTIFACT_STORE`, `QUEUE_BACKEND`, and `MODEL_PROVIDER` values. Test-only adapter choices such as `memory` artifact/queue backends and the `fake` model provider are rejected for production-like environments. Non-production environments may remain partial so tests, local development, and lab fixtures do not invent hidden infrastructure defaults. `assertRuntimePreflightPasses` throws with failure codes for launch paths that want fail-fast behavior.
 
-## Runtime launch boundary
+## Runtime launch boundaries
 
-Atliera app launch planning flows through `prepareRuntimeLaunch(runtime)` after runtime composition and before any app server, worker, DB client, queue broker, artifact store client, or model provider is started. The launch boundary runs pure runtime config preflight and returns a launch report over the supplied runtime.
+Atliera app launch planning flows through `prepareRuntimeLaunch(runtime)` after runtime composition and before any app server, worker, DB client, queue broker, artifact store client, or model provider is started. The app launch boundary runs pure runtime config preflight and returns a launch report over the supplied runtime.
 
-This seam does not read `process.env`, open sockets, construct clients, start HTTP servers, or perform live resource checks. Resource reachability belongs to a later resource preflight layer after durable adapters exist.
+Atliera worker launch planning flows through `prepareWorkerRuntimeLaunch(runtime, options)` before any polling loop, dequeue, job execution, DB client, queue broker, artifact store client, or model provider call is started. Worker queues are logical queue names only, and unsafe URL/path/IP/host-like queue names are rejected before a worker loop can exist.
+
+These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, execute jobs, or perform live resource checks. Resource reachability belongs to a later resource preflight layer after durable adapters exist.
 
 ## Runtime composition seam
 

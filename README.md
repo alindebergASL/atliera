@@ -179,6 +179,12 @@ Atliera agent orchestration is represented by pure `AgentRunRecord` objects befo
 
 The AgentRun seam is intentionally record-only: it does not read `process.env`, enqueue jobs, call `ModelProvider`, write artifacts, construct clients, open sockets, choose tables/queues, or persist anything. Later app/worker wiring can persist these records and connect them to ResearchRun/RunArtifact rows without giving the model/provider path authority to bypass Graph validators or launch guards.
 
+## Prompt contract placeholders
+
+Atliera prompt contracts are pure placeholders in `PROMPT_CONTRACTS` for `propose.excerpts`, `propose.claims`, `propose.account_objects`, and `summarize.lens`. They reserve the required input references and allowed output record kinds for future model-backed orchestration while keeping `provider` and `model` null.
+
+The prompt-contract seam is intentionally data-only: it does not read `process.env`, import provider SDKs, call models, open sockets, construct clients, persist records, enqueue jobs, or choose transport endpoints. Each contract encodes active safety requirements for later implementations: cite existing `source_document_id` context, do not invent source/excerpt/claim/object/relationship IDs, emit only allowed output record kinds, and route proposals through Graph validators plus the quality gate before persistence or display.
+
 ## Runtime composition seam
 
 Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.

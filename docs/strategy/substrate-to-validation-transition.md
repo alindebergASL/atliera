@@ -132,7 +132,7 @@ This is still allowed before implementation validation because it closes a concr
 
 ### Step 2: Validate durable storage through S3-compatible artifact storage
 
-The first implementation validation target should be the S3-compatible `ArtifactStore` path, using either a real S3-compatible backend or a high-fidelity emulator with documented behavioral limits. A shallow in-memory fake is not sufficient for this validation step. `validateS3ArtifactStoreCompatibility` provides the SDK-neutral harness for that validation while leaving backend/client construction and cleanup to lab/deploy wiring.
+The first implementation validation target should be the S3-compatible `ArtifactStore` path, using either a real S3-compatible backend or a high-fidelity emulator with documented behavioral limits. A shallow in-memory fake is not sufficient for this validation step. `validateS3ArtifactStoreCompatibility` provides the SDK-neutral harness for that validation while leaving backend/client construction and cleanup to lab/deploy wiring. `FilesystemS3CompatibilityClient` supplies a deterministic local filesystem-backed emulator for CI/lab validation when no real S3-compatible backend is available, but it must be reported with its emulator limits and must not be treated as proof of provider-specific S3 behavior.
 
 This validates:
 

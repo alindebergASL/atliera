@@ -4,8 +4,9 @@
 // validators, validation report shape, in-memory/file store, versioned
 // GraphStore contract seam plus injected database adapter boundary, runtime
 // modes, typed runtime config parsing, artifact-store interfaces plus
-// S3-compatible adapter and compatibility-validation boundaries, job-queue
-// interfaces plus injected database queue adapter boundary, runtime composition,
+// S3-compatible adapter, compatibility-validation boundaries, and local
+// filesystem-backed compatibility client, job-queue interfaces plus injected
+// database queue adapter boundary, runtime composition,
 // app/worker launch planning
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, and JobQueue probes, pure model-provider contract,
@@ -28,6 +29,7 @@ export * from "./config/runtime.ts";
 export * from "./artifacts/store.ts";
 export * from "./artifacts/s3-store.ts";
 export * from "./artifacts/s3-compatibility.ts";
+export * from "./artifacts/filesystem-s3-client.ts";
 export * from "./jobs/queue.ts";
 export * from "./jobs/database-queue.ts";
 export * from "./runtime/composition.ts";

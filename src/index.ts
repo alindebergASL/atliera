@@ -4,8 +4,9 @@
 // validators, validation report shape, in-memory/file store, runtime modes,
 // typed runtime config parsing, artifact-store interfaces plus S3-compatible
 // adapter boundary, job-queue interfaces, runtime composition, app/worker
-// launch planning checks, config/resource preflight checks, pure model-provider
-// contract, and the (no-op) model adapter interface stub.
+// launch planning checks, config/resource preflight checks including an
+// injected ArtifactStore probe, pure model-provider contract, and the (no-op)
+// model adapter interface stub.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -24,6 +25,7 @@ export * from "./jobs/queue.ts";
 export * from "./runtime/composition.ts";
 export * from "./runtime/preflight.ts";
 export * from "./runtime/resource-preflight.ts";
+export * from "./runtime/artifact-store-preflight.ts";
 export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
 export * from "./model/provider.ts";

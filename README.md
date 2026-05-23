@@ -147,9 +147,11 @@ Production and staging currently require explicit `APP_BASE_URL`, `DATABASE_URL`
 
 ## Resource preflight shape
 
-Atliera resource reachability checks flow through `runResourcePreflight(config, checks)` after pure config preflight passes and after concrete durable adapters/clients exist. This layer defines the shape only: it accepts explicit caller-supplied check functions, aggregates pass/fail/warn results, requires production-like checks for database, artifact store, queue backend, and model provider targets, and refuses to run live checks when config preflight has already failed.
+Atliera resource reachability checks flow through `runResourcePreflight(config, checks)` after pure config preflight passes and after concrete durable adapters/clients exist. This layer accepts explicit caller-supplied check functions, aggregates pass/fail/warn results, requires production-like checks for database, artifact store, queue backend, and model provider targets, and refuses to run live checks when config preflight has already failed.
 
-The resource preflight shape does not read `process.env`, construct clients, import provider/storage/queue SDKs, open sockets, or perform network calls by itself. Future durable adapters supply the concrete probes. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
+`defineArtifactStorePreflightCheck({ store, probeKey })` is the first concrete probe helper. It receives an already-composed `ArtifactStore`, writes a caller-scoped text probe artifact, reads it back, verifies the content matches, and reports only stable pass/fail codes plus sanitized metadata. The caller owns the probe key, so deployment wiring should use a safe environment/run-scoped key such as `preflight/<run-id>/artifact-store.txt` and should account for backend retention/lifecycle cleanup.
+
+The resource preflight shape and probe helpers do not read `process.env`, construct clients, import provider/storage/queue SDKs, open sockets by themselves, or choose buckets/endpoints/credentials. Any live I/O comes only from the explicit injected adapter supplied by launch/deploy wiring. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
 
 ## Runtime launch boundaries
 

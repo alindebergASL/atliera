@@ -1,6 +1,6 @@
 # Substrate to Validation Transition
 
-Status: Proposed
+Status: Accepted
 
 Last updated: 2026-05-23
 

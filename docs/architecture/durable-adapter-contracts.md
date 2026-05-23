@@ -190,6 +190,8 @@ An S3-mounted filesystem can be operationally useful, but it must not be treated
 
 `JobQueue` coordinates background work through logical queues. The current in-memory implementation is deterministic test/dev behavior. It does not define production queue semantics.
 
+`DatabaseJobQueue` is the first SDK-neutral database adapter boundary behind `JobQueue`. It accepts an injected database client and logical table identifier, then maps enqueue, lease, complete, and get operations to that client without importing DB SDKs, reading env, constructing clients, opening sockets, choosing tables/URLs/hosts/credentials, or wiring app/worker/deploy code. Its lease boundary is one atomic `leaseNextJob` client operation that must claim a queued row and return it as leased; visibility timeouts, retry scheduling, dead-letter behavior, migrations, indexing, max payload-size enforcement, and transaction/isolation choices remain explicit responsibilities of the injected client/runtime wiring. The adapter rejects non-strict JSON-value payloads before client access so enqueue serialization cannot silently drop or coerce payload fields. Backend failures and observability events must remain sanitized.
+
 ### Delivery semantics
 
 Durable JobQueue adapters should assume at-least-once delivery unless they explicitly document a different guarantee.

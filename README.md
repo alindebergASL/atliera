@@ -173,6 +173,12 @@ Atliera model work flows through the pure `ModelProvider` contract before any re
 
 The contract also encodes the legacy A.7 provider-safety lessons as hard requirements for future real-provider adapters: every paid call needs pre-call cost estimation checked against remaining budget; post-call cost records are reporting-only; invalid JSON and schema mismatches get at most one corrective retry before stage failure; hallucinated source IDs, excerpt/source-text mismatches, and unevidenced claims are rejected without retry; real activation requires explicit model mode, provider/model, max cost, out-of-repo corpus path, and operator approval with aggregated missing-gate refusal; missing/invalid credentials must refuse before calls without printing secret values; provider SDKs must be dynamically imported only inside activated real-provider paths; and fake/real providers must share the same `ModelProvider` boundary rather than parallel paths.
 
+## Agent run records
+
+Atliera agent orchestration is represented by pure `AgentRunRecord` objects before any polling loop, job execution, provider call, or database persistence exists. `createAgentRunRecord` validates a safe `agn_` run id, a referenced `run_` ResearchRun id, logical `art_` RunArtifact refs, safe relative graph/artifact references, lifecycle status, optional logical `job_` queue linkage, timestamps, and string metadata. `transitionAgentRunRecord` returns immutable lifecycle copies for allowed planned/queued/running/terminal transitions.
+
+The AgentRun seam is intentionally record-only: it does not read `process.env`, enqueue jobs, call `ModelProvider`, write artifacts, construct clients, open sockets, choose tables/queues, or persist anything. Later app/worker wiring can persist these records and connect them to ResearchRun/RunArtifact rows without giving the model/provider path authority to bypass Graph validators or launch guards.
+
 ## Runtime composition seam
 
 Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.

@@ -5,7 +5,10 @@ export type RuntimePreflightFailureCode =
   | "missing_database_url"
   | "missing_artifact_store"
   | "missing_queue_backend"
-  | "missing_model_provider";
+  | "missing_model_provider"
+  | "production_artifact_store_must_be_durable"
+  | "production_queue_backend_must_be_durable"
+  | "production_model_provider_must_be_real";
 
 export interface RuntimePreflightIssue {
   code: RuntimePreflightFailureCode;
@@ -55,6 +58,24 @@ export function runRuntimePreflight(
       failures.push({
         code: "missing_model_provider",
         message: "production-like runtime requires MODEL_PROVIDER",
+      });
+    }
+    if (config.artifactStore === "memory") {
+      failures.push({
+        code: "production_artifact_store_must_be_durable",
+        message: "production-like runtime requires a durable artifact store",
+      });
+    }
+    if (config.queueBackend === "memory") {
+      failures.push({
+        code: "production_queue_backend_must_be_durable",
+        message: "production-like runtime requires a durable queue backend",
+      });
+    }
+    if (config.modelProvider === "fake") {
+      failures.push({
+        code: "production_model_provider_must_be_real",
+        message: "production-like runtime requires a real model provider",
       });
     }
   }

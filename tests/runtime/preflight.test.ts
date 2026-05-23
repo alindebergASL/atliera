@@ -71,6 +71,43 @@ describe("runtime preflight seam", () => {
     assert.deepEqual(report.failures, []);
   });
 
+  it("rejects test-only adapters in production-like environments", () => {
+    const config = parseAtlieraRuntimeConfig({
+      ATL_ENV: "production",
+      APP_BASE_URL: "https://app.example.invalid",
+      DATABASE_URL: "postgres://db.example.invalid/atliera",
+      ARTIFACT_STORE: "memory",
+      QUEUE_BACKEND: "memory",
+      MODEL_PROVIDER: "fake",
+    });
+
+    const report = runRuntimePreflight(config);
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(
+      report.failures.map((failure) => failure.code),
+      [
+        "production_artifact_store_must_be_durable",
+        "production_queue_backend_must_be_durable",
+        "production_model_provider_must_be_real",
+      ],
+    );
+  });
+
+  it("allows test-only adapters outside production-like environments", () => {
+    const config = parseAtlieraRuntimeConfig({
+      ATL_ENV: "lab",
+      ARTIFACT_STORE: "memory",
+      QUEUE_BACKEND: "memory",
+      MODEL_PROVIDER: "fake",
+    });
+
+    const report = runRuntimePreflight(config);
+
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.failures, []);
+  });
+
   it("throws with preflight failure details when assertions fail", () => {
     const config = parseAtlieraRuntimeConfig({ ATL_ENV: "production" });
 

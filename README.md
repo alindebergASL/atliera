@@ -145,6 +145,12 @@ Atliera production-like runtime launch should fail closed before any app server,
 
 Production and staging currently require explicit `APP_BASE_URL`, `DATABASE_URL`, `ARTIFACT_STORE`, `QUEUE_BACKEND`, and `MODEL_PROVIDER` values. Test-only adapter choices such as `memory` artifact/queue backends and the `fake` model provider are rejected for production-like environments. Non-production environments may remain partial so tests, local development, and lab fixtures do not invent hidden infrastructure defaults. `assertRuntimePreflightPasses` throws with failure codes for launch paths that want fail-fast behavior.
 
+## Runtime launch boundary
+
+Atliera app launch planning flows through `prepareRuntimeLaunch(runtime)` after runtime composition and before any app server, worker, DB client, queue broker, artifact store client, or model provider is started. The launch boundary runs pure runtime config preflight and returns a launch report over the supplied runtime.
+
+This seam does not read `process.env`, open sockets, construct clients, start HTTP servers, or perform live resource checks. Resource reachability belongs to a later resource preflight layer after durable adapters exist.
+
 ## Runtime composition seam
 
 Atliera runtime wiring should flow through explicit dependency composition before any app server, worker, DB, queue broker, object store, or provider is selected. `createAtlieraRuntime` assembles a runtime from supplied config and service adapters; `createInMemoryAtlieraRuntime` is a named deterministic test/dev composition using only in-memory adapters.

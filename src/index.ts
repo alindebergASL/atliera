@@ -3,8 +3,8 @@
 // Exports the Phase 1 surface: graph types, schema parsers, deterministic
 // validators, validation report shape, in-memory/file store, runtime modes,
 // typed runtime config parsing, artifact-store and job-queue interfaces,
-// runtime composition and preflight checks, and the (no-op) model adapter
-// interface stub.
+// runtime composition, preflight, launch planning checks, and the (no-op)
+// model adapter interface stub.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -21,4 +21,5 @@ export * from "./artifacts/store.ts";
 export * from "./jobs/queue.ts";
 export * from "./runtime/composition.ts";
 export * from "./runtime/preflight.ts";
+export * from "./runtime/launch.ts";
 export * from "./agent/model-adapter.ts";

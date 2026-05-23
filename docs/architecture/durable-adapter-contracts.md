@@ -330,11 +330,9 @@ Expected graph failures include:
 
 Adapters must surface these failures clearly and preserve enough context for operators to diagnose without leaking sensitive graph payloads.
 
-## Future ModelProvider contract
+## ModelProvider validation boundary
 
-The detailed `ModelProvider` contract belongs in a future PR before any provider SDK import, API key read, or live model call.
-
-That contract should carry forward Atliera/account-research lessons around:
+The detailed `ModelProvider` contract now exists before any provider SDK import, API key read, or live model call. It carries forward Atliera/account-research lessons around:
 
 - budget precheck before every call
 - retry only after rechecking budget
@@ -345,7 +343,9 @@ That contract should carry forward Atliera/account-research lessons around:
 - adversarial response validation
 - deterministic fake provider only in non-production-like environments
 
-PR #24 intentionally does not define the full provider adapter contract so storage, queue, and graph durability can be locked first.
+`validateModelProviderCompatibility({ provider, request, ... })` is the SDK-neutral validation harness for the first real provider run. It accepts an already-composed `ModelProvider`, explicit activation context, explicit credential status, and caller-owned run/corpus references; it must not construct provider clients, import SDKs, read env, perform secret lookup, estimate cost itself, retry prompts, or persist ledger rows. It refuses before the provider call when activation or credential gates fail, performs one injected provider call when gates pass, validates envelope-level shape/identity/usage/cost accounting, and returns sanitized evidence plus a `ModelCostLedgerEntry` for succeeded, failed, or refused outcomes. Deeper graph evidence correctness remains a graph-validator/quality-gate responsibility after output materialization.
+
+Provider-specific adapters remain separate implementation/deployment work. Real-provider validation must supply a tiny approved corpus, low spend cap, credential lookup, artifact persistence, and cleanup policy through launch/lab wiring rather than through this harness.
 
 ## Contract versioning and evolution
 

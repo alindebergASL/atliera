@@ -42,6 +42,7 @@ export * from "./runtime/model-provider-preflight.ts";
 export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
 export * from "./model/provider.ts";
+export * from "./model/provider-validation.ts";
 export * from "./model/activation-gates.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";

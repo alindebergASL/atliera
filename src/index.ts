@@ -8,8 +8,8 @@
 // queue adapter boundary, runtime composition, app/worker launch planning
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, and JobQueue probes, pure model-provider contract,
-// deterministic model adapter stub, pure AgentRun orchestration records, and
-// prompt-contract placeholders.
+// approval/cumulative-budget activation gates, deterministic model adapter stub,
+// pure AgentRun orchestration records, and prompt-contract placeholders.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -37,6 +37,7 @@ export * from "./runtime/job-queue-preflight.ts";
 export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
 export * from "./model/provider.ts";
+export * from "./model/activation-gates.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";

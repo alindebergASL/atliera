@@ -32,6 +32,7 @@ describe("ModelProvider contract", () => {
       MODEL_PROVIDER_SAFETY_CONTRACT.budget.estimateMustBeCheckedAgainstRemainingBudget,
       true,
     );
+    assert.equal(MODEL_PROVIDER_SAFETY_CONTRACT.budget.requiresCumulativeLedgerAcrossRuns, true);
     assert.equal(
       MODEL_PROVIDER_SAFETY_CONTRACT.budget.refuseBeforeCallWhenEstimateWouldExceedBudget,
       true,

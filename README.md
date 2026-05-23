@@ -153,6 +153,8 @@ Atliera resource reachability checks flow through `runResourcePreflight(config, 
 
 `defineGraphStorePreflightCheck({ store, graphId, bundle, mode })` is the graph persistence probe helper. It receives an already-composed `VersionedGraphStore`, commits a caller-scoped probe graph with `expectedRevision: null`, loads it back, verifies the revision and graph content match, and reports sanitized database-target outcomes. The caller owns the probe graph ID and lifecycle policy; reused probe IDs fail as conflicts instead of overwriting existing graph state.
 
+`defineJobQueuePreflightCheck({ queue, queueName })` is the queue backend probe helper. It receives an already-composed `JobQueue`, enqueues a deterministic caller-scoped probe job, dequeues the same logical queue, verifies the leased job state and payload, completes it, verifies the completed job is gone, and reports sanitized queue-backend outcomes. The caller owns the probe queue namespace and any retention/cleanup behavior required by the concrete backend. Deployment wiring must use a dedicated run-scoped probe queue, not a production work queue that may already contain real jobs, because the generic `JobQueue` contract intentionally exposes `dequeue(queueName)` rather than payload-filtered leasing.
+
 The resource preflight shape and probe helpers do not read `process.env`, construct clients, import provider/storage/queue/DB SDKs, open sockets by themselves, or choose buckets/endpoints/credentials/tables. Any live I/O comes only from the explicit injected adapter supplied by launch/deploy wiring. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
 
 ## Runtime launch boundaries

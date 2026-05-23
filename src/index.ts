@@ -2,12 +2,12 @@
 //
 // Exports the Phase 1 surface: graph types, schema parsers, deterministic
 // validators, validation report shape, in-memory/file store, versioned
-// GraphStore contract seam, runtime modes, typed runtime config parsing,
-// artifact-store interfaces plus S3-compatible adapter boundary, job-queue
-// interfaces, runtime composition, app/worker launch planning checks,
-// config/resource preflight checks including injected ArtifactStore and
-// VersionedGraphStore probes, pure model-provider contract, and the (no-op)
-// model adapter interface stub.
+// GraphStore contract seam plus injected database adapter boundary, runtime
+// modes, typed runtime config parsing, artifact-store interfaces plus
+// S3-compatible adapter boundary, job-queue interfaces, runtime composition,
+// app/worker launch planning checks, config/resource preflight checks including
+// injected ArtifactStore and VersionedGraphStore probes, pure model-provider
+// contract, and the (no-op) model adapter interface stub.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -17,6 +17,7 @@ export * from "./graph/report.ts";
 export * from "./graph/validate.ts";
 export * from "./graph/store.ts";
 export * from "./graph/versioned-store.ts";
+export * from "./graph/database-versioned-store.ts";
 export * from "./graph/file-store.ts";
 export * from "./gate/quality-gate.ts";
 export * from "./modes/index.ts";

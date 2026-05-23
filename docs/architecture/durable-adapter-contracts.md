@@ -259,6 +259,8 @@ Adapters must expose these as diagnosable failures rather than silent drops.
 
 The current `InMemoryVersionedGraphStore` is test/dev behavior only. It demonstrates the optimistic-concurrency contract without reading env, constructing clients, importing DB/storage SDKs, opening sockets, or picking a production database. A future durable adapter may use a database row version, transaction ID, etag, or equivalent token as long as stale writers cannot silently overwrite newer graph state.
 
+`DatabaseVersionedGraphStore` is the first SDK-neutral database adapter boundary behind `VersionedGraphStore`. It accepts an injected database client and logical table identifier, then maps create-only commits to conditional inserts and expected-revision commits to conditional updates. The adapter must not read env, import a DB SDK, construct clients, choose URLs/hosts/credentials, or wire launch/deploy code. Its atomic commit boundary is one whole serialized `GraphBundle` row per conditional client operation: an insert for an existing graph returns the current revision, and an update whose expected revision no longer matches returns the current revision or not-found shape instead of overwriting. Backend failures and observability events must remain sanitized.
+
 ### Atomicity
 
 A graph commit must be atomic at the chosen commit boundary. The adapter must document that boundary.
@@ -384,9 +386,9 @@ A durable adapter PR should answer all of these before merge:
 
 ## Current follow-up sequence
 
-After the first SDK-neutral S3-compatible `ArtifactStore` boundary, injected artifact-store resource probe, `VersionedGraphStore` seam, and injected graph-store resource probe:
+After the first SDK-neutral S3-compatible `ArtifactStore` boundary, injected artifact-store resource probe, `VersionedGraphStore` seam, injected graph-store resource probe, and SDK-neutral database-backed graph-store adapter boundary:
 
-1. Next graph persistence work should implement a concrete durable adapter behind `VersionedGraphStore`, likely database-backed, with atomic commits and conflict detection.
-2. Keep app/server/worker wiring separate from adapter implementation PRs.
+1. Keep app/server/worker wiring separate from adapter implementation PRs.
+2. Add a concrete database client binding only in explicit deployment/runtime wiring, after choosing the runtime database and migration approach.
 3. Add job-queue durable implementation only after graph persistence is far enough to support the core evidence/workshop path.
 4. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.

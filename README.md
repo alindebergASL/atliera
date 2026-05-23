@@ -197,6 +197,8 @@ The core evidence/workshop graph path now has a versioned persistence contract b
 
 `InMemoryVersionedGraphStore` is deterministic test/dev behavior, not production durability. It still enforces the contract shape: safe logical graph IDs, schema validation before commit, safe-mode write refusal, defensive copies, read-your-writes behavior, and no env reads, SDK imports, client construction, network calls, deployment paths, DB URLs, or infrastructure addresses.
 
+`DatabaseVersionedGraphStore` is the first database-backed adapter boundary for the versioned graph contract. It is SDK-neutral: callers inject a small database client plus a logical table identifier, and the adapter performs create-only inserts or expected-revision conditional updates through that client. The atomic commit boundary is one whole serialized `GraphBundle` row per conditional client operation. The adapter does not read `process.env`, import a DB SDK, construct clients, open sockets by itself, choose database URLs/hosts/tables, or wire app/server/worker launch code. It validates graph IDs and bundles before writes, returns defensive copies, preserves missing rows as `undefined`, emits sanitized best-effort operation events, and wraps backend failures without leaking connection strings, table internals, credentials, tokens, or graph payloads.
+
 ## File-backed graph store
 
 Phase 1.4 also includes a tiny file-backed graph store adapter for local JSON files only. It is not a database and it does not add app/runtime persistence. The store:

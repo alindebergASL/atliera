@@ -62,6 +62,7 @@ export interface ModelProviderSafetyContract {
   readonly budget: {
     readonly requiresPreCallEstimate: true;
     readonly estimateMustBeCheckedAgainstRemainingBudget: true;
+    readonly requiresCumulativeLedgerAcrossRuns: true;
     readonly refuseBeforeCallWhenEstimateWouldExceedBudget: true;
     readonly postCallCostIsReportingOnly: true;
   };
@@ -102,6 +103,7 @@ export const MODEL_PROVIDER_SAFETY_CONTRACT: ModelProviderSafetyContract = Objec
   budget: Object.freeze({
     requiresPreCallEstimate: true,
     estimateMustBeCheckedAgainstRemainingBudget: true,
+    requiresCumulativeLedgerAcrossRuns: true,
     refuseBeforeCallWhenEstimateWouldExceedBudget: true,
     postCallCostIsReportingOnly: true,
   }),

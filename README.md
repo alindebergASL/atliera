@@ -11,7 +11,7 @@ Core architecture vocabulary:
 - Atliera Graph — the evidence/source/excerpt/claim/object truth layer
 - Signals / Maps / Plays — launch lenses over the same graph, not separate early data pipelines
 
-See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/durable-adapter-contracts.md`, and `docs/adr/0001-atliera-fresh-system.md` for the initial architecture plan.
+See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/durable-adapter-contracts.md`, `docs/strategy/substrate-to-validation-transition.md`, and `docs/adr/0001-atliera-fresh-system.md` for the initial architecture plan and current substrate-to-validation transition decision.
 
 ## Phase 1 graph foundation
 

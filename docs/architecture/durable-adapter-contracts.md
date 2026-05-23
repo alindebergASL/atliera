@@ -1,0 +1,334 @@
+# Durable adapter contracts
+
+Status: Proposed
+
+Atliera's runtime seams intentionally define interfaces before choosing production storage, queue, database, or provider implementations. This document defines the contract future durable adapters must satisfy before app-server, worker, provider, or deployment wiring depends on them.
+
+This is a contract spec for implementers. A developer with no Atliera context should be able to read this document and understand what makes a future durable adapter compliant.
+
+## Scope
+
+In scope now:
+
+- `ArtifactStore`
+- `JobQueue`
+- `GraphStore`
+- cross-cutting durability, ordering, idempotency, failure, and observability expectations
+- a forward reference for future `ModelProvider` contract work
+
+Out of scope for this PR:
+
+- implementing S3, filesystem, Postgres, Redis, SQS, or provider adapters
+- app server or worker launch code
+- resource preflight or live reachability checks
+- SDK imports, API key reads, client construction, network calls, or deployment scripts
+- choosing an observability vendor
+
+## Durability definition
+
+For Atliera production-like environments, durable means that committed data survives:
+
+- process restarts
+- application redeploys
+- ordinary host restarts
+- machine failure, within the accepted deployment availability model
+
+Durability also requires an operational recovery path, such as backups, replication, versioning, or managed-service recovery controls. A component is not production-durable merely because it writes bytes somewhere.
+
+Examples that may satisfy the durable contract when configured correctly:
+
+- AWS S3 or equivalent multi-AZ object storage
+- Postgres with persistent storage, backups, and an explicit restore path
+- managed queue services with persistence and dead-letter support
+- replicated object stores with documented failure domains
+
+Examples that do not satisfy production durability by default:
+
+- in-memory adapters
+- container scratch space or ephemeral filesystems
+- default local filesystem paths on one EC2 host
+- single-instance object stores without replication or backups
+- a mounted object-store filesystem whose rename, listing, locking, or flush semantics are not documented and accepted
+
+Atliera infrastructure currently lives on AWS and S3 is an available likely implementation target. That availability does not make the product contract AWS-specific. Runtime code must still depend on logical config and adapter interfaces, not hardcoded buckets, regions, EC2 paths, mount paths, endpoints, or account-specific infrastructure.
+
+## Config preflight and resource preflight
+
+Config preflight is pure. It validates selected runtime config before clients exist. It must not read env, open sockets, import providers, construct DB/queue/storage clients, or check live resource reachability.
+
+Resource preflight is live. It checks whether configured resources are reachable and permissioned after concrete clients/adapters exist. Resource preflight belongs in a later phase, alongside or after durable adapters. Adding it before durable adapters would either duplicate config preflight or sneak client construction into the substrate too early.
+
+## Cross-cutting contract requirements
+
+### Logical addressing
+
+Adapters expose logical identifiers, not deployment paths or URLs, unless the interface explicitly says otherwise.
+
+- artifact references are logical keys
+- queue names are logical identifiers
+- graph references are graph IDs and versions
+
+Adapter implementations may map those identifiers to buckets, tables, prefixes, streams, queues, or files internally, but those mappings must stay behind config and adapter boundaries.
+
+### Failure handling
+
+Durable adapters must surface operational failures as explicit errors or typed failure results. They must not silently downgrade to in-memory behavior, local files, fake providers, or no-op writes.
+
+Expected durable failures include:
+
+- not found
+- permission denied
+- invalid key/name/id
+- conflict or version mismatch
+- timeout
+- retry exhaustion
+- throttling or rate limiting
+- dependency unavailable
+- payload too large
+- serialization or schema failure
+
+Failure messages and logs must include enough context to diagnose the issue without leaking secrets, connection strings, credentials, signed URLs, tokens, or full sensitive payloads.
+
+### Idempotency
+
+Adapters and consumers must assume retries happen.
+
+Operations should be idempotent where the interface can make that safe. Where idempotency requires a caller-supplied key, the interface or higher-level contract must say so explicitly.
+
+Duplicate queue delivery is expected. Job consumers must be idempotent even if a development in-memory queue appears to deliver exactly once.
+
+### Ordering
+
+Atliera must not rely on global ordering across app servers, workers, queues, graph stores, and artifact stores.
+
+Durable queue adapters must not promise FIFO ordering by default. Any stronger ordering guarantee must be adapter-specific, explicit, tested, and reflected in runtime config. Product logic should assume at-least-once delivery with possible duplicates and reordering.
+
+Graph writes and reads may have stronger consistency than queues, but cross-process and replica behavior must be documented by the adapter.
+
+### Observability
+
+Durable adapters are operational failure points. Future implementations must emit structured observability signals without choosing a vendor in this contract.
+
+Each adapter operation should support:
+
+- correlation or request IDs supplied by the caller or runtime
+- operation start, success, failure, retry, and timeout events
+- duration measurement
+- sanitized dependency identifiers, such as logical adapter name and operation name
+- failure code/category suitable for metrics and alerting
+
+Logs and metrics must not contain secrets, raw credentials, signed URLs, tokens, API keys, or full sensitive artifact/graph payloads.
+
+## ArtifactStore contract
+
+`ArtifactStore` stores and retrieves artifacts by logical keys. The current in-memory implementation is a deterministic test/dev adapter. It does not define production durability.
+
+### Key semantics
+
+Artifact keys are relative slash-delimited identifiers. They are not URLs, absolute paths, local filesystem paths, S3 URLs, S3 mount paths, or deployment-specific locations.
+
+Implementations must reject unsafe keys before reads or writes, including:
+
+- blank keys
+- dot or empty segments
+- traversal segments
+- absolute paths
+- backslashes
+- URL-like strings
+- implementation-specific reserved prefixes, if documented
+
+### Write semantics
+
+A successful write is committed only after the adapter can report that the artifact is durably stored according to its backend's contract.
+
+Required behavior:
+
+- `put(key, value)` with the same key and same value should be idempotent.
+- `put(key, value1)` followed by `put(key, value2)` must have explicit adapter behavior: either overwrite with last-write-wins or reject with a conflict. The adapter must document which behavior it implements.
+- Partial writes must not be observable as successful committed artifacts.
+- Payload size limits must be documented and enforced with explicit errors.
+
+### Read and not-found semantics
+
+- Reading a missing key should return the interface's not-found shape rather than inventing an empty artifact.
+- Permission failures must not be collapsed into not-found unless the adapter explicitly documents that security model.
+- Reads after successful writes should be consistent for the writing process. Cross-process/listing visibility may depend on the backend and must be documented.
+
+### Listing semantics
+
+If a future ArtifactStore adds listing, the adapter must document:
+
+- whether listing is strongly or eventually consistent
+- whether ordering is guaranteed
+- whether pagination can return duplicates or omit recently written keys
+- whether prefixes are logical only or map to backend paths internally
+
+Current product logic must not require listing consistency until the interface explicitly defines it.
+
+### AWS/S3 note
+
+A direct S3 adapter is a likely first durable ArtifactStore implementation. It should use logical keys and runtime config for bucket, prefix, region, credentials, and endpoint behavior.
+
+An S3-mounted filesystem can be operationally useful, but it must not be treated as ordinary POSIX storage unless the mount layer's rename, flush, listing, locking, and failure semantics are documented and accepted. If implemented, an S3-mount-backed adapter must state which guarantees come from S3 and which come from the mount layer.
+
+## JobQueue contract
+
+`JobQueue` coordinates background work through logical queues. The current in-memory implementation is deterministic test/dev behavior. It does not define production queue semantics.
+
+### Delivery semantics
+
+Durable JobQueue adapters should assume at-least-once delivery unless they explicitly document a different guarantee.
+
+Required behavior:
+
+- duplicate delivery is possible
+- consumers must be idempotent
+- queue implementations must support explicit completion or acknowledgement
+- claimed jobs must become visible again, fail, or move to a dead-letter path if not completed within the adapter's visibility/lease rules
+- enqueue should be idempotent only when the producer supplies an idempotency key or equivalent dedupe identifier
+
+Exactly-once delivery is not a baseline Atliera contract.
+
+### Ordering semantics
+
+No global FIFO guarantee exists by default.
+
+Implementations may provide stronger ordering, such as FIFO queues or single-producer ordering, but product logic must not depend on ordering unless:
+
+- the runtime config selects an adapter with that documented guarantee
+- tests cover the ordering-dependent behavior
+- the worker contract states the tradeoff explicitly
+
+### Payload and metadata
+
+Adapters must document:
+
+- max message size
+- serialization format
+- required job ID/idempotency metadata
+- lease or visibility timeout behavior
+- retry count or attempt metadata
+- dead-letter policy
+
+Large payloads should be stored as artifacts and referenced by logical artifact keys rather than embedded directly in queue messages.
+
+### Failure modes
+
+Expected queue failures include:
+
+- enqueue rejected because payload is too large
+- duplicate idempotency key conflict or dedupe hit
+- lease timeout
+- completion of an unknown or already-completed job
+- dependency timeout/unavailable
+- throttling or rate limiting
+- permission denied
+
+Adapters must expose these as diagnosable failures rather than silent drops.
+
+## GraphStore contract
+
+`GraphStore` is the durable evidence graph boundary. Current in-memory and local-file behavior is useful for deterministic tests and local fixtures, but production graph storage requires explicit durability, consistency, and concurrency semantics.
+
+### Atomicity
+
+A graph commit must be atomic at the chosen commit boundary. The adapter must document that boundary.
+
+Examples of acceptable commit boundaries:
+
+- a whole `GraphBundle` replaces the prior bundle atomically
+- a transaction writes a set of graph records atomically
+- an append-only event transaction commits one graph mutation atomically
+
+Partial graph commits must not be reported as successful.
+
+### Consistency
+
+Baseline expectation:
+
+- reads through the same GraphStore process should observe that process's prior successful writes
+- writes through the primary durable store should be strongly consistent at the commit boundary
+- cross-process, read-replica, cache, or eventually consistent behavior must be documented by the adapter
+
+Product logic must not assume read-replica freshness unless the adapter contract says it is guaranteed.
+
+### Concurrency
+
+Durable GraphStore implementations should support optimistic concurrency or an equivalent conflict-detection mechanism.
+
+A writer should be able to say which version, revision, or etag it expects. If the stored graph changed before commit, the write should fail with a conflict rather than silently overwrite another writer's update.
+
+If a future implementation intentionally uses last-write-wins, that must be documented as a product-level tradeoff and reviewed before production use.
+
+### Migrations and schema versions
+
+Graph schema migrations are human-reviewed deployment operations, not automatic background magic.
+
+Adapters must document:
+
+- supported graph schema versions
+- migration ordering requirements
+- rollback limitations
+- backup expectations before destructive migrations
+
+Migration scripts should be idempotent only when intentionally designed that way. The contract must not assume arbitrary migrations can safely be retried.
+
+### Failure modes
+
+Expected graph failures include:
+
+- schema validation failure
+- version conflict
+- transaction conflict/deadlock
+- dependency timeout/unavailable
+- permission denied
+- migration/version mismatch
+- serialization failure
+- payload too large
+
+Adapters must surface these failures clearly and preserve enough context for operators to diagnose without leaking sensitive graph payloads.
+
+## Future ModelProvider contract
+
+The detailed `ModelProvider` contract belongs in a future PR before any provider SDK import, API key read, or live model call.
+
+That contract should carry forward Atliera/account-research lessons around:
+
+- budget precheck before every call
+- retry only after rechecking budget
+- cost reporting and cumulative spend tracking
+- rate-limit handling
+- circuit breaker state
+- refusal and credential handling
+- adversarial response validation
+- deterministic fake provider only in non-production-like environments
+
+PR #24 intentionally does not define the full provider adapter contract so storage, queue, and graph durability can be locked first.
+
+## Compliance checklist for future durable adapters
+
+A durable adapter PR should answer all of these before merge:
+
+- Which interface contract does it implement?
+- Which backend does it use, and which config keys select it?
+- Which durability guarantee does it provide?
+- Which ordering guarantee does it not provide?
+- What are the idempotency rules?
+- What are the consistency/read-after-write rules?
+- What are the max payload/message/artifact sizes?
+- What retry, timeout, throttling, and not-found behavior does it expose?
+- How does it avoid leaking deployment paths, URLs, or credentials into product logic?
+- What structured log events and metrics does it emit?
+- How are correlation IDs propagated?
+- What tests prove contract compliance and representative failure behavior?
+- What is explicitly still unsupported?
+
+## Current follow-up sequence
+
+After this contract spec:
+
+1. Add a pure app launch boundary with no sockets or clients.
+2. Add a pure worker launch boundary with no polling loop or provider calls.
+3. Define the full ModelProvider contract before SDKs or API keys.
+4. Add resource preflight only when real clients/adapters exist to check.
+5. Implement durable adapters one at a time against this contract, likely starting with ArtifactStore because AWS/S3 is available and lower-coupling than graph or queue persistence.

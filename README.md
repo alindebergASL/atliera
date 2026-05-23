@@ -145,13 +145,19 @@ Atliera production-like runtime launch should fail closed before any app server,
 
 Production and staging currently require explicit `APP_BASE_URL`, `DATABASE_URL`, `ARTIFACT_STORE`, `QUEUE_BACKEND`, and `MODEL_PROVIDER` values. Test-only adapter choices such as `memory` artifact/queue backends and the `fake` model provider are rejected for production-like environments. Non-production environments may remain partial so tests, local development, and lab fixtures do not invent hidden infrastructure defaults. `assertRuntimePreflightPasses` throws with failure codes for launch paths that want fail-fast behavior.
 
+## Resource preflight shape
+
+Atliera resource reachability checks flow through `runResourcePreflight(config, checks)` after pure config preflight passes and after concrete durable adapters/clients exist. This layer defines the shape only: it accepts explicit caller-supplied check functions, aggregates pass/fail/warn results, requires production-like checks for database, artifact store, queue backend, and model provider targets, and refuses to run live checks when config preflight has already failed.
+
+The resource preflight shape does not read `process.env`, construct clients, import provider/storage/queue SDKs, open sockets, or perform network calls by itself. Future durable adapters supply the concrete probes. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
+
 ## Runtime launch boundaries
 
 Atliera app launch planning flows through `prepareRuntimeLaunch(runtime)` after runtime composition and before any app server, worker, DB client, queue broker, artifact store client, or model provider is started. The app launch boundary runs pure runtime config preflight and returns a launch report over the supplied runtime.
 
 Atliera worker launch planning flows through `prepareWorkerRuntimeLaunch(runtime, options)` before any polling loop, dequeue, job execution, DB client, queue broker, artifact store client, or model provider call is started. Worker queues are logical queue names only, and unsafe URL/path/IP/host-like queue names are rejected before a worker loop can exist.
 
-These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, execute jobs, or perform live resource checks. Resource reachability belongs to a later resource preflight layer after durable adapters exist.
+These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, execute jobs, or perform live resource checks. Concrete resource reachability probes belong to future durable adapter implementations and are supplied to the resource preflight shape explicitly.
 
 ## Model provider contract
 

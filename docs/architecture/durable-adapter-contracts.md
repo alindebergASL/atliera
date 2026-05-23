@@ -20,7 +20,7 @@ Out of scope for this PR:
 
 - implementing S3, filesystem, Postgres, Redis, SQS, or provider adapters
 - app server or worker launch code
-- resource preflight or live reachability checks
+- concrete resource preflight probes or live reachability checks
 - SDK imports, API key reads, client construction, network calls, or deployment scripts
 - choosing an observability vendor
 
@@ -28,7 +28,7 @@ This spec defines contracts. It does not prescribe specific implementations. The
 
 - app server and worker launch infrastructure
 - first durable adapter implementations, likely starting with an S3 `ArtifactStore`
-- resource preflight alongside or after the first durable adapters
+- concrete resource preflight probes alongside or after the first durable adapters
 - the full `ModelProvider` contract before any provider SDK work
 - deployment scripts, CI/CD wiring, and monitoring vendor selection
 
@@ -64,7 +64,7 @@ Atliera infrastructure currently lives on AWS and S3 is an available likely impl
 
 Config preflight is pure. It validates selected runtime config before clients exist. It must not read env, open sockets, import providers, construct DB/queue/storage clients, or check live resource reachability.
 
-Resource preflight is live. It checks whether configured resources are reachable and permissioned after concrete clients/adapters exist. Resource preflight belongs in a later phase, alongside or after durable adapters. Adding it before durable adapters would either duplicate config preflight or sneak client construction into the substrate too early.
+Resource preflight is live. It checks whether configured resources are reachable and permissioned after concrete clients/adapters exist. The substrate may define a pure resource-preflight result/check shape before durable adapters exist, but concrete probes belong alongside or after durable adapters. Adding live probes before durable adapters would either duplicate config preflight or sneak client construction into the substrate too early.
 
 ## Cross-cutting contract requirements
 
@@ -368,5 +368,6 @@ After this contract spec:
 1. Add a pure app launch boundary with no sockets or clients.
 2. Add a pure worker launch boundary with no polling loop or provider calls.
 3. Define the full ModelProvider contract before SDKs or API keys.
-4. Add resource preflight only when real clients/adapters exist to check.
+4. Define the pure resource preflight shape without clients, SDK imports, sockets, or live reachability checks.
 5. Implement durable adapters one at a time against this contract, likely starting with ArtifactStore because AWS/S3 is available and lower-coupling than graph or queue persistence.
+6. Add concrete resource preflight probes only when real clients/adapters exist to check.

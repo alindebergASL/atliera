@@ -151,7 +151,9 @@ Atliera resource reachability checks flow through `runResourcePreflight(config, 
 
 `defineArtifactStorePreflightCheck({ store, probeKey })` is the first concrete probe helper. It receives an already-composed `ArtifactStore`, writes a caller-scoped text probe artifact, reads it back, verifies the content matches, and reports only stable pass/fail codes plus sanitized metadata. The caller owns the probe key, so deployment wiring should use a safe environment/run-scoped key such as `preflight/<run-id>/artifact-store.txt` and should account for backend retention/lifecycle cleanup.
 
-The resource preflight shape and probe helpers do not read `process.env`, construct clients, import provider/storage/queue SDKs, open sockets by themselves, or choose buckets/endpoints/credentials. Any live I/O comes only from the explicit injected adapter supplied by launch/deploy wiring. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
+`defineGraphStorePreflightCheck({ store, graphId, bundle, mode })` is the graph persistence probe helper. It receives an already-composed `VersionedGraphStore`, commits a caller-scoped probe graph with `expectedRevision: null`, loads it back, verifies the revision and graph content match, and reports sanitized database-target outcomes. The caller owns the probe graph ID and lifecycle policy; reused probe IDs fail as conflicts instead of overwriting existing graph state.
+
+The resource preflight shape and probe helpers do not read `process.env`, construct clients, import provider/storage/queue/DB SDKs, open sockets by themselves, or choose buckets/endpoints/credentials/tables. Any live I/O comes only from the explicit injected adapter supplied by launch/deploy wiring. Check results are sanitized so thrown errors and secret-like metadata keys cannot leak credentials into reports.
 
 ## Runtime launch boundaries
 
@@ -159,7 +161,7 @@ Atliera app launch planning flows through `prepareRuntimeLaunch(runtime)` after 
 
 Atliera worker launch planning flows through `prepareWorkerRuntimeLaunch(runtime, options)` before any polling loop, dequeue, job execution, DB client, queue broker, artifact store client, or model provider call is started. Worker queues are logical queue names only, and unsafe URL/path/IP/host-like queue names are rejected before a worker loop can exist.
 
-These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, execute jobs, or perform live resource checks. Concrete resource reachability probes belong to future durable adapter implementations and are supplied to the resource preflight shape explicitly.
+These seams do not read `process.env`, open sockets, construct clients, start HTTP servers, start polling loops, dequeue jobs, or execute jobs. Additional concrete resource reachability probes should continue to live beside durable adapter implementations and be supplied to the resource preflight shape explicitly.
 
 ## Model provider contract
 

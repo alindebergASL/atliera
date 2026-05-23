@@ -69,6 +69,8 @@ Resource preflight is live. It checks whether configured resources are reachable
 
 The first concrete probe helper is `defineArtifactStorePreflightCheck({ store, probeKey })`. It accepts an already-composed `ArtifactStore`, writes and reads a caller-scoped text probe artifact, and returns stable sanitized pass/fail codes. It must not construct storage clients, read env, choose buckets/endpoints/credentials, or leak backend error details. Deployment wiring owns the probe key and cleanup/retention policy for probe objects.
 
+`defineGraphStorePreflightCheck({ store, graphId, bundle, mode })` accepts an already-composed `VersionedGraphStore`, commits a caller-scoped probe graph with create-only optimistic concurrency, loads it back, verifies the revision and graph content match, and returns stable sanitized database-target pass/fail codes. It must not construct database clients, read env, choose tables/URLs/credentials, import DB SDKs, or leak backend error details. Deployment wiring owns the probe graph ID and cleanup/retention policy; a reused probe ID must surface as a conflict rather than overwrite existing graph state.
+
 ## Cross-cutting contract requirements
 
 ### Logical addressing
@@ -382,9 +384,9 @@ A durable adapter PR should answer all of these before merge:
 
 ## Current follow-up sequence
 
-After the first SDK-neutral S3-compatible `ArtifactStore` boundary and injected artifact-store resource probe:
+After the first SDK-neutral S3-compatible `ArtifactStore` boundary, injected artifact-store resource probe, `VersionedGraphStore` seam, and injected graph-store resource probe:
 
-1. The graph path now has a `VersionedGraphStore` optimistic-concurrency seam. Next graph persistence work should implement a concrete durable adapter behind that interface, likely database-backed, with atomic commits and conflict detection.
+1. Next graph persistence work should implement a concrete durable adapter behind `VersionedGraphStore`, likely database-backed, with atomic commits and conflict detection.
 2. Keep app/server/worker wiring separate from adapter implementation PRs.
 3. Add job-queue durable implementation only after graph persistence is far enough to support the core evidence/workshop path.
 4. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.

@@ -181,9 +181,11 @@ Queue names are logical identifiers, not URLs, paths, IP addresses, host:port st
 
 ## Artifact store seam
 
-Atliera artifacts should be addressable through implementation-neutral keys before any production storage backend is chosen. `ArtifactStore` defines a minimal text-artifact interface and `InMemoryArtifactStore` provides deterministic test/dev behavior without binding product logic to a local filesystem, bucket, queue, or server.
+Atliera artifacts should be addressable through implementation-neutral keys before product logic depends on any deployment-specific storage location. `ArtifactStore` defines a minimal text-artifact interface and `InMemoryArtifactStore` provides deterministic test/dev behavior without binding product logic to a local filesystem, bucket, queue, or server.
 
-Artifact keys are relative slash-delimited identifiers, not URLs or absolute paths. Unsafe keys with traversal, empty segments, URL schemes, or backslashes are rejected before reads or writes.
+`S3ArtifactStore` is the first durable-adapter boundary. It is S3-compatible but SDK-neutral: callers inject a small object-storage client, bucket, optional logical prefix, and optional max payload size. The adapter does not read `process.env`, import an AWS SDK, construct clients, open sockets by itself, or hardcode buckets, regions, endpoints, accounts, hosts, or mount paths. It maps logical artifact keys to backend object keys internally and returns only the logical artifact key to product code.
+
+Artifact keys are relative slash-delimited identifiers, not URLs or absolute paths. Unsafe keys with traversal, empty segments, URL schemes, or backslashes are rejected before reads or writes. The S3-compatible adapter also validates bucket/prefix config, rejects oversized payloads before writing when `maxPayloadBytes` is configured, preserves missing objects as `undefined`, emits sanitized best-effort operation lifecycle events through an optional observer, and wraps backend failures with stable sanitized operation context so secret-bearing dependency errors do not leak.
 
 ## File-backed graph store
 

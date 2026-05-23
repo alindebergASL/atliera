@@ -16,7 +16,7 @@ In scope now:
 - cross-cutting durability, ordering, idempotency, failure, and observability expectations
 - a forward reference for future `ModelProvider` contract work
 
-Out of scope for this PR:
+Out of scope for the initial contract PR:
 
 - implementing S3, filesystem, Postgres, Redis, SQS, or provider adapters
 - app server or worker launch code
@@ -24,12 +24,13 @@ Out of scope for this PR:
 - SDK imports, API key reads, client construction, network calls, or deployment scripts
 - choosing an observability vendor
 
+The first durable adapter implementation now begins with an SDK-neutral, S3-compatible `ArtifactStore` boundary. It still does not wire app/server/worker code, import an AWS SDK, read API keys/env, construct clients, or choose production buckets/endpoints.
+
 This spec defines contracts. It does not prescribe specific implementations. The following are intentionally addressed in future PRs:
 
 - app server and worker launch infrastructure
-- first durable adapter implementations, likely starting with an S3 `ArtifactStore`
-- concrete resource preflight probes alongside or after the first durable adapters
-- the full `ModelProvider` contract before any provider SDK work
+- additional durable adapter implementations for graph and queue storage
+- concrete resource preflight probes alongside or after durable adapters
 - deployment scripts, CI/CD wiring, and monitoring vendor selection
 
 ## Durability definition
@@ -175,7 +176,9 @@ Current product logic must not require listing consistency until the interface e
 
 ### AWS/S3 note
 
-A direct S3 adapter is a likely first durable ArtifactStore implementation. It should use logical keys and runtime config for bucket, prefix, region, credentials, and endpoint behavior.
+`S3ArtifactStore` is Atliera's first durable adapter boundary. It is S3-compatible but intentionally SDK-neutral: the adapter receives a small injected client plus explicit bucket/prefix/payload config, and therefore does not import an AWS SDK, read credentials, construct clients, open sockets by itself, or choose production infrastructure.
+
+The adapter uses logical keys at the product boundary and maps them to backend object keys internally. Bucket, prefix, region, credentials, endpoint, and retry behavior remain runtime/client concerns outside the product contract. The implementation documents last-write-wins object replacement semantics through ordinary object-store `putObject` behavior; callers that require conflict detection need a future versioned interface change. Its optional observer emits sanitized start/success/failure events with operation, logical key, duration, and stable failure category only; it must not expose payloads, credentials, signed URLs, or backend object keys. Observer callbacks are best-effort telemetry and must not change storage outcomes if they fail.
 
 An S3-mounted filesystem can be operationally useful, but it must not be treated as ordinary POSIX storage unless the mount layer's rename, flush, listing, locking, and failure semantics are documented and accepted. If implemented, an S3-mount-backed adapter must state which guarantees come from S3 and which come from the mount layer.
 
@@ -363,11 +366,9 @@ A durable adapter PR should answer all of these before merge:
 
 ## Current follow-up sequence
 
-After this contract spec:
+After the first SDK-neutral S3-compatible `ArtifactStore` boundary:
 
-1. Add a pure app launch boundary with no sockets or clients.
-2. Add a pure worker launch boundary with no polling loop or provider calls.
-3. Define the full ModelProvider contract before SDKs or API keys.
-4. Define the pure resource preflight shape without clients, SDK imports, sockets, or live reachability checks.
-5. Implement durable adapters one at a time against this contract, likely starting with ArtifactStore because AWS/S3 is available and lower-coupling than graph or queue persistence.
-6. Add concrete resource preflight probes only when real clients/adapters exist to check.
+1. Decide whether to add a concrete resource preflight probe for the configured artifact client, or defer until the app/server boundary is closer.
+2. Implement the next durable adapter one at a time, likely GraphStore or JobQueue depending on which product path needs persistence first.
+3. Keep app/server/worker wiring separate from adapter implementation PRs.
+4. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.

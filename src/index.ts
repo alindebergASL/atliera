@@ -4,10 +4,11 @@
 // validators, validation report shape, in-memory/file store, versioned
 // GraphStore contract seam plus injected database adapter boundary, runtime
 // modes, typed runtime config parsing, artifact-store interfaces plus
-// S3-compatible adapter boundary, job-queue interfaces, runtime composition,
-// app/worker launch planning checks, config/resource preflight checks including
-// injected ArtifactStore and VersionedGraphStore probes, pure model-provider
-// contract, and the (no-op) model adapter interface stub.
+// S3-compatible adapter boundary, job-queue interfaces plus injected database
+// queue adapter boundary, runtime composition, app/worker launch planning
+// checks, config/resource preflight checks including injected ArtifactStore and
+// VersionedGraphStore probes, pure model-provider contract, and the (no-op)
+// model adapter interface stub.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -25,6 +26,7 @@ export * from "./config/runtime.ts";
 export * from "./artifacts/store.ts";
 export * from "./artifacts/s3-store.ts";
 export * from "./jobs/queue.ts";
+export * from "./jobs/database-queue.ts";
 export * from "./runtime/composition.ts";
 export * from "./runtime/preflight.ts";
 export * from "./runtime/resource-preflight.ts";

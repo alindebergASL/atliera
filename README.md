@@ -181,6 +181,8 @@ The composition seam does not read `process.env`, create network clients, choose
 
 Atliera background work should target a logical queue interface before any production queue backend is chosen. `JobQueue` defines a minimal enqueue/dequeue/complete interface and `InMemoryJobQueue` provides deterministic test/dev behavior without binding product logic to Redis, a database table, one process, or one server.
 
+`DatabaseJobQueue` is the first database-backed adapter boundary for the job queue contract. It is SDK-neutral: callers inject a small database client plus a logical table identifier, and the adapter maps enqueue/dequeue/complete/get operations to that client. The lease boundary is one atomic client `leaseNextJob` operation that must claim and return a queued row as leased; the adapter itself does not pick a visibility timeout, retry policy, dead-letter policy, max payload size, database URL, host, credential, SDK, or migration shape. It validates logical queue names, table names, generated job IDs, and strict JSON-value payloads before client access, wraps backend failures with stable sanitized errors, and emits best-effort sanitized operation events.
+
 Queue names are logical identifiers, not URLs, paths, IP addresses, host:port strings, or broker addresses. Unsafe queue names are rejected before enqueue/dequeue.
 
 ## Artifact store seam

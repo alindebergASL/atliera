@@ -6,8 +6,8 @@
 // modes, typed runtime config parsing, artifact-store interfaces plus
 // S3-compatible adapter boundary, job-queue interfaces plus injected database
 // queue adapter boundary, runtime composition, app/worker launch planning
-// checks, config/resource preflight checks including injected ArtifactStore and
-// VersionedGraphStore probes, pure model-provider contract, and the (no-op)
+// checks, config/resource preflight checks including injected ArtifactStore,
+// VersionedGraphStore, and JobQueue probes, pure model-provider contract, and the (no-op)
 // model adapter interface stub.
 
 export * from "./graph/ids.ts";
@@ -32,6 +32,7 @@ export * from "./runtime/preflight.ts";
 export * from "./runtime/resource-preflight.ts";
 export * from "./runtime/artifact-store-preflight.ts";
 export * from "./runtime/graph-store-preflight.ts";
+export * from "./runtime/job-queue-preflight.ts";
 export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
 export * from "./model/provider.ts";

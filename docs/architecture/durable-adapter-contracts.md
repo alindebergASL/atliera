@@ -65,7 +65,9 @@ Atliera infrastructure currently lives on AWS and S3 is an available likely impl
 
 Config preflight is pure. It validates selected runtime config before clients exist. It must not read env, open sockets, import providers, construct DB/queue/storage clients, or check live resource reachability.
 
-Resource preflight is live. It checks whether configured resources are reachable and permissioned after concrete clients/adapters exist. The substrate may define a pure resource-preflight result/check shape before durable adapters exist, but concrete probes belong alongside or after durable adapters. Adding live probes before durable adapters would either duplicate config preflight or sneak client construction into the substrate too early.
+Resource preflight is live. It checks whether configured resources are reachable and permissioned after concrete clients/adapters exist. The substrate defines a pure resource-preflight result/check shape, while concrete probes belong alongside or after durable adapters so they can use injected clients without sneaking client construction into the substrate.
+
+The first concrete probe helper is `defineArtifactStorePreflightCheck({ store, probeKey })`. It accepts an already-composed `ArtifactStore`, writes and reads a caller-scoped text probe artifact, and returns stable sanitized pass/fail codes. It must not construct storage clients, read env, choose buckets/endpoints/credentials, or leak backend error details. Deployment wiring owns the probe key and cleanup/retention policy for probe objects.
 
 ## Cross-cutting contract requirements
 
@@ -368,7 +370,6 @@ A durable adapter PR should answer all of these before merge:
 
 After the first SDK-neutral S3-compatible `ArtifactStore` boundary:
 
-1. Decide whether to add a concrete resource preflight probe for the configured artifact client, or defer until the app/server boundary is closer.
-2. Implement the next durable adapter one at a time, likely GraphStore or JobQueue depending on which product path needs persistence first.
-3. Keep app/server/worker wiring separate from adapter implementation PRs.
-4. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.
+1. Implement the next durable adapter one at a time, likely GraphStore or JobQueue depending on which product path needs persistence first.
+2. Keep app/server/worker wiring separate from adapter implementation PRs.
+3. Add real provider SDK work only after explicit provider activation, budget, credential, and adversarial-response contracts remain satisfied.

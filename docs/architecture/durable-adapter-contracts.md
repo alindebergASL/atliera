@@ -24,6 +24,14 @@ Out of scope for this PR:
 - SDK imports, API key reads, client construction, network calls, or deployment scripts
 - choosing an observability vendor
 
+This spec defines contracts. It does not prescribe specific implementations. The following are intentionally addressed in future PRs:
+
+- app server and worker launch infrastructure
+- first durable adapter implementations, likely starting with an S3 `ArtifactStore`
+- resource preflight alongside or after the first durable adapters
+- the full `ModelProvider` contract before any provider SDK work
+- deployment scripts, CI/CD wiring, and monitoring vendor selection
+
 ## Durability definition
 
 For Atliera production-like environments, durable means that committed data survives:
@@ -304,6 +312,36 @@ That contract should carry forward Atliera/account-research lessons around:
 - deterministic fake provider only in non-production-like environments
 
 PR #24 intentionally does not define the full provider adapter contract so storage, queue, and graph durability can be locked first.
+
+## Contract versioning and evolution
+
+The contracts in this document are v1, the initial durable adapter contract version declared on 2026-05-23. Future versions may add or change contract requirements, but contract changes must be reviewed with the same discipline as initial contract creation.
+
+Additive changes are acceptable within v1 when they do not break existing compliant implementations. Examples include:
+
+- new optional interface methods
+- new optional fields in adapter operations or reports
+- new observability signal types with documented defaults
+- clarifying language for existing requirements
+- additional examples that do not change required behavior
+
+Breaking changes require a new contract version. Examples include:
+
+- removing methods or fields
+- changing the semantic meaning of existing methods
+- tightening requirements on existing implementations
+- changing failure-mode contracts
+- making previously optional behavior mandatory
+
+When breaking changes are needed:
+
+1. Create a new versioned contract document or clearly versioned section, such as `durable-adapter-contracts-v2.md`.
+2. Announce a deprecation period with an explicit timeline.
+3. Document existing v1-compliant implementations and assess their migration impact.
+4. Publish migration guidance before v1 deprecation begins.
+5. Keep v1 compliance expectations available for at least one major Atliera release after deprecation is announced.
+
+Implementations declaring v1 compliance must continue to satisfy the v1 contract until they explicitly migrate to a newer contract version. Contract revisions must not silently redefine what an existing adapter compliance claim means.
 
 ## Compliance checklist for future durable adapters
 

@@ -21,7 +21,8 @@
     "graph:save-copy": "tsx src/cli/graph-store.ts save-copy",
     "run:manifest": "tsx src/cli/run-manifest.ts write",
     "workshop:shell": "tsx src/cli/workshop-shell.ts write",
-    "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem"
+    "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
+    "s3:compatibility:aws-cli": "tsx src/cli/s3-compatibility.ts validate-aws-cli"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -2,9 +2,11 @@
 //
 // Usage:
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
+//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)
 
 import { exit } from "node:process";
 
+import { AwsCliS3CompatibilityClient } from "../artifacts/aws-cli-s3-client.ts";
 import { FilesystemS3CompatibilityClient } from "../artifacts/filesystem-s3-client.ts";
 import { validateS3ArtifactStoreCompatibility } from "../artifacts/s3-compatibility.ts";
 
@@ -12,6 +14,7 @@ function usage(): string {
   return [
     "usage:",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
+    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)",
   ].join("\n");
 }
 
@@ -48,6 +51,36 @@ function parseValidateFilesystemArgs(args: string[]): {
   }
 
   return { rootDir, bucket, prefix, probeId };
+}
+
+function parseValidateAwsCliArgs(args: string[]): {
+  bucket: string;
+  prefix: string;
+  probeId: string;
+  region?: string;
+  endpointUrl?: string;
+} | null {
+  const bucket = parseFlagValue(args, "--bucket");
+  const prefix = parseFlagValue(args, "--prefix");
+  const probeId = parseFlagValue(args, "--probe-id");
+  const region = parseFlagValue(args, "--region") ?? undefined;
+  const endpointUrl = parseFlagValue(args, "--endpoint-url") ?? undefined;
+  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--region", "--endpoint-url"]);
+
+  if (!bucket || !prefix || !probeId || (!region && !endpointUrl)) return null;
+
+  const seen = new Set<string>();
+  for (let i = 0; i < args.length; i += 1) {
+    const value = args[i]!;
+    if (!value.startsWith("--")) return null;
+    if (!allowedFlags.has(value)) return null;
+    if (seen.has(value)) return null;
+    seen.add(value);
+    i += 1;
+    if (!args[i] || args[i]!.startsWith("--")) return null;
+  }
+
+  return { bucket, prefix, probeId, region, endpointUrl };
 }
 
 function printJson(value: unknown): void {
@@ -91,6 +124,34 @@ async function run(): Promise<number> {
         adapter: "s3_compatible",
         client: "filesystem_s3_compatibility",
         emulator_limit: "filesystem-backed local emulator; not proof of provider-specific S3 behavior",
+      },
+      report,
+    });
+    return report.ok ? 0 : 1;
+  }
+
+  if (command === "validate-aws-cli") {
+    const parsedArgs = parseValidateAwsCliArgs(args);
+    if (!parsedArgs) {
+      process.stderr.write(`${usage()}\n`);
+      return 2;
+    }
+
+    const client = new AwsCliS3CompatibilityClient({ region: parsedArgs.region, endpointUrl: parsedArgs.endpointUrl });
+    const report = await validateS3ArtifactStoreCompatibility({
+      client,
+      bucket: parsedArgs.bucket,
+      prefix: parsedArgs.prefix,
+      probeId: parsedArgs.probeId,
+    });
+
+    printJson({
+      ok: report.ok,
+      command: "validate-aws-cli",
+      backend: {
+        adapter: "s3_compatible",
+        client: "aws_cli_s3api",
+        validation_scope: "lab_only_real_backend",
       },
       report,
     });

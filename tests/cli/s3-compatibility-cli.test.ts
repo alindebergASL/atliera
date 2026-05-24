@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { spawn } from "node:child_process";
 import { describe, test } from "node:test";
 
@@ -14,10 +14,11 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   }
 }
 
-function runCli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function runCli(args: string[], options: { env?: NodeJS.ProcessEnv } = {}): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["--import", "tsx", "src/cli/s3-compatibility.ts", ...args], {
       cwd: process.cwd(),
+      env: options.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -31,7 +32,159 @@ function runCli(args: string[]): Promise<{ code: number | null; stdout: string; 
   });
 }
 
+async function withFakeAws<T>(fn: (env: NodeJS.ProcessEnv, rootDir: string) => Promise<T>): Promise<T> {
+  return withTempDir(async (dir) => {
+    const actualBinDir = join(dir, "bin");
+    const rootDir = join(dir, "objects");
+    await mkdir(actualBinDir);
+    const awsPath = join(actualBinDir, "aws");
+    await writeFile(awsPath, fakeAwsScript(rootDir), "utf8");
+    await chmod(awsPath, 0o755);
+    return fn({ ...process.env, PATH: `${actualBinDir}${delimiter}${process.env.PATH ?? ""}`, FAKE_AWS_S3_ROOT: rootDir }, rootDir);
+  });
+}
+
+function fakeAwsScript(rootDir: string): string {
+  return `#!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
+const root = ${JSON.stringify(rootDir)};
+function value(flag) {
+  const index = process.argv.indexOf(flag);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+function objectPath(bucket, key) {
+  const encodedKey = Buffer.from(key).toString('base64url');
+  return path.join(root, bucket, encodedKey + '.json');
+}
+let args = process.argv.slice(2);
+if (args[0] === '--version') {
+  process.stdout.write('aws-cli/2.0.0 fake\\n');
+  process.exit(0);
+}
+while (args[0] === '--region' || args[0] === '--endpoint-url') {
+  args = args.slice(2);
+}
+if (args[0] !== 's3api') {
+  process.stderr.write('unsupported fake aws command\\n');
+  process.exit(2);
+}
+const op = args[1];
+const bucket = value('--bucket');
+const key = value('--key');
+if (!bucket || !key) process.exit(2);
+const file = objectPath(bucket, key);
+if (op === 'put-object') {
+  const bodyPath = value('--body');
+  const contentType = value('--content-type') || 'application/octet-stream';
+  const metadataValue = value('--metadata') || '';
+  const metadata = {};
+  for (const pair of metadataValue.split(',')) {
+    if (!pair) continue;
+    const [k, ...rest] = pair.split('=');
+    metadata[k] = rest.join('=');
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ body: fs.readFileSync(bodyPath, 'utf8'), contentType, metadata }));
+  process.stdout.write(JSON.stringify({ ETag: 'fake' }));
+  process.exit(0);
+}
+if (op === 'get-object') {
+  const outputPath = args[args.length - 1];
+  if (!fs.existsSync(file)) {
+    process.stderr.write('An error occurred (NoSuchKey) when calling the GetObject operation: Not Found\\n');
+    process.exit(254);
+  }
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(outputPath, record.body, 'utf8');
+  process.stdout.write(JSON.stringify({ ContentType: record.contentType, Metadata: record.metadata }));
+  process.exit(0);
+}
+process.stderr.write('unsupported fake aws s3api operation\\n');
+process.exit(2);
+`;
+}
+
 describe("s3-compatibility CLI", () => {
+  test("validates a lab AWS CLI S3-compatible backend and emits sanitized real-backend evidence", async () => {
+    await withFakeAws(async (env, rootDir) => {
+      const result = await runCli([
+        "validate-aws-cli",
+        "--bucket",
+        "atliera-lab-validation",
+        "--prefix",
+        "s3-compatibility-validation",
+        "--probe-id",
+        "lab-probe-1",
+        "--region",
+        "us-test-1",
+      ], { env });
+
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.command, "validate-aws-cli");
+      assert.equal(payload.backend.adapter, "s3_compatible");
+      assert.equal(payload.backend.client, "aws_cli_s3api");
+      assert.equal(payload.backend.validation_scope, "lab_only_real_backend");
+      assert.equal(payload.backend.emulator_limit, undefined);
+      assert.equal(payload.report.ok, true);
+      assert.deepEqual(
+        payload.report.checks.map((check: { name: string; status: string }) => [check.name, check.status]),
+        [
+          ["round_trip_text", "pass"],
+          ["missing_object_returns_undefined", "pass"],
+          ["overwrite_last_write_wins", "pass"],
+          ["prefix_isolation", "pass"],
+          ["max_payload_guard", "pass"],
+        ],
+      );
+      assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|us-test-1|secret|token|signed/i);
+      assert.doesNotMatch(result.stdout, new RegExp(rootDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    });
+  });
+
+  test("requires explicit bucket, prefix, probe id, and region or endpoint for AWS CLI validation", async () => {
+    const result = await runCli([
+      "validate-aws-cli",
+      "--bucket",
+      "atliera-lab-validation",
+      "--probe-id",
+      "lab-probe-2",
+    ]);
+
+    assert.equal(result.code, 2);
+    assert.match(result.stderr, /usage:/);
+    assert.doesNotMatch(result.stderr, /atliera-lab-validation|lab-probe-2/);
+  });
+
+  test("fails closed with sanitized output when AWS CLI tooling is unavailable", async () => {
+    await withTempDir(async (pathOnlyDir) => {
+      const result = await runCli([
+        "validate-aws-cli",
+        "--bucket",
+        "atliera-lab-validation",
+        "--prefix",
+        "s3-compatibility-validation",
+        "--probe-id",
+        "lab-probe-3",
+        "--region",
+        "us-test-1",
+      ], { env: { ...process.env, PATH: pathOnlyDir } });
+
+      assert.equal(result.code, 1);
+      assert.equal(result.stderr, "");
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.command, "validate-aws-cli");
+      assert.equal(payload.backend.client, "aws_cli_s3api");
+      assert.equal(payload.report.ok, false);
+      assert.match(result.stdout, /s3_compatibility_dependency_failure/);
+      assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|us-test-1|ENOENT|spawn|PATH/i);
+      assert.doesNotMatch(result.stderr, /atliera-lab-validation|s3-compatibility-validation|us-test-1|ENOENT|spawn|PATH/i);
+    });
+  });
+
   test("validates the filesystem-backed S3 compatibility client and emits a sanitized report", async () => {
     await withTempDir(async (rootDir) => {
       const result = await runCli([

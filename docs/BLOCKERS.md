@@ -66,9 +66,9 @@ Required before broader use beyond the initial user:
 
 ### Gate 4 enforcement status
 
-The current validator and quality gate enforce per-bundle invariants and thresholds. They do not yet enforce aggregate launch-readiness thresholds across a selected gate corpus.
+The current validator and quality gate enforce per-bundle invariants and thresholds, and the quality gate now emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied. It still does not select the launch gate corpus or score lens usefulness.
 
-Before launch-readiness assessment, Atliera needs an aggregate report layer that evaluates:
+Before launch-readiness assessment, Atliera needs a selected gate corpus and any remaining aggregate report extensions that evaluate:
 
 - zero-output incident rate across usable gate-corpus accounts
 - material-claim coverage across verified/high-confidence claims

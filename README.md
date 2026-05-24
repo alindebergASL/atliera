@@ -62,7 +62,7 @@ Run the Phase 1.2 quality gate against the canonical fixture:
 npm run gate:fixture:valid
 ```
 
-The quality gate consumes one or more GraphBundle JSON files, runs deterministic validation, computes launch-quality metrics, and emits `pass`, `borderline`, or `fail`. It exits `0` only for `pass`.
+The quality gate consumes one or more GraphBundle JSON files, runs deterministic validation, computes per-bundle and aggregate launch-quality metrics, and emits `pass`, `borderline`, or `fail`. It exits `0` only for `pass`.
 
 Quality gate checks include:
 
@@ -71,6 +71,8 @@ Quality gate checks include:
 - zero-output incidents
 - accepted excerpt rate
 - verified/high-confidence claim evidence coverage
+
+When multiple bundles are supplied, the gate also reports aggregate corpus metrics for total bundles, pass/borderline/fail counts, hard-failure bundles, zero-output incident rate, total graph records, and aggregate verified/high-confidence claim evidence coverage. The aggregate layer is deterministic and local-only; it does not select a launch corpus or replace later human/product review of lens usefulness.
 
 Generate the valid fixture JSON without validating it:
 

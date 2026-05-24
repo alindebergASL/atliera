@@ -687,12 +687,12 @@ Launch readiness is not satisfied by one successful fixture, one passing GraphBu
 | --- | --- | --- | --- | --- |
 | Per-bundle hard invariants | Zero invented IDs; zero false-verified records; accepted excerpts must match source text/spans; verified lens items must trace to verified graph records | Graph validator | Phase 1+ | Implemented for local GraphBundle validation |
 | Per-bundle quality thresholds | Accepted excerpt rate >= 50%; verified/high-confidence claim evidence coverage = 100%; invented ID failures = 0; zero-output bundle fails | Quality gate runner | Phase 1+; integrated into local run artifacts in Phase 1.5+ | Runner implemented; local manifest integration implemented |
-| Aggregate corpus thresholds | Zero-output incidents < 10% of usable gate-corpus accounts; aggregate material-claim coverage meets launch threshold | Aggregate report layer over multiple run manifests | Phase 4+ | Not implemented |
+| Aggregate corpus thresholds | Zero-output incidents < 10% of usable gate-corpus accounts; aggregate material-claim coverage meets launch threshold | Aggregate report layer over multiple gate reports/run manifests | Phase 4+ | Initial quality-gate aggregate metrics implemented; corpus selection and manifest-level rollup still pending |
 | Lens usefulness thresholds | At least two launch lenses materially useful per usable gate account where source material supports them | Aggregate report plus human/product review | Phase 6+ | Not implemented |
 | Launch gate corpus hard-invariant pass | All hard invariants pass across the selected launch gate corpus of at least N accounts | Aggregate report layer over selected gate corpus | Phase 6+ | Not implemented; N and corpus selection criteria must be set before launch-readiness assessment |
 | Model/runtime safety | Zero default-path provider calls; budgeted/model mode only after explicit approval; no production writes from validation/fixture modes | Safety tests, runtime mode guards, CI, review checklist | Phase 1+; expanded before model mode | Partially implemented; model-mode activation tests still pending |
 
-Aggregate launch readiness must be evaluated only after multiple usable gate accounts have been processed through the same manifest/report pipeline. Until the aggregate report layer exists, quality-gate `pass` means only that a single GraphBundle passed its local gates.
+Aggregate launch readiness must be evaluated only after multiple usable gate accounts have been processed through the same manifest/report pipeline. The quality gate now emits aggregate metrics when multiple GraphBundles are supplied, but quality-gate `pass` still means only that the supplied local corpus passed deterministic graph/gate thresholds; selected launch-corpus criteria and lens-usefulness review remain separate launch-readiness work.
 
 ---
 

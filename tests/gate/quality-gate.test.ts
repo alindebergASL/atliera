@@ -165,4 +165,58 @@ describe("runQualityGate", () => {
     assert.equal(summarizeGateRun([pass]).status, "pass");
     assert.equal(summarizeGateRun([pass, borderline]).status, "borderline");
   });
+
+  test("reports aggregate launch-readiness metrics across a gate corpus", () => {
+    const pass = { input: "pass.json", ...runQualityGate(makeValidBundle()) };
+    const emptyBundle = {
+      sources: [],
+      excerpts: [],
+      claims: [],
+      claim_evidence: [],
+      account_objects: [],
+      account_object_claims: [],
+      research_runs: [],
+      run_artifacts: [],
+      audit_events: [],
+    };
+    const zeroOutput = { input: "zero-output.json", ...runQualityGate(emptyBundle) };
+
+    const summary = summarizeGateRun([pass, zeroOutput]);
+
+    assert.equal(summary.status, "fail");
+    assert.equal(summary.ok, false);
+    assert.deepEqual(summary.aggregate.metrics, {
+      total_bundles: 2,
+      passing_bundles: 1,
+      borderline_bundles: 0,
+      failing_bundles: 1,
+      hard_failure_bundles: 0,
+      zero_output_incidents: 1,
+      zero_output_incident_rate: 0.5,
+      total_graph_records: pass.metrics.graph_record_count,
+      total_verified_or_high_confidence_claims: 1,
+      total_verified_or_high_confidence_claims_with_accepted_supporting_evidence: 1,
+      aggregate_verified_claim_evidence_coverage: 1,
+    });
+    assert.deepEqual(
+      summary.aggregate.reasons.map((reason) => reason.code),
+      ["aggregate_zero_output_incident_rate_exceeded"],
+    );
+    assert.equal(summary.aggregate.thresholds.max_zero_output_incident_rate, 0.1);
+  });
+
+  test("passes aggregate launch-readiness metrics for clean gate corpus reports", () => {
+    const first = { input: "first.json", ...runQualityGate(makeValidBundle()) };
+    const second = { input: "second.json", ...runQualityGate(makeValidBundle()) };
+
+    const summary = summarizeGateRun([first, second]);
+
+    assert.equal(summary.status, "pass");
+    assert.equal(summary.aggregate.ok, true);
+    assert.equal(summary.aggregate.status, "pass");
+    assert.deepEqual(summary.aggregate.reasons, []);
+    assert.equal(summary.aggregate.metrics.total_bundles, 2);
+    assert.equal(summary.aggregate.metrics.zero_output_incident_rate, 0);
+    assert.equal(summary.aggregate.metrics.aggregate_verified_claim_evidence_coverage, 1);
+  });
 });

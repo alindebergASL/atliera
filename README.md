@@ -101,6 +101,8 @@ npm run corpus:gate:all # expected to exit 1 because it includes invalid/borderl
 
 The fixture corpus is intentionally deterministic JSON, not generated at test time. It gives future agents and humans concrete examples of pass, borderline, and fail graph/gate behavior.
 
+A selected deterministic launch-gate corpus manifest lives at `fixtures/gate-corpus/launch-v0.json`. It names the v0 usable-account, borderline-calibration, and adversarial-regression fixture set plus expected validator/gate outcomes. The manifest is an executable validation input and explicitly sets `launch_readiness_claim: false`; it documents the first selected corpus without claiming that live-account selection, lens-usefulness review, or launch readiness is complete.
+
 Validate a local GraphBundle JSON file:
 
 ```bash

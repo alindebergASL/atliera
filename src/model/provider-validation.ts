@@ -5,6 +5,11 @@ import {
   type ModelCostLedgerEntry,
 } from "./activation-gates.ts";
 import {
+  getPromptContract,
+  type PromptContractOperation,
+  type PromptContractOutputRecordKind,
+} from "../agent/prompt-contracts.ts";
+import {
   assertSafeModelProviderRequest,
   type ModelProvider,
   type ModelProviderRequest,
@@ -15,6 +20,7 @@ export type ModelProviderValidationCheckName =
   | "credential_status"
   | "provider_call"
   | "response_contract"
+  | "prompt_contract_output"
   | "cost_ledger_entry";
 
 export type ModelProviderValidationCredentialStatus = "present" | "missing" | "invalid";
@@ -41,6 +47,7 @@ export interface ValidateModelProviderCompatibilityOptions {
   readonly corpusRef: string;
   readonly nextEstimatedCostUsd: number;
   readonly credentialStatus: ModelProviderValidationCredentialStatus;
+  readonly promptContractOperation?: PromptContractOperation;
   readonly runId: string;
   readonly accountRef: string;
   readonly stage: string;
@@ -60,6 +67,11 @@ const CREDENTIAL_STATUSES: readonly ModelProviderValidationCredentialStatus[] = 
   "present",
   "missing",
   "invalid",
+];
+const MODEL_PROVIDER_PROMPT_CONTRACT_OPERATIONS: readonly PromptContractOperation[] = [
+  "propose.excerpts",
+  "propose.claims",
+  "propose.account_objects",
 ];
 
 export async function validateModelProviderCompatibility(
@@ -129,12 +141,35 @@ export async function validateModelProviderCompatibility(
   } catch {
     responseCodes = ["response_schema_mismatch"];
   }
-  const status = responseCodes.length === 0 ? "succeeded" : "failed";
   checks.push(
     responseCodes.length === 0
       ? passedCheck("response_contract")
       : failedCheck("response_contract", responseCodes),
   );
+
+  let promptContractCodes: string[] = [];
+  if (responseCodes.length === 0 && options.promptContractOperation !== undefined) {
+    try {
+      promptContractCodes = validatePromptContractOutput(
+        response,
+        options.promptContractOperation,
+      );
+    } catch {
+      promptContractCodes = ["prompt_contract_output_schema_mismatch"];
+    }
+    checks.push(
+      promptContractCodes.length === 0
+        ? passedCheck("prompt_contract_output")
+        : failedCheck("prompt_contract_output", promptContractCodes),
+    );
+  }
+
+  const status = responseCodes.length === 0 && promptContractCodes.length === 0 ? "succeeded" : "failed";
+  const error = status === "succeeded"
+    ? null
+    : responseCodes.length > 0
+      ? "response_contract_failed"
+      : "prompt_contract_output_failed";
   const ledger = createLedgerEntry(
     options,
     status,
@@ -142,10 +177,10 @@ export async function validateModelProviderCompatibility(
     ledgerInteger(responseField(response, "usage", "outputTokens")),
     options.nextEstimatedCostUsd,
     ledgerMoney(responseField(response, "cost", "amount")),
-    status === "succeeded" ? null : "response_contract_failed",
+    error,
   );
   checks.push(passedCheck("cost_ledger_entry"));
-  return freezeReport(responseCodes.length === 0, checks, call, ledger);
+  return freezeReport(responseCodes.length === 0 && promptContractCodes.length === 0, checks, call, ledger);
 }
 
 function validateHarnessInput(options: ValidateModelProviderCompatibilityOptions): void {
@@ -156,6 +191,14 @@ function validateHarnessInput(options: ValidateModelProviderCompatibilityOptions
   assertOutOfRepoCorpusRef("corpusRef", options.corpusRef);
   if (!CREDENTIAL_STATUSES.includes(options.credentialStatus)) {
     throw new Error("credentialStatus must be present, missing, or invalid");
+  }
+  if (options.promptContractOperation !== undefined) {
+    if (!MODEL_PROVIDER_PROMPT_CONTRACT_OPERATIONS.includes(options.promptContractOperation)) {
+      throw new Error(
+        "prompt contract operation is not supported for model provider graph proposal validation",
+      );
+    }
+    getPromptContract(options.promptContractOperation);
   }
 }
 
@@ -200,6 +243,31 @@ function isArrayOnlyGraphOutput(output: unknown): boolean {
   const keys = Object.keys(output).sort();
   if (keys.join(",") !== "account_objects,claims,excerpts") return false;
   return Array.isArray(output.excerpts) && Array.isArray(output.claims) && Array.isArray(output.account_objects);
+}
+
+function validatePromptContractOutput(
+  response: unknown,
+  operation: PromptContractOperation,
+): string[] {
+  const contract = getPromptContract(operation);
+  const allowedKinds = new Set<PromptContractOutputRecordKind>(contract.allowed_output_record_kinds);
+  const output = topLevelResponseField(response, "output");
+  if (!isRecord(output)) return ["prompt_contract_output_schema_mismatch"];
+
+  const outputKinds: Array<[key: string, kind: PromptContractOutputRecordKind]> = [
+    ["excerpts", "evidence_excerpt"],
+    ["claims", "claim"],
+    ["account_objects", "account_object"],
+  ];
+  for (const [key, kind] of outputKinds) {
+    const records = output[key];
+    if (!Array.isArray(records)) return ["prompt_contract_output_schema_mismatch"];
+    if (records.length > 0 && !allowedKinds.has(kind)) {
+      return ["prompt_contract_output_kind_not_allowed"];
+    }
+  }
+
+  return [];
 }
 
 function createLedgerEntry(
@@ -257,6 +325,14 @@ function freezeReport(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function topLevelResponseField(response: unknown, key: string): unknown {
+  try {
+    return isRecord(response) ? response[key] : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function responseField(response: unknown, parent: string, child: string): unknown {

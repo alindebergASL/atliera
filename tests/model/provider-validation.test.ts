@@ -264,6 +264,121 @@ describe("ModelProvider validation harness", () => {
     }
   });
 
+  it("records prompt-contract output compatibility when provider output matches the selected contract", async () => {
+    const provider = providerReturningUnknown(
+      successfulResponse({
+        output: {
+          excerpts: [{ proposed: "excerpt" }],
+          claims: [],
+          account_objects: [],
+        } as unknown as ModelProviderResponse["output"],
+      }),
+    );
+
+    const report = await validateModelProviderCompatibility(
+      baseOptions(provider, {
+        promptContractOperation: "propose.excerpts",
+      }),
+    );
+
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.checks.map((check) => [check.name, check.ok, check.codes]), [
+      ["activation_gates", true, []],
+      ["credential_status", true, []],
+      ["provider_call", true, []],
+      ["response_contract", true, []],
+      ["prompt_contract_output", true, []],
+      ["cost_ledger_entry", true, []],
+    ]);
+  });
+
+  it("fails closed when provider output contains records outside the selected prompt contract", async () => {
+    const provider = providerReturningUnknown(
+      successfulResponse({
+        output: {
+          excerpts: [],
+          claims: [],
+          account_objects: [{ proposed: "account object" }],
+        } as unknown as ModelProviderResponse["output"],
+      }),
+    );
+
+    const report = await validateModelProviderCompatibility(
+      baseOptions(provider, {
+        promptContractOperation: "propose.excerpts",
+      }),
+    );
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.checks.map((check) => [check.name, check.ok, check.codes]), [
+      ["activation_gates", true, []],
+      ["credential_status", true, []],
+      ["provider_call", true, []],
+      ["response_contract", true, []],
+      ["prompt_contract_output", false, ["prompt_contract_output_kind_not_allowed"]],
+      ["cost_ledger_entry", true, []],
+    ]);
+    assert.equal(report.cost_ledger_entry?.status, "failed");
+    assert.equal(report.cost_ledger_entry?.error, "prompt_contract_output_failed");
+  });
+
+  it("rejects unsupported prompt-contract operations before provider calls", async () => {
+    const provider = providerReturning(successfulResponse());
+
+    for (const promptContractOperation of ["propose.unsupported", "summarize.lens"]) {
+      await assert.rejects(
+        () =>
+          validateModelProviderCompatibility(
+            baseOptions(provider, {
+              promptContractOperation,
+            }),
+          ),
+        /prompt contract operation is not supported for model provider graph proposal validation/,
+      );
+    }
+    assert.equal(provider.calls.length, 0);
+  });
+
+  it("returns sanitized prompt-contract failures for adversarial output access", async () => {
+    let outputReads = 0;
+    const response = successfulResponse() as unknown as Record<string, unknown>;
+    Object.defineProperty(response, "output", {
+      enumerable: true,
+      get() {
+        outputReads += 1;
+        if (outputReads > 1) {
+          throw new Error("SECRET_VALUE prompt leak from output getter");
+        }
+        return {
+          excerpts: [],
+          claims: [],
+          account_objects: [],
+        };
+      },
+    });
+    const provider = providerReturningUnknown(response);
+
+    const report = await validateModelProviderCompatibility(
+      baseOptions(provider, {
+        promptContractOperation: "propose.excerpts",
+      }),
+    );
+
+    assert.equal(report.ok, false);
+    assert.equal(provider.calls.length, 1);
+    assert.deepEqual(report.checks.map((check) => [check.name, check.ok, check.codes]), [
+      ["activation_gates", true, []],
+      ["credential_status", true, []],
+      ["provider_call", true, []],
+      ["response_contract", true, []],
+      ["prompt_contract_output", false, ["prompt_contract_output_schema_mismatch"]],
+      ["cost_ledger_entry", true, []],
+    ]);
+    assert.equal(report.cost_ledger_entry?.status, "failed");
+    assert.equal(report.cost_ledger_entry?.error, "prompt_contract_output_failed");
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|prompt leak|output getter|Return only graph/i);
+  });
+
   it("returns sanitized failed ledger entries when providers return non-object response envelopes", async () => {
     for (const response of [null, undefined, "not-json", 7]) {
       const provider = providerReturningUnknown(response);

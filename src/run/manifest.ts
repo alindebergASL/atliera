@@ -13,11 +13,16 @@ import { runQualityGate, type QualityGateReport } from "../gate/quality-gate.ts"
 import { saveGraphBundleFile } from "../graph/file-store.ts";
 import type { GraphBundle } from "../graph/types.ts";
 import { guardOutputPath, type GuardedOutputPath } from "../io/path-guard.ts";
+import type { ModelCostLedgerStatus } from "../model/activation-gates.ts";
+import type { ModelProviderValidationReport } from "../model/provider-validation.ts";
 import { assertProductionWriteAllowed, type RuntimeMode } from "../modes/index.ts";
 
 export const RUN_ARTIFACT_MANIFEST_SCHEMA_VERSION = "atliera.run_manifest.v1" as const;
 
-export type RunArtifactManifestArtifactType = "graph_bundle" | "quality_gate_report";
+export type RunArtifactManifestArtifactType =
+  | "graph_bundle"
+  | "quality_gate_report"
+  | "model_provider_validation_report";
 
 export interface RunArtifactManifestArtifact {
   artifact_type: RunArtifactManifestArtifactType;
@@ -38,6 +43,9 @@ export interface RunArtifactManifestModelRunPlaceholder {
   model: string | null;
   started_at: string | null;
   completed_at: string | null;
+  operation?: string;
+  idempotency_key?: string;
+  status?: "succeeded" | "failed" | "refused";
 }
 
 export interface RunArtifactManifestCostLedgerPlaceholder {
@@ -45,6 +53,9 @@ export interface RunArtifactManifestCostLedgerPlaceholder {
   total_cost: number | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  estimated_cost?: number;
+  status?: "estimated" | "succeeded" | "failed" | "refused";
+  error?: string | null;
 }
 
 export interface RunArtifactManifestAdapterRecord {
@@ -77,6 +88,7 @@ export interface WriteRunArtifactManifestOptions {
   mode: RuntimeMode;
   inputPath?: string | null;
   allowOverwrite?: boolean;
+  modelProviderValidationReport?: ModelProviderValidationReport;
 }
 
 export interface WriteRunArtifactManifestResult {
@@ -85,6 +97,7 @@ export interface WriteRunArtifactManifestResult {
   manifest_path: string;
   graph_bundle_path: string;
   quality_gate_report_path: string;
+  model_provider_validation_report_path?: string;
 }
 
 const SAFE_RUN_SLUG = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
@@ -140,10 +153,12 @@ async function preflightGuardedOutputs(options: {
   outputRoot: string;
   runSlug: string;
   allowOverwrite?: boolean;
+  includeModelProviderValidationReport?: boolean;
 }): Promise<{
   graphBundle: GuardedOutputPath;
   qualityGateReport: GuardedOutputPath;
   manifest: GuardedOutputPath;
+  modelProviderValidationReport?: GuardedOutputPath;
 }> {
   const runDir = resolve(options.outputRoot, options.runSlug);
   const common = {
@@ -164,8 +179,15 @@ async function preflightGuardedOutputs(options: {
     ...common,
     targetPath: resolve(runDir, "manifest.json"),
   });
+  let modelProviderValidationReport: GuardedOutputPath | undefined;
+  if (options.includeModelProviderValidationReport) {
+    modelProviderValidationReport = await guardOutputPath({
+      ...common,
+      targetPath: resolve(runDir, "model-provider-validation-report.json"),
+    });
+  }
 
-  return { graphBundle, qualityGateReport, manifest };
+  return { graphBundle, qualityGateReport, manifest, modelProviderValidationReport };
 }
 
 function buildManifest(options: {
@@ -176,48 +198,114 @@ function buildManifest(options: {
   createdAt: string;
   graphBundlePath: string;
   qualityGateReportPath: string;
+  modelProviderValidationReportPath?: string;
   qualityGateReport: QualityGateReport;
+  modelProviderValidationReport?: ModelProviderValidationReport;
 }): RunArtifactManifest {
+  const artifacts: RunArtifactManifestArtifact[] = [
+    {
+      artifact_type: "graph_bundle",
+      path: relativeArtifactPath(options.outputRoot, options.graphBundlePath),
+      content_type: "application/json",
+      created_at: options.createdAt,
+    },
+    {
+      artifact_type: "quality_gate_report",
+      path: relativeArtifactPath(options.outputRoot, options.qualityGateReportPath),
+      content_type: "application/json",
+      created_at: options.createdAt,
+    },
+  ];
+  if (options.modelProviderValidationReportPath) {
+    artifacts.push({
+      artifact_type: "model_provider_validation_report",
+      path: relativeArtifactPath(options.outputRoot, options.modelProviderValidationReportPath),
+      content_type: "application/json",
+      created_at: options.createdAt,
+    });
+  }
   return {
     schema_version: RUN_ARTIFACT_MANIFEST_SCHEMA_VERSION,
     run_slug: options.runSlug,
     mode: options.mode,
     input_path: options.inputPath ?? null,
     created_at: options.createdAt,
-    artifacts: [
-      {
-        artifact_type: "graph_bundle",
-        path: relativeArtifactPath(options.outputRoot, options.graphBundlePath),
-        content_type: "application/json",
-        created_at: options.createdAt,
-      },
-      {
-        artifact_type: "quality_gate_report",
-        path: relativeArtifactPath(options.outputRoot, options.qualityGateReportPath),
-        content_type: "application/json",
-        created_at: options.createdAt,
-      },
-    ],
+    artifacts,
     quality_gate: {
       ok: options.qualityGateReport.ok,
       status: options.qualityGateReport.status,
       reason_codes: options.qualityGateReport.reasons.map((reason) => reason.code),
       metrics: options.qualityGateReport.metrics,
     },
-    model_run: {
+    model_run: modelRunSummary(options.modelProviderValidationReport),
+    cost_ledger: costLedgerSummary(options.modelProviderValidationReport),
+    adapter_records: adapterRecords(options.modelProviderValidationReport),
+  };
+}
+
+function modelRunSummary(report: ModelProviderValidationReport | undefined): RunArtifactManifestModelRunPlaceholder {
+  if (!report) {
+    return {
       provider: null,
       model: null,
       started_at: null,
       completed_at: null,
-    },
-    cost_ledger: {
+    };
+  }
+  const ledger = report.cost_ledger_entry;
+  return {
+    provider: report.call.provider,
+    model: report.call.model,
+    started_at: null,
+    completed_at: ledger?.recorded_at ?? null,
+    operation: report.call.operation,
+    idempotency_key: report.call.idempotency_key,
+    status: ledgerStatusToModelRunStatus(ledger?.status),
+  };
+}
+
+function costLedgerSummary(report: ModelProviderValidationReport | undefined): RunArtifactManifestCostLedgerPlaceholder {
+  const ledger = report?.cost_ledger_entry;
+  if (!ledger) {
+    return {
       currency: null,
       total_cost: null,
       input_tokens: null,
       output_tokens: null,
-    },
-    adapter_records: [],
+    };
+  }
+  return {
+    currency: "USD",
+    total_cost: ledger.observed_cost_usd,
+    estimated_cost: ledger.estimated_cost_usd,
+    input_tokens: ledger.input_tokens,
+    output_tokens: ledger.output_tokens,
+    status: ledger.status,
+    error: ledger.error,
   };
+}
+
+function adapterRecords(report: ModelProviderValidationReport | undefined): RunArtifactManifestAdapterRecord[] {
+  if (!report) return [];
+  const ledger = report.cost_ledger_entry;
+  const modelRunStatus = ledgerStatusToModelRunStatus(ledger?.status);
+  return [
+    {
+      adapter: "model_provider",
+      provider: report.call.provider,
+      model: report.call.model,
+      request_id: report.call.idempotency_key,
+      status: modelRunStatus === "succeeded" ? "success" : "error",
+      started_at: null,
+      completed_at: ledger?.recorded_at ?? null,
+    },
+  ];
+}
+
+function ledgerStatusToModelRunStatus(status: ModelCostLedgerStatus | undefined): "succeeded" | "failed" | "refused" {
+  if (status === "refused") return "refused";
+  if (status === "succeeded") return "succeeded";
+  return "failed";
 }
 
 export async function writeRunArtifactManifest(
@@ -230,6 +318,7 @@ export async function writeRunArtifactManifest(
     outputRoot: options.outputRoot,
     runSlug: options.runSlug,
     allowOverwrite: options.allowOverwrite,
+    includeModelProviderValidationReport: options.modelProviderValidationReport !== undefined,
   });
 
   const qualityGateReport = runQualityGate(options.bundle);
@@ -242,7 +331,9 @@ export async function writeRunArtifactManifest(
     createdAt,
     graphBundlePath: guarded.graphBundle.targetPath,
     qualityGateReportPath: guarded.qualityGateReport.targetPath,
+    modelProviderValidationReportPath: guarded.modelProviderValidationReport?.targetPath,
     qualityGateReport,
+    modelProviderValidationReport: options.modelProviderValidationReport,
   });
 
   const writtenPaths: string[] = [];
@@ -262,6 +353,16 @@ export async function writeRunArtifactManifest(
       allowOverwrite: options.allowOverwrite,
     });
     writtenPaths.push(guarded.qualityGateReport.targetPath);
+
+    if (guarded.modelProviderValidationReport && options.modelProviderValidationReport) {
+      await writeGuardedJsonFile({
+        outputRoot: options.outputRoot,
+        targetPath: guarded.modelProviderValidationReport.targetPath,
+        value: options.modelProviderValidationReport,
+        allowOverwrite: options.allowOverwrite,
+      });
+      writtenPaths.push(guarded.modelProviderValidationReport.targetPath);
+    }
 
     await writeGuardedJsonFile({
       outputRoot: options.outputRoot,
@@ -283,5 +384,8 @@ export async function writeRunArtifactManifest(
     manifest_path: guarded.manifest.targetPath,
     graph_bundle_path: guarded.graphBundle.targetPath,
     quality_gate_report_path: guarded.qualityGateReport.targetPath,
+    ...(guarded.modelProviderValidationReport
+      ? { model_provider_validation_report_path: guarded.modelProviderValidationReport.targetPath }
+      : {}),
   };
 }

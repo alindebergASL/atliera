@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
+import type { ModelProviderValidationReport } from "../../src/model/provider-validation.ts";
 import { writeRunArtifactManifest, type RunArtifactManifest } from "../../src/run/manifest.ts";
 import { makeValidBundle } from "../fixtures/valid-graph.ts";
 
@@ -18,6 +19,44 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+function modelProviderValidationReport(overrides: Partial<ModelProviderValidationReport> = {}): ModelProviderValidationReport {
+  return {
+    ok: true,
+    checks: [
+      { name: "activation_gates", ok: true, codes: [] },
+      { name: "credential_status", ok: true, codes: [] },
+      { name: "provider_call", ok: true, codes: [] },
+      { name: "response_contract", ok: true, codes: [] },
+      { name: "cost_ledger_entry", ok: true, codes: [] },
+    ],
+    call: {
+      provider: "anthropic",
+      model: "claude-validation-model",
+      operation: "graph.propose",
+      idempotency_key: "idem_manifest_validation_1",
+    },
+    cost_ledger_entry: {
+      schema_version: "atliera.model_cost_ledger_entry.v1",
+      ledger_entry_id: "ledger_entry_manifest_validation_1",
+      approval_id: "approval_manifest_validation_1",
+      run_id: "run_manifest_validation_1",
+      provider: "anthropic",
+      model: "claude-validation-model",
+      account_ref: "account_manifest_validation",
+      stage: "first_validation",
+      input_tokens: 120,
+      output_tokens: 34,
+      estimated_cost_usd: 0.02,
+      observed_cost_usd: 0.011,
+      status: "succeeded",
+      retry_count: 0,
+      error: null,
+      recorded_at: "2026-05-23T00:00:01.000Z",
+    },
+    ...overrides,
+  };
 }
 
 describe("writeRunArtifactManifest", () => {
@@ -140,6 +179,136 @@ describe("writeRunArtifactManifest", () => {
         }),
         /production writes are forbidden/,
       );
+    });
+  });
+
+  test("writes model-provider validation evidence and summarizes cost ledger fields", async () => {
+    await withTempDir(async (outputRoot) => {
+      const report = modelProviderValidationReport();
+      const result = await writeRunArtifactManifest({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "model-validation-run",
+        mode: "model",
+        modelProviderValidationReport: report,
+      });
+
+      assert.ok(result.model_provider_validation_report_path?.endsWith("model-validation-run/model-provider-validation-report.json"));
+      assert.equal(result.manifest.artifacts.length, 3);
+      assert.deepEqual(
+        result.manifest.artifacts.map((artifact) => artifact.artifact_type).sort(),
+        ["graph_bundle", "model_provider_validation_report", "quality_gate_report"],
+      );
+      const providerArtifact = result.manifest.artifacts.find(
+        (artifact) => artifact.artifact_type === "model_provider_validation_report",
+      );
+      assert.equal(providerArtifact?.path, "model-validation-run/model-provider-validation-report.json");
+      assert.deepEqual(result.manifest.model_run, {
+        provider: "anthropic",
+        model: "claude-validation-model",
+        started_at: null,
+        completed_at: "2026-05-23T00:00:01.000Z",
+        operation: "graph.propose",
+        idempotency_key: "idem_manifest_validation_1",
+        status: "succeeded",
+      });
+      assert.deepEqual(result.manifest.cost_ledger, {
+        currency: "USD",
+        total_cost: 0.011,
+        estimated_cost: 0.02,
+        input_tokens: 120,
+        output_tokens: 34,
+        status: "succeeded",
+        error: null,
+      });
+      assert.deepEqual(result.manifest.adapter_records, [
+        {
+          adapter: "model_provider",
+          provider: "anthropic",
+          model: "claude-validation-model",
+          request_id: "idem_manifest_validation_1",
+          status: "success",
+          started_at: null,
+          completed_at: "2026-05-23T00:00:01.000Z",
+        },
+      ]);
+
+      const savedProviderReport = await readJson(result.model_provider_validation_report_path!);
+      const savedManifest = await readJson(result.manifest_path) as RunArtifactManifest;
+      assert.deepEqual(savedProviderReport, report);
+      assert.deepEqual(savedManifest, result.manifest);
+      assert.equal(savedManifest.artifacts.some((artifact) => artifact.path.startsWith(outputRoot)), false);
+    });
+  });
+
+  test("records refused model validation evidence without pretending a provider call succeeded", async () => {
+    await withTempDir(async (outputRoot) => {
+      const refusedReport = modelProviderValidationReport({
+        ok: false,
+        checks: [
+          { name: "activation_gates", ok: false, codes: ["cumulative_budget_exceeded"] },
+          { name: "cost_ledger_entry", ok: true, codes: [] },
+        ],
+        cost_ledger_entry: {
+          ...modelProviderValidationReport().cost_ledger_entry!,
+          input_tokens: 0,
+          output_tokens: 0,
+          estimated_cost_usd: 0,
+          observed_cost_usd: 0,
+          status: "refused",
+          error: "activation_refused",
+        },
+      });
+
+      const result = await writeRunArtifactManifest({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "model-validation-refused",
+        mode: "model",
+        modelProviderValidationReport: refusedReport,
+      });
+
+      assert.equal(result.manifest.model_run.status, "refused");
+      assert.equal(result.manifest.cost_ledger.status, "refused");
+      assert.equal(result.manifest.cost_ledger.total_cost, 0);
+      assert.equal(result.manifest.cost_ledger.error, "activation_refused");
+      assert.deepEqual(result.manifest.adapter_records, [
+        {
+          adapter: "model_provider",
+          provider: "anthropic",
+          model: "claude-validation-model",
+          request_id: "idem_manifest_validation_1",
+          status: "error",
+          started_at: null,
+          completed_at: "2026-05-23T00:00:01.000Z",
+        },
+      ]);
+    });
+  });
+
+  test("treats estimated or inconsistent validation ledger status as non-success in manifest summaries", async () => {
+    await withTempDir(async (outputRoot) => {
+      const estimatedReport = modelProviderValidationReport({
+        ok: true,
+        cost_ledger_entry: {
+          ...modelProviderValidationReport().cost_ledger_entry!,
+          status: "estimated",
+          observed_cost_usd: 0,
+          error: null,
+        },
+      });
+
+      const result = await writeRunArtifactManifest({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "model-validation-estimated",
+        mode: "model",
+        modelProviderValidationReport: estimatedReport,
+      });
+
+      assert.equal(result.manifest.model_run.status, "failed");
+      assert.equal(result.manifest.cost_ledger.status, "estimated");
+      assert.equal(result.manifest.adapter_records[0]?.status, "error");
     });
   });
 

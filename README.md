@@ -264,19 +264,25 @@ mkdir -p /tmp/atliera-run-output
 npm run run:manifest -- fixtures/graph/valid/minimal-pass.json --mode model --out-root /tmp/atliera-run-output --run-slug fixture-valid-run
 ```
 
-The manifest package contains:
+The manifest package always contains:
 
 - `graph-bundle.json`
 - `quality-gate-report.json`
 - `manifest.json`
 
+When the programmatic writer receives a sanitized `ModelProviderValidationReport`, the package also contains:
+
+- `model-provider-validation-report.json`
+
+Only pass reports produced by the sanitized provider-validation pathway into the writer. `writeRunArtifactManifest` persists the supplied validation report and derives summaries from its stable IDs/status codes; it does not parse raw provider responses or scrub arbitrary caller-supplied payloads.
+
 `run:manifest` writes through the same path guard as the file-backed graph store. It requires `--out-root` and `--run-slug`, refuses safe-mode writes, refuses implicit overwrites, records the per-bundle quality-gate status in `manifest.json`, and uses relative artifact paths inside the manifest.
 
-The v1 manifest also reserves stable future model-run fields so later provider phases can populate the same schema shape instead of forcing early consumers to handle a second manifest shape immediately:
+The v1 manifest keeps stable model-run evidence fields so provider validation phases can use the same schema shape without requiring consumers to parse raw provider responses:
 
-- `model_run`: currently `provider`, `model`, `started_at`, and `completed_at` are `null`
-- `cost_ledger`: currently `currency`, `total_cost`, `input_tokens`, and `output_tokens` are `null`
-- `adapter_records`: currently an empty array
+- `model_run`: records provider/model plus operation/idempotency/status when provider-validation evidence is present; otherwise these placeholders remain `null`
+- `cost_ledger`: records USD observed/estimated cost, tokens, status, and stable error code from the model cost-ledger entry when present; otherwise the placeholder cost fields remain `null`
+- `adapter_records`: records a sanitized `model_provider` adapter summary when validation evidence is present; otherwise an empty array
 
 ## Workshop shell smoke HTML
 

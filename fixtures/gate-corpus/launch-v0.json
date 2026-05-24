@@ -1,0 +1,49 @@
+{
+  "schema_version": "atliera.launch_gate_corpus.v1",
+  "name": "Atliera launch gate corpus v0",
+  "purpose": "Selected deterministic fixture set for exercising launch-gate metrics before live/provider corpus selection. This is a validation harness input, not a launch-readiness claim.",
+  "launch_readiness_claim": false,
+  "selected_at": "2026-05-24",
+  "entries": [
+    {
+      "id": "minimal-pass",
+      "path": "fixtures/graph/valid/minimal-pass.json",
+      "role": "usable_gate_account",
+      "expected_validation_ok": true,
+      "expected_gate_status": "pass",
+      "rationale": "Minimal usable account graph that should satisfy deterministic provenance and quality thresholds."
+    },
+    {
+      "id": "workshop-three-lane",
+      "path": "fixtures/graph/valid/workshop-three-lane.json",
+      "role": "usable_gate_account",
+      "expected_validation_ok": true,
+      "expected_gate_status": "pass",
+      "rationale": "Representative graph-backed Signals, Maps, and Plays fixture for shared-lens rendering coverage."
+    },
+    {
+      "id": "borderline-low-excerpt-rate",
+      "path": "fixtures/graph/valid/borderline-low-excerpt-rate.json",
+      "role": "borderline_calibration",
+      "expected_validation_ok": true,
+      "expected_gate_status": "borderline",
+      "rationale": "Structurally valid account graph used to calibrate low accepted-excerpt-rate launch-gate behavior."
+    },
+    {
+      "id": "invented-source-id",
+      "path": "fixtures/graph/invalid/invented-source-id.json",
+      "role": "adversarial_regression",
+      "expected_validation_ok": false,
+      "expected_gate_status": "fail",
+      "rationale": "Adversarial fixture proving invented source identifiers remain hard launch-gate failures."
+    },
+    {
+      "id": "zero-output",
+      "path": "fixtures/graph/invalid/zero-output.json",
+      "role": "adversarial_regression",
+      "expected_validation_ok": true,
+      "expected_gate_status": "fail",
+      "rationale": "Structurally valid zero-output account fixture proving empty outputs remain launch-gate failures."
+    }
+  ]
+}

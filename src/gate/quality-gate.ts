@@ -18,11 +18,28 @@ export type GateReasonCode =
   | "accepted_excerpt_rate_below_threshold"
   | "verified_claim_evidence_coverage_below_threshold";
 
+export type AggregateGateReasonCode =
+  | "aggregate_hard_failures_present"
+  | "aggregate_zero_output_incident_rate_exceeded"
+  | "aggregate_verified_claim_evidence_coverage_below_threshold";
+
 export interface QualityGateThresholds {
   min_accepted_excerpt_rate: number;
   min_verified_claim_evidence_coverage: number;
   max_invented_id_failures: number;
 }
+
+export interface AggregateQualityGateThresholds {
+  max_zero_output_incident_rate: number;
+  min_aggregate_verified_claim_evidence_coverage: number;
+  max_hard_failure_bundles: number;
+}
+
+export const DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS: AggregateQualityGateThresholds = {
+  max_zero_output_incident_rate: 0.1,
+  min_aggregate_verified_claim_evidence_coverage: 0.8,
+  max_hard_failure_bundles: 0,
+};
 
 export const DEFAULT_QUALITY_GATE_THRESHOLDS: QualityGateThresholds = {
   // Phase 1.2 is intentionally conservative: a bundle with excerpts but
@@ -59,6 +76,14 @@ export interface GateReason {
   threshold?: number;
 }
 
+export interface AggregateGateReason {
+  code: AggregateGateReasonCode;
+  severity: GateStatus;
+  message: string;
+  observed?: number | null;
+  threshold?: number;
+}
+
 export interface QualityGateReport {
   ok: boolean;
   status: GateStatus;
@@ -66,6 +91,28 @@ export interface QualityGateReport {
   thresholds: QualityGateThresholds;
   metrics: QualityGateMetrics;
   validation_report: ValidationReport;
+}
+
+export interface AggregateQualityGateMetrics {
+  total_bundles: number;
+  passing_bundles: number;
+  borderline_bundles: number;
+  failing_bundles: number;
+  hard_failure_bundles: number;
+  zero_output_incidents: number;
+  zero_output_incident_rate: number | null;
+  total_graph_records: number;
+  total_verified_or_high_confidence_claims: number;
+  total_verified_or_high_confidence_claims_with_accepted_supporting_evidence: number;
+  aggregate_verified_claim_evidence_coverage: number | null;
+}
+
+export interface AggregateQualityGateReport {
+  ok: boolean;
+  status: GateStatus;
+  reasons: AggregateGateReason[];
+  thresholds: AggregateQualityGateThresholds;
+  metrics: AggregateQualityGateMetrics;
 }
 
 export interface NamedQualityGateReport extends QualityGateReport {
@@ -76,6 +123,7 @@ export interface QualityGateRunReport {
   ok: boolean;
   status: GateStatus;
   reports: NamedQualityGateReport[];
+  aggregate: AggregateQualityGateReport;
 }
 
 const INVENTED_ID_CODES = new Set<string>([
@@ -291,13 +339,129 @@ export function runQualityGate(
   };
 }
 
+function computeAggregateMetrics(
+  reports: NamedQualityGateReport[],
+): AggregateQualityGateMetrics {
+  const totalBundles = reports.length;
+  const totalVerifiedOrHighConfidenceClaims = reports.reduce(
+    (sum, report) => sum + report.metrics.verified_or_high_confidence_claims,
+    0,
+  );
+  const totalSupportedVerifiedOrHighConfidenceClaims = reports.reduce(
+    (sum, report) =>
+      sum +
+      report.metrics
+        .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+    0,
+  );
+
+  return {
+    total_bundles: totalBundles,
+    passing_bundles: reports.filter((report) => report.status === "pass").length,
+    borderline_bundles: reports.filter((report) => report.status === "borderline")
+      .length,
+    failing_bundles: reports.filter((report) => report.status === "fail").length,
+    hard_failure_bundles: reports.filter(
+      (report) => report.metrics.hard_failures > 0,
+    ).length,
+    zero_output_incidents: reports.filter(
+      (report) => report.metrics.graph_record_count === 0,
+    ).length,
+    zero_output_incident_rate: rate(
+      reports.filter((report) => report.metrics.graph_record_count === 0).length,
+      totalBundles,
+    ),
+    total_graph_records: reports.reduce(
+      (sum, report) => sum + report.metrics.graph_record_count,
+      0,
+    ),
+    total_verified_or_high_confidence_claims: totalVerifiedOrHighConfidenceClaims,
+    total_verified_or_high_confidence_claims_with_accepted_supporting_evidence:
+      totalSupportedVerifiedOrHighConfidenceClaims,
+    aggregate_verified_claim_evidence_coverage: rate(
+      totalSupportedVerifiedOrHighConfidenceClaims,
+      totalVerifiedOrHighConfidenceClaims,
+    ),
+  };
+}
+
+function evaluateAggregateReasons(
+  metrics: AggregateQualityGateMetrics,
+  thresholds: AggregateQualityGateThresholds,
+): AggregateGateReason[] {
+  const reasons: AggregateGateReason[] = [];
+
+  if (metrics.hard_failure_bundles > thresholds.max_hard_failure_bundles) {
+    reasons.push({
+      code: "aggregate_hard_failures_present",
+      severity: "fail",
+      message: "one or more corpus bundles reported validator hard failures",
+      observed: metrics.hard_failure_bundles,
+      threshold: thresholds.max_hard_failure_bundles,
+    });
+  }
+
+  if (
+    metrics.zero_output_incident_rate !== null &&
+    metrics.zero_output_incident_rate > thresholds.max_zero_output_incident_rate
+  ) {
+    reasons.push({
+      code: "aggregate_zero_output_incident_rate_exceeded",
+      severity: "fail",
+      message: "zero-output incident rate exceeds launch-readiness threshold",
+      observed: metrics.zero_output_incident_rate,
+      threshold: thresholds.max_zero_output_incident_rate,
+    });
+  }
+
+  if (
+    metrics.aggregate_verified_claim_evidence_coverage !== null &&
+    metrics.aggregate_verified_claim_evidence_coverage <
+      thresholds.min_aggregate_verified_claim_evidence_coverage
+  ) {
+    reasons.push({
+      code: "aggregate_verified_claim_evidence_coverage_below_threshold",
+      severity: "fail",
+      message:
+        "aggregate verified/high-confidence claim evidence coverage is below launch-readiness threshold",
+      observed: metrics.aggregate_verified_claim_evidence_coverage,
+      threshold: thresholds.min_aggregate_verified_claim_evidence_coverage,
+    });
+  }
+
+  return reasons;
+}
+
+function summarizeAggregateGateRun(
+  reports: NamedQualityGateReport[],
+  thresholds: AggregateQualityGateThresholds,
+): AggregateQualityGateReport {
+  const metrics = computeAggregateMetrics(reports);
+  const reasons = evaluateAggregateReasons(metrics, thresholds);
+  const status = worstStatus(reasons.map((r) => r.severity));
+
+  return {
+    ok: status === "pass",
+    status,
+    reasons,
+    thresholds,
+    metrics,
+  };
+}
+
 export function summarizeGateRun(
   reports: NamedQualityGateReport[],
+  aggregateThresholds: AggregateQualityGateThresholds = DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS,
 ): QualityGateRunReport {
-  const status = worstStatus(reports.map((r) => r.status));
+  const aggregate = summarizeAggregateGateRun(reports, aggregateThresholds);
+  const status = worstStatus([
+    ...reports.map((r) => r.status),
+    aggregate.status,
+  ]);
   return {
     ok: status === "pass",
     status,
     reports,
+    aggregate,
   };
 }

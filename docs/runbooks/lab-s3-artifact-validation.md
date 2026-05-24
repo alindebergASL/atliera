@@ -91,9 +91,19 @@ The filesystem smoke report must be described as emulator evidence only. It does
 
 ## Real backend validation shape
 
-The real-backend validation command or script must be added in a separate PR from this runbook unless an existing approved operator tool already supplies it.
+The real-backend validation command currently available for AWS or AWS-compatible providers is:
 
-That tool must:
+```bash
+npm run s3:compatibility:aws-cli -- \
+  --bucket <lab-validation-bucket> \
+  --prefix <lab-validation-prefix> \
+  --probe-id <run-scoped-probe-id> \
+  --region <region>
+```
+
+For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
+
+That tool must continue to:
 
 - require explicit bucket, prefix, and probe id inputs;
 - require explicit region or endpoint inputs when the selected client needs them;

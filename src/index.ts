@@ -29,6 +29,7 @@ export * from "./config/runtime.ts";
 export * from "./artifacts/store.ts";
 export * from "./artifacts/s3-store.ts";
 export * from "./artifacts/s3-compatibility.ts";
+export * from "./artifacts/aws-cli-s3-client.ts";
 export * from "./artifacts/filesystem-s3-client.ts";
 export * from "./jobs/queue.ts";
 export * from "./jobs/database-queue.ts";

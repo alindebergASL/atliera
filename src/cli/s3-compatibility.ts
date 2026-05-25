@@ -17,7 +17,7 @@ import { validateS3ArtifactStoreCompatibility } from "../artifacts/s3-compatibil
 function usage(): string {
   return [
     "usage:",
-    "  tsx src/cli/s3-compatibility.ts check-aws-cli",
+    "  tsx src/cli/s3-compatibility.ts check-aws-cli [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
     "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--aws-timeout-ms <ms>] [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]",
   ].join("\n");
@@ -28,6 +28,33 @@ function parseFlagValue(args: string[], flag: string): string | null {
   if (index === -1) return null;
   const value = args[index + 1];
   return value && !value.startsWith("--") ? value : null;
+}
+
+function parseCheckAwsCliArgs(args: string[]): {
+  outRoot?: string;
+  outFile?: string;
+  allowOverwrite: boolean;
+} | null {
+  const outRoot = parseFlagValue(args, "--out-root") ?? undefined;
+  const outFile = parseFlagValue(args, "--out-file") ?? undefined;
+  const allowOverwrite = args.includes("--allow-overwrite");
+  const allowedFlags = new Set(["--out-root", "--out-file", "--allow-overwrite"]);
+
+  if ((outRoot && !outFile) || (!outRoot && outFile)) return null;
+
+  const seen = new Set<string>();
+  for (let i = 0; i < args.length; i += 1) {
+    const value = args[i]!;
+    if (!value.startsWith("--")) return null;
+    if (!allowedFlags.has(value)) return null;
+    if (seen.has(value)) return null;
+    seen.add(value);
+    if (value === "--allow-overwrite") continue;
+    i += 1;
+    if (!args[i] || args[i]!.startsWith("--")) return null;
+  }
+
+  return { outRoot, outFile, allowOverwrite };
 }
 
 function parseValidateFilesystemArgs(args: string[]): {
@@ -153,13 +180,18 @@ async function run(): Promise<number> {
   const [command, ...args] = process.argv.slice(2);
 
   if (command === "check-aws-cli") {
-    if (args.length !== 0) {
+    const parsedArgs = parseCheckAwsCliArgs(args);
+    if (!parsedArgs) {
       process.stderr.write(`${usage()}\n`);
       return 2;
     }
 
+    const evidencePath = parsedArgs.outRoot && parsedArgs.outFile
+      ? await resolveEvidencePath(parsedArgs.outRoot, parsedArgs.outFile, parsedArgs.allowOverwrite)
+      : undefined;
+
     const report = await checkAwsCliS3CompatibilityTooling();
-    printJson({
+    const payload = {
       ok: report.ok,
       command: "check-aws-cli",
       backend: {
@@ -169,8 +201,13 @@ async function run(): Promise<number> {
         provider_binding: "not_bound_tooling_preflight",
         validation_scope: "tooling_preflight_no_bucket_access",
       },
+      ...(evidencePath ? { evidence: { artifact_written: true } } : {}),
       report,
-    });
+    };
+    if (evidencePath) {
+      await writeEvidenceJson(payload, evidencePath, parsedArgs.allowOverwrite);
+    }
+    printJson(payload);
     return report.ok ? 0 : 1;
   }
 

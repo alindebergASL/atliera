@@ -232,6 +232,33 @@ describe("s3-compatibility CLI", () => {
     });
   });
 
+  test("writes sanitized AWS CLI tooling preflight evidence without bucket access", async () => {
+    await withTempDir(async (pathOnlyDir) => {
+      const outRoot = join(pathOnlyDir, "evidence");
+      await mkdir(outRoot);
+      const result = await runCli([
+        "check-aws-cli",
+        "--out-root",
+        outRoot,
+        "--out-file",
+        "tooling/aws-cli.json",
+      ], { env: { ...process.env, PATH: pathOnlyDir } });
+
+      assert.equal(result.code, 1);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.command, "check-aws-cli");
+      assert.equal(payload.evidence.artifact_written, true);
+      assert.equal(payload.backend.validation_scope, "tooling_preflight_no_bucket_access");
+      assert.equal(payload.report.checks[0].code, "aws_cli_unavailable");
+
+      const artifact = JSON.parse(await readFile(join(outRoot, "tooling", "aws-cli.json"), "utf8"));
+      assert.deepEqual(artifact, payload);
+      assert.doesNotMatch(result.stdout, new RegExp(outRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.doesNotMatch(JSON.stringify(artifact), /ENOENT|spawn|PATH|secret|token|signed/i);
+      assert.equal(result.stderr, "");
+    });
+  });
+
   test("times out the AWS CLI tooling preflight with sanitized output when tooling hangs", async () => {
     await withFakeAwsScript(hangingAwsScript, async (env) => {
       const startedAt = Date.now();

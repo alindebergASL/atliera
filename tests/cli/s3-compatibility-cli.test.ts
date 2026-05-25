@@ -168,6 +168,8 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.command, "check-aws-cli");
       assert.equal(payload.backend.adapter, "s3_compatible");
       assert.equal(payload.backend.client, "aws_cli_s3api");
+      assert.equal(payload.backend.contract, "s3_compatible_object_api");
+      assert.equal(payload.backend.provider_binding, "not_bound_tooling_preflight");
       assert.equal(payload.backend.validation_scope, "tooling_preflight_no_bucket_access");
       assert.equal(payload.report.ok, true);
       assert.deepEqual(payload.report.checks, [
@@ -268,6 +270,8 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.command, "validate-aws-cli");
       assert.equal(payload.backend.adapter, "s3_compatible");
       assert.equal(payload.backend.client, "aws_cli_s3api");
+      assert.equal(payload.backend.contract, "s3_compatible_object_api");
+      assert.equal(payload.backend.provider_binding, "operator_supplied_endpoint_or_region");
       assert.equal(payload.backend.validation_scope, "lab_only_real_backend");
       assert.equal(payload.backend.approval, "operator_approval_ref_present");
       assert.equal(payload.backend.emulator_limit, undefined);
@@ -489,6 +493,8 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.command, "validate-filesystem");
       assert.equal(payload.backend.adapter, "s3_compatible");
       assert.equal(payload.backend.client, "filesystem_s3_compatibility");
+      assert.equal(payload.backend.contract, "s3_compatible_object_api");
+      assert.equal(payload.backend.provider_binding, "none");
       assert.equal(payload.backend.emulator_limit, "filesystem-backed local emulator; not proof of provider-specific S3 behavior");
       assert.equal(payload.report.ok, true);
       assert.deepEqual(

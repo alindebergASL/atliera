@@ -11,7 +11,8 @@
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, JobQueue, and model activation probes, pure model-provider contract,
 // approval/cumulative-budget activation gates, deterministic model adapter stub,
-// pure AgentRun orchestration records, and prompt-contract placeholders.
+// pure AgentRun orchestration records, prompt-contract placeholders, and
+// deterministic launch-gate corpus assessment helpers.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -24,6 +25,7 @@ export * from "./graph/versioned-store.ts";
 export * from "./graph/database-versioned-store.ts";
 export * from "./graph/file-store.ts";
 export * from "./gate/quality-gate.ts";
+export * from "./gate/launch-assessment.ts";
 export * from "./modes/index.ts";
 export * from "./config/runtime.ts";
 export * from "./artifacts/store.ts";

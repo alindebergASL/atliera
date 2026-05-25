@@ -76,6 +76,8 @@ When multiple bundles are supplied, the gate also reports aggregate corpus metri
 
 `evaluateWorkshopLensUsefulness` is a deterministic review helper for the launch-lens layer. It consumes the graph-derived Workshop view model and requires at least two materially useful graph-backed lenses by default. A lens counts as useful only when it has at least one non-unsupported item with an accepted evidence packet. `summarizeWorkshopLensUsefulnessReviews` rolls those per-account reviews up across a corpus while preserving per-account failures and always reports `launch_readiness_claim: false`; human/product review and live-account selection still remain separate launch-readiness work.
 
+`assessLaunchGateCorpusManifestFile("fixtures/gate-corpus/launch-v0.json")` ties the selected corpus manifest, per-entry validator/gate checks, aggregate quality-gate summary, and usable-account lens-usefulness reviews into one deterministic local assessment object. The assessment validates safe fixture paths, reports expected-outcome mismatches separately from actual gate evidence, and also always reports `launch_readiness_claim: false`.
+
 Generate the valid fixture JSON without validating it:
 
 ```bash

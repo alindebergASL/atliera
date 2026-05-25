@@ -117,11 +117,12 @@ npm run s3:compatibility:aws-cli -- \
   --probe-id <run-scoped-probe-id> \
   --approval-ref <operator-approval-reference> \
   --region <region> \
+  --aws-timeout-ms <optional-250-300000> \
   --out-root <private-evidence-directory> \
   --out-file <relative-report.json>
 ```
 
-For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it requires the approval reference as an input but emits only `operator_approval_ref_present`, not the reference value. The optional `--out-root`/`--out-file` evidence target must point to a private operator-selected directory and a relative `.json` path; unsafe traversal is rejected before AWS tooling is invoked, and existing evidence files are refused unless the operator explicitly adds `--allow-overwrite`. It does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
+For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it requires the approval reference as an input but emits only `operator_approval_ref_present`, not the reference value. AWS CLI S3 operations have a bounded 10-second timeout by default; operators may add `--aws-timeout-ms <250-300000>` when the lab backend needs an explicit override, and the sanitized output reports only that an operator timeout was configured rather than the timeout value. The optional `--out-root`/`--out-file` evidence target must point to a private operator-selected directory and a relative `.json` path; unsafe traversal is rejected before AWS tooling is invoked, and existing evidence files are refused unless the operator explicitly adds `--allow-overwrite`. It does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
 
 That tool must continue to:
 
@@ -132,6 +133,7 @@ That tool must continue to:
 - call `validateS3ArtifactStoreCompatibility({ client, bucket, prefix, probeId })`;
 - emit a sanitized report that excludes bucket, prefix, endpoint, account, signed URL, credential names, and raw backend errors;
 - return non-zero when any validation check fails;
+- bound AWS CLI S3 operations with an explicit default timeout and sanitize timeout failures without echoing raw timeout values or process signals;
 - write sanitized evidence only to stdout or the operator-selected guarded artifact location;
 - leave cleanup to an explicit operator step or a documented lifecycle rule.
 

@@ -9,10 +9,12 @@ import type { S3ArtifactStoreClient, S3GetObjectInput, S3GetObjectOutput, S3PutO
 const execFileAsync = promisify(execFile);
 const ONE_MEGABYTE = 1024 * 1024;
 const AWS_CLI_TOOLING_PREFLIGHT_TIMEOUT_MS = 1_000;
+const DEFAULT_AWS_CLI_OPERATION_TIMEOUT_MS = 10_000;
 
 export interface AwsCliS3CompatibilityClientOptions {
   region?: string;
   endpointUrl?: string;
+  timeoutMs?: number;
 }
 
 export interface AwsCliToolingPreflightCheck {
@@ -53,6 +55,7 @@ export async function checkAwsCliS3CompatibilityTooling(): Promise<AwsCliTooling
 export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
   private readonly region: string | undefined;
   private readonly endpointUrl: string | undefined;
+  private readonly timeoutMs: number;
 
   constructor(options: AwsCliS3CompatibilityClientOptions) {
     if (!isOptionalSafeCliValue(options.region)) {
@@ -64,8 +67,12 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
     if (!options.region && !options.endpointUrl) {
       throw new Error("AwsCliS3CompatibilityClient requires an explicit region or endpoint URL");
     }
+    if (!isSafeTimeoutMs(options.timeoutMs)) {
+      throw new Error("AwsCliS3CompatibilityClient timeoutMs must be an integer between 250 and 300000");
+    }
     this.region = options.region;
     this.endpointUrl = options.endpointUrl;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_AWS_CLI_OPERATION_TIMEOUT_MS;
   }
 
   async putObject(input: S3PutObjectInput): Promise<void> {
@@ -127,7 +134,7 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
 
   private async runAws(args: string[]): Promise<{ stdout: string; stderr: string }> {
     try {
-      return await execFileAsync("aws", this.awsArgs(args), { maxBuffer: ONE_MEGABYTE });
+      return await execFileAsync("aws", this.awsArgs(args), { maxBuffer: ONE_MEGABYTE, timeout: this.timeoutMs });
     } catch {
       throw new Error("AwsCliS3CompatibilityClient dependency failed");
     }
@@ -135,7 +142,7 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
 
   private async runAwsAllowNotFound(args: string[]): Promise<{ stdout: string; stderr: string } | undefined> {
     try {
-      return await execFileAsync("aws", this.awsArgs(args), { maxBuffer: ONE_MEGABYTE });
+      return await execFileAsync("aws", this.awsArgs(args), { maxBuffer: ONE_MEGABYTE, timeout: this.timeoutMs });
     } catch (e) {
       if (isNotFoundError(e)) return undefined;
       throw new Error("AwsCliS3CompatibilityClient dependency failed");
@@ -199,4 +206,9 @@ function isNotFoundError(e: unknown): boolean {
 function isOptionalSafeCliValue(value: string | undefined): boolean {
   if (value === undefined) return true;
   return value.trim() === value && value.length > 0 && value.length <= 512 && !/[\u0000-\u001f\u007f]/.test(value);
+}
+
+function isSafeTimeoutMs(value: number | undefined): boolean {
+  if (value === undefined) return true;
+  return Number.isInteger(value) && value >= 250 && value <= 300_000;
 }

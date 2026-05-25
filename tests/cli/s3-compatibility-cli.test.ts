@@ -114,7 +114,25 @@ process.exit(2);
 
 function hangingAwsScript(): string {
   return `#!/usr/bin/env node
-setTimeout(() => {}, 10000);
+setTimeout(() => {}, 60000);
+`;
+}
+
+function hangingS3OperationAwsScript(): string {
+  return `#!/usr/bin/env node
+if (process.argv[2] === '--version') {
+  process.stdout.write('aws-cli/2.0.0 fake\\n');
+  process.exit(0);
+}
+const fs = require('node:fs');
+if (process.env.ATL_FAKE_AWS_HANG_ONCE) {
+  if (!fs.existsSync(process.env.ATL_FAKE_AWS_HANG_ONCE)) {
+    fs.writeFileSync(process.env.ATL_FAKE_AWS_HANG_ONCE, 'hung');
+    setTimeout(() => {}, 60000);
+  }
+  process.exit(1);
+}
+setTimeout(() => {}, 60000);
 `;
 }
 
@@ -341,6 +359,66 @@ describe("s3-compatibility CLI", () => {
         assert.match(overwrite.stderr, /evidence output path rejected/i);
         assert.doesNotMatch(overwrite.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-unsafe-output|us-test-1|tmp/i);
       });
+    });
+  });
+
+  test("times out hung lab AWS CLI S3 operations with sanitized output", async () => {
+    await withFakeAwsScript(hangingS3OperationAwsScript, async (env) => {
+      await withTempDir(async (markerRoot) => {
+        const startedAt = Date.now();
+        const result = await runCli([
+          "validate-aws-cli",
+          "--bucket",
+          "atliera-lab-validation",
+          "--prefix",
+          "s3-compatibility-validation",
+          "--probe-id",
+          "lab-probe-hung-operation",
+          "--approval-ref",
+          "lab-approval-hung-operation",
+          "--region",
+          "us-test-1",
+          "--aws-timeout-ms",
+          "250",
+        ], { env: { ...env, ATL_FAKE_AWS_HANG_ONCE: join(markerRoot, "hung-once") } });
+        const durationMs = Date.now() - startedAt;
+
+        assert.equal(result.code, 1);
+        assert.equal(durationMs < 5000, true, `expected hung AWS operation to time out, got ${durationMs}ms`);
+        assert.equal(result.stderr, "");
+        const payload = JSON.parse(result.stdout);
+        assert.equal(payload.ok, false);
+        assert.equal(payload.command, "validate-aws-cli");
+        assert.equal(payload.backend.client, "aws_cli_s3api");
+        assert.equal(payload.backend.timeout, "operator_configured_timeout_present");
+        assert.equal(payload.report.ok, false);
+        assert.match(result.stdout, /s3_compatibility_dependency_failure/);
+        assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|lab-approval-hung-operation|us-test-1|250|SIGTERM|secret|token|signed/i);
+      });
+    });
+  });
+
+  test("rejects unsafe lab AWS CLI timeout values before invoking AWS tooling", async () => {
+    await withFakeAwsScript(() => `#!/usr/bin/env node\nprocess.stderr.write('aws should not be invoked for unsafe timeout\\n');\nprocess.exit(42);\n`, async (env) => {
+      const result = await runCli([
+        "validate-aws-cli",
+        "--bucket",
+        "atliera-lab-validation",
+        "--prefix",
+        "s3-compatibility-validation",
+        "--probe-id",
+        "lab-probe-timeout-rejected",
+        "--approval-ref",
+        "lab-approval-timeout-rejected",
+        "--region",
+        "us-test-1",
+        "--aws-timeout-ms",
+        "249",
+      ], { env });
+
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /usage:/);
+      assert.doesNotMatch(result.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-timeout-rejected|us-test-1|249/i);
     });
   });
 

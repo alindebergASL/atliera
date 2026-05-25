@@ -40,6 +40,17 @@ describe("launch-gate corpus assessment", () => {
     assert.equal(assessment.lens_usefulness_summary.metrics.failing_accounts, 1);
     assert.equal(assessment.lens_usefulness_summary.status, "fail");
 
+    assert.deepEqual(assessment.gate_4_metrics, {
+      usable_gate_accounts: 2,
+      usable_hard_invariant_failures: 0,
+      usable_zero_output_incidents: 0,
+      usable_zero_output_incident_rate: 0,
+      usable_verified_or_high_confidence_claims: 4,
+      usable_verified_or_high_confidence_claims_with_accepted_supporting_evidence: 4,
+      usable_material_claim_coverage: 1,
+      usable_lens_usefulness_failures: 1,
+    });
+
     assert.deepEqual(
       assessment.entries.map((entry) => ({
         id: entry.id,
@@ -153,5 +164,57 @@ describe("launch-gate corpus assessment", () => {
       assessment.reasons.map((reason) => reason.code),
       ["expected_outcome_mismatches_present", "lens_usefulness_failures_present"],
     );
+  });
+
+  test("scopes Gate 4 metrics to usable gate accounts", async () => {
+    const assessment = await assessLaunchGateCorpusManifest(
+      {
+        schema_version: "atliera.launch_gate_corpus.v1",
+        name: "usable scoped metrics",
+        purpose: "prove adversarial and calibration entries do not pollute usable-account Gate 4 metrics",
+        launch_readiness_claim: false,
+        selected_at: "2026-05-25",
+        entries: [
+          {
+            id: "usable-minimal",
+            path: "fixtures/graph/valid/minimal-pass.json",
+            role: "usable_gate_account",
+            expected_validation_ok: true,
+            expected_gate_status: "pass",
+            rationale: "usable account should define the scoped launch metrics",
+          },
+          {
+            id: "adversarial-zero-output",
+            path: "fixtures/graph/invalid/zero-output.json",
+            role: "adversarial_regression",
+            expected_validation_ok: true,
+            expected_gate_status: "fail",
+            rationale: "adversarial zero-output fixture must remain outside usable-account metrics",
+          },
+          {
+            id: "calibration-borderline",
+            path: "fixtures/graph/valid/borderline-low-excerpt-rate.json",
+            role: "borderline_calibration",
+            expected_validation_ok: true,
+            expected_gate_status: "borderline",
+            rationale: "calibration fixture must remain outside usable-account metrics",
+          },
+        ],
+      },
+      { manifestPath: "fixtures/gate-corpus/scoped.json" },
+    );
+
+    assert.equal(assessment.quality_gate_summary.aggregate.metrics.zero_output_incidents, 1);
+    assert.equal(assessment.quality_gate_summary.status, "fail");
+    assert.deepEqual(assessment.gate_4_metrics, {
+      usable_gate_accounts: 1,
+      usable_hard_invariant_failures: 0,
+      usable_zero_output_incidents: 0,
+      usable_zero_output_incident_rate: 0,
+      usable_verified_or_high_confidence_claims: 1,
+      usable_verified_or_high_confidence_claims_with_accepted_supporting_evidence: 1,
+      usable_material_claim_coverage: 1,
+      usable_lens_usefulness_failures: 1,
+    });
   });
 });

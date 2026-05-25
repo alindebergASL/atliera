@@ -65,6 +65,17 @@ export interface LaunchGateAssessmentMetrics {
   expected_outcome_mismatches: number;
 }
 
+export interface LaunchGateAssessmentGate4Metrics {
+  usable_gate_accounts: number;
+  usable_hard_invariant_failures: number;
+  usable_zero_output_incidents: number;
+  usable_zero_output_incident_rate: number | null;
+  usable_verified_or_high_confidence_claims: number;
+  usable_verified_or_high_confidence_claims_with_accepted_supporting_evidence: number;
+  usable_material_claim_coverage: number | null;
+  usable_lens_usefulness_failures: number;
+}
+
 export interface LaunchGateAssessmentEntry {
   id: string;
   path: string;
@@ -91,6 +102,7 @@ export interface LaunchGateAssessment {
     selected_at: string;
   };
   metrics: LaunchGateAssessmentMetrics;
+  gate_4_metrics: LaunchGateAssessmentGate4Metrics;
   reasons: LaunchGateAssessmentReason[];
   entries: LaunchGateAssessmentEntry[];
   quality_gate_summary: QualityGateRunReport;
@@ -210,6 +222,53 @@ function computeMetrics(entries: LaunchGateAssessmentEntry[]): LaunchGateAssessm
   };
 }
 
+function rate(numerator: number, denominator: number): number | null {
+  return denominator === 0 ? null : numerator / denominator;
+}
+
+function computeGate4Metrics(
+  entries: LaunchGateAssessmentEntry[],
+  reports: NamedQualityGateReport[],
+  lensUsefulnessSummary: WorkshopLensUsefulnessCorpusSummary,
+): LaunchGateAssessmentGate4Metrics {
+  const reportByInput = new Map(reports.map((report) => [report.input, report]));
+  const usableEntries = entries.filter((entry) => entry.role === "usable_gate_account");
+  const usableReports = usableEntries
+    .map((entry) => reportByInput.get(entry.path))
+    .filter((report): report is NamedQualityGateReport => report !== undefined);
+  const usableVerifiedClaims = usableReports.reduce(
+    (sum, report) => sum + report.metrics.verified_or_high_confidence_claims,
+    0,
+  );
+  const usableSupportedVerifiedClaims = usableReports.reduce(
+    (sum, report) =>
+      sum +
+      report.metrics
+        .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+    0,
+  );
+  const usableZeroOutputIncidents = usableReports.filter(
+    (report) => report.metrics.graph_record_count === 0,
+  ).length;
+
+  return {
+    usable_gate_accounts: usableEntries.length,
+    usable_hard_invariant_failures: usableReports.filter(
+      (report) => report.metrics.hard_failures > 0,
+    ).length,
+    usable_zero_output_incidents: usableZeroOutputIncidents,
+    usable_zero_output_incident_rate: rate(usableZeroOutputIncidents, usableEntries.length),
+    usable_verified_or_high_confidence_claims: usableVerifiedClaims,
+    usable_verified_or_high_confidence_claims_with_accepted_supporting_evidence:
+      usableSupportedVerifiedClaims,
+    usable_material_claim_coverage: rate(
+      usableSupportedVerifiedClaims,
+      usableVerifiedClaims,
+    ),
+    usable_lens_usefulness_failures: lensUsefulnessSummary.metrics.failing_accounts,
+  };
+}
+
 function assessReasons(
   metrics: LaunchGateAssessmentMetrics,
   qualityGateSummary: QualityGateRunReport,
@@ -297,6 +356,7 @@ export async function assessLaunchGateCorpusManifest(
   const qualityGateSummary = summarizeGateRun(reports);
   const lensUsefulnessSummary = summarizeWorkshopLensUsefulnessReviews(lensReviews);
   const metrics = computeMetrics(entries);
+  const gate4Metrics = computeGate4Metrics(entries, reports, lensUsefulnessSummary);
   const reasons = assessReasons(metrics, qualityGateSummary, lensUsefulnessSummary);
 
   return {
@@ -312,6 +372,7 @@ export async function assessLaunchGateCorpusManifest(
       selected_at: manifest.selected_at,
     },
     metrics,
+    gate_4_metrics: gate4Metrics,
     reasons,
     entries,
     quality_gate_summary: qualityGateSummary,

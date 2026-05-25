@@ -72,7 +72,9 @@ Quality gate checks include:
 - accepted excerpt rate
 - verified/high-confidence claim evidence coverage
 
-When multiple bundles are supplied, the gate also reports aggregate corpus metrics for total bundles, pass/borderline/fail counts, hard-failure bundles, zero-output incident rate, total graph records, and aggregate verified/high-confidence claim evidence coverage. The aggregate layer is deterministic and local-only; it does not select a launch corpus or replace later human/product review of lens usefulness.
+When multiple bundles are supplied, the gate also reports aggregate corpus metrics for total bundles, pass/borderline/fail counts, hard-failure bundles, zero-output incident rate, total graph records, and aggregate verified/high-confidence claim evidence coverage. The aggregate layer is deterministic and local-only; it does not by itself claim launch readiness.
+
+`evaluateWorkshopLensUsefulness` is a deterministic review helper for the launch-lens layer. It consumes the graph-derived Workshop view model and requires at least two materially useful graph-backed lenses by default. A lens counts as useful only when it has at least one non-unsupported item with an accepted evidence packet. `summarizeWorkshopLensUsefulnessReviews` rolls those per-account reviews up across a corpus while preserving per-account failures and always reports `launch_readiness_claim: false`; human/product review and live-account selection still remain separate launch-readiness work.
 
 Generate the valid fixture JSON without validating it:
 

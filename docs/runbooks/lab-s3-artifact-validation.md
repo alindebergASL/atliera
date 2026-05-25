@@ -89,6 +89,23 @@ PY
 
 The filesystem smoke report must be described as emulator evidence only. It does not prove IAM, signing, endpoint networking, bucket policy, lifecycle, consistency, multipart, object lock, or network-failure behavior.
 
+## AWS CLI tooling preflight
+
+Before any real-backend validation command touches a bucket, run the no-bucket tooling preflight:
+
+```bash
+npm run --silent s3:compatibility:check-aws-cli >/tmp/atliera-aws-cli-preflight.json
+python3 - <<'PY'
+import json
+p=json.load(open('/tmp/atliera-aws-cli-preflight.json'))
+assert p['command']=='check-aws-cli'
+assert p['backend']['validation_scope']=='tooling_preflight_no_bucket_access'
+print('aws cli tooling preflight:', 'ok' if p['ok'] else 'blocked')
+PY
+```
+
+This preflight only checks whether the operator environment can execute `aws --version` within a short timeout, with credential-bearing environment stripped from the child process. It does not read or validate credentials, list buckets, contact S3, create objects, or prove IAM/bucket access. If it returns `ok: false`, treat the real backend validation as blocked on `AWS_CLI_MISSING_OR_UNAVAILABLE`; install/configure approved tooling outside the repository or use a separately documented high-fidelity emulator path before retrying.
+
 ## Real backend validation shape
 
 The real-backend validation command currently available for AWS or AWS-compatible providers is:

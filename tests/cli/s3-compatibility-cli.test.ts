@@ -33,12 +33,19 @@ function runCli(args: string[], options: { env?: NodeJS.ProcessEnv } = {}): Prom
 }
 
 async function withFakeAws<T>(fn: (env: NodeJS.ProcessEnv, rootDir: string) => Promise<T>): Promise<T> {
+  return withFakeAwsScript(fakeAwsScript, fn);
+}
+
+async function withFakeAwsScript<T>(
+  scriptFactory: (rootDir: string) => string,
+  fn: (env: NodeJS.ProcessEnv, rootDir: string) => Promise<T>,
+): Promise<T> {
   return withTempDir(async (dir) => {
     const actualBinDir = join(dir, "bin");
     const rootDir = join(dir, "objects");
     await mkdir(actualBinDir);
     const awsPath = join(actualBinDir, "aws");
-    await writeFile(awsPath, fakeAwsScript(rootDir), "utf8");
+    await writeFile(awsPath, scriptFactory(rootDir), "utf8");
     await chmod(awsPath, 0o755);
     return fn({ ...process.env, PATH: `${actualBinDir}${delimiter}${process.env.PATH ?? ""}`, FAKE_AWS_S3_ROOT: rootDir }, rootDir);
   });
@@ -105,7 +112,122 @@ process.exit(2);
 `;
 }
 
+function hangingAwsScript(): string {
+  return `#!/usr/bin/env node
+setTimeout(() => {}, 10000);
+`;
+}
+
+function credentialSniffingAwsScript(): string {
+  return `#!/usr/bin/env node
+const forbidden = [
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'AWS_PROFILE',
+  'AWS_CONFIG_FILE',
+  'AWS_SHARED_CREDENTIALS_FILE',
+  'HOME',
+];
+const leaked = forbidden.filter((key) => process.env[key]);
+if (leaked.length > 0) {
+  process.stderr.write('credential environment leaked: ' + leaked.join(',') + '\\n');
+  process.exit(42);
+}
+if (process.argv[2] !== '--version') process.exit(2);
+process.stdout.write('aws-cli/2.0.0 fake\\n');
+`;
+}
+
 describe("s3-compatibility CLI", () => {
+  test("checks AWS CLI tooling availability without requiring bucket or probe inputs", async () => {
+    await withFakeAws(async (env, rootDir) => {
+      const result = await runCli(["check-aws-cli"], { env });
+
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.command, "check-aws-cli");
+      assert.equal(payload.backend.adapter, "s3_compatible");
+      assert.equal(payload.backend.client, "aws_cli_s3api");
+      assert.equal(payload.backend.validation_scope, "tooling_preflight_no_bucket_access");
+      assert.equal(payload.report.ok, true);
+      assert.deepEqual(payload.report.checks, [
+        {
+          name: "aws_cli_available",
+          status: "pass",
+          code: "aws_cli_available",
+          message: "AWS CLI executable responded to --version; credentials and bucket access were not checked",
+        },
+      ]);
+      assert.doesNotMatch(result.stdout, /aws-cli\/2\.0\.0|atliera-lab-validation|secret|token|signed/i);
+      assert.doesNotMatch(result.stdout, new RegExp(rootDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.equal(result.stderr, "");
+    });
+  });
+
+  test("does not expose credential-bearing environment to the AWS CLI tooling preflight", async () => {
+    await withFakeAwsScript(credentialSniffingAwsScript, async (env) => {
+      const result = await runCli(["check-aws-cli"], {
+        env: {
+          ...env,
+          AWS_ACCESS_KEY_ID: "test-access-key",
+          AWS_SECRET_ACCESS_KEY: "test-secret-key",
+          AWS_SESSION_TOKEN: "test-session-token",
+          AWS_PROFILE: "test-profile",
+          AWS_CONFIG_FILE: "/tmp/test-aws-config",
+          AWS_SHARED_CREDENTIALS_FILE: "/tmp/test-aws-credentials",
+          HOME: "/tmp/test-home-with-credentials",
+        },
+      });
+
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.report.checks[0].code, "aws_cli_available");
+      assert.doesNotMatch(result.stdout, /test-access-key|test-secret-key|test-session-token|test-profile|credential environment leaked/i);
+      assert.equal(result.stderr, "");
+    });
+  });
+
+  test("fails the AWS CLI tooling preflight with sanitized output when tooling is unavailable", async () => {
+    await withTempDir(async (pathOnlyDir) => {
+      const result = await runCli(["check-aws-cli"], { env: { ...process.env, PATH: pathOnlyDir } });
+
+      assert.equal(result.code, 1);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.command, "check-aws-cli");
+      assert.equal(payload.report.ok, false);
+      assert.deepEqual(payload.report.checks, [
+        {
+          name: "aws_cli_available",
+          status: "fail",
+          code: "aws_cli_unavailable",
+          message: "AWS CLI executable was unavailable or did not respond; details were sanitized",
+        },
+      ]);
+      assert.doesNotMatch(result.stdout, /ENOENT|spawn|PATH|secret|token|signed/i);
+      assert.equal(result.stderr, "");
+    });
+  });
+
+  test("times out the AWS CLI tooling preflight with sanitized output when tooling hangs", async () => {
+    await withFakeAwsScript(hangingAwsScript, async (env) => {
+      const startedAt = Date.now();
+      const result = await runCli(["check-aws-cli"], { env });
+      const durationMs = Date.now() - startedAt;
+
+      assert.equal(result.code, 1);
+      assert.equal(durationMs < 5000, true, `expected timeout before hanging fake aws completed, got ${durationMs}ms`);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.report.checks[0].code, "aws_cli_unavailable");
+      assert.doesNotMatch(result.stdout, /SIGTERM|timeout|10000|secret|token|signed/i);
+      assert.equal(result.stderr, "");
+    });
+  });
+
   test("validates a lab AWS CLI S3-compatible backend and emits sanitized real-backend evidence", async () => {
     await withFakeAws(async (env, rootDir) => {
       const result = await runCli([

@@ -1,7 +1,7 @@
 // Local S3-compatible validation CLI.
 //
 // Usage:
-//   tsx src/cli/s3-compatibility.ts check-aws-cli
+//   tsx src/cli/s3-compatibility.ts check-aws-cli [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
 //   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--aws-timeout-ms <ms>] [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]
 
@@ -41,6 +41,7 @@ function parseCheckAwsCliArgs(args: string[]): {
   const allowedFlags = new Set(["--out-root", "--out-file", "--allow-overwrite"]);
 
   if ((outRoot && !outFile) || (!outRoot && outFile)) return null;
+  if (allowOverwrite && (!outRoot || !outFile)) return null;
 
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i += 1) {
@@ -114,6 +115,7 @@ function parseValidateAwsCliArgs(args: string[]): {
   if (!bucket || !prefix || !probeId || !approvalRef || (!region && !endpointUrl)) return null;
   if (timeoutValue !== undefined && !isValidAwsTimeoutMs(timeoutMs)) return null;
   if ((outRoot && !outFile) || (!outRoot && outFile)) return null;
+  if (allowOverwrite && (!outRoot || !outFile)) return null;
 
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i += 1) {

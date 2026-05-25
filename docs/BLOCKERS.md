@@ -66,14 +66,15 @@ Required before broader use beyond the initial user:
 
 ### Gate 4 enforcement status
 
-The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, `evaluateWorkshopLensUsefulness` provides a deterministic first-pass review for whether graph-backed Signals / Maps / Plays are materially useful, and `assessLaunchGateCorpusManifestFile` ties those pieces into one local assessment object. This v0 corpus/review/assessment path is still fixture-only and explicitly does not claim live launch readiness.
+The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, `evaluateWorkshopLensUsefulness` provides a deterministic first-pass review for whether graph-backed Signals / Maps / Plays are materially useful, and `assessLaunchGateCorpusManifestFile` ties those pieces into one local assessment object with explicit usable-account Gate 4 metrics. This v0 corpus/review/assessment path is still fixture-only and explicitly does not claim live launch readiness.
 
-Before launch-readiness assessment, Atliera still needs remaining aggregate report extensions or review artifacts that evaluate:
+Before launch-readiness assessment, Atliera still needs live or expanded-corpus review artifacts that finalize and approve:
 
+- minimum usable gate-account count and corpus selection criteria
 - zero-output incident rate across usable gate-corpus accounts
 - material-claim coverage across verified/high-confidence claims
 - lens usefulness across Signals / Maps / Plays
-- hard-invariant pass/fail across at least N selected accounts
+- hard-invariant pass/fail across the selected usable accounts
 
 See `docs/architecture/atliera-product-architecture.md#launch-readiness-gating-layers`.
 

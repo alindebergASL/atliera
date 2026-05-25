@@ -3,7 +3,7 @@
 // Usage:
 //   tsx src/cli/s3-compatibility.ts check-aws-cli
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
-//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]
+//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--aws-timeout-ms <ms>] [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
@@ -19,7 +19,7 @@ function usage(): string {
     "usage:",
     "  tsx src/cli/s3-compatibility.ts check-aws-cli",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
-    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]",
+    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--aws-timeout-ms <ms>] [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]",
   ].join("\n");
 }
 
@@ -65,6 +65,8 @@ function parseValidateAwsCliArgs(args: string[]): {
   approvalRef: string;
   region?: string;
   endpointUrl?: string;
+  timeoutMs?: number;
+  timeoutConfigured: boolean;
   outRoot?: string;
   outFile?: string;
   allowOverwrite: boolean;
@@ -75,12 +77,15 @@ function parseValidateAwsCliArgs(args: string[]): {
   const approvalRef = parseFlagValue(args, "--approval-ref");
   const region = parseFlagValue(args, "--region") ?? undefined;
   const endpointUrl = parseFlagValue(args, "--endpoint-url") ?? undefined;
+  const timeoutValue = parseFlagValue(args, "--aws-timeout-ms") ?? undefined;
+  const timeoutMs = timeoutValue === undefined ? undefined : Number(timeoutValue);
   const outRoot = parseFlagValue(args, "--out-root") ?? undefined;
   const outFile = parseFlagValue(args, "--out-file") ?? undefined;
   const allowOverwrite = args.includes("--allow-overwrite");
-  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--approval-ref", "--region", "--endpoint-url", "--out-root", "--out-file", "--allow-overwrite"]);
+  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--approval-ref", "--region", "--endpoint-url", "--aws-timeout-ms", "--out-root", "--out-file", "--allow-overwrite"]);
 
   if (!bucket || !prefix || !probeId || !approvalRef || (!region && !endpointUrl)) return null;
+  if (timeoutValue !== undefined && !isValidAwsTimeoutMs(timeoutMs)) return null;
   if ((outRoot && !outFile) || (!outRoot && outFile)) return null;
 
   const seen = new Set<string>();
@@ -95,11 +100,15 @@ function parseValidateAwsCliArgs(args: string[]): {
     if (!args[i] || args[i]!.startsWith("--")) return null;
   }
 
-  return { bucket, prefix, probeId, approvalRef, region, endpointUrl, outRoot, outFile, allowOverwrite };
+  return { bucket, prefix, probeId, approvalRef, region, endpointUrl, timeoutMs, timeoutConfigured: timeoutValue !== undefined, outRoot, outFile, allowOverwrite };
 }
 
 function printJson(value: unknown): void {
   process.stdout.write(JSON.stringify(value, null, 2) + "\n");
+}
+
+function isValidAwsTimeoutMs(value: number | undefined): value is number {
+  return value !== undefined && Number.isInteger(value) && value >= 250 && value <= 300_000;
 }
 
 async function resolveEvidencePath(outputRoot: string, outputFile: string, allowOverwrite: boolean): Promise<string> {
@@ -202,7 +211,7 @@ async function run(): Promise<number> {
       ? await resolveEvidencePath(parsedArgs.outRoot, parsedArgs.outFile, parsedArgs.allowOverwrite)
       : undefined;
 
-    const client = new AwsCliS3CompatibilityClient({ region: parsedArgs.region, endpointUrl: parsedArgs.endpointUrl });
+    const client = new AwsCliS3CompatibilityClient({ region: parsedArgs.region, endpointUrl: parsedArgs.endpointUrl, timeoutMs: parsedArgs.timeoutMs });
     const report = await validateS3ArtifactStoreCompatibility({
       client,
       bucket: parsedArgs.bucket,
@@ -218,6 +227,7 @@ async function run(): Promise<number> {
         client: "aws_cli_s3api",
         validation_scope: "lab_only_real_backend",
         approval: "operator_approval_ref_present",
+        ...(parsedArgs.timeoutConfigured ? { timeout: "operator_configured_timeout_present" } : {}),
       },
       ...(evidencePath ? { evidence: { artifact_written: true } } : {}),
       report,

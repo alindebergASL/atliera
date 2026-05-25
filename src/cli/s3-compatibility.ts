@@ -3,11 +3,14 @@
 // Usage:
 //   tsx src/cli/s3-compatibility.ts check-aws-cli
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
-//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>)
+//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { exit } from "node:process";
 
 import { AwsCliS3CompatibilityClient, checkAwsCliS3CompatibilityTooling } from "../artifacts/aws-cli-s3-client.ts";
+import { guardOutputPath, PathGuardError } from "../io/path-guard.ts";
 import { FilesystemS3CompatibilityClient } from "../artifacts/filesystem-s3-client.ts";
 import { validateS3ArtifactStoreCompatibility } from "../artifacts/s3-compatibility.ts";
 
@@ -16,7 +19,7 @@ function usage(): string {
     "usage:",
     "  tsx src/cli/s3-compatibility.ts check-aws-cli",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
-    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>)",
+    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>) [--out-root <dir> --out-file <relative.json> [--allow-overwrite]]",
   ].join("\n");
 }
 
@@ -62,6 +65,9 @@ function parseValidateAwsCliArgs(args: string[]): {
   approvalRef: string;
   region?: string;
   endpointUrl?: string;
+  outRoot?: string;
+  outFile?: string;
+  allowOverwrite: boolean;
 } | null {
   const bucket = parseFlagValue(args, "--bucket");
   const prefix = parseFlagValue(args, "--prefix");
@@ -69,9 +75,13 @@ function parseValidateAwsCliArgs(args: string[]): {
   const approvalRef = parseFlagValue(args, "--approval-ref");
   const region = parseFlagValue(args, "--region") ?? undefined;
   const endpointUrl = parseFlagValue(args, "--endpoint-url") ?? undefined;
-  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--approval-ref", "--region", "--endpoint-url"]);
+  const outRoot = parseFlagValue(args, "--out-root") ?? undefined;
+  const outFile = parseFlagValue(args, "--out-file") ?? undefined;
+  const allowOverwrite = args.includes("--allow-overwrite");
+  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--approval-ref", "--region", "--endpoint-url", "--out-root", "--out-file", "--allow-overwrite"]);
 
   if (!bucket || !prefix || !probeId || !approvalRef || (!region && !endpointUrl)) return null;
+  if ((outRoot && !outFile) || (!outRoot && outFile)) return null;
 
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i += 1) {
@@ -80,18 +90,45 @@ function parseValidateAwsCliArgs(args: string[]): {
     if (!allowedFlags.has(value)) return null;
     if (seen.has(value)) return null;
     seen.add(value);
+    if (value === "--allow-overwrite") continue;
     i += 1;
     if (!args[i] || args[i]!.startsWith("--")) return null;
   }
 
-  return { bucket, prefix, probeId, approvalRef, region, endpointUrl };
+  return { bucket, prefix, probeId, approvalRef, region, endpointUrl, outRoot, outFile, allowOverwrite };
 }
 
 function printJson(value: unknown): void {
   process.stdout.write(JSON.stringify(value, null, 2) + "\n");
 }
 
+async function resolveEvidencePath(outputRoot: string, outputFile: string, allowOverwrite: boolean): Promise<string> {
+  if (isAbsolute(outputFile)) {
+    throw new PathGuardError("--out-file must be a relative .json path under --out-root");
+  }
+  if (!outputFile.endsWith(".json")) {
+    throw new PathGuardError("--out-file must end in .json");
+  }
+  const guarded = await guardOutputPath({
+    outputRoot,
+    targetPath: resolve(outputRoot, outputFile),
+    allowOverwrite,
+    rejectRepoPaths: false,
+    repoRoot: null,
+  });
+  return guarded.targetPath;
+}
+
+async function writeEvidenceJson(value: unknown, targetPath: string, allowOverwrite: boolean): Promise<void> {
+  await mkdir(dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, JSON.stringify(value, null, 2) + "\n", { encoding: "utf8", flag: allowOverwrite ? "w" : "wx" });
+}
+
 function printError(e: unknown): void {
+  if (e instanceof PathGuardError) {
+    process.stderr.write("evidence output path rejected\n");
+    return;
+  }
   if (e instanceof Error && isValidationConfigError(e)) {
     process.stderr.write("validation configuration rejected\n");
     return;
@@ -161,6 +198,10 @@ async function run(): Promise<number> {
       return 2;
     }
 
+    const evidencePath = parsedArgs.outRoot && parsedArgs.outFile
+      ? await resolveEvidencePath(parsedArgs.outRoot, parsedArgs.outFile, parsedArgs.allowOverwrite)
+      : undefined;
+
     const client = new AwsCliS3CompatibilityClient({ region: parsedArgs.region, endpointUrl: parsedArgs.endpointUrl });
     const report = await validateS3ArtifactStoreCompatibility({
       client,
@@ -169,7 +210,7 @@ async function run(): Promise<number> {
       probeId: parsedArgs.probeId,
     });
 
-    printJson({
+    const payload = {
       ok: report.ok,
       command: "validate-aws-cli",
       backend: {
@@ -178,8 +219,13 @@ async function run(): Promise<number> {
         validation_scope: "lab_only_real_backend",
         approval: "operator_approval_ref_present",
       },
+      ...(evidencePath ? { evidence: { artifact_written: true } } : {}),
       report,
-    });
+    };
+    if (evidencePath) {
+      await writeEvidenceJson(payload, evidencePath, parsedArgs.allowOverwrite);
+    }
+    printJson(payload);
     return report.ok ? 0 : 1;
   }
 
@@ -191,6 +237,7 @@ run()
   .then((code) => exit(code))
   .catch((e) => {
     printError(e);
+    if (e instanceof PathGuardError) exit(2);
     if (e instanceof Error && isValidationConfigError(e)) exit(2);
     exit(1);
   });

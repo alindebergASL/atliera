@@ -259,6 +259,17 @@ describe("s3-compatibility CLI", () => {
     });
   });
 
+  test("rejects preflight allow-overwrite without an evidence output target before invoking AWS tooling", async () => {
+    await withFakeAws(async (env, rootDir) => {
+      const result = await runCli(["check-aws-cli", "--allow-overwrite"], { env });
+
+      assert.equal(result.code, 2);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /^usage:/);
+      await assert.rejects(stat(rootDir), { code: "ENOENT" });
+    });
+  });
+
   test("times out the AWS CLI tooling preflight with sanitized output when tooling hangs", async () => {
     await withFakeAwsScript(hangingAwsScript, async (env) => {
       const startedAt = Date.now();
@@ -451,6 +462,30 @@ describe("s3-compatibility CLI", () => {
       assert.equal(result.code, 2);
       assert.match(result.stderr, /usage:/);
       assert.doesNotMatch(result.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-timeout-rejected|us-test-1|249/i);
+    });
+  });
+
+  test("rejects lab AWS CLI allow-overwrite without an evidence output target before invoking AWS tooling", async () => {
+    await withFakeAws(async (env, rootDir) => {
+      const result = await runCli([
+        "validate-aws-cli",
+        "--bucket",
+        "atliera-lab-validation",
+        "--prefix",
+        "s3-compatibility-validation",
+        "--probe-id",
+        "lab-probe-overwrite-rejected",
+        "--approval-ref",
+        "lab-approval-overwrite-rejected",
+        "--region",
+        "us-test-1",
+        "--allow-overwrite",
+      ], { env });
+
+      assert.equal(result.code, 2);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /^usage:/);
+      await assert.rejects(stat(rootDir), { code: "ENOENT" });
     });
   });
 

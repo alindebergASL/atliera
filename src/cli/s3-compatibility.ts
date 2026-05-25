@@ -3,7 +3,7 @@
 // Usage:
 //   tsx src/cli/s3-compatibility.ts check-aws-cli
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
-//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)
+//   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>)
 
 import { exit } from "node:process";
 
@@ -16,7 +16,7 @@ function usage(): string {
     "usage:",
     "  tsx src/cli/s3-compatibility.ts check-aws-cli",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
-    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)",
+    "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> --approval-ref <ref> (--region <region> | --endpoint-url <url>)",
   ].join("\n");
 }
 
@@ -59,17 +59,19 @@ function parseValidateAwsCliArgs(args: string[]): {
   bucket: string;
   prefix: string;
   probeId: string;
+  approvalRef: string;
   region?: string;
   endpointUrl?: string;
 } | null {
   const bucket = parseFlagValue(args, "--bucket");
   const prefix = parseFlagValue(args, "--prefix");
   const probeId = parseFlagValue(args, "--probe-id");
+  const approvalRef = parseFlagValue(args, "--approval-ref");
   const region = parseFlagValue(args, "--region") ?? undefined;
   const endpointUrl = parseFlagValue(args, "--endpoint-url") ?? undefined;
-  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--region", "--endpoint-url"]);
+  const allowedFlags = new Set(["--bucket", "--prefix", "--probe-id", "--approval-ref", "--region", "--endpoint-url"]);
 
-  if (!bucket || !prefix || !probeId || (!region && !endpointUrl)) return null;
+  if (!bucket || !prefix || !probeId || !approvalRef || (!region && !endpointUrl)) return null;
 
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i += 1) {
@@ -82,7 +84,7 @@ function parseValidateAwsCliArgs(args: string[]): {
     if (!args[i] || args[i]!.startsWith("--")) return null;
   }
 
-  return { bucket, prefix, probeId, region, endpointUrl };
+  return { bucket, prefix, probeId, approvalRef, region, endpointUrl };
 }
 
 function printJson(value: unknown): void {
@@ -174,6 +176,7 @@ async function run(): Promise<number> {
         adapter: "s3_compatible",
         client: "aws_cli_s3api",
         validation_scope: "lab_only_real_backend",
+        approval: "operator_approval_ref_present",
       },
       report,
     });

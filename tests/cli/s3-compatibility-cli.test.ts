@@ -238,6 +238,8 @@ describe("s3-compatibility CLI", () => {
         "s3-compatibility-validation",
         "--probe-id",
         "lab-probe-1",
+        "--approval-ref",
+        "lab-approval-1",
         "--region",
         "us-test-1",
       ], { env });
@@ -249,6 +251,7 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.backend.adapter, "s3_compatible");
       assert.equal(payload.backend.client, "aws_cli_s3api");
       assert.equal(payload.backend.validation_scope, "lab_only_real_backend");
+      assert.equal(payload.backend.approval, "operator_approval_ref_present");
       assert.equal(payload.backend.emulator_limit, undefined);
       assert.equal(payload.report.ok, true);
       assert.deepEqual(
@@ -261,23 +264,27 @@ describe("s3-compatibility CLI", () => {
           ["max_payload_guard", "pass"],
         ],
       );
-      assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|us-test-1|secret|token|signed/i);
+      assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|lab-approval-1|us-test-1|secret|token|signed/i);
       assert.doesNotMatch(result.stdout, new RegExp(rootDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     });
   });
 
-  test("requires explicit bucket, prefix, probe id, and region or endpoint for AWS CLI validation", async () => {
+  test("requires explicit bucket, prefix, probe id, approval ref, and region or endpoint for AWS CLI validation", async () => {
     const result = await runCli([
       "validate-aws-cli",
       "--bucket",
       "atliera-lab-validation",
+      "--prefix",
+      "s3-compatibility-validation",
       "--probe-id",
       "lab-probe-2",
+      "--region",
+      "us-test-1",
     ]);
 
     assert.equal(result.code, 2);
     assert.match(result.stderr, /usage:/);
-    assert.doesNotMatch(result.stderr, /atliera-lab-validation|lab-probe-2/);
+    assert.doesNotMatch(result.stderr, /atliera-lab-validation|lab-probe-2|us-test-1/);
   });
 
   test("fails closed with sanitized output when AWS CLI tooling is unavailable", async () => {
@@ -290,6 +297,8 @@ describe("s3-compatibility CLI", () => {
         "s3-compatibility-validation",
         "--probe-id",
         "lab-probe-3",
+        "--approval-ref",
+        "lab-approval-3",
         "--region",
         "us-test-1",
       ], { env: { ...process.env, PATH: pathOnlyDir } });

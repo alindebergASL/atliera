@@ -115,14 +115,15 @@ npm run s3:compatibility:aws-cli -- \
   --bucket <lab-validation-bucket> \
   --prefix <lab-validation-prefix> \
   --probe-id <run-scoped-probe-id> \
+  --approval-ref <operator-approval-reference> \
   --region <region>
 ```
 
-For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
+For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it requires the approval reference as an input but emits only `operator_approval_ref_present`, not the reference value. It does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
 
 That tool must continue to:
 
-- require explicit bucket, prefix, and probe id inputs;
+- require explicit bucket, prefix, probe id, and approval reference inputs;
 - require explicit region or endpoint inputs when the selected client needs them;
 - read credentials only through the operator's approved credential chain or secret lookup;
 - construct the provider client outside `S3ArtifactStore` and pass it as an injected client;

@@ -66,7 +66,7 @@ Required before broader use beyond the initial user:
 
 ### Gate 4 enforcement status
 
-The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, and `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes. This v0 corpus is still fixture-only and explicitly does not claim live launch readiness or score lens usefulness.
+The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, and `evaluateWorkshopLensUsefulness` provides a deterministic first-pass review for whether graph-backed Signals / Maps / Plays are materially useful. This v0 corpus/review path is still fixture-only and explicitly does not claim live launch readiness.
 
 Before launch-readiness assessment, Atliera still needs remaining aggregate report extensions or review artifacts that evaluate:
 

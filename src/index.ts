@@ -48,3 +48,4 @@ export * from "./model/activation-gates.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";
+export * from "./workshop/lens-usefulness.ts";

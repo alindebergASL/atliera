@@ -273,6 +273,7 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.backend.contract, "s3_compatible_object_api");
       assert.equal(payload.backend.provider_binding, "operator_supplied_endpoint_or_region");
       assert.equal(payload.backend.validation_scope, "lab_only_real_backend");
+      assert.equal(payload.backend.object_lifecycle, "operator_cleanup_required");
       assert.equal(payload.backend.approval, "operator_approval_ref_present");
       assert.equal(payload.backend.emulator_limit, undefined);
       assert.equal(payload.report.ok, true);
@@ -495,6 +496,7 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.backend.client, "filesystem_s3_compatibility");
       assert.equal(payload.backend.contract, "s3_compatible_object_api");
       assert.equal(payload.backend.provider_binding, "none");
+      assert.equal(payload.backend.object_lifecycle, "local_root_operator_managed");
       assert.equal(payload.backend.emulator_limit, "filesystem-backed local emulator; not proof of provider-specific S3 behavior");
       assert.equal(payload.report.ok, true);
       assert.deepEqual(

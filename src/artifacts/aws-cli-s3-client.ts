@@ -8,10 +8,46 @@ import type { S3ArtifactStoreClient, S3GetObjectInput, S3GetObjectOutput, S3PutO
 
 const execFileAsync = promisify(execFile);
 const ONE_MEGABYTE = 1024 * 1024;
+const AWS_CLI_TOOLING_PREFLIGHT_TIMEOUT_MS = 1_000;
 
 export interface AwsCliS3CompatibilityClientOptions {
   region?: string;
   endpointUrl?: string;
+}
+
+export interface AwsCliToolingPreflightCheck {
+  readonly name: "aws_cli_available";
+  readonly status: "pass" | "fail";
+  readonly code: "aws_cli_available" | "aws_cli_unavailable";
+  readonly message: string;
+}
+
+export interface AwsCliToolingPreflightReport {
+  readonly ok: boolean;
+  readonly checks: readonly AwsCliToolingPreflightCheck[];
+}
+
+export async function checkAwsCliS3CompatibilityTooling(): Promise<AwsCliToolingPreflightReport> {
+  try {
+    await execFileAsync("aws", ["--version"], {
+      env: awsCliToolingPreflightEnv(),
+      maxBuffer: ONE_MEGABYTE,
+      timeout: AWS_CLI_TOOLING_PREFLIGHT_TIMEOUT_MS,
+    });
+    return toolingReport({
+      name: "aws_cli_available",
+      status: "pass",
+      code: "aws_cli_available",
+      message: "AWS CLI executable responded to --version; credentials and bucket access were not checked",
+    });
+  } catch {
+    return toolingReport({
+      name: "aws_cli_available",
+      status: "fail",
+      code: "aws_cli_unavailable",
+      message: "AWS CLI executable was unavailable or did not respond; details were sanitized",
+    });
+  }
 }
 
 export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
@@ -105,6 +141,19 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
       throw new Error("AwsCliS3CompatibilityClient dependency failed");
     }
   }
+}
+
+function toolingReport(check: AwsCliToolingPreflightCheck): AwsCliToolingPreflightReport {
+  return Object.freeze({
+    ok: check.status === "pass",
+    checks: Object.freeze([Object.freeze({ ...check })]),
+  });
+}
+
+function awsCliToolingPreflightEnv(): NodeJS.ProcessEnv {
+  return Object.freeze({
+    PATH: process.env.PATH ?? "",
+  });
 }
 
 function formatMetadata(metadata: Readonly<Record<string, string>>): string {

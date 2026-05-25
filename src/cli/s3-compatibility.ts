@@ -1,18 +1,20 @@
 // Local S3-compatible validation CLI.
 //
 // Usage:
+//   tsx src/cli/s3-compatibility.ts check-aws-cli
 //   tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]
 //   tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)
 
 import { exit } from "node:process";
 
-import { AwsCliS3CompatibilityClient } from "../artifacts/aws-cli-s3-client.ts";
+import { AwsCliS3CompatibilityClient, checkAwsCliS3CompatibilityTooling } from "../artifacts/aws-cli-s3-client.ts";
 import { FilesystemS3CompatibilityClient } from "../artifacts/filesystem-s3-client.ts";
 import { validateS3ArtifactStoreCompatibility } from "../artifacts/s3-compatibility.ts";
 
 function usage(): string {
   return [
     "usage:",
+    "  tsx src/cli/s3-compatibility.ts check-aws-cli",
     "  tsx src/cli/s3-compatibility.ts validate-filesystem --root-dir <dir> --bucket <bucket> --probe-id <id> [--prefix <prefix>]",
     "  tsx src/cli/s3-compatibility.ts validate-aws-cli --bucket <bucket> --prefix <prefix> --probe-id <id> (--region <region> | --endpoint-url <url>)",
   ].join("\n");
@@ -101,6 +103,26 @@ function isValidationConfigError(e: Error): boolean {
 
 async function run(): Promise<number> {
   const [command, ...args] = process.argv.slice(2);
+
+  if (command === "check-aws-cli") {
+    if (args.length !== 0) {
+      process.stderr.write(`${usage()}\n`);
+      return 2;
+    }
+
+    const report = await checkAwsCliS3CompatibilityTooling();
+    printJson({
+      ok: report.ok,
+      command: "check-aws-cli",
+      backend: {
+        adapter: "s3_compatible",
+        client: "aws_cli_s3api",
+        validation_scope: "tooling_preflight_no_bucket_access",
+      },
+      report,
+    });
+    return report.ok ? 0 : 1;
+  }
 
   if (command === "validate-filesystem") {
     const parsedArgs = parseValidateFilesystemArgs(args);

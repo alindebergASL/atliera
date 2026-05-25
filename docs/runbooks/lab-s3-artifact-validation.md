@@ -116,10 +116,12 @@ npm run s3:compatibility:aws-cli -- \
   --prefix <lab-validation-prefix> \
   --probe-id <run-scoped-probe-id> \
   --approval-ref <operator-approval-reference> \
-  --region <region>
+  --region <region> \
+  --out-root <private-evidence-directory> \
+  --out-file <relative-report.json>
 ```
 
-For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it requires the approval reference as an input but emits only `operator_approval_ref_present`, not the reference value. It does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
+For non-AWS compatible endpoints, use `--endpoint-url <endpoint>` instead of or in addition to `--region` when the operator-approved credential chain requires it. The command uses the operator's installed `aws s3api` tooling; it requires the approval reference as an input but emits only `operator_approval_ref_present`, not the reference value. The optional `--out-root`/`--out-file` evidence target must point to a private operator-selected directory and a relative `.json` path; unsafe traversal is rejected before AWS tooling is invoked, and existing evidence files are refused unless the operator explicitly adds `--allow-overwrite`. It does not install the AWS CLI, create buckets, choose credentials, or clean up validation objects automatically.
 
 That tool must continue to:
 
@@ -130,7 +132,7 @@ That tool must continue to:
 - call `validateS3ArtifactStoreCompatibility({ client, bucket, prefix, probeId })`;
 - emit a sanitized report that excludes bucket, prefix, endpoint, account, signed URL, credential names, and raw backend errors;
 - return non-zero when any validation check fails;
-- write evidence only to the operator-selected artifact location;
+- write sanitized evidence only to stdout or the operator-selected guarded artifact location;
 - leave cleanup to an explicit operator step or a documented lifecycle rule.
 
 Do not broaden the `S3ArtifactStore` adapter to import SDKs, read env, or choose infrastructure defaults. Provider-specific client construction belongs in lab/deploy wiring only.

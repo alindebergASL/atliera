@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { spawn } from "node:child_process";
@@ -266,6 +266,81 @@ describe("s3-compatibility CLI", () => {
       );
       assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|lab-approval-1|us-test-1|secret|token|signed/i);
       assert.doesNotMatch(result.stdout, new RegExp(rootDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    });
+  });
+
+  test("writes sanitized lab AWS CLI validation evidence under an explicit output root", async () => {
+    await withFakeAws(async (env) => {
+      await withTempDir(async (outputRoot) => {
+        const result = await runCli([
+          "validate-aws-cli",
+          "--bucket",
+          "atliera-lab-validation",
+          "--prefix",
+          "s3-compatibility-validation",
+          "--probe-id",
+          "lab-probe-evidence",
+          "--approval-ref",
+          "lab-approval-evidence",
+          "--region",
+          "us-test-1",
+          "--out-root",
+          outputRoot,
+          "--out-file",
+          "evidence/atliera-lab-validation/us-test-1/lab-approval-evidence.json",
+        ], { env });
+
+        assert.equal(result.code, 0, result.stderr);
+        const stdoutPayload = JSON.parse(result.stdout);
+        assert.equal(stdoutPayload.ok, true);
+        assert.deepEqual(stdoutPayload.evidence, { artifact_written: true });
+        assert.equal(stdoutPayload.evidence_path, undefined);
+        const evidencePath = join(outputRoot, "evidence", "atliera-lab-validation", "us-test-1", "lab-approval-evidence.json");
+        const filePayload = JSON.parse(await readFile(evidencePath, "utf8"));
+        assert.deepEqual(filePayload, stdoutPayload);
+        assert.equal(filePayload.backend.approval, "operator_approval_ref_present");
+        assert.doesNotMatch(result.stdout, /atliera-lab-validation|s3-compatibility-validation|lab-approval-evidence|us-test-1|secret|token|signed/i);
+      });
+    });
+  });
+
+  test("refuses unsafe lab AWS CLI evidence paths before invoking AWS tooling", async () => {
+    await withFakeAwsScript(() => `#!/usr/bin/env node\nprocess.stderr.write('aws should not be invoked for unsafe evidence output\\n');\nprocess.exit(42);\n`, async (env) => {
+      await withTempDir(async (outputRoot) => {
+        const baseArgs = [
+          "validate-aws-cli",
+          "--bucket",
+          "atliera-lab-validation",
+          "--prefix",
+          "s3-compatibility-validation",
+          "--probe-id",
+          "lab-probe-unsafe-output",
+          "--approval-ref",
+          "lab-approval-unsafe-output",
+          "--region",
+          "us-test-1",
+          "--out-root",
+          outputRoot,
+        ];
+        const traversal = await runCli([...baseArgs, "--out-file", "../escape.json"], { env });
+
+        assert.equal(traversal.code, 2);
+        assert.match(traversal.stderr, /evidence output path rejected/i);
+        assert.doesNotMatch(traversal.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-unsafe-output|us-test-1|escape|tmp/i);
+
+        const nonJson = await runCli([...baseArgs, "--out-file", "evidence/report.txt"], { env });
+        assert.equal(nonJson.code, 2);
+        assert.match(nonJson.stderr, /evidence output path rejected/i);
+        assert.doesNotMatch(nonJson.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-unsafe-output|us-test-1|report\.txt/i);
+
+        const existingFile = "evidence/atliera-lab-validation/us-test-1/lab-approval-unsafe-output.json";
+        await mkdir(join(outputRoot, "evidence", "atliera-lab-validation", "us-test-1"), { recursive: true });
+        await writeFile(join(outputRoot, existingFile), "{}", "utf8");
+        const overwrite = await runCli([...baseArgs, "--out-file", existingFile], { env });
+        assert.equal(overwrite.code, 2);
+        assert.match(overwrite.stderr, /evidence output path rejected/i);
+        assert.doesNotMatch(overwrite.stderr, /aws should not be invoked|atliera-lab-validation|lab-approval-unsafe-output|us-test-1|tmp/i);
+      });
     });
   });
 

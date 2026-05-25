@@ -31,6 +31,8 @@ export interface S3CompatibilityValidationReport {
   readonly backend: {
     readonly adapter: "s3_compatible";
     readonly client: "injected";
+    readonly contract: "s3_compatible_object_api";
+    readonly provider_binding: "none";
   };
   readonly probeNamespace: string;
   readonly checks: readonly S3CompatibilityValidationCheckResult[];
@@ -73,7 +75,12 @@ export async function validateS3ArtifactStoreCompatibility(
 
   return Object.freeze({
     ok: checks.every((check) => check.status === "pass"),
-    backend: Object.freeze({ adapter: "s3_compatible", client: "injected" }),
+    backend: Object.freeze({
+      adapter: "s3_compatible",
+      client: "injected",
+      contract: "s3_compatible_object_api",
+      provider_binding: "none",
+    }),
     probeNamespace,
     checks: Object.freeze(checks.map((check) => Object.freeze({ ...check }))),
   });

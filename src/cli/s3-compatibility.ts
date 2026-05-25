@@ -165,6 +165,8 @@ async function run(): Promise<number> {
       backend: {
         adapter: "s3_compatible",
         client: "aws_cli_s3api",
+        contract: "s3_compatible_object_api",
+        provider_binding: "not_bound_tooling_preflight",
         validation_scope: "tooling_preflight_no_bucket_access",
       },
       report,
@@ -193,6 +195,8 @@ async function run(): Promise<number> {
       backend: {
         adapter: "s3_compatible",
         client: "filesystem_s3_compatibility",
+        contract: "s3_compatible_object_api",
+        provider_binding: "none",
         emulator_limit: "filesystem-backed local emulator; not proof of provider-specific S3 behavior",
       },
       report,
@@ -225,6 +229,8 @@ async function run(): Promise<number> {
       backend: {
         adapter: "s3_compatible",
         client: "aws_cli_s3api",
+        contract: "s3_compatible_object_api",
+        provider_binding: "operator_supplied_endpoint_or_region",
         validation_scope: "lab_only_real_backend",
         approval: "operator_approval_ref_present",
         ...(parsedArgs.timeoutConfigured ? { timeout: "operator_configured_timeout_present" } : {}),

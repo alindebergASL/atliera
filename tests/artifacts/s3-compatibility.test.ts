@@ -64,7 +64,12 @@ describe("S3-compatible ArtifactStore validation harness", () => {
         ["max_payload_guard", "pass"],
       ] satisfies Array<[S3CompatibilityValidationCheckName, "pass"]>,
     );
-    assert.deepEqual(report.backend, { adapter: "s3_compatible", client: "injected" });
+    assert.deepEqual(report.backend, {
+      adapter: "s3_compatible",
+      client: "injected",
+      contract: "s3_compatible_object_api",
+      provider_binding: "none",
+    });
     assert.match(report.probeNamespace, /^s3-compatibility\/probe-run-1\//);
 
     const serialized = JSON.stringify(report);

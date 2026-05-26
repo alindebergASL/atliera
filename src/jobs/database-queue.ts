@@ -250,13 +250,10 @@ function assertDatabaseJobDeleteResult(result: unknown): asserts result is Datab
 }
 
 function stringifyPayload(payload: unknown): string {
-  if (!isJsonSerializableValue(payload, new Set())) {
-    throw new Error("payload must be JSON serializable");
-  }
-
   let payloadJson: string | undefined;
   try {
-    payloadJson = JSON.stringify(payload);
+    const snapshot = snapshotJsonSerializableValue(payload, new Set());
+    payloadJson = JSON.stringify(snapshot);
   } catch {
     throw new Error("payload must be JSON serializable");
   }
@@ -266,87 +263,87 @@ function stringifyPayload(payload: unknown): string {
   return payloadJson;
 }
 
-function isJsonSerializableValue(value: unknown, seen: Set<object>): boolean {
+function snapshotJsonSerializableValue(value: unknown, seen: Set<object>): unknown {
   if (value === null) {
-    return true;
+    return null;
   }
 
   switch (typeof value) {
     case "string":
     case "boolean":
-      return true;
+      return value;
     case "number":
-      return Number.isFinite(value);
+      if (Number.isFinite(value)) {
+        return value;
+      }
+      throw new Error("invalid json value");
     case "object":
       break;
     default:
-      return false;
+      throw new Error("invalid json value");
   }
 
   const objectValue = value as object;
   if (seen.has(objectValue)) {
-    return false;
+    throw new Error("invalid json value");
   }
   seen.add(objectValue);
 
-  if (Array.isArray(value)) {
+  try {
+    if (Array.isArray(value)) {
+      const snapshot: unknown[] = [];
+      for (const key of Reflect.ownKeys(value)) {
+        if (typeof key === "symbol") {
+          throw new Error("invalid json value");
+        }
+        if (key === "length") {
+          continue;
+        }
+        const numericKey = Number(key);
+        if (!Number.isInteger(numericKey) || numericKey < 0 || numericKey >= value.length || String(numericKey) !== key) {
+          throw new Error("invalid json value");
+        }
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
+          throw new Error("invalid json value");
+        }
+      }
+
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+        if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
+          throw new Error("invalid json value");
+        }
+        snapshot[index] = snapshotJsonSerializableValue(descriptor.value, seen);
+      }
+      return snapshot;
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error("invalid json value");
+    }
+
+    const snapshot: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key === "symbol") {
-        seen.delete(objectValue);
-        return false;
-      }
-      if (key === "length") {
-        continue;
-      }
-      const numericKey = Number(key);
-      if (!Number.isInteger(numericKey) || numericKey < 0 || numericKey >= value.length || String(numericKey) !== key) {
-        seen.delete(objectValue);
-        return false;
+        throw new Error("invalid json value");
       }
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
-        seen.delete(objectValue);
-        return false;
+        throw new Error("invalid json value");
       }
+      Object.defineProperty(snapshot, key, {
+        value: snapshotJsonSerializableValue(descriptor.value, seen),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
     }
-
-    for (let index = 0; index < value.length; index += 1) {
-      if (!Object.prototype.hasOwnProperty.call(value, index)) {
-        seen.delete(objectValue);
-        return false;
-      }
-      if (!isJsonSerializableValue(value[index], seen)) {
-        seen.delete(objectValue);
-        return false;
-      }
-    }
+    return snapshot;
+  } finally {
     seen.delete(objectValue);
-    return true;
   }
-
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) {
-    seen.delete(objectValue);
-    return false;
-  }
-
-  for (const key of Reflect.ownKeys(value)) {
-    if (typeof key === "symbol") {
-      seen.delete(objectValue);
-      return false;
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
-      seen.delete(objectValue);
-      return false;
-    }
-    if (!isJsonSerializableValue(descriptor.value, seen)) {
-      seen.delete(objectValue);
-      return false;
-    }
-  }
-  seen.delete(objectValue);
-  return true;
 }
 
 function materializeJob<Payload>(

@@ -89,6 +89,14 @@ describe("DatabaseJobQueue", () => {
     const nonEnumerablePayload = { visible: true };
     Object.defineProperty(nonEnumerablePayload, "hidden", { value: "lost", enumerable: false });
     await assert.rejects(() => queue.enqueue("graph-synthesis", nonEnumerablePayload), /payload must be JSON serializable/);
+    const accessorPayload = { visible: true };
+    Object.defineProperty(accessorPayload, "private", {
+      enumerable: true,
+      get() {
+        throw new Error("payload getter leaked private queue secret");
+      },
+    });
+    await assert.rejects(() => queue.enqueue("graph-synthesis", accessorPayload), /payload must be JSON serializable/);
     const toJsonPayload = { visible: true };
     Object.defineProperty(toJsonPayload, "toJSON", { value: () => ({ transformed: true }), enumerable: false });
     await assert.rejects(() => queue.enqueue("graph-synthesis", toJsonPayload), /payload must be JSON serializable/);
@@ -98,6 +106,65 @@ describe("DatabaseJobQueue", () => {
     arrayWithExtraProperty.values.extra = "lost";
     await assert.rejects(() => queue.enqueue("graph-synthesis", arrayWithExtraProperty), /payload must be JSON serializable/);
     assert.equal(client.calls, 0);
+  });
+
+  it("rejects proxy-backed payload trap failures with sanitized errors before enqueue reaches the client", async () => {
+    const client = new RecordingDatabaseJobQueueClient();
+    const queue = new DatabaseJobQueue({ table: "job_queue", client, generateJobId: () => "job_0001" });
+    const proxyPayloads = [
+      new Proxy({ ok: true }, {
+        ownKeys() {
+          throw new Error("postgres://payload.internal?password=secret");
+        },
+      }),
+      new Proxy({ ok: true }, {
+        getOwnPropertyDescriptor() {
+          throw new Error("token=abc123 descriptor leak");
+        },
+      }),
+      new Proxy(["ok"], {
+        getOwnPropertyDescriptor() {
+          throw new Error("array payload descriptor secret should not leak");
+        },
+      }),
+      new Proxy({ ok: true }, {
+        getPrototypeOf() {
+          throw new Error("payload prototype trap secret should not leak");
+        },
+      }),
+    ];
+
+    for (const proxyPayload of proxyPayloads) {
+      await assert.rejects(
+        () => queue.enqueue("graph-synthesis", proxyPayload),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, /payload must be JSON serializable/);
+          assert.doesNotMatch(error.message, /postgres|password|secret|token|abc123|descriptor|trap/i);
+          return true;
+        },
+      );
+    }
+    assert.equal(client.calls, 0);
+  });
+
+  it("preserves literal __proto__ payload fields as data while snapshotting before enqueue", async () => {
+    const client = new RecordingDatabaseJobQueueClient();
+    const payload = { visible: true } as Record<string, unknown>;
+    Object.defineProperty(payload, "__proto__", {
+      value: { literal: "data" },
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    const queue = new DatabaseJobQueue({ table: "job_queue", client, generateJobId: () => "job_0001" });
+
+    const enqueued = await queue.enqueue("graph-synthesis", payload);
+
+    assert.equal((enqueued.payload as Record<string, unknown>).visible, true);
+    assert.equal(Object.prototype.hasOwnProperty.call(enqueued.payload, "__proto__"), true);
+    assert.deepEqual((enqueued.payload as Record<string, unknown>).__proto__, { literal: "data" });
+    assert.equal(client.inserts[0]?.payloadJson, '{"visible":true,"__proto__":{"literal":"data"}}');
   });
 
   it("treats duplicate generated job ids as sanitized enqueue conflicts", async () => {

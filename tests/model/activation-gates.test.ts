@@ -71,6 +71,30 @@ describe("model activation approval and budget gates", () => {
     );
   });
 
+  it("rejects proxy-backed approval input with a stable non-leaking error", () => {
+    const input = new Proxy(
+      { ...approvalInput },
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("approval proxy leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as Parameters<typeof createModelActivationApproval>[0];
+
+    assert.throws(
+      () => createModelActivationApproval(input),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /approval input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
   it("creates cost ledger entries with provider/model/account/stage/token/cost status fields", () => {
     const entry = createModelCostLedgerEntry({
       ledgerEntryId: "cost_entry_1",
@@ -109,6 +133,46 @@ describe("model activation approval and budget gates", () => {
       recorded_at: "2026-05-23T21:16:00.000Z",
     });
     assert.equal(Object.isFrozen(entry), true);
+  });
+
+  it("rejects proxy-backed cost ledger input with a stable non-leaking error", () => {
+    const input = new Proxy(
+      {
+        ledgerEntryId: "cost_entry_1",
+        approvalId: "apr_model_validation_1",
+        runId: "run_validation_1",
+        provider: "anthropic",
+        model: "claude-sonnet-4",
+        accountRef: "acct_test_1",
+        stage: "propose.excerpts",
+        inputTokens: 100,
+        outputTokens: 25,
+        estimatedCostUsd: 0.1,
+        observedCostUsd: 0.08,
+        status: "succeeded" as const,
+        retryCount: 1,
+        error: null,
+        recordedAt: "2026-05-23T21:16:00.000Z",
+      },
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("ledger proxy leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as Parameters<typeof createModelCostLedgerEntry>[0];
+
+    assert.throws(
+      () => createModelCostLedgerEntry(input),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /cost ledger input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
   });
 
   it("refuses activation when cumulative observed plus estimated spend would exceed approval", () => {
@@ -151,6 +215,125 @@ describe("model activation approval and budget gates", () => {
     assert.equal(decision.observed_spend_usd, 1.5);
     assert.equal(decision.next_estimated_cost_usd, 0.6);
     assert.equal(decision.remaining_budget_usd, 0.5);
+  });
+
+  it("rejects proxy-backed activation gate input with a stable non-leaking error", () => {
+    const approval = createModelActivationApproval(approvalInput);
+    const input = new Proxy(
+      {
+        mode: "model" as const,
+        provider: "anthropic",
+        model: "claude-sonnet-4",
+        corpusRef: "external-corpus/validation/minimal",
+        approval,
+        costLedgerEntries: [],
+        nextEstimatedCostUsd: 0.25,
+        now: "2026-05-23T21:17:00.000Z",
+      },
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("activation gate proxy leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as Parameters<typeof evaluateModelActivationGates>[0];
+
+    assert.throws(
+      () => evaluateModelActivationGates(input),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /activation gate input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
+  it("rejects proxy-backed activation gate approval records with a stable non-leaking error", () => {
+    const approval = createModelActivationApproval(approvalInput);
+    const proxyApproval = new Proxy(approval,
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("nested approval leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as typeof approval;
+
+    assert.throws(
+      () =>
+        evaluateModelActivationGates({
+          mode: "model",
+          provider: "anthropic",
+          model: "claude-sonnet-4",
+          corpusRef: "external-corpus/validation/minimal",
+          approval: proxyApproval,
+          costLedgerEntries: [],
+          nextEstimatedCostUsd: 0.25,
+          now: "2026-05-23T21:17:00.000Z",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /activation gate input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
+  it("rejects proxy-backed activation gate ledger records with a stable non-leaking error", () => {
+    const approval = createModelActivationApproval(approvalInput);
+    const entry = createModelCostLedgerEntry({
+      ledgerEntryId: "cost_entry_1",
+      approvalId: "apr_model_validation_1",
+      runId: "run_validation_1",
+      provider: "anthropic",
+      model: "claude-sonnet-4",
+      accountRef: "acct_test_1",
+      stage: "propose.excerpts",
+      inputTokens: 100,
+      outputTokens: 25,
+      estimatedCostUsd: 0.1,
+      observedCostUsd: 0.08,
+      status: "succeeded",
+      retryCount: 0,
+      error: null,
+      recordedAt: "2026-05-23T21:16:00.000Z",
+    });
+    const proxyEntry = new Proxy(entry,
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("nested ledger leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as typeof entry;
+
+    assert.throws(
+      () =>
+        evaluateModelActivationGates({
+          mode: "model",
+          provider: "anthropic",
+          model: "claude-sonnet-4",
+          corpusRef: "external-corpus/validation/minimal",
+          approval,
+          costLedgerEntries: [proxyEntry],
+          nextEstimatedCostUsd: 0.25,
+          now: "2026-05-23T21:17:00.000Z",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /activation gate input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
   });
 
   it("aggregates missing activation gates before refusal", () => {

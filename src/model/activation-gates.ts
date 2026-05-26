@@ -122,114 +122,166 @@ const COST_LEDGER_STATUSES: readonly ModelCostLedgerStatus[] = [
 export function createModelActivationApproval(
   input: ModelActivationApprovalInput,
 ): ModelActivationApproval {
-  assertSafeLogicalId("approvalId", input.approvalId);
-  assertSafeLogicalId("approvedBy", input.approvedBy);
-  assertStrictIsoTimestamp("approvedAt", input.approvedAt);
-  assertSafeLogicalId("provider", input.provider);
-  assertSafeLogicalId("model", input.model);
-  assertPositiveMoney("maxCostUsd", input.maxCostUsd);
-  assertOutOfRepoCorpusRef("corpusRef", input.corpusRef);
-  assertNonEmptyString("cleanupCommitment", input.cleanupCommitment);
-  assertSafeAuditRef("approvalRef", input.approvalRef);
-  assertSafeAuditRef("budgetLedgerRef", input.budgetLedgerRef);
-  assertSafeAuditRef("runEvidenceRef", input.runEvidenceRef);
-  assertSafeAuditRef("cleanupOutcomeRef", input.cleanupOutcomeRef);
+  const snapshot = snapshotModelActivationApprovalInput(input);
+  assertSafeLogicalId("approvalId", snapshot.approvalId);
+  assertSafeLogicalId("approvedBy", snapshot.approvedBy);
+  assertStrictIsoTimestamp("approvedAt", snapshot.approvedAt);
+  assertSafeLogicalId("provider", snapshot.provider);
+  assertSafeLogicalId("model", snapshot.model);
+  assertPositiveMoney("maxCostUsd", snapshot.maxCostUsd);
+  assertOutOfRepoCorpusRef("corpusRef", snapshot.corpusRef);
+  assertNonEmptyString("cleanupCommitment", snapshot.cleanupCommitment);
+  assertSafeAuditRef("approvalRef", snapshot.approvalRef);
+  assertSafeAuditRef("budgetLedgerRef", snapshot.budgetLedgerRef);
+  assertSafeAuditRef("runEvidenceRef", snapshot.runEvidenceRef);
+  assertSafeAuditRef("cleanupOutcomeRef", snapshot.cleanupOutcomeRef);
 
   return Object.freeze({
     schema_version: MODEL_ACTIVATION_APPROVAL_SCHEMA_VERSION,
-    approval_id: input.approvalId,
-    approved_by: input.approvedBy,
-    approved_at: input.approvedAt,
-    provider: input.provider,
-    model: input.model,
-    max_cost_usd: input.maxCostUsd,
-    corpus_ref: input.corpusRef,
-    cleanup_commitment: input.cleanupCommitment,
-    approval_ref: input.approvalRef,
-    budget_ledger_ref: input.budgetLedgerRef,
-    run_evidence_ref: input.runEvidenceRef,
-    cleanup_outcome_ref: input.cleanupOutcomeRef,
+    approval_id: snapshot.approvalId,
+    approved_by: snapshot.approvedBy,
+    approved_at: snapshot.approvedAt,
+    provider: snapshot.provider,
+    model: snapshot.model,
+    max_cost_usd: snapshot.maxCostUsd,
+    corpus_ref: snapshot.corpusRef,
+    cleanup_commitment: snapshot.cleanupCommitment,
+    approval_ref: snapshot.approvalRef,
+    budget_ledger_ref: snapshot.budgetLedgerRef,
+    run_evidence_ref: snapshot.runEvidenceRef,
+    cleanup_outcome_ref: snapshot.cleanupOutcomeRef,
   });
+}
+
+function snapshotModelActivationApprovalInput(
+  input: ModelActivationApprovalInput,
+): ModelActivationApprovalInput {
+  try {
+    return {
+      approvalId: input.approvalId,
+      approvedBy: input.approvedBy,
+      approvedAt: input.approvedAt,
+      provider: input.provider,
+      model: input.model,
+      maxCostUsd: input.maxCostUsd,
+      corpusRef: input.corpusRef,
+      cleanupCommitment: input.cleanupCommitment,
+      approvalRef: input.approvalRef,
+      budgetLedgerRef: input.budgetLedgerRef,
+      runEvidenceRef: input.runEvidenceRef,
+      cleanupOutcomeRef: input.cleanupOutcomeRef,
+    };
+  } catch {
+    throw new Error("approval input must be a plain data object");
+  }
 }
 
 export function createModelCostLedgerEntry(
   input: ModelCostLedgerEntryInput,
 ): ModelCostLedgerEntry {
-  assertSafeLogicalId("ledgerEntryId", input.ledgerEntryId);
-  assertSafeLogicalId("approvalId", input.approvalId);
-  assertSafeLogicalId("runId", input.runId);
-  assertSafeLogicalId("provider", input.provider);
-  assertSafeLogicalId("model", input.model);
-  assertSafeLogicalId("accountRef", input.accountRef);
-  assertSafeStage("stage", input.stage);
-  assertNonNegativeInteger("inputTokens", input.inputTokens);
-  assertNonNegativeInteger("outputTokens", input.outputTokens);
-  assertNonNegativeMoney("estimatedCostUsd", input.estimatedCostUsd);
-  assertNonNegativeMoney("observedCostUsd", input.observedCostUsd);
-  assertCostLedgerStatus(input.status);
-  assertNonNegativeInteger("retryCount", input.retryCount);
-  if (input.error !== null) {
-    assertNonEmptyString("error", input.error);
+  const snapshot = snapshotModelCostLedgerEntryInput(input);
+  assertSafeLogicalId("ledgerEntryId", snapshot.ledgerEntryId);
+  assertSafeLogicalId("approvalId", snapshot.approvalId);
+  assertSafeLogicalId("runId", snapshot.runId);
+  assertSafeLogicalId("provider", snapshot.provider);
+  assertSafeLogicalId("model", snapshot.model);
+  assertSafeLogicalId("accountRef", snapshot.accountRef);
+  assertSafeStage("stage", snapshot.stage);
+  assertNonNegativeInteger("inputTokens", snapshot.inputTokens);
+  assertNonNegativeInteger("outputTokens", snapshot.outputTokens);
+  assertNonNegativeMoney("estimatedCostUsd", snapshot.estimatedCostUsd);
+  assertNonNegativeMoney("observedCostUsd", snapshot.observedCostUsd);
+  assertCostLedgerStatus(snapshot.status);
+  assertNonNegativeInteger("retryCount", snapshot.retryCount);
+  if (snapshot.error !== null) {
+    assertNonEmptyString("error", snapshot.error);
   }
-  assertStrictIsoTimestamp("recordedAt", input.recordedAt);
+  assertStrictIsoTimestamp("recordedAt", snapshot.recordedAt);
 
   return Object.freeze({
     schema_version: MODEL_COST_LEDGER_ENTRY_SCHEMA_VERSION,
-    ledger_entry_id: input.ledgerEntryId,
-    approval_id: input.approvalId,
-    run_id: input.runId,
-    provider: input.provider,
-    model: input.model,
-    account_ref: input.accountRef,
-    stage: input.stage,
-    input_tokens: input.inputTokens,
-    output_tokens: input.outputTokens,
-    estimated_cost_usd: input.estimatedCostUsd,
-    observed_cost_usd: input.observedCostUsd,
-    status: input.status,
-    retry_count: input.retryCount,
-    error: input.error,
-    recorded_at: input.recordedAt,
+    ledger_entry_id: snapshot.ledgerEntryId,
+    approval_id: snapshot.approvalId,
+    run_id: snapshot.runId,
+    provider: snapshot.provider,
+    model: snapshot.model,
+    account_ref: snapshot.accountRef,
+    stage: snapshot.stage,
+    input_tokens: snapshot.inputTokens,
+    output_tokens: snapshot.outputTokens,
+    estimated_cost_usd: snapshot.estimatedCostUsd,
+    observed_cost_usd: snapshot.observedCostUsd,
+    status: snapshot.status,
+    retry_count: snapshot.retryCount,
+    error: snapshot.error,
+    recorded_at: snapshot.recordedAt,
   });
+}
+
+function snapshotModelCostLedgerEntryInput(
+  input: ModelCostLedgerEntryInput,
+): ModelCostLedgerEntryInput {
+  try {
+    return {
+      ledgerEntryId: input.ledgerEntryId,
+      approvalId: input.approvalId,
+      runId: input.runId,
+      provider: input.provider,
+      model: input.model,
+      accountRef: input.accountRef,
+      stage: input.stage,
+      inputTokens: input.inputTokens,
+      outputTokens: input.outputTokens,
+      estimatedCostUsd: input.estimatedCostUsd,
+      observedCostUsd: input.observedCostUsd,
+      status: input.status,
+      retryCount: input.retryCount,
+      error: input.error,
+      recordedAt: input.recordedAt,
+    };
+  } catch {
+    throw new Error("cost ledger input must be a plain data object");
+  }
 }
 
 export function evaluateModelActivationGates(
   input: ModelActivationGateInput,
 ): ModelActivationDecision {
-  assertStrictIsoTimestamp("now", input.now);
-  assertNonNegativeMoney("nextEstimatedCostUsd", input.nextEstimatedCostUsd);
+  const snapshot = snapshotModelActivationGateInput(input);
+  assertStrictIsoTimestamp("now", snapshot.now);
+  assertNonNegativeMoney("nextEstimatedCostUsd", snapshot.nextEstimatedCostUsd);
 
   const missingGates: ModelActivationMissingGate[] = [];
-  if (input.mode !== "model") missingGates.push("explicit_model_mode");
-  if (!isSafeLogicalId(input.provider)) missingGates.push("provider");
-  if (!isSafeLogicalId(input.model)) missingGates.push("model");
-  if (!isOutOfRepoCorpusRef(input.corpusRef)) missingGates.push("out_of_repo_corpus_path");
-  if (input.approval === null) {
+  if (snapshot.mode !== "model") missingGates.push("explicit_model_mode");
+  if (!isSafeLogicalId(snapshot.provider)) missingGates.push("provider");
+  if (!isSafeLogicalId(snapshot.model)) missingGates.push("model");
+  if (!isOutOfRepoCorpusRef(snapshot.corpusRef)) missingGates.push("out_of_repo_corpus_path");
+  if (snapshot.approval === null) {
     missingGates.push("max_cost");
     missingGates.push("operator_approval");
   }
 
-  const observedSpend = sumObservedSpend(input.costLedgerEntries);
+  const observedSpend = sumObservedSpend(snapshot.costLedgerEntries);
   const refusalReasons: ModelActivationRefusalReason[] = [];
   let approvedBudget: number | null = null;
   let remainingBudget: number | null = null;
 
   if (missingGates.length > 0) {
     refusalReasons.push("missing_activation_gates");
-  } else if (input.approval !== null) {
-    assertModelActivationApproval(input.approval);
-    approvedBudget = input.approval.max_cost_usd;
+  } else if (snapshot.approval !== null) {
+    assertModelActivationApproval(snapshot.approval);
+    approvedBudget = snapshot.approval.max_cost_usd;
     remainingBudget = roundUsd(approvedBudget - observedSpend);
 
     if (
-      input.approval.provider !== input.provider ||
-      input.approval.model !== input.model ||
-      input.approval.corpus_ref !== input.corpusRef
+      snapshot.approval.provider !== snapshot.provider ||
+      snapshot.approval.model !== snapshot.model ||
+      snapshot.approval.corpus_ref !== snapshot.corpusRef
     ) {
       refusalReasons.push("approval_scope_mismatch");
     }
 
-    if (roundUsd(observedSpend + input.nextEstimatedCostUsd) > approvedBudget) {
+    if (roundUsd(observedSpend + snapshot.nextEstimatedCostUsd) > approvedBudget) {
       refusalReasons.push("cumulative_budget_exceeded");
     }
   }
@@ -240,9 +292,73 @@ export function evaluateModelActivationGates(
     refusal_reasons: Object.freeze(refusalReasons),
     approved_budget_usd: approvedBudget,
     observed_spend_usd: observedSpend,
-    next_estimated_cost_usd: input.nextEstimatedCostUsd,
+    next_estimated_cost_usd: snapshot.nextEstimatedCostUsd,
     remaining_budget_usd: remainingBudget,
-    evaluated_at: input.now,
+    evaluated_at: snapshot.now,
+  });
+}
+
+function snapshotModelActivationGateInput(
+  input: ModelActivationGateInput,
+): ModelActivationGateInput {
+  try {
+    return {
+      mode: input.mode,
+      provider: input.provider,
+      model: input.model,
+      corpusRef: input.corpusRef,
+      approval: input.approval === null ? null : snapshotModelActivationApprovalRecord(input.approval),
+      costLedgerEntries: Object.freeze(
+        [...input.costLedgerEntries].map((entry) => snapshotModelCostLedgerEntryRecord(entry)),
+      ),
+      nextEstimatedCostUsd: input.nextEstimatedCostUsd,
+      now: input.now,
+    };
+  } catch {
+    throw new Error("activation gate input must be a plain data object");
+  }
+}
+
+function snapshotModelActivationApprovalRecord(
+  approval: ModelActivationApproval,
+): ModelActivationApproval {
+  return Object.freeze({
+    schema_version: approval.schema_version,
+    approval_id: approval.approval_id,
+    approved_by: approval.approved_by,
+    approved_at: approval.approved_at,
+    provider: approval.provider,
+    model: approval.model,
+    max_cost_usd: approval.max_cost_usd,
+    corpus_ref: approval.corpus_ref,
+    cleanup_commitment: approval.cleanup_commitment,
+    approval_ref: approval.approval_ref,
+    budget_ledger_ref: approval.budget_ledger_ref,
+    run_evidence_ref: approval.run_evidence_ref,
+    cleanup_outcome_ref: approval.cleanup_outcome_ref,
+  });
+}
+
+function snapshotModelCostLedgerEntryRecord(
+  entry: ModelCostLedgerEntry,
+): ModelCostLedgerEntry {
+  return Object.freeze({
+    schema_version: entry.schema_version,
+    ledger_entry_id: entry.ledger_entry_id,
+    approval_id: entry.approval_id,
+    run_id: entry.run_id,
+    provider: entry.provider,
+    model: entry.model,
+    account_ref: entry.account_ref,
+    stage: entry.stage,
+    input_tokens: entry.input_tokens,
+    output_tokens: entry.output_tokens,
+    estimated_cost_usd: entry.estimated_cost_usd,
+    observed_cost_usd: entry.observed_cost_usd,
+    status: entry.status,
+    retry_count: entry.retry_count,
+    error: entry.error,
+    recorded_at: entry.recorded_at,
   });
 }
 

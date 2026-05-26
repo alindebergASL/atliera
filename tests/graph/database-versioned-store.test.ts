@@ -185,6 +185,79 @@ describe("DatabaseVersionedGraphStore", () => {
     );
   });
 
+  it("treats malformed client write results as sanitized dependency failures", async () => {
+    const malformedInsertResults = [
+      {},
+      { inserted: "true" },
+      { inserted: false },
+      { inserted: false, currentRevision: 0 },
+      { inserted: false, currentRevision: "1" },
+      { inserted: false, currentRevision: Number.MAX_SAFE_INTEGER + 1 },
+      null,
+      undefined,
+    ];
+    for (const malformedResult of malformedInsertResults) {
+      const malformedInsertClient: DatabaseGraphStoreClient = {
+        async selectGraph() {
+          throw new Error("should not be called");
+        },
+        async insertGraph() {
+          return malformedResult as unknown as { inserted: true } | { inserted: false; currentRevision: number };
+        },
+        async updateGraph() {
+          throw new Error("should not be called");
+        },
+      };
+      const insertStore = new DatabaseVersionedGraphStore({ table: "graph_snapshots", client: malformedInsertClient });
+
+      await assert.rejects(
+        () => insertStore.commit("teams/team_1/graphs/acme", makeValidBundle(), { expectedRevision: null, mode: "model" }),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, /DatabaseVersionedGraphStore commit failed/);
+          assert.doesNotMatch(error.message, /inserted|true|null|undefined/);
+          return true;
+        },
+      );
+    }
+
+    const malformedUpdateResults = [
+      {},
+      { updated: 1 },
+      { updated: false },
+      { updated: false, currentRevision: 0 },
+      { updated: false, currentRevision: "1" },
+      { updated: false, currentRevision: Number.MAX_SAFE_INTEGER + 1 },
+      { updated: false, currentRevision: 1 },
+      null,
+      undefined,
+    ];
+    for (const malformedResult of malformedUpdateResults) {
+      const malformedUpdateClient: DatabaseGraphStoreClient = {
+        async selectGraph() {
+          throw new Error("should not be called");
+        },
+        async insertGraph() {
+          throw new Error("should not be called");
+        },
+        async updateGraph() {
+          return malformedResult as unknown as { updated: true } | { updated: false; currentRevision: number | null };
+        },
+      };
+      const updateStore = new DatabaseVersionedGraphStore({ table: "graph_snapshots", client: malformedUpdateClient });
+
+      await assert.rejects(
+        () => updateStore.commit("teams/team_1/graphs/acme", makeValidBundle(), { expectedRevision: "rev_1", mode: "model" }),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, /DatabaseVersionedGraphStore commit failed/);
+          assert.doesNotMatch(error.message, /updated|1|null|undefined/);
+          return true;
+        },
+      );
+    }
+  });
+
   it("rejects unsafe graph ids, unsafe table names, and safe-mode writes before touching the client", async () => {
     const client = new RecordingDatabaseGraphClient();
     assert.throws(

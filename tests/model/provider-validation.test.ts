@@ -383,6 +383,135 @@ describe("ModelProvider validation harness", () => {
     assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|late unsafe|Return only graph/i);
   });
 
+  it("does not reread harness option metadata after validation snapshotting", async () => {
+    let providerNameReads = 0;
+    const provider = providerReturning(successfulResponse());
+    const rawOptions = baseOptions(provider);
+    const options = new Proxy(rawOptions,
+      {
+        get(target, property, receiver) {
+          if (property === "providerName") {
+            providerNameReads += 1;
+            if (providerNameReads > 1) {
+              throw new Error("late providerName leaked api_key=SECRET_VALUE");
+            }
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as ReturnType<typeof baseOptions>;
+
+    const report = await validateModelProviderCompatibility(options);
+
+    assert.equal(report.ok, true);
+    assert.equal(provider.calls.length, 1);
+    assert.equal(providerNameReads, 1);
+    assert.equal(report.call.provider, "provider_a");
+    assert.equal(report.cost_ledger_entry?.provider, "provider_a");
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|api_key|late providerName|Return only graph/i);
+  });
+
+  it("returns sanitized errors when harness option snapshot access throws before provider calls", async () => {
+    const provider = providerReturning(successfulResponse());
+    const rawOptions = baseOptions(provider);
+    const options = new Proxy(rawOptions,
+      {
+        get(target, property, receiver) {
+          if (property === "providerName") {
+            throw new Error("providerName getter leaked api_key=SECRET_VALUE");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as ReturnType<typeof baseOptions>;
+
+    await assert.rejects(
+      () => validateModelProviderCompatibility(options),
+      /model provider validation options must be a plain data object/,
+    );
+    assert.equal(provider.calls.length, 0);
+  });
+
+  it("does not reread approval ids after activation snapshotting", async () => {
+    let approvalIdReads = 0;
+    const provider = providerReturning(successfulResponse());
+    const rawApproval = approval();
+    const proxiedApproval = new Proxy(rawApproval,
+      {
+        get(target, property, receiver) {
+          if (property === "approval_id") {
+            approvalIdReads += 1;
+            if (approvalIdReads > 1) {
+              throw new Error("late approval id leaked api_key=SECRET_VALUE");
+            }
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+
+    const report = await validateModelProviderCompatibility(
+      baseOptions(provider, { approval: proxiedApproval }),
+    );
+
+    assert.equal(report.ok, true);
+    assert.equal(provider.calls.length, 1);
+    assert.equal(approvalIdReads, 1);
+    assert.equal(report.cost_ledger_entry?.approval_id, "approval_model_validation_1");
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|api_key|late approval|Return only graph/i);
+  });
+
+  it("prevents injected providers from mutating the validation request baseline", async () => {
+    const provider: ModelProvider & { calls: number } = {
+      name: "provider_a",
+      calls: 0,
+      async generate(input: ModelProviderRequest): Promise<ModelProviderResponse> {
+        this.calls += 1;
+        (input as unknown as { model: string }).model = "model_b";
+        return successfulResponse();
+      },
+    };
+
+    const report = await validateModelProviderCompatibility(baseOptions(provider));
+
+    assert.equal(report.ok, false);
+    assert.equal(provider.calls, 1);
+    assert.deepEqual(report.checks.map((check) => [check.name, check.ok, check.codes]), [
+      ["activation_gates", true, []],
+      ["credential_status", true, []],
+      ["provider_call", false, ["provider_call_failed"]],
+      ["cost_ledger_entry", true, []],
+    ]);
+    assert.equal(report.cost_ledger_entry?.status, "failed");
+    assert.equal(report.cost_ledger_entry?.model, "model_a");
+  });
+
+  it("does not reread the top-level approval option while snapshotting", async () => {
+    let approvalOptionReads = 0;
+    const provider = providerReturning(successfulResponse());
+    const rawOptions = baseOptions(provider);
+    const options = new Proxy(rawOptions,
+      {
+        get(target, property, receiver) {
+          if (property === "approval") {
+            approvalOptionReads += 1;
+            if (approvalOptionReads > 1) {
+              throw new Error("late top-level approval leaked api_key=SECRET_VALUE");
+            }
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as ReturnType<typeof baseOptions>;
+
+    const report = await validateModelProviderCompatibility(options);
+
+    assert.equal(report.ok, true);
+    assert.equal(provider.calls.length, 1);
+    assert.equal(approvalOptionReads, 1);
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|api_key|late top-level approval|Return only graph/i);
+  });
+
   it("snapshots validated usage and cost once before creating ledger entries", async () => {
     let usageReads = 0;
     let costReads = 0;

@@ -10,6 +10,7 @@ import {
   type PromptContractOutputRecordKind,
 } from "../agent/prompt-contracts.ts";
 import {
+  createModelProviderRequest,
   assertSafeModelProviderRequest,
   type ModelProvider,
   type ModelProviderRequest,
@@ -103,40 +104,41 @@ const MODEL_PROVIDER_PROMPT_CONTRACT_OPERATIONS: readonly PromptContractOperatio
 export async function validateModelProviderCompatibility(
   options: ValidateModelProviderCompatibilityOptions,
 ): Promise<ModelProviderValidationReport> {
-  validateHarnessInput(options);
-  assertSafeModelProviderRequest(options.request);
+  const input = snapshotValidationOptions(options);
+  validateHarnessInput(input);
+  assertSafeModelProviderRequest(input.request);
 
   const checks: ModelProviderValidationCheck[] = [];
   const call = Object.freeze({
-    provider: options.providerName,
-    model: options.request.model,
-    operation: options.request.operation,
-    idempotency_key: options.request.idempotencyKey,
+    provider: input.providerName,
+    model: input.request.model,
+    operation: input.request.operation,
+    idempotency_key: input.request.idempotencyKey,
   });
 
   const activation = evaluateModelActivationGates({
-    mode: options.request.mode,
-    provider: options.providerName,
-    model: options.request.model,
-    corpusRef: options.corpusRef,
-    approval: options.approval,
-    costLedgerEntries: options.costLedgerEntries,
-    nextEstimatedCostUsd: options.nextEstimatedCostUsd,
-    now: options.now,
+    mode: input.request.mode,
+    provider: input.providerName,
+    model: input.request.model,
+    corpusRef: input.corpusRef,
+    approval: input.approval,
+    costLedgerEntries: input.costLedgerEntries,
+    nextEstimatedCostUsd: input.nextEstimatedCostUsd,
+    now: input.now,
   });
 
   if (!activation.ok) {
     checks.push(failedCheck("activation_gates", activation.refusal_reasons));
-    const ledger = createLedgerEntry(options, "refused", 0, 0, 0, 0, "activation_refused");
+    const ledger = createLedgerEntry(input, "refused", 0, 0, 0, 0, "activation_refused");
     checks.push(passedCheck("cost_ledger_entry"));
     return freezeReport(false, checks, call, ledger);
   }
   checks.push(passedCheck("activation_gates"));
 
-  if (options.credentialStatus !== "present") {
-    const code = options.credentialStatus === "missing" ? "credential_missing" : "credential_invalid";
+  if (input.credentialStatus !== "present") {
+    const code = input.credentialStatus === "missing" ? "credential_missing" : "credential_invalid";
     checks.push(failedCheck("credential_status", [code]));
-    const ledger = createLedgerEntry(options, "refused", 0, 0, 0, 0, code);
+    const ledger = createLedgerEntry(input, "refused", 0, 0, 0, 0, code);
     checks.push(passedCheck("cost_ledger_entry"));
     return freezeReport(false, checks, call, ledger);
   }
@@ -144,15 +146,15 @@ export async function validateModelProviderCompatibility(
 
   let response: unknown;
   try {
-    response = await options.provider.generate(options.request);
+    response = await input.provider.generate(input.request);
   } catch {
     checks.push(failedCheck("provider_call", ["provider_call_failed"]));
     const ledger = createLedgerEntry(
-      options,
+      input,
       "failed",
       0,
       0,
-      options.nextEstimatedCostUsd,
+      input.nextEstimatedCostUsd,
       0,
       "provider_call_failed",
     );
@@ -164,7 +166,7 @@ export async function validateModelProviderCompatibility(
   const snapshot = snapshotModelProviderResponse(response);
   const responseCodes = snapshot === null
     ? ["response_schema_mismatch"]
-    : validateResponse(snapshot, options, activation.remaining_budget_usd);
+    : validateResponse(snapshot, input, activation.remaining_budget_usd);
   checks.push(
     responseCodes.length === 0
       ? passedCheck("response_contract")
@@ -172,10 +174,10 @@ export async function validateModelProviderCompatibility(
   );
 
   let promptContractCodes: string[] = [];
-  if (responseCodes.length === 0 && options.promptContractOperation !== undefined) {
+  if (responseCodes.length === 0 && input.promptContractOperation !== undefined) {
     promptContractCodes = validatePromptContractOutput(
       snapshot,
-      options.promptContractOperation,
+      input.promptContractOperation,
     );
     checks.push(
       promptContractCodes.length === 0
@@ -191,16 +193,87 @@ export async function validateModelProviderCompatibility(
       ? "response_contract_failed"
       : "prompt_contract_output_failed";
   const ledger = createLedgerEntry(
-    options,
+    input,
     status,
     ledgerInteger(snapshot?.usage.inputTokens),
     ledgerInteger(snapshot?.usage.outputTokens),
-    options.nextEstimatedCostUsd,
+    input.nextEstimatedCostUsd,
     ledgerMoney(snapshot?.cost.amount),
     error,
   );
   checks.push(passedCheck("cost_ledger_entry"));
   return freezeReport(responseCodes.length === 0 && promptContractCodes.length === 0, checks, call, ledger);
+}
+
+function snapshotValidationOptions(
+  options: ValidateModelProviderCompatibilityOptions,
+): ValidateModelProviderCompatibilityOptions {
+  try {
+    const provider = options.provider;
+    const request = options.request;
+    const providerName = options.providerName;
+    const approval = options.approval;
+    const costLedgerEntries = options.costLedgerEntries;
+    const corpusRef = options.corpusRef;
+    const nextEstimatedCostUsd = options.nextEstimatedCostUsd;
+    const credentialStatus = options.credentialStatus;
+    const promptContractOperation = options.promptContractOperation;
+    const runId = options.runId;
+    const accountRef = options.accountRef;
+    const stage = options.stage;
+    const now = options.now;
+
+    return Object.freeze({
+      provider,
+      request: freezeModelProviderRequest(createModelProviderRequest(request)),
+      providerName,
+      approval: approval === null ? null : snapshotValidationApproval(approval),
+      costLedgerEntries: Object.freeze([...costLedgerEntries]),
+      corpusRef,
+      nextEstimatedCostUsd,
+      credentialStatus,
+      promptContractOperation,
+      runId,
+      accountRef,
+      stage,
+      now,
+    });
+  } catch {
+    throw new Error("model provider validation options must be a plain data object");
+  }
+}
+
+function snapshotValidationApproval(approval: ModelActivationApproval): ModelActivationApproval {
+  return Object.freeze({
+    schema_version: approval.schema_version,
+    approval_id: approval.approval_id,
+    approved_by: approval.approved_by,
+    approved_at: approval.approved_at,
+    provider: approval.provider,
+    model: approval.model,
+    max_cost_usd: approval.max_cost_usd,
+    corpus_ref: approval.corpus_ref,
+    cleanup_commitment: approval.cleanup_commitment,
+    approval_ref: approval.approval_ref,
+    budget_ledger_ref: approval.budget_ledger_ref,
+    run_evidence_ref: approval.run_evidence_ref,
+    cleanup_outcome_ref: approval.cleanup_outcome_ref,
+  });
+}
+
+function freezeModelProviderRequest(request: ModelProviderRequest): ModelProviderRequest {
+  const metadata = Object.freeze({ ...request.metadata });
+  return Object.freeze({
+    operation: request.operation,
+    mode: request.mode,
+    model: request.model,
+    prompt: request.prompt,
+    inputGraphRef: request.inputGraphRef,
+    idempotencyKey: request.idempotencyKey,
+    maxOutputTokens: request.maxOutputTokens,
+    temperature: request.temperature,
+    metadata,
+  });
 }
 
 function validateHarnessInput(options: ValidateModelProviderCompatibilityOptions): void {

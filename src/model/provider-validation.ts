@@ -61,6 +61,32 @@ export interface ModelProviderValidationReport {
   readonly cost_ledger_entry: ModelCostLedgerEntry | null;
 }
 
+interface SnapshotGraphOutput {
+  readonly excerpts: readonly unknown[];
+  readonly claims: readonly unknown[];
+  readonly account_objects: readonly unknown[];
+}
+
+interface SnapshotUsage {
+  readonly inputTokens: unknown;
+  readonly outputTokens: unknown;
+  readonly totalTokens: unknown;
+}
+
+interface SnapshotCost {
+  readonly currency: unknown;
+  readonly amount: unknown;
+}
+
+interface SnapshotModelProviderResponse {
+  readonly provider: unknown;
+  readonly model: unknown;
+  readonly idempotencyKey: unknown;
+  readonly output: SnapshotGraphOutput | null;
+  readonly usage: SnapshotUsage;
+  readonly cost: SnapshotCost;
+}
+
 const SAFE_LOGICAL_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const SAFE_RELATIVE_REF_WITH_FRAGMENT = /^[A-Za-z0-9][A-Za-z0-9._/#-]{0,255}$/;
 const CREDENTIAL_STATUSES: readonly ModelProviderValidationCredentialStatus[] = [
@@ -135,12 +161,10 @@ export async function validateModelProviderCompatibility(
   }
   checks.push(passedCheck("provider_call"));
 
-  let responseCodes: string[];
-  try {
-    responseCodes = validateResponse(response, options, activation.remaining_budget_usd);
-  } catch {
-    responseCodes = ["response_schema_mismatch"];
-  }
+  const snapshot = snapshotModelProviderResponse(response);
+  const responseCodes = snapshot === null
+    ? ["response_schema_mismatch"]
+    : validateResponse(snapshot, options, activation.remaining_budget_usd);
   checks.push(
     responseCodes.length === 0
       ? passedCheck("response_contract")
@@ -149,14 +173,10 @@ export async function validateModelProviderCompatibility(
 
   let promptContractCodes: string[] = [];
   if (responseCodes.length === 0 && options.promptContractOperation !== undefined) {
-    try {
-      promptContractCodes = validatePromptContractOutput(
-        response,
-        options.promptContractOperation,
-      );
-    } catch {
-      promptContractCodes = ["prompt_contract_output_schema_mismatch"];
-    }
+    promptContractCodes = validatePromptContractOutput(
+      snapshot,
+      options.promptContractOperation,
+    );
     checks.push(
       promptContractCodes.length === 0
         ? passedCheck("prompt_contract_output")
@@ -173,10 +193,10 @@ export async function validateModelProviderCompatibility(
   const ledger = createLedgerEntry(
     options,
     status,
-    ledgerInteger(responseField(response, "usage", "inputTokens")),
-    ledgerInteger(responseField(response, "usage", "outputTokens")),
+    ledgerInteger(snapshot?.usage.inputTokens),
+    ledgerInteger(snapshot?.usage.outputTokens),
     options.nextEstimatedCostUsd,
-    ledgerMoney(responseField(response, "cost", "amount")),
+    ledgerMoney(snapshot?.cost.amount),
     error,
   );
   checks.push(passedCheck("cost_ledger_entry"));
@@ -203,33 +223,30 @@ function validateHarnessInput(options: ValidateModelProviderCompatibilityOptions
 }
 
 function validateResponse(
-  response: unknown,
+  response: SnapshotModelProviderResponse,
   options: ValidateModelProviderCompatibilityOptions,
   remainingBudgetUsd: number | null,
 ): string[] {
   const codes: string[] = [];
-  if (!isRecord(response)) {
-    return ["response_schema_mismatch"];
-  }
   if (response.provider !== options.providerName) codes.push("provider_mismatch");
   if (response.model !== options.request.model) codes.push("model_mismatch");
   if (response.idempotencyKey !== options.request.idempotencyKey) {
     codes.push("idempotency_key_mismatch");
   }
 
-  if (!isArrayOnlyGraphOutput(response.output)) codes.push("output_schema_mismatch");
+  if (response.output === null) codes.push("output_schema_mismatch");
 
-  const inputTokens = safeInteger(responseField(response, "usage", "inputTokens"));
-  const outputTokens = safeInteger(responseField(response, "usage", "outputTokens"));
-  const totalTokens = safeInteger(responseField(response, "usage", "totalTokens"));
+  const inputTokens = safeInteger(response.usage.inputTokens);
+  const outputTokens = safeInteger(response.usage.outputTokens);
+  const totalTokens = safeInteger(response.usage.totalTokens);
   if (inputTokens < 0 || outputTokens < 0 || totalTokens < 0) {
     codes.push("usage_schema_mismatch");
   } else if (inputTokens + outputTokens !== totalTokens) {
     codes.push("usage_total_mismatch");
   }
 
-  const costAmount = safeMoney(responseField(response, "cost", "amount"));
-  if (responseField(response, "cost", "currency") !== "USD" || costAmount < 0) {
+  const costAmount = safeMoney(response.cost.amount);
+  if (response.cost.currency !== "USD" || costAmount < 0) {
     codes.push("cost_schema_mismatch");
   } else if (remainingBudgetUsd !== null && costAmount > remainingBudgetUsd) {
     codes.push("response_cost_exceeds_remaining_budget");
@@ -238,30 +255,22 @@ function validateResponse(
   return codes;
 }
 
-function isArrayOnlyGraphOutput(output: unknown): boolean {
-  if (!isRecord(output)) return false;
-  const keys = Object.keys(output).sort();
-  if (keys.join(",") !== "account_objects,claims,excerpts") return false;
-  return Array.isArray(output.excerpts) && Array.isArray(output.claims) && Array.isArray(output.account_objects);
-}
-
 function validatePromptContractOutput(
-  response: unknown,
+  response: SnapshotModelProviderResponse | null,
   operation: PromptContractOperation,
 ): string[] {
   const contract = getPromptContract(operation);
   const allowedKinds = new Set<PromptContractOutputRecordKind>(contract.allowed_output_record_kinds);
-  const output = topLevelResponseField(response, "output");
-  if (!isRecord(output)) return ["prompt_contract_output_schema_mismatch"];
+  const output = response?.output ?? null;
+  if (output === null) return ["prompt_contract_output_schema_mismatch"];
 
-  const outputKinds: Array<[key: string, kind: PromptContractOutputRecordKind]> = [
+  const outputKinds: Array<[key: keyof SnapshotGraphOutput, kind: PromptContractOutputRecordKind]> = [
     ["excerpts", "evidence_excerpt"],
     ["claims", "claim"],
     ["account_objects", "account_object"],
   ];
   for (const [key, kind] of outputKinds) {
     const records = output[key];
-    if (!Array.isArray(records)) return ["prompt_contract_output_schema_mismatch"];
     if (records.length > 0 && !allowedKinds.has(kind)) {
       return ["prompt_contract_output_kind_not_allowed"];
     }
@@ -327,21 +336,71 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function topLevelResponseField(response: unknown, key: string): unknown {
+function snapshotModelProviderResponse(response: unknown): SnapshotModelProviderResponse | null {
   try {
-    return isRecord(response) ? response[key] : undefined;
+    if (!isRecord(response)) return null;
+    const provider = response.provider;
+    const model = response.model;
+    const idempotencyKey = response.idempotencyKey;
+    const output = snapshotGraphOutput(response.output);
+    const usage = snapshotUsage(response.usage);
+    const cost = snapshotCost(response.cost);
+    return Object.freeze({
+      provider,
+      model,
+      idempotencyKey,
+      output,
+      usage,
+      cost,
+    });
   } catch {
-    return undefined;
+    return null;
   }
 }
 
-function responseField(response: unknown, parent: string, child: string): unknown {
+function snapshotGraphOutput(output: unknown): SnapshotGraphOutput | null {
   try {
-    if (!isRecord(response)) return undefined;
-    const nested = response[parent];
-    return isRecord(nested) ? nested[child] : undefined;
+    if (!isRecord(output)) return null;
+    const keys = Object.keys(output).sort();
+    if (keys.join(",") !== "account_objects,claims,excerpts") return null;
+    const excerpts = output.excerpts;
+    const claims = output.claims;
+    const accountObjects = output.account_objects;
+    if (!Array.isArray(excerpts) || !Array.isArray(claims) || !Array.isArray(accountObjects)) {
+      return null;
+    }
+    return Object.freeze({
+      excerpts: Object.freeze([...excerpts]),
+      claims: Object.freeze([...claims]),
+      account_objects: Object.freeze([...accountObjects]),
+    });
   } catch {
-    return undefined;
+    return null;
+  }
+}
+
+function snapshotUsage(usage: unknown): SnapshotUsage {
+  try {
+    if (!isRecord(usage)) return Object.freeze({ inputTokens: undefined, outputTokens: undefined, totalTokens: undefined });
+    return Object.freeze({
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+    });
+  } catch {
+    return Object.freeze({ inputTokens: undefined, outputTokens: undefined, totalTokens: undefined });
+  }
+}
+
+function snapshotCost(cost: unknown): SnapshotCost {
+  try {
+    if (!isRecord(cost)) return Object.freeze({ currency: undefined, amount: undefined });
+    return Object.freeze({
+      currency: cost.currency,
+      amount: cost.amount,
+    });
+  } catch {
+    return Object.freeze({ currency: undefined, amount: undefined });
   }
 }
 

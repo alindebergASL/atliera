@@ -80,6 +80,7 @@ export class DatabaseJobQueue<Payload = unknown> implements JobQueue<Payload> {
 
     try {
       const result = await this.client.insertJob({ table: this.table, id, queue, payloadJson });
+      assertDatabaseJobInsertResult(result);
       if (result.inserted === false) {
         this.emit({
           operation: "enqueue",
@@ -160,6 +161,7 @@ export class DatabaseJobQueue<Payload = unknown> implements JobQueue<Payload> {
 
     try {
       const result = await this.client.deleteJob({ table: this.table, id });
+      assertDatabaseJobDeleteResult(result);
       if (result.deleted === false) {
         this.emit({
           operation: "complete",
@@ -232,6 +234,18 @@ export function assertSafeJobId(id: string): void {
 function assertSafeTableName(table: string): void {
   if (table.trim() !== table || !SAFE_TABLE_NAME.test(table)) {
     throw new Error("table name must be a logical SQL identifier using letters, numbers, and underscores");
+  }
+}
+
+function assertDatabaseJobInsertResult(result: unknown): asserts result is DatabaseJobInsertResult {
+  if (typeof result !== "object" || result === null || (!("inserted" in result)) || (result.inserted !== true && result.inserted !== false)) {
+    throw new Error("database job insert result invalid");
+  }
+}
+
+function assertDatabaseJobDeleteResult(result: unknown): asserts result is DatabaseJobDeleteResult {
+  if (typeof result !== "object" || result === null || (!("deleted" in result)) || (result.deleted !== true && result.deleted !== false)) {
+    throw new Error("database job delete result invalid");
   }
 }
 

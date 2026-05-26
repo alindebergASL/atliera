@@ -116,6 +116,57 @@ describe("DatabaseJobQueue", () => {
     );
   });
 
+  it("treats malformed client write results as sanitized dependency failures", async () => {
+    const malformedInsertResults = [{}, { inserted: "true" }, null, undefined];
+    const malformedDeleteResults = [{}, { deleted: 1 }, null, undefined];
+
+    for (const malformedInsertResult of malformedInsertResults) {
+      const malformedInsertClient: DatabaseJobQueueClient = {
+        async insertJob() {
+          return malformedInsertResult as unknown as { inserted: true };
+        },
+        async leaseNextJob() {
+          throw new Error("should not be called");
+        },
+        async deleteJob() {
+          throw new Error("should not be called");
+        },
+        async selectJob() {
+          throw new Error("should not be called");
+        },
+      };
+      const enqueueQueue = new DatabaseJobQueue({ table: "job_queue", client: malformedInsertClient, generateJobId: () => "job_0001" });
+
+      await assert.rejects(
+        () => enqueueQueue.enqueue("graph-synthesis", { ok: true }),
+        (error: unknown) => {
+          assert.ok(error instanceof DatabaseJobQueueDependencyError);
+          assert.match(error.message, /DatabaseJobQueue enqueue failed/);
+          assert.doesNotMatch(error.message, /job_queue|inserted|malformed/i);
+          return true;
+        },
+      );
+    }
+
+    for (const malformedDeleteResult of malformedDeleteResults) {
+      const malformedDeleteClient = new RecordingDatabaseJobQueueClient();
+      const completeQueue = new DatabaseJobQueue({ table: "job_queue", client: malformedDeleteClient, generateJobId: () => "job_0001" });
+      await completeQueue.enqueue("graph-synthesis", { ok: true });
+      malformedDeleteClient.hasDeleteResult = true;
+      malformedDeleteClient.deleteResult = malformedDeleteResult;
+
+      await assert.rejects(
+        () => completeQueue.complete("job_0001"),
+        (error: unknown) => {
+          assert.ok(error instanceof DatabaseJobQueueDependencyError);
+          assert.match(error.message, /DatabaseJobQueue complete failed/);
+          assert.doesNotMatch(error.message, /job_queue|deleted|malformed/i);
+          return true;
+        },
+      );
+    }
+  });
+
   it("treats malformed stored rows as sanitized dependency failures", async () => {
     const malformedClients: DatabaseJobQueueClient[] = [
       new StaticRowClient({ id: "job_0001", queue: "other-queue", payloadJson: "{}", status: "leased", attempts: 1 }),
@@ -234,6 +285,8 @@ class RecordingDatabaseJobQueueClient implements DatabaseJobQueueClient {
   leases: Array<{ table: string; queue: string }> = [];
   completes: Array<{ table: string; id: string }> = [];
   selects: Array<{ table: string; id: string }> = [];
+  hasDeleteResult = false;
+  deleteResult?: unknown;
 
   get calls(): number {
     return this.inserts.length + this.leases.length + this.completes.length + this.selects.length;
@@ -268,6 +321,9 @@ class RecordingDatabaseJobQueueClient implements DatabaseJobQueueClient {
 
   async deleteJob(input: { table: string; id: string }): Promise<{ deleted: true } | { deleted: false }> {
     this.completes.push(input);
+    if (this.hasDeleteResult) {
+      return this.deleteResult as { deleted: true } | { deleted: false };
+    }
     return this.rows.delete(input.id) ? { deleted: true } : { deleted: false };
   }
 

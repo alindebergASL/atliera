@@ -58,4 +58,18 @@ describe("safety: lab S3 validation docs match CLI guardrails", () => {
     assert.match(architecture, /local paths/i);
     assert.match(architecture, /not .*production-ready/i);
   });
+
+  it("documents the lab AWS CLI operation timeout contract in each durable S3 validation doc", () => {
+    for (const path of [RUNBOOK_PATH, README_PATH, DURABLE_ADAPTER_CONTRACTS_PATH]) {
+      const docs = readRepoFile(path);
+
+      assert.match(docs, /AwsCliS3CompatibilityClient|validate-aws-cli|AWS CLI/i);
+      assert.match(docs, /--aws-timeout-ms/i);
+      assert.match(docs, /250[^.]*300000|300000[^.]*250/i);
+      assert.match(docs, /bounded default timeout|explicit default timeout|10-second AWS CLI operation timeout/i);
+      assert.match(docs, /sanitize[^.]*timeout failures|timeout failures[^.]*sanitize/i);
+      assert.match(docs, /raw timeout values/i);
+      assert.match(docs, /process signals/i);
+    }
+  });
 });

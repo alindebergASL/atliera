@@ -26,6 +26,17 @@ describe("safety: lab S3 validation docs match CLI guardrails", () => {
     }
   });
 
+  it("documents sanitized evidence boundaries without raw approval refs or backend details", () => {
+    for (const path of [RUNBOOK_PATH, README_PATH]) {
+      const docs = readRepoFile(path);
+
+      assert.match(docs, /operator_approval_ref_present/);
+      assert.match(docs, /not (?:the )?reference value|not emit raw approval references|not echo raw approval/i);
+      assert.match(docs, /raw backend errors/i);
+      assert.match(docs, /local paths/i);
+    }
+  });
+
   it("keeps the real-backend runbook scoped away from production storage and secret persistence", () => {
     const runbook = readRepoFile(RUNBOOK_PATH);
 

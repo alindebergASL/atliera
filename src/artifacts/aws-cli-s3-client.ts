@@ -80,6 +80,7 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
     const bodyPath = join(tempDir, "body.txt");
     try {
       await writeFile(bodyPath, input.body, "utf8");
+      const metadataArgs = formatMetadataArgs(input.metadata);
       await this.runAws([
         "s3api",
         "put-object",
@@ -91,8 +92,7 @@ export class AwsCliS3CompatibilityClient implements S3ArtifactStoreClient {
         bodyPath,
         "--content-type",
         input.contentType,
-        "--metadata",
-        formatMetadata(input.metadata),
+        ...metadataArgs,
       ]);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -161,6 +161,11 @@ function awsCliToolingPreflightEnv(): NodeJS.ProcessEnv {
   return Object.freeze({
     PATH: process.env.PATH ?? "",
   });
+}
+
+function formatMetadataArgs(metadata: Readonly<Record<string, string>>): string[] {
+  const formatted = formatMetadata(metadata);
+  return formatted ? ["--metadata", formatted] : [];
 }
 
 function formatMetadata(metadata: Readonly<Record<string, string>>): string {

@@ -146,6 +146,8 @@ This validates:
 
 The implementation should report any mismatch between the durable adapter contract and actual S3-compatible behavior. Real gaps should become small follow-up contract revisions or implementation notes.
 
+Current status: the lab validation path has reached a real AWS S3 object API with a temporary lab bucket, passed all `s3_compatible_object_api` checks, and cleaned up the probe objects and temporary bucket. The run also exposed a real AWS CLI parsing gap for empty `--metadata` shorthand values; that gap is tracked as a targeted client/test fix rather than a reason to reopen broad substrate hardening. With that fix accepted, the S3 durable-artifact validation blocker is satisfied for direct object API semantics and the next validation step is the tightly budgeted model-provider run.
+
 ### Step 3: Validate model provider execution with a minimal paid corpus
 
 After approval/budget controls and durable artifact validation are in place, run the first real provider validation with a tiny, explicitly approved corpus and low spend cap.
@@ -201,9 +203,9 @@ External review is consultative, not authoritative. Merge decisions remain based
 
 Recommended order after this decision PR:
 
-1. `docs/runtime`: formalize approval mechanism and cumulative budget tracking.
-2. `feat(adapters)`: validate S3-compatible `ArtifactStore` implementation/resource behavior against a real or realistically mocked backend.
-3. `feat(provider)`: first real provider integration behind explicit approval, cumulative budget, and tiny-corpus validation gates.
+1. `docs/runtime`: formalize approval mechanism and cumulative budget tracking. Complete.
+2. `feat(adapters)`: validate S3-compatible `ArtifactStore` implementation/resource behavior against a real or realistically mocked backend. Complete for direct real AWS S3 object API semantics after the targeted empty-metadata CLI fix lands.
+3. `feat(provider)`: first real provider integration behind explicit approval, cumulative budget, and tiny-corpus validation gates. Next.
 4. `docs(methodology)` or `fix(substrate)`: codify proven methodology if validation is clean, or revise contracts if validation exposes gaps.
 5. Begin product-facing app/runtime work only after validation evidence shows the substrate can carry real execution safely.
 

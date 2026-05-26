@@ -181,6 +181,35 @@ If validation fails:
 
 Real behavior mismatches should revise the contract or adapter in small PRs. Do not paper over mismatches by making product code depend on a provider-specific quirk unless the architecture docs explicitly accept that quirk.
 
+## Current sanitized lab evidence status
+
+The first operator-approved real AWS S3 lab validation reached the real object API and passed after the AWS CLI client stopped emitting an empty `--metadata` shorthand argument for metadata-free writes. That gap was discovered only by the live backend path; the filesystem emulator and fake AWS tests had not reproduced the real CLI's empty-shorthand parser behavior.
+
+Sanitized result classification:
+
+- bucket class: temporary `atliera-s3-lab-*` bucket;
+- backend: `s3_compatible` via `aws_cli_s3api`;
+- contract: `s3_compatible_object_api`;
+- provider binding: `operator_supplied_endpoint_or_region`;
+- validation scope: `lab_only_real_backend`;
+- approval marker: `operator_approval_ref_present`;
+- object lifecycle: `operator_cleanup_required`;
+- public access block configured: yes;
+- default encryption configured: yes;
+- bucket ownership controls configured: yes;
+- lifecycle rule configured: yes;
+- cleanup outcome: probe objects deleted and temporary bucket deleted.
+
+Checks passed:
+
+- `round_trip_text`;
+- `missing_object_returns_undefined`;
+- `overwrite_last_write_wins`;
+- `prefix_isolation`;
+- `max_payload_guard`.
+
+The private evidence artifacts are intentionally outside the repository and contain only sanitized backend/report fields. Do not add bucket names, account ids, regions, endpoints, approval-reference values, local evidence paths, or credential details to committed files or PR text.
+
 ## Exit criteria
 
 The durable artifact-storage validation step is satisfied when:

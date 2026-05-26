@@ -146,6 +146,40 @@ describe("ModelProvider contract", () => {
     assert.equal("transport" in request, false);
   });
 
+  it("rejects proxy-backed request input access with a stable non-leaking error", () => {
+    const input = new Proxy(
+      {
+        operation: "graph.propose",
+        mode: "fixture",
+        model: "fake-empty-v1",
+        prompt: "Summarize supported evidence only.",
+        inputGraphRef: "graph/minimal-pass.json",
+        idempotencyKey: "run_2026_05_23_minimal",
+        maxOutputTokens: 512,
+        temperature: 0,
+        metadata: { purpose: "contract-test" },
+      },
+      {
+        get(target, property, receiver) {
+          if (property === "metadata") {
+            throw new Error("request proxy trap leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as Parameters<typeof createModelProviderRequest>[0];
+
+    assert.throws(
+      () => createModelProviderRequest(input),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /request input must be a plain data object/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
   it("rejects accessor-backed request metadata with a stable non-leaking error", () => {
     const metadata = Object.defineProperty({}, "purpose", {
       enumerable: true,
@@ -153,6 +187,38 @@ describe("ModelProvider contract", () => {
         throw new Error("metadata getter leaked provider-token-secret");
       },
     }) as Record<string, string>;
+
+    assert.throws(
+      () =>
+        createModelProviderRequest({
+          operation: "graph.propose",
+          mode: "fixture",
+          model: "fake-empty-v1",
+          prompt: "Summarize supported evidence only.",
+          inputGraphRef: "graph/minimal-pass.json",
+          idempotencyKey: "run_2026_05_23_minimal",
+          maxOutputTokens: 512,
+          temperature: 0,
+          metadata,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /metadata must be a plain string record/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
+  it("rejects proxy-backed request metadata with a stable non-leaking error", () => {
+    const metadata = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error("proxy trap leaked provider-token-secret");
+        },
+      },
+    ) as Record<string, string>;
 
     assert.throws(
       () =>

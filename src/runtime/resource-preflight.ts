@@ -112,33 +112,41 @@ export async function runResourcePreflight(
     assertSafeTarget(check.target);
     assertSafeHumanName(check.name, "resource check name");
 
+    let result: ResourcePreflightCheckResult;
     try {
-      const result = await check.run();
-      assertSafeStatus(result.status);
-      assertSafeCode(result.code);
-      assertSafeHumanName(result.message, "resource check message");
-      const metadata = sanitizeMetadata(result.metadata);
+      result = await check.run();
+    } catch {
+      failures.push({
+        target: check.target,
+        code: "resource_check_threw",
+        message: `${check.target} resource check threw`,
+      });
+      continue;
+    }
+
+    try {
+      const sanitizedResult = sanitizeResourceCheckResult(result);
       const report: ResourcePreflightCheckReport = {
         target: check.target,
         name: check.name,
-        status: result.status,
-        code: result.code,
-        message: result.message,
-        ...(metadata === undefined ? {} : { metadata }),
+        status: sanitizedResult.status,
+        code: sanitizedResult.code,
+        message: sanitizedResult.message,
+        ...(sanitizedResult.metadata === undefined ? {} : { metadata: sanitizedResult.metadata }),
       };
 
       checkReports.push(report);
-      if (result.status === "fail") {
+      if (sanitizedResult.status === "fail") {
         failures.push({
           target: check.target,
-          code: result.code,
-          message: result.message,
+          code: sanitizedResult.code,
+          message: sanitizedResult.message,
         });
-      } else if (result.status === "warn") {
+      } else if (sanitizedResult.status === "warn") {
         warnings.push({
           target: check.target,
-          code: result.code,
-          message: result.message,
+          code: sanitizedResult.code,
+          message: sanitizedResult.message,
         });
       }
     } catch (error) {
@@ -148,17 +156,11 @@ export async function runResourcePreflight(
           code: "unsafe_resource_check_metadata",
           message: `${check.target} resource check returned unsafe metadata`,
         });
-      } else if (error instanceof MalformedResourceCheckResultError) {
+      } else {
         failures.push({
           target: check.target,
           code: "malformed_resource_check_result",
           message: `${check.target} resource check returned a malformed result`,
-        });
-      } else {
-        failures.push({
-          target: check.target,
-          code: "resource_check_threw",
-          message: `${check.target} resource check threw`,
         });
       }
     }
@@ -171,6 +173,50 @@ export async function runResourcePreflight(
     warnings,
     checks: checkReports,
   };
+}
+
+function sanitizeResourceCheckResult(result: unknown): ResourcePreflightCheckResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw new MalformedResourceCheckResultError();
+  }
+
+  const status = getRequiredDataProperty(result, "status");
+  const code = getRequiredDataProperty(result, "code");
+  const message = getRequiredDataProperty(result, "message");
+  const metadata = getOptionalDataProperty(result, "metadata");
+  if (typeof status !== "string" || typeof code !== "string" || typeof message !== "string") {
+    throw new MalformedResourceCheckResultError();
+  }
+  assertSafeStatus(status);
+  assertSafeCode(code);
+  assertSafeHumanName(message, "resource check message");
+
+  const sanitizedMetadata = sanitizeMetadata(metadata);
+  return {
+    status,
+    code,
+    message,
+    ...(sanitizedMetadata === undefined ? {} : { metadata: sanitizedMetadata }),
+  };
+}
+
+function getRequiredDataProperty(source: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(source, key);
+  if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
+    throw new MalformedResourceCheckResultError();
+  }
+  return descriptor.value;
+}
+
+function getOptionalDataProperty(source: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(source, key);
+  if (descriptor === undefined) {
+    return undefined;
+  }
+  if (!descriptor.enumerable || !("value" in descriptor)) {
+    throw new MalformedResourceCheckResultError();
+  }
+  return descriptor.value;
 }
 
 function assertSafeTarget(target: string): asserts target is ResourcePreflightTarget {
@@ -203,16 +249,30 @@ function assertSafeHumanName(value: string, field: string): void {
 }
 
 function sanitizeMetadata(
-  metadata: ResourcePreflightMetadata | undefined,
+  metadata: unknown,
 ): ResourcePreflightMetadata | undefined {
   if (metadata === undefined) {
     return undefined;
   }
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    throw new MalformedResourceCheckResultError();
+  }
 
   const sanitized: ResourcePreflightMetadata = {};
-  for (const [key, value] of Object.entries(metadata)) {
+  for (const key of Reflect.ownKeys(metadata)) {
+    if (typeof key === "symbol") {
+      throw new MalformedResourceCheckResultError();
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(metadata, key);
+    if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor)) {
+      throw new MalformedResourceCheckResultError();
+    }
     if (SECRET_LIKE_METADATA_KEY.test(key)) {
       throw new UnsafeResourceCheckMetadataError();
+    }
+    const value = descriptor.value;
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+      throw new MalformedResourceCheckResultError();
     }
     if (typeof value === "string") {
       assertSafeHumanName(value, "resource check metadata value");

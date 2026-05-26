@@ -277,7 +277,12 @@ function sanitizeMetadata(
     if (typeof value === "string") {
       assertSafeHumanName(value, "resource check metadata value");
     }
-    sanitized[key] = value;
+    Object.defineProperty(sanitized, key, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
   }
 
   return sanitized;

@@ -233,6 +233,36 @@ describe("resource preflight shape", () => {
     }
   });
 
+  it("preserves literal __proto__ metadata fields as data in sanitized check reports", async () => {
+    const config = parseAtlieraRuntimeConfig({ ATL_ENV: "lab" });
+    const metadata = { detail: "safe" } as Record<string, string>;
+    Object.defineProperty(metadata, "__proto__", {
+      value: "literal-metadata",
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+
+    const report = await runResourcePreflight(config, [
+      defineResourcePreflightCheck({
+        target: "database",
+        name: "metadata snapshot probe",
+        run: () => ({
+          status: "pass",
+          code: "reachable",
+          message: "ok",
+          metadata,
+        }),
+      }),
+    ]);
+
+    assert.equal(report.ok, true);
+    assert.ok(report.checks[0]?.metadata);
+    assert.equal(Object.prototype.hasOwnProperty.call(report.checks[0].metadata, "__proto__"), true);
+    assert.equal((report.checks[0].metadata as Record<string, unknown>).__proto__, "literal-metadata");
+    assert.equal(JSON.stringify(report.checks[0].metadata), '{"detail":"safe","__proto__":"literal-metadata"}');
+  });
+
   it("snapshots validated check results and metadata without rereading untrusted adapters", async () => {
     const config = parseAtlieraRuntimeConfig({ ATL_ENV: "lab" });
     let readCount = 0;

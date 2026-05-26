@@ -156,7 +156,7 @@ This validates:
 
 - `ModelProvider` request/response shape;
 - activation gates;
-- credential refusal and dynamic SDK import discipline;
+- credential refusal and provider import discipline;
 - pre-call cost estimation;
 - post-call cost ledger entries;
 - provider response metadata capture;
@@ -164,6 +164,8 @@ This validates:
 - prompt-contract output compatibility;
 - graph validators and quality gate behavior on model-produced proposals;
 - artifact persistence of run evidence and reports.
+
+Current preparation status: Atliera now has a provider-neutral external command seam for the first lab validation run. This keeps provider SDK imports, API-key reads, and provider-specific request construction outside the default source tree while letting the existing validation harness enforce activation gates, timeout behavior, sanitized failures, response-contract checks, and cost-ledger production around the real call boundary. See `docs/runbooks/lab-model-provider-validation.md`.
 
 This is a validation run, not product launch. It should be designed to preserve partial artifacts and expose contract gaps rather than optimize for impressive output.
 

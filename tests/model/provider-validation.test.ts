@@ -339,7 +339,7 @@ describe("ModelProvider validation harness", () => {
     assert.equal(provider.calls.length, 0);
   });
 
-  it("returns sanitized prompt-contract failures for adversarial output access", async () => {
+  it("snapshots prompt-contract output once instead of rereading provider-controlled getters", async () => {
     let outputReads = 0;
     const response = successfulResponse() as unknown as Record<string, unknown>;
     Object.defineProperty(response, "output", {
@@ -347,7 +347,11 @@ describe("ModelProvider validation harness", () => {
       get() {
         outputReads += 1;
         if (outputReads > 1) {
-          throw new Error("SECRET_VALUE prompt leak from output getter");
+          return {
+            excerpts: [],
+            claims: [],
+            account_objects: [{ proposed: "SECRET_VALUE late unsafe account object" }],
+          };
         }
         return {
           excerpts: [],
@@ -364,19 +368,74 @@ describe("ModelProvider validation harness", () => {
       }),
     );
 
-    assert.equal(report.ok, false);
+    assert.equal(report.ok, true);
     assert.equal(provider.calls.length, 1);
+    assert.equal(outputReads, 1);
     assert.deepEqual(report.checks.map((check) => [check.name, check.ok, check.codes]), [
       ["activation_gates", true, []],
       ["credential_status", true, []],
       ["provider_call", true, []],
       ["response_contract", true, []],
-      ["prompt_contract_output", false, ["prompt_contract_output_schema_mismatch"]],
+      ["prompt_contract_output", true, []],
       ["cost_ledger_entry", true, []],
     ]);
-    assert.equal(report.cost_ledger_entry?.status, "failed");
-    assert.equal(report.cost_ledger_entry?.error, "prompt_contract_output_failed");
-    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|prompt leak|output getter|Return only graph/i);
+    assert.equal(report.cost_ledger_entry?.status, "succeeded");
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|late unsafe|Return only graph/i);
+  });
+
+  it("snapshots validated usage and cost once before creating ledger entries", async () => {
+    let usageReads = 0;
+    let costReads = 0;
+    const response = successfulResponse() as unknown as Record<string, unknown>;
+    Object.defineProperty(response, "usage", {
+      enumerable: true,
+      get() {
+        usageReads += 1;
+        if (usageReads > 1) {
+          return {
+            inputTokens: 9000,
+            outputTokens: 9000,
+            totalTokens: 18000,
+            secret: "SECRET_VALUE late usage payload",
+          };
+        }
+        return {
+          inputTokens: 12,
+          outputTokens: 4,
+          totalTokens: 16,
+        };
+      },
+    });
+    Object.defineProperty(response, "cost", {
+      enumerable: true,
+      get() {
+        costReads += 1;
+        if (costReads > 1) {
+          return {
+            currency: "USD",
+            amount: 0.049,
+            secret: "SECRET_VALUE late cost payload",
+          };
+        }
+        return {
+          currency: "USD",
+          amount: 0.004,
+        };
+      },
+    });
+    const provider = providerReturningUnknown(response);
+
+    const report = await validateModelProviderCompatibility(baseOptions(provider));
+
+    assert.equal(report.ok, true);
+    assert.equal(provider.calls.length, 1);
+    assert.equal(usageReads, 1);
+    assert.equal(costReads, 1);
+    assert.equal(report.cost_ledger_entry?.status, "succeeded");
+    assert.equal(report.cost_ledger_entry?.input_tokens, 12);
+    assert.equal(report.cost_ledger_entry?.output_tokens, 4);
+    assert.equal(report.cost_ledger_entry?.observed_cost_usd, 0.004);
+    assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|late usage|late cost|Return only graph/i);
   });
 
   it("returns sanitized failed ledger entries when providers return non-object response envelopes", async () => {

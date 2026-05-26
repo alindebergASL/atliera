@@ -208,24 +208,44 @@ export async function validateModelProviderCompatibility(
 function snapshotValidationOptions(
   options: ValidateModelProviderCompatibilityOptions,
 ): ValidateModelProviderCompatibilityOptions {
-  try {
-    const provider = options.provider;
-    const request = options.request;
-    const providerName = options.providerName;
-    const approval = options.approval;
-    const costLedgerEntries = options.costLedgerEntries;
-    const corpusRef = options.corpusRef;
-    const nextEstimatedCostUsd = options.nextEstimatedCostUsd;
-    const credentialStatus = options.credentialStatus;
-    const promptContractOperation = options.promptContractOperation;
-    const runId = options.runId;
-    const accountRef = options.accountRef;
-    const stage = options.stage;
-    const now = options.now;
+  let provider: ModelProvider;
+  let request: ModelProviderRequest;
+  let providerName: string;
+  let approval: ModelActivationApproval | null;
+  let costLedgerEntries: readonly ModelCostLedgerEntry[];
+  let corpusRef: string;
+  let nextEstimatedCostUsd: number;
+  let credentialStatus: ModelProviderValidationCredentialStatus;
+  let promptContractOperation: PromptContractOperation | undefined;
+  let runId: string;
+  let accountRef: string;
+  let stage: string;
+  let now: string;
 
+  try {
+    provider = options.provider;
+    request = options.request;
+    providerName = options.providerName;
+    approval = options.approval;
+    costLedgerEntries = options.costLedgerEntries;
+    corpusRef = options.corpusRef;
+    nextEstimatedCostUsd = options.nextEstimatedCostUsd;
+    credentialStatus = options.credentialStatus;
+    promptContractOperation = options.promptContractOperation;
+    runId = options.runId;
+    accountRef = options.accountRef;
+    stage = options.stage;
+    now = options.now;
+  } catch {
+    throw new Error("model provider validation options must be a plain data object");
+  }
+
+  const safeRequest = snapshotValidationRequest(request);
+
+  try {
     return Object.freeze({
       provider,
-      request: freezeModelProviderRequest(createModelProviderRequest(request)),
+      request: safeRequest,
       providerName,
       approval: approval === null ? null : snapshotValidationApproval(approval),
       costLedgerEntries: Object.freeze([...costLedgerEntries]),
@@ -241,6 +261,32 @@ function snapshotValidationOptions(
   } catch {
     throw new Error("model provider validation options must be a plain data object");
   }
+}
+
+function snapshotValidationRequest(request: ModelProviderRequest): ModelProviderRequest {
+  try {
+    return freezeModelProviderRequest(createModelProviderRequest(request));
+  } catch (error) {
+    if (isSafeRequestValidationError(error)) {
+      throw error;
+    }
+    throw new Error("model provider validation request must be a plain data object");
+  }
+}
+
+function isSafeRequestValidationError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.startsWith("operation must be one of ") ||
+    error.message === "mode must be a valid runtime mode" ||
+    error.message === "model must be a safe logical model id: model" ||
+    error.message === "prompt must be a non-empty string" ||
+    error.message === "inputGraphRef must be a safe relative reference" ||
+    error.message === "idempotencyKey must be a safe logical id: idempotencyKey" ||
+    error.message === "maxOutputTokens must be an integer from 1 to 200000" ||
+    error.message === "temperature must be a number from 0 to 2" ||
+    error.message === "metadata must be a plain string record"
+  );
 }
 
 function snapshotValidationApproval(approval: ModelActivationApproval): ModelActivationApproval {

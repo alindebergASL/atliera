@@ -649,6 +649,71 @@ describe("ModelProvider validation harness", () => {
     assert.doesNotMatch(JSON.stringify(report), /SECRET_VALUE|api_key|prompt text|Return only graph/i);
   });
 
+  it("preserves safe plain request validation errors before provider calls", async () => {
+    const provider = providerReturning(successfulResponse());
+
+    await assert.rejects(
+      () =>
+        validateModelProviderCompatibility(
+          baseOptions(provider, {
+            request: {
+              ...request(),
+              model: "bad/model",
+            },
+          }),
+        ),
+      /model must be a safe logical model id/,
+    );
+    assert.equal(provider.calls.length, 0);
+  });
+
+  it("sanitizes request snapshot getter errors before provider calls", async () => {
+    const provider = providerReturning(successfulResponse());
+    const rawRequest = request();
+    const proxiedRequest = new Proxy(rawRequest,
+      {
+        get(target, property, receiver) {
+          if (property === "prompt") {
+            throw new Error("request prompt getter leaked api_key=SECRET_VALUE");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+
+    await assert.rejects(
+      () =>
+        validateModelProviderCompatibility(
+          baseOptions(provider, { request: proxiedRequest }),
+        ),
+      /model provider validation request must be a plain data object/,
+    );
+    assert.equal(provider.calls.length, 0);
+  });
+
+  it("sanitizes spoofed request validation errors from adversarial field objects", async () => {
+    const provider = providerReturning(successfulResponse());
+    const adversarialModel = {
+      trim() {
+        throw new Error("model must be a safe logical model id: api_key=SECRET_VALUE");
+      },
+    };
+
+    await assert.rejects(
+      () =>
+        validateModelProviderCompatibility(
+          baseOptions(provider, {
+            request: {
+              ...request(),
+              model: adversarialModel,
+            },
+          }),
+        ),
+      /model provider validation request must be a plain data object/,
+    );
+    assert.equal(provider.calls.length, 0);
+  });
+
   it("rejects malformed harness input before provider calls", async () => {
     const provider = providerReturning(successfulResponse());
 

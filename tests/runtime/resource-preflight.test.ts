@@ -186,21 +186,100 @@ describe("resource preflight shape", () => {
   it("rejects malformed check results instead of treating untyped adapter output as passing", async () => {
     const config = parseAtlieraRuntimeConfig({ ATL_ENV: "lab" });
 
+    const malformedResults = [
+      { status: "ok", code: "reachable", message: "ok" },
+      null,
+      undefined,
+      "pass",
+      Object.defineProperties({}, {
+        status: {
+          enumerable: true,
+          get() {
+            throw new Error("postgres://resource.internal/atliera?password=secret");
+          },
+        },
+        code: { enumerable: true, value: "reachable" },
+        message: { enumerable: true, value: "ok" },
+      }),
+      {
+        status: "pass",
+        code: "reachable",
+        message: "ok",
+        metadata: Object.defineProperty({}, "detail", {
+          enumerable: true,
+          get() {
+            throw new Error("postgres://metadata.internal/atliera?token=secret");
+          },
+        }),
+      },
+    ];
+
+    for (const malformedResult of malformedResults) {
+      const report = await runResourcePreflight(config, [
+        defineResourcePreflightCheck({
+          target: "database",
+          name: "malformed probe",
+          run: () => malformedResult as never,
+        }),
+      ]);
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(
+        report.failures.map((failure) => failure.code),
+        ["malformed_resource_check_result"],
+      );
+      assert.equal(report.checks.length, 0);
+      assert.doesNotMatch(JSON.stringify(report), /postgres|password|token|secret|resource\.internal|metadata\.internal/i);
+    }
+  });
+
+  it("snapshots validated check results and metadata without rereading untrusted adapters", async () => {
+    const config = parseAtlieraRuntimeConfig({ ATL_ENV: "lab" });
+    let readCount = 0;
+    const result = new Proxy(
+      {
+        status: "pass",
+        code: "reachable",
+        message: "ok",
+        metadata: { detail: "safe" },
+      },
+      {
+        get(target, property, receiver) {
+          if (property === "then") {
+            return undefined;
+          }
+          readCount += 1;
+          if (property === "message" || property === "metadata") {
+            return property === "message"
+              ? "postgres://resource.internal/atliera?password=secret"
+              : { password: "secret" };
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+
     const report = await runResourcePreflight(config, [
       defineResourcePreflightCheck({
         target: "database",
-        name: "malformed probe",
-        run: () =>
-          ({ status: "ok", code: "reachable", message: "ok" }) as never,
+        name: "snapshot probe",
+        run: () => result as never,
       }),
     ]);
 
-    assert.equal(report.ok, false);
-    assert.deepEqual(
-      report.failures.map((failure) => failure.code),
-      ["malformed_resource_check_result"],
-    );
-    assert.equal(report.checks.length, 0);
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.checks, [
+      {
+        target: "database",
+        name: "snapshot probe",
+        status: "pass",
+        code: "reachable",
+        message: "ok",
+        metadata: { detail: "safe" },
+      },
+    ]);
+    assert.equal(readCount, 0);
+    assert.doesNotMatch(JSON.stringify(report), /postgres|password|secret|resource\.internal/i);
   });
 
   it("does not read process.env while defining or running the resource preflight shape", async () => {

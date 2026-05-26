@@ -128,6 +128,7 @@ export class DatabaseVersionedGraphStore implements VersionedGraphStore {
           revision: nextRevision,
           bundleJson,
         });
+        assertDatabaseGraphInsertResult(result);
         if (result.inserted === false) {
           throw new GraphStoreConflictError(graphId, null, revisionToken(result.currentRevision));
         }
@@ -140,6 +141,7 @@ export class DatabaseVersionedGraphStore implements VersionedGraphStore {
           revision: nextRevision,
           bundleJson,
         });
+        assertDatabaseGraphUpdateResult(result, expectedRevision);
         if (result.updated === false) {
           throw new GraphStoreConflictError(
             graphId,
@@ -192,6 +194,48 @@ function assertValidBundle(graphId: string, bundle: GraphBundle): void {
   if (!report.ok) {
     throw new GraphStoreValidationError(graphId);
   }
+}
+
+function assertDatabaseGraphInsertResult(result: unknown): asserts result is DatabaseGraphInsertResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw new Error("database graph insert result is invalid");
+  }
+
+  const inserted = (result as { inserted?: unknown }).inserted;
+  if (inserted === true) {
+    return;
+  }
+
+  if (inserted === false && isValidBackendRevision((result as { currentRevision?: unknown }).currentRevision)) {
+    return;
+  }
+
+  throw new Error("database graph insert result is invalid");
+}
+
+function assertDatabaseGraphUpdateResult(result: unknown, expectedRevision: number): asserts result is DatabaseGraphUpdateResult {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    throw new Error("database graph update result is invalid");
+  }
+
+  const updated = (result as { updated?: unknown }).updated;
+  if (updated === true) {
+    return;
+  }
+
+  const currentRevision = (result as { currentRevision?: unknown }).currentRevision;
+  if (
+    updated === false &&
+    (currentRevision === null || (isValidBackendRevision(currentRevision) && currentRevision !== expectedRevision))
+  ) {
+    return;
+  }
+
+  throw new Error("database graph update result is invalid");
+}
+
+function isValidBackendRevision(revision: unknown): revision is number {
+  return typeof revision === "number" && Number.isSafeInteger(revision) && revision >= 1;
 }
 
 function snapshotFromRow(row: DatabaseGraphRow, requestedGraphId: string): VersionedGraphSnapshot {

@@ -146,6 +146,60 @@ describe("ModelProvider contract", () => {
     assert.equal("transport" in request, false);
   });
 
+  it("rejects accessor-backed request metadata with a stable non-leaking error", () => {
+    const metadata = Object.defineProperty({}, "purpose", {
+      enumerable: true,
+      get() {
+        throw new Error("metadata getter leaked provider-token-secret");
+      },
+    }) as Record<string, string>;
+
+    assert.throws(
+      () =>
+        createModelProviderRequest({
+          operation: "graph.propose",
+          mode: "fixture",
+          model: "fake-empty-v1",
+          prompt: "Summarize supported evidence only.",
+          inputGraphRef: "graph/minimal-pass.json",
+          idempotencyKey: "run_2026_05_23_minimal",
+          maxOutputTokens: 512,
+          temperature: 0,
+          metadata,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /metadata must be a plain string record/);
+        assert.doesNotMatch(error.message, /provider-token-secret/);
+        return true;
+      },
+    );
+  });
+
+  it("preserves literal __proto__ request metadata as data in the sanitized snapshot", () => {
+    const metadata = { purpose: "contract-test" } as Record<string, string>;
+    Object.defineProperty(metadata, "__proto__", {
+      enumerable: true,
+      value: "literal-provider-metadata",
+    });
+
+    const request = createModelProviderRequest({
+      operation: "graph.propose",
+      mode: "fixture",
+      model: "fake-empty-v1",
+      prompt: "Summarize supported evidence only.",
+      inputGraphRef: "graph/minimal-pass.json",
+      idempotencyKey: "run_2026_05_23_minimal",
+      maxOutputTokens: 512,
+      temperature: 0,
+      metadata,
+    });
+
+    assert.equal(Object.prototype.hasOwnProperty.call(request.metadata, "__proto__"), true);
+    assert.equal(request.metadata.__proto__, "literal-provider-metadata");
+    assert.equal(JSON.stringify(request.metadata), '{"purpose":"contract-test","__proto__":"literal-provider-metadata"}');
+  });
+
   it("validates request bounds before any provider implementation can run", () => {
     assert.doesNotThrow(() => assertSafeModelProviderRequest(validRequest()));
 

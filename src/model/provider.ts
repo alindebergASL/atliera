@@ -165,10 +165,38 @@ export function createModelProviderRequest(
     idempotencyKey: input.idempotencyKey,
     maxOutputTokens: input.maxOutputTokens,
     temperature: input.temperature,
-    metadata: { ...(input.metadata ?? {}) },
+    metadata: copyModelProviderRequestMetadata(input.metadata),
   };
   assertSafeModelProviderRequest(request);
   return request;
+}
+
+function copyModelProviderRequestMetadata(metadata: Record<string, string> | undefined): Record<string, string> {
+  if (metadata === undefined) {
+    return {};
+  }
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    throw new Error("metadata must be a plain string record");
+  }
+
+  const copy: Record<string, string> = {};
+  try {
+    for (const key of Object.keys(metadata)) {
+      const descriptor = Object.getOwnPropertyDescriptor(metadata, key);
+      if (descriptor === undefined || !descriptor.enumerable || !("value" in descriptor) || typeof descriptor.value !== "string") {
+        throw new Error("metadata must be a plain string record");
+      }
+      Object.defineProperty(copy, key, {
+        configurable: true,
+        enumerable: true,
+        value: descriptor.value,
+        writable: true,
+      });
+    }
+  } catch {
+    throw new Error("metadata must be a plain string record");
+  }
+  return copy;
 }
 
 export function assertSafeModelProviderRequest(request: ModelProviderRequest): void {

@@ -103,11 +103,12 @@ import json, os
 p=json.load(open(os.path.join(os.environ['EVIDENCE_ROOT'], 'tooling/aws-cli-preflight.json')))
 assert p['command']=='check-aws-cli'
 assert p['backend']['validation_scope']=='tooling_preflight_no_bucket_access'
+assert p['backend']['object_lifecycle']=='not_applicable_no_bucket_access'
 print('aws cli tooling preflight:', 'ok' if p['ok'] else 'blocked')
 PY
 ```
 
-This preflight only checks whether the operator environment can execute `aws --version` within a short timeout, with credential-bearing environment stripped from the child process. It does not read or validate credentials, list buckets, contact S3, create objects, or prove IAM/bucket access. The optional `--out-root`/`--out-file` target uses the same guarded private evidence-output path rules as real validation and records only sanitized pass/blocker evidence, never local paths or raw tooling errors. `--allow-overwrite` is rejected without paired `--out-root` and `--out-file` evidence-output flags. If it returns `ok: false`, treat the real backend validation as blocked on `AWS_CLI_MISSING_OR_UNAVAILABLE`; install/configure approved tooling outside the repository or use a separately documented high-fidelity emulator path before retrying.
+This preflight only checks whether the operator environment can execute `aws --version` within a short timeout, with credential-bearing environment stripped from the child process. It does not read or validate credentials, list buckets, contact S3, create objects, or prove IAM/bucket access. Its backend evidence marks `validation_scope: "tooling_preflight_no_bucket_access"` and `object_lifecycle: "not_applicable_no_bucket_access"` so preserved preflight evidence cannot be mistaken for a probe-object lifecycle or cleanup result. The optional `--out-root`/`--out-file` target uses the same guarded private evidence-output path rules as real validation and records only sanitized pass/blocker evidence, never local paths or raw tooling errors. `--allow-overwrite` is rejected without paired `--out-root` and `--out-file` evidence-output flags. If it returns `ok: false`, treat the real backend validation as blocked on `AWS_CLI_MISSING_OR_UNAVAILABLE`; install/configure approved tooling outside the repository or use a separately documented high-fidelity emulator path before retrying.
 
 ## Real backend validation shape
 

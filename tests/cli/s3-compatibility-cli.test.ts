@@ -171,6 +171,7 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.backend.contract, "s3_compatible_object_api");
       assert.equal(payload.backend.provider_binding, "not_bound_tooling_preflight");
       assert.equal(payload.backend.validation_scope, "tooling_preflight_no_bucket_access");
+      assert.equal(payload.backend.object_lifecycle, "not_applicable_no_bucket_access");
       assert.equal(payload.report.ok, true);
       assert.deepEqual(payload.report.checks, [
         {
@@ -249,6 +250,7 @@ describe("s3-compatibility CLI", () => {
       assert.equal(payload.command, "check-aws-cli");
       assert.equal(payload.evidence.artifact_written, true);
       assert.equal(payload.backend.validation_scope, "tooling_preflight_no_bucket_access");
+      assert.equal(payload.backend.object_lifecycle, "not_applicable_no_bucket_access");
       assert.equal(payload.report.checks[0].code, "aws_cli_unavailable");
 
       const artifact = JSON.parse(await readFile(join(outRoot, "tooling", "aws-cli.json"), "utf8"));

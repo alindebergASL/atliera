@@ -202,6 +202,7 @@ async function run(): Promise<number> {
         contract: "s3_compatible_object_api",
         provider_binding: "not_bound_tooling_preflight",
         validation_scope: "tooling_preflight_no_bucket_access",
+        object_lifecycle: "not_applicable_no_bucket_access",
       },
       ...(evidencePath ? { evidence: { artifact_written: true } } : {}),
       report,

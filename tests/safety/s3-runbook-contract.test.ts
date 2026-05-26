@@ -59,6 +59,17 @@ describe("safety: lab S3 validation docs match CLI guardrails", () => {
     assert.match(architecture, /not .*production-ready/i);
   });
 
+  it("documents no-bucket AWS CLI preflight lifecycle evidence in each durable S3 validation doc", () => {
+    for (const path of [RUNBOOK_PATH, README_PATH, DURABLE_ADAPTER_CONTRACTS_PATH]) {
+      const docs = readRepoFile(path);
+
+      assert.match(docs, /check-aws-cli|tooling preflight|no-bucket/i);
+      assert.match(docs, /`?validation_scope`?:\s*\\?"tooling_preflight_no_bucket_access\\?"/i);
+      assert.match(docs, /`?object_lifecycle`?:\s*\\?"not_applicable_no_bucket_access\\?"/i);
+      assert.match(docs, /does not .*create objects|no bucket access|does not touch a bucket/i);
+    }
+  });
+
   it("documents the lab AWS CLI operation timeout contract in each durable S3 validation doc", () => {
     for (const path of [RUNBOOK_PATH, README_PATH, DURABLE_ADAPTER_CONTRACTS_PATH]) {
       const docs = readRepoFile(path);

@@ -1,4 +1,10 @@
-import { assertSafeArtifactKey, type ArtifactPutTextOptions, type ArtifactStore, type TextArtifact } from "./store.ts";
+import {
+  assertSafeArtifactKey,
+  copyArtifactMetadata,
+  type ArtifactPutTextOptions,
+  type ArtifactStore,
+  type TextArtifact,
+} from "./store.ts";
 
 export interface S3PutObjectInput {
   bucket: string;
@@ -110,6 +116,7 @@ export class S3ArtifactStore implements ArtifactStore {
 
   async putText(key: string, content: string, options: ArtifactPutTextOptions): Promise<void> {
     assertSafeArtifactKey(key);
+    const metadata = copyArtifactMetadata(options.metadata);
 
     if (this.maxPayloadBytes !== undefined && payloadBytes(content) > this.maxPayloadBytes) {
       throw new Error("artifact payload exceeds configured maxPayloadBytes");
@@ -124,7 +131,7 @@ export class S3ArtifactStore implements ArtifactStore {
         key: this.toObjectKey(key),
         body: content,
         contentType: options.contentType,
-        metadata: { ...(options.metadata ?? {}) },
+        metadata,
       });
       this.emit({ operation: "putText", status: "success", key, durationMs: Date.now() - startedAt });
     } catch (error) {
@@ -143,11 +150,15 @@ export class S3ArtifactStore implements ArtifactStore {
     assertSafeArtifactKey(key);
 
     let object: S3GetObjectOutput | undefined;
+    let metadata: Record<string, string> | undefined;
     const startedAt = Date.now();
     this.emit({ operation: "getText", status: "start", key, durationMs: 0 });
 
     try {
       object = await this.client.getObject({ bucket: this.bucket, key: this.toObjectKey(key) });
+      if (object !== undefined) {
+        metadata = copyArtifactMetadata(object.metadata);
+      }
       this.emit({ operation: "getText", status: "success", key, durationMs: Date.now() - startedAt });
     } catch (error) {
       this.emit({
@@ -168,7 +179,7 @@ export class S3ArtifactStore implements ArtifactStore {
       key,
       content: object.body,
       contentType: object.contentType,
-      metadata: { ...(object.metadata ?? {}) },
+      metadata: metadata ?? {},
     };
   }
 

@@ -224,4 +224,70 @@ describe("S3ArtifactStore", () => {
       },
     );
   });
+
+  it("rejects accessor-backed metadata before touching the S3 client", async () => {
+    const client = new RecordingS3Client();
+    const events: Array<{ operation: string; status: string }> = [];
+    const store = new S3ArtifactStore({
+      bucket: "atliera-artifacts-test",
+      client,
+      observe: (event) => events.push(event),
+    });
+    const metadata = Object.defineProperty({}, "run_slug", {
+      enumerable: true,
+      get() {
+        throw new Error("metadata getter leaked secret");
+      },
+    }) as Record<string, string>;
+
+    await assert.rejects(
+      () => store.putText("runs/run-1/manifest.json", "{}", { contentType: "application/json", metadata }),
+      /artifact metadata must be a plain string record/,
+    );
+
+    assert.equal(client.puts.length, 0);
+    assert.deepEqual(events, []);
+  });
+
+  it("wraps malformed backend metadata as a sanitized dependency failure before reporting success", async () => {
+    const events: Array<{ operation: string; status: string; failureCategory?: string }> = [];
+    const store = new S3ArtifactStore({
+      bucket: "atliera-artifacts-test",
+      client: {
+        async putObject() {},
+        async getObject() {
+          return {
+            body: "{}",
+            contentType: "application/json",
+            metadata: Object.defineProperty({}, "run_slug", {
+              enumerable: true,
+              get() {
+                throw new Error("backend metadata leaked secret");
+              },
+            }) as Record<string, string>,
+          };
+        },
+      },
+      observe: (event) => events.push(event),
+    });
+
+    await assert.rejects(
+      () => store.getText("runs/run-1/manifest.json"),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /S3ArtifactStore getText failed/);
+        assert.match(error.message, /dependency_unavailable/);
+        assert.doesNotMatch(error.message, /backend metadata leaked secret/);
+        return true;
+      },
+    );
+
+    assert.deepEqual(
+      events.map((event) => ({ status: event.status, failureCategory: event.failureCategory })),
+      [
+        { status: "start", failureCategory: undefined },
+        { status: "failure", failureCategory: "dependency_unavailable" },
+      ],
+    );
+  });
 });

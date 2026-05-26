@@ -26,18 +26,30 @@ const SAFE_CREDENTIAL_NAME = /^[A-Z][A-Z0-9_]{0,127}$/;
 export function defineModelProviderActivationPreflightCheck(
   input: ModelProviderActivationPreflightInput,
 ): ResourcePreflightCheckDefinition {
-  assertSafeCredentialName(input.credential.name);
+  const credential = snapshotCredentialCheckDefinition(input.credential);
+  assertSafeCredentialName(credential.name);
+  const name = input.name ?? "model provider activation probe";
 
   return defineResourcePreflightCheck({
     target: "model_provider",
-    name: input.name ?? "model provider activation probe",
+    name,
     run: async () => {
-      const decision = evaluateModelActivationGates(input.activation);
+      const activation = snapshotActivationInputForPreflight(input.activation);
+      if (activation === null) {
+        return modelActivationInputInvalidResult();
+      }
+
+      let decision;
+      try {
+        decision = evaluateModelActivationGates(activation);
+      } catch {
+        return modelActivationInputInvalidResult();
+      }
       const baseMetadata = {
         adapter: "model_provider",
         probe: "activation",
-        provider: input.activation.provider,
-        model: input.activation.model,
+        provider: activation.provider,
+        model: activation.model,
       };
 
       if (!decision.ok) {
@@ -55,9 +67,11 @@ export function defineModelProviderActivationPreflightCheck(
         };
       }
 
-      let credential: ModelProviderCredentialCheckResult;
+      let credentialStatus: ModelProviderCredentialStatus;
       try {
-        credential = await input.credential.check();
+        const credentialResult = await credential.check();
+        credentialStatus = credentialResult.status;
+        assertCredentialStatus(credentialStatus);
       } catch {
         return {
           status: "fail",
@@ -66,13 +80,11 @@ export function defineModelProviderActivationPreflightCheck(
           metadata: baseMetadata,
         };
       }
-
-      assertCredentialStatus(credential.status);
-      if (credential.status !== "present") {
+      if (credentialStatus !== "present") {
         return {
           status: "fail",
           code:
-            credential.status === "missing"
+            credentialStatus === "missing"
               ? "model_credential_missing"
               : "model_credential_invalid",
           message: "model provider credential check failed",
@@ -93,6 +105,50 @@ export function defineModelProviderActivationPreflightCheck(
       };
     },
   });
+}
+
+function snapshotCredentialCheckDefinition(
+  credential: ModelProviderCredentialCheckDefinition,
+): ModelProviderCredentialCheckDefinition {
+  try {
+    return Object.freeze({
+      name: credential.name,
+      check: credential.check,
+    });
+  } catch {
+    throw new Error("credential check definition must be a plain data object");
+  }
+}
+
+function snapshotActivationInputForPreflight(
+  activation: ModelActivationGateInput,
+): ModelActivationGateInput | null {
+  try {
+    return {
+      mode: activation.mode,
+      provider: activation.provider,
+      model: activation.model,
+      corpusRef: activation.corpusRef,
+      approval: activation.approval,
+      costLedgerEntries: Object.freeze([...activation.costLedgerEntries]),
+      nextEstimatedCostUsd: activation.nextEstimatedCostUsd,
+      now: activation.now,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function modelActivationInputInvalidResult() {
+  return {
+    status: "fail" as const,
+    code: "model_activation_input_invalid",
+    message: "model provider activation input was invalid",
+    metadata: {
+      adapter: "model_provider",
+      probe: "activation",
+    },
+  };
 }
 
 function assertSafeCredentialName(name: string): void {

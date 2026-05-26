@@ -312,6 +312,76 @@ describe("writeRunArtifactManifest", () => {
     });
   });
 
+  test("snapshots provider validation reports before manifest summaries and persisted evidence", async () => {
+    await withTempDir(async (outputRoot) => {
+      const safeReport = modelProviderValidationReport();
+      const unsafeReport = modelProviderValidationReport({
+        call: {
+          provider: "anthropic",
+          model: "claude-validation-model",
+          operation: "graph.propose",
+          idempotency_key: "idem_secret_after_validation",
+        },
+        cost_ledger_entry: {
+          ...modelProviderValidationReport().cost_ledger_entry!,
+          input_tokens: 999999,
+          output_tokens: 999999,
+          observed_cost_usd: 999999,
+          status: "failed",
+          error: "leaked-after-validation",
+        },
+      });
+      let callReads = 0;
+      let ledgerReads = 0;
+      const report = {
+        ok: true,
+        checks: safeReport.checks,
+        get call() {
+          callReads += 1;
+          return callReads === 1 ? safeReport.call : unsafeReport.call;
+        },
+        get cost_ledger_entry() {
+          ledgerReads += 1;
+          return ledgerReads === 1 ? safeReport.cost_ledger_entry : unsafeReport.cost_ledger_entry;
+        },
+      } as unknown as ModelProviderValidationReport;
+
+      const result = await writeRunArtifactManifest({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "model-validation-snapshot",
+        mode: "model",
+        modelProviderValidationReport: report,
+      });
+
+      assert.deepEqual(result.manifest.model_run, {
+        provider: "anthropic",
+        model: "claude-validation-model",
+        started_at: null,
+        completed_at: "2026-05-23T00:00:01.000Z",
+        operation: "graph.propose",
+        idempotency_key: "idem_manifest_validation_1",
+        status: "succeeded",
+      });
+      assert.deepEqual(result.manifest.cost_ledger, {
+        currency: "USD",
+        total_cost: 0.011,
+        estimated_cost: 0.02,
+        input_tokens: 120,
+        output_tokens: 34,
+        status: "succeeded",
+        error: null,
+      });
+      assert.equal(result.manifest.adapter_records[0]?.request_id, "idem_manifest_validation_1");
+      assert.equal(result.manifest.adapter_records[0]?.status, "success");
+      assert.equal(callReads, 1);
+      assert.equal(ledgerReads, 1);
+
+      const savedProviderReport = await readJson(result.model_provider_validation_report_path!);
+      assert.deepEqual(savedProviderReport, safeReport);
+    });
+  });
+
   test("records failing quality gate status in the manifest while still writing artifacts", async () => {
     await withTempDir(async (outputRoot) => {
       const bundle = {

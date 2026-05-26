@@ -243,6 +243,49 @@ function buildManifest(options: {
   };
 }
 
+function snapshotModelProviderValidationReport(
+  report: ModelProviderValidationReport | undefined,
+): ModelProviderValidationReport | undefined {
+  if (!report) return undefined;
+  const checks = report.checks;
+  const call = report.call;
+  const ledger = report.cost_ledger_entry;
+  return {
+    ok: report.ok,
+    checks: checks.map((check) => ({
+      name: check.name,
+      ok: check.ok,
+      codes: [...check.codes],
+    })),
+    call: {
+      provider: call.provider,
+      model: call.model,
+      operation: call.operation,
+      idempotency_key: call.idempotency_key,
+    },
+    cost_ledger_entry: ledger === null
+      ? null
+      : {
+          schema_version: ledger.schema_version,
+          ledger_entry_id: ledger.ledger_entry_id,
+          approval_id: ledger.approval_id,
+          run_id: ledger.run_id,
+          provider: ledger.provider,
+          model: ledger.model,
+          account_ref: ledger.account_ref,
+          stage: ledger.stage,
+          input_tokens: ledger.input_tokens,
+          output_tokens: ledger.output_tokens,
+          estimated_cost_usd: ledger.estimated_cost_usd,
+          observed_cost_usd: ledger.observed_cost_usd,
+          status: ledger.status,
+          retry_count: ledger.retry_count,
+          error: ledger.error,
+          recorded_at: ledger.recorded_at,
+        },
+  };
+}
+
 function modelRunSummary(report: ModelProviderValidationReport | undefined): RunArtifactManifestModelRunPlaceholder {
   if (!report) {
     return {
@@ -322,6 +365,9 @@ export async function writeRunArtifactManifest(
   });
 
   const qualityGateReport = runQualityGate(options.bundle);
+  const modelProviderValidationReport = snapshotModelProviderValidationReport(
+    options.modelProviderValidationReport,
+  );
   const createdAt = new Date().toISOString();
   const manifest = buildManifest({
     outputRoot: options.outputRoot,
@@ -333,7 +379,7 @@ export async function writeRunArtifactManifest(
     qualityGateReportPath: guarded.qualityGateReport.targetPath,
     modelProviderValidationReportPath: guarded.modelProviderValidationReport?.targetPath,
     qualityGateReport,
-    modelProviderValidationReport: options.modelProviderValidationReport,
+    modelProviderValidationReport,
   });
 
   const writtenPaths: string[] = [];
@@ -354,11 +400,11 @@ export async function writeRunArtifactManifest(
     });
     writtenPaths.push(guarded.qualityGateReport.targetPath);
 
-    if (guarded.modelProviderValidationReport && options.modelProviderValidationReport) {
+    if (guarded.modelProviderValidationReport && modelProviderValidationReport) {
       await writeGuardedJsonFile({
         outputRoot: options.outputRoot,
         targetPath: guarded.modelProviderValidationReport.targetPath,
-        value: options.modelProviderValidationReport,
+        value: modelProviderValidationReport,
         allowOverwrite: options.allowOverwrite,
       });
       writtenPaths.push(guarded.modelProviderValidationReport.targetPath);

@@ -213,6 +213,144 @@ describe("model provider activation resource preflight", () => {
     assert.doesNotMatch(JSON.stringify(result), /ANTHROPIC_API_KEY|sk-private-value|secret|token/i);
   });
 
+  it("returns sanitized failures when credential status access throws", async () => {
+    const check = defineModelProviderActivationPreflightCheck({
+      activation: activationInput(),
+      credential: {
+        name: "ANTHROPIC_API_KEY",
+        check: () =>
+          new Proxy(
+            { status: "present" as const },
+            {
+              get(target, property, receiver) {
+                if (property === "status") {
+                  throw new Error("credential getter leaked ANTHROPIC_API_KEY=sk-private-value");
+                }
+                return Reflect.get(target, property, receiver);
+              },
+            },
+          ),
+      },
+    });
+
+    const result = await check.run();
+
+    assert.deepEqual(result, {
+      status: "fail",
+      code: "model_credential_check_failed",
+      message: "model provider credential check failed",
+      metadata: {
+        adapter: "model_provider",
+        probe: "activation",
+        provider: "anthropic",
+        model: "claude_sonnet_4",
+      },
+    });
+    assert.doesNotMatch(JSON.stringify(result), /ANTHROPIC_API_KEY|sk-private-value|secret|token/i);
+  });
+
+  it("returns sanitized failures when credential status throws after validation", async () => {
+    let statusReads = 0;
+    const check = defineModelProviderActivationPreflightCheck({
+      activation: activationInput(),
+      credential: {
+        name: "ANTHROPIC_API_KEY",
+        check: () =>
+          new Proxy(
+            { status: "missing" as const },
+            {
+              get(target, property, receiver) {
+                if (property === "status") {
+                  statusReads += 1;
+                  if (statusReads > 1) {
+                    throw new Error("credential second-read leaked ANTHROPIC_API_KEY=sk-private-value");
+                  }
+                }
+                return Reflect.get(target, property, receiver);
+              },
+            },
+          ),
+      },
+    });
+
+    const result = await check.run();
+
+    assert.deepEqual(result, {
+      status: "fail",
+      code: "model_credential_missing",
+      message: "model provider credential check failed",
+      metadata: {
+        adapter: "model_provider",
+        probe: "activation",
+        provider: "anthropic",
+        model: "claude_sonnet_4",
+      },
+    });
+    assert.equal(statusReads, 1);
+    assert.doesNotMatch(JSON.stringify(result), /ANTHROPIC_API_KEY|sk-private-value|secret|token/i);
+  });
+
+  it("does not reread activation metadata after preflight snapshotting", async () => {
+    const rawActivation = activationInput();
+    let providerReads = 0;
+    const activation = new Proxy(rawActivation,
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            providerReads += 1;
+            if (providerReads > 1) {
+              throw new Error("activation metadata leaked provider-token-secret");
+            }
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as ReturnType<typeof activationInput>;
+
+    const check = defineModelProviderActivationPreflightCheck({
+      activation,
+      credential: { name: "ANTHROPIC_API_KEY", check: () => ({ status: "present" }) },
+    });
+
+    const result = await check.run();
+
+    assert.equal(result.status, "pass");
+    assert.equal(result.code, "model_provider_ready");
+    assert.equal(providerReads, 1);
+    assert.doesNotMatch(JSON.stringify(result), /provider-token-secret|ANTHROPIC_API_KEY|secret|token/i);
+  });
+
+  it("returns sanitized failures when activation snapshot access throws", async () => {
+    const activation = new Proxy(activationInput(),
+      {
+        get(target, property, receiver) {
+          if (property === "provider") {
+            throw new Error("activation snapshot leaked provider-token-secret");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    ) as ReturnType<typeof activationInput>;
+
+    const check = defineModelProviderActivationPreflightCheck({
+      activation,
+      credential: { name: "ANTHROPIC_API_KEY", check: () => ({ status: "present" }) },
+    });
+
+    const result = await check.run();
+
+    assert.deepEqual(result, {
+      status: "fail",
+      code: "model_activation_input_invalid",
+      message: "model provider activation input was invalid",
+      metadata: {
+        adapter: "model_provider",
+        probe: "activation",
+      },
+    });
+    assert.doesNotMatch(JSON.stringify(result), /provider-token-secret|ANTHROPIC_API_KEY|secret|token/i);
+  });
+
   it("fails closed through resource preflight when a credential checker returns malformed status", async () => {
     const config = parseAtlieraRuntimeConfig({
       ATL_ENV: "staging",
@@ -240,8 +378,8 @@ describe("model provider activation resource preflight", () => {
     assert.deepEqual(report.failures, [
       {
         target: "model_provider",
-        code: "resource_check_threw",
-        message: "model_provider resource check threw",
+        code: "model_credential_check_failed",
+        message: "model provider credential check failed",
       },
     ]);
     assert.doesNotMatch(JSON.stringify(report), /ANTHROPIC_API_KEY|sk_123|secret|token/i);
@@ -255,6 +393,34 @@ describe("model provider activation resource preflight", () => {
           credential: { name: "https://metadata.example.invalid/token", check: () => ({ status: "present" }) },
         }),
       /credential name/,
+    );
+  });
+
+  it("rejects proxy-backed credential definitions with a stable non-leaking error", () => {
+    const credential = new Proxy(
+      { name: "ANTHROPIC_API_KEY", check: () => ({ status: "present" as const }) },
+      {
+        get(target, property, receiver) {
+          if (property === "name") {
+            throw new Error("credential definition leaked ANTHROPIC_API_KEY=sk-private-value");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+
+    assert.throws(
+      () =>
+        defineModelProviderActivationPreflightCheck({
+          activation: activationInput(),
+          credential,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /credential check definition must be a plain data object/);
+        assert.doesNotMatch(error.message, /ANTHROPIC_API_KEY|sk-private-value|secret|token/i);
+        return true;
+      },
     );
   });
 

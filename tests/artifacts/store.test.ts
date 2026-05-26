@@ -58,4 +58,61 @@ describe("ArtifactStore seam", () => {
       /artifact key must/,
     );
   });
+
+  it("rejects accessor-backed metadata before persisting artifacts", async () => {
+    const store = new InMemoryArtifactStore();
+    const metadata = Object.defineProperty({}, "run_slug", {
+      enumerable: true,
+      get() {
+        throw new Error("metadata getter leaked secret");
+      },
+    }) as Record<string, string>;
+
+    await assert.rejects(
+      () => store.putText("runs/run-1/manifest.json", "{}", { contentType: "application/json", metadata }),
+      /artifact metadata must be a plain string record/,
+    );
+    assert.equal(await store.getText("runs/run-1/manifest.json"), undefined);
+  });
+
+  it("preserves enumerable metadata only while treating __proto__ as data", async () => {
+    const store = new InMemoryArtifactStore();
+    const metadata = Object.defineProperty({ run_slug: "run-1" }, "hidden", {
+      enumerable: false,
+      value: "do-not-copy",
+    }) as Record<string, string>;
+    Object.defineProperty(metadata, "__proto__", {
+      enumerable: true,
+      value: "literal-proto-value",
+    });
+
+    await store.putText("runs/run-1/manifest.json", "{}", { contentType: "application/json", metadata });
+    const artifact = await store.getText("runs/run-1/manifest.json");
+
+    assert.deepEqual(Object.keys(artifact?.metadata ?? {}).sort(), ["__proto__", "run_slug"]);
+    assert.equal(artifact?.metadata.__proto__, "literal-proto-value");
+    assert.equal((artifact?.metadata as Record<string, string>).hidden, undefined);
+  });
+
+  it("rejects proxy-backed metadata with a stable error", async () => {
+    const store = new InMemoryArtifactStore();
+    const metadata = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error("proxy trap leaked secret");
+        },
+      },
+    ) as Record<string, string>;
+
+    await assert.rejects(
+      () => store.putText("runs/run-1/proxy.json", "{}", { contentType: "application/json", metadata }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /artifact metadata must be a plain string record/);
+        assert.doesNotMatch(error.message, /proxy trap leaked secret/);
+        return true;
+      },
+    );
+  });
 });

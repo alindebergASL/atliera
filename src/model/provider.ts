@@ -156,16 +156,40 @@ const SAFE_RELATIVE_REF = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 export function createModelProviderRequest(
   input: ModelProviderRequestInput,
 ): ModelProviderRequest {
+  let operation: ModelProviderRequestInput["operation"];
+  let mode: ModelProviderRequestInput["mode"];
+  let model: ModelProviderRequestInput["model"];
+  let prompt: ModelProviderRequestInput["prompt"];
+  let inputGraphRef: ModelProviderRequestInput["inputGraphRef"];
+  let idempotencyKey: ModelProviderRequestInput["idempotencyKey"];
+  let maxOutputTokens: ModelProviderRequestInput["maxOutputTokens"];
+  let temperature: ModelProviderRequestInput["temperature"];
+  let metadata: ModelProviderRequestInput["metadata"];
+
+  try {
+    operation = input.operation;
+    mode = input.mode;
+    model = input.model;
+    prompt = input.prompt;
+    inputGraphRef = input.inputGraphRef;
+    idempotencyKey = input.idempotencyKey;
+    maxOutputTokens = input.maxOutputTokens;
+    temperature = input.temperature;
+    metadata = input.metadata;
+  } catch {
+    throw new Error("request input must be a plain data object");
+  }
+
   const request: ModelProviderRequest = {
-    operation: input.operation,
-    mode: input.mode,
-    model: input.model,
-    prompt: input.prompt,
-    inputGraphRef: input.inputGraphRef,
-    idempotencyKey: input.idempotencyKey,
-    maxOutputTokens: input.maxOutputTokens,
-    temperature: input.temperature,
-    metadata: copyModelProviderRequestMetadata(input.metadata),
+    operation,
+    mode,
+    model,
+    prompt,
+    inputGraphRef,
+    idempotencyKey,
+    maxOutputTokens,
+    temperature,
+    metadata: copyModelProviderRequestMetadata(metadata),
   };
   assertSafeModelProviderRequest(request);
   return request;

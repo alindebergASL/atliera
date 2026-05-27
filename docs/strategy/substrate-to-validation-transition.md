@@ -167,7 +167,7 @@ This validates:
 
 Current status: Atliera now has a provider-neutral external command seam for lab validation and has completed the first provider-boundary validation against OpenRouter `owl-alpha` for the `graph.propose` operation at commit `6e67b11`. The private evidence remains outside the repository. Sanitized checks show activation gates, credential status, provider call, response contract, and cost ledger all passed, with observed cost: $0. This validates the first real provider boundary and response-contract path, but it does not imply launch readiness, product readiness, multi-account quality readiness, production provider readiness, or full AgentRun-to-artifact pipeline validation.
 
-The next validation step should either codify the completed first-cycle lessons or run a second tiny approved validation that exercises more of the full pipeline: external command provider, response contract, AgentRun/evidence record, graph validation, quality gate, and artifact persistence.
+The next validation step should either codify the completed first-cycle lessons or run a second tiny approved validation that exercises more of the full pipeline: external command provider, response contract, AgentRun/evidence record, graph validation, quality gate, and artifact persistence. The deterministic full-pipeline package helper now provides the no-spend local bridge for that path: sanitized provider-validation evidence plus a GraphBundle can be packaged into AgentRun evidence, graph/quality reports, and a guarded local run manifest before any additional live provider call is approved.
 
 ### Step 4: Revise or codify
 

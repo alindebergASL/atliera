@@ -81,6 +81,8 @@ function assertRepeatableEc2Procedure(docs: string): void {
   assert.match(docs, /sha256sum/i);
   assert.match(docs, /artifact paths are relative/i);
   assert.match(docs, /credential\/secret marker scan/i);
+  assert.match(docs, /validation:bootstrap-evidence/i);
+  assert.match(docs, /bootstrap_validation_evidence\.v1/i);
 }
 
 describe("safety: first provider validation status docs", () => {

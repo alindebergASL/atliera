@@ -1,6 +1,6 @@
 # Lab EC2 bootstrap validation runbook
 
-This runbook records the clean-host EC2 bootstrap validation pattern for Atliera. It is intentionally lab-only and no-spend by default: it validates repository bootstrap, CI, and deterministic full-pipeline packaging from sanitized provider-validation evidence without making a live provider call, using network during packaging, or reading credentials during packaging.
+This runbook records the clean-host EC2 bootstrap validation pattern for Atliera. It is intentionally lab-only and no-spend by default: it validates repository bootstrap, CI, and deterministic full-pipeline packaging from sanitized provider-validation evidence without making a live provider call, without using network during packaging, and without reading credentials during packaging.
 
 ## Current milestone
 
@@ -147,7 +147,31 @@ npm run --silent validation:full-pipeline -- \
 sha256sum <private-evidence-root>/<package-root>/openrouter-owl-alpha-current-full-pipeline-YYYYMMDD/manifest.json
 ```
 
-### 7. Sanitization checks
+### 7. Verify the evidence contract
+
+After producing both summaries and the manifest, run the repository verifier. This converts the operator-run evidence into a stable sanitized contract summary with schema `atliera.bootstrap_validation_evidence.v1`.
+
+```bash
+cd <checkout-root>
+npm run --silent validation:bootstrap-evidence -- verify \
+  --summary <private-evidence-root>/full-pipeline-summary.json \
+  --rerun-summary <private-evidence-root>/full-pipeline-summary-rerun.json \
+  --manifest <private-evidence-root>/<package-root>/openrouter-owl-alpha-current-full-pipeline-YYYYMMDD/manifest.json \
+  --checkout-commit f862bbf \
+  --expected-hash cc9b26b50b12031368a9399fcdd9d949af90f8dd8e21c2b8628a9a9ff4b3eaab \
+  --npm-ci passed \
+  --npm-run-ci passed
+```
+
+The verifier must return:
+
+- `ok: true`;
+- `schema_version: atliera.bootstrap_validation_evidence.v1`;
+- `deterministic: true`;
+- `readiness_claim: false`;
+- no raw private evidence paths, raw IP addresses, lab DNS literals, credential markers, or raw provider bodies.
+
+### 8. Sanitization checks
 
 Before reporting results, verify:
 

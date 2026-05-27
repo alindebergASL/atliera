@@ -36,6 +36,8 @@ This result does not imply launch readiness, does not imply product readiness, d
 
 Next no-spend step: `controlled-corpus-usefulness-validation.md` defines the controlled corpus usefulness validation contract before another live provider run. That contract locks the tiny-corpus selection rule and usefulness rubric without authorizing provider calls, spend, production writes, or runtime/model-mode integration. It preserves provider portability rather than OpenRouter lock-in, including future separately approved direct provider routes such as the Anthropic API and OpenAI API.
 
+Next approved execution packet: `controlled-2b-expanded-usefulness-validation.md` defines the controlled 2b-expanded usefulness validation slice after the usefulness contract and `assessControlledCorpusUsefulness(...)` helper. It keeps the next run bounded to a 3-5 account corpus, routes interpretation through already-produced sanitized facts, and preserves the no launch-readiness and no product-readiness boundaries.
+
 ## Decision
 
 Move to 2b now, tightly bounded, before designing a larger live corpus review contract.

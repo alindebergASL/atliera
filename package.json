@@ -21,6 +21,7 @@
     "graph:save-copy": "tsx src/cli/graph-store.ts save-copy",
     "run:manifest": "tsx src/cli/run-manifest.ts write",
     "validation:full-pipeline": "tsx src/cli/full-pipeline-validation.ts package",
+    "validation:bootstrap-evidence": "tsx src/cli/bootstrap-evidence-validation.ts",
     "workshop:shell": "tsx src/cli/workshop-shell.ts write",
     "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
     "s3:compatibility:check-aws-cli": "tsx src/cli/s3-compatibility.ts check-aws-cli",

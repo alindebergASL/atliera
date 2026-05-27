@@ -116,13 +116,30 @@ describe("safety: controlled 2b live-provider approval packet", () => {
     assert.match(docs, /not establish a production default/i);
     assert.match(docs, /not establish[^\n]*quality preference/i);
     assert.match(docs, /not establish[^\n]*provider commitment/i);
+    assert.match(docs, /not establish[^\n]*OpenRouter commitment/i);
     assert.match(docs, /not establish[^\n]*launch model/i);
     assert.match(docs, /model flexibility/i);
     assert.match(docs, /Claude Sonnet through OpenRouter/i);
     assert.match(docs, /GPT-5\.5 through OpenRouter/i);
+    assert.match(docs, /Anthropic API/i);
+    assert.match(docs, /OpenAI API/i);
+    assert.match(docs, /direct provider APIs/i);
     assert.match(docs, /each future comparison run requires separate approval/i);
     assertNoPrivateEvidenceLeakage(docs);
     assertNoScopeExpansionContradictions(docs);
+  });
+
+  it("requires durable architecture to support OpenRouter and direct provider APIs", () => {
+    const architecture = readRepoFile(ARCHITECTURE_PATH);
+
+    assert.match(architecture, /OpenRouter/i);
+    assert.match(architecture, /direct provider APIs/i);
+    assert.match(architecture, /Anthropic API/i);
+    assert.match(architecture, /OpenAI API/i);
+    assert.match(architecture, /same `ModelProvider` boundary/i);
+    assert.match(architecture, /not require product-logic rewrites/i);
+    assertNoPrivateEvidenceLeakage(architecture);
+    assertNoScopeExpansionContradictions(architecture);
   });
 
   it("records OpenRouter-specific operational failure modes before execution", () => {

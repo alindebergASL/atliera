@@ -2,7 +2,37 @@
 
 This document is the pre-run approval and interpretation packet for Atliera's controlled 2b live-provider validation slice. It deliberately records the scope before execution so post-run interpretation cannot be rebuilt around the outcome.
 
-Status: proposed approval packet, not an execution record.
+Status: pre-run approval packet with sanitized execution record appended.
+
+## Sanitized execution record
+
+The first controlled 2b live-provider validation executed at commit `a5e4c0f` using OpenRouter `owl-alpha` for `graph.propose`.
+
+Sanitized result classification:
+
+- scope: one representative account;
+- call shape: single provider call;
+- approval: present through `atliera.model_activation_approval.v1`;
+- corpus reference: present under `external-corpus/controlled-2b/`, without committing source content;
+- observed cost: $0;
+- token counts: input tokens 177, output tokens 34;
+- private evidence: retained outside the repository;
+- production writes: no production writes;
+- runtime wiring: no runtime/model-mode integration.
+
+Checks passed:
+
+- activation gates;
+- credential status;
+- provider call;
+- response contract;
+- cost ledger;
+- full-pipeline packaging;
+- bootstrap evidence verifier.
+
+The deterministic full-pipeline manifest hash for the controlled 2b package was `9c7153776340cc36c20f275612ab2b369d7e5dddb5ec89dd164c1032e883e19e`, matching the local rerun hash. This records that the approved live-provider evidence traveled through the existing provider-validation, AgentRun, graph/quality, manifest, and bootstrap-verifier path without new substrate surface.
+
+This result does not imply launch readiness, does not imply product readiness, does not establish broad model quality, does not establish production readiness, and does not establish multi-account corpus readiness. The selected post-run decision-tree branch is: provider integration, validation, full-pipeline packaging, and bootstrap evidence verifier passed; output usefulness remains a separate model-quality question before broader corpus expansion.
 
 ## Decision
 

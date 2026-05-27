@@ -123,4 +123,6 @@ This contract does not authorize:
 
 Controlled 2b proved that one approved live-provider evidence packet could traverse the current substrate path. This document defines the no-spend usefulness rubric needed before deciding whether the next separately approved run should be a 2b-expanded tiny corpus repeatability check or a 2c model/provider comparison.
 
+`controlled-2b-expanded-usefulness-validation.md` is the next approved execution packet for controlled 2b-expanded usefulness validation after this contract. It uses `assessControlledCorpusUsefulness(...)` to classify already-produced sanitized account-level facts for a bounded 3-5 account corpus while preserving the no launch-readiness, no product-readiness, and no broad-model-quality boundaries.
+
 The result of this document alone is a safer interpretation contract, not an execution record and not an approval to spend.

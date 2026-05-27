@@ -177,6 +177,8 @@ Current status: `docs/runbooks/controlled-corpus-usefulness-validation.md` now d
 
 Current status: `src/validation/controlled-corpus-usefulness.ts` now makes that contract executable as a deterministic no-spend assessment helper. It classifies sanitized account-level facts, requires the 3-5 account corpus shape with representative, edge-case, and calibration coverage, rejects unsafe or malformed inputs, preserves the worst per-account classification in the corpus summary, and always reports no live provider call, no provider spend, no production writes, no runtime/model-mode integration, and no launch-readiness claim.
 
+Current status: `docs/runbooks/controlled-2b-expanded-usefulness-validation.md` is the next controlled 2b-expanded usefulness validation approval packet. It keeps the next live slice bounded to OpenRouter `owl-alpha`, a frozen 3-5 account corpus, and `assessControlledCorpusUsefulness(...)` over already-produced sanitized facts; it preserves provider portability and does not establish launch readiness, product readiness, broad model quality, or multi-account corpus readiness.
+
 ### Step 4: Revise or codify
 
 After the first durable adapter and first provider validation, choose one of two follow-up paths:

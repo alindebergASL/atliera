@@ -100,6 +100,11 @@ function assertUsefulnessContract(docs: string): void {
   assert.match(docs, /specificity/i);
   assert.match(docs, /account usefulness/i);
   assert.match(docs, /lens usefulness/i);
+  assert.match(docs, /executable no-spend assessment helper/i);
+  assert.match(docs, /src\/validation\/controlled-corpus-usefulness\.ts/i);
+  assert.match(docs, /already-produced, already-sanitized account-level facts/i);
+  assert.match(docs, /preserves the worst per-account classification/i);
+  assert.match(docs, /launch_readiness_claim: false/i);
   assert.match(docs, /pre-locked decision tree/i);
   assert.match(docs, /substrate still passes[^\n]*weak output/i);
   assert.match(docs, /substrate failure/i);
@@ -142,6 +147,9 @@ describe("safety: controlled corpus usefulness validation contract", () => {
 
     assert.match(docs, /controlled-corpus-usefulness-validation\.md/i);
     assert.match(docs, /controlled corpus usefulness validation/i);
+    assert.match(docs, /src\/validation\/controlled-corpus-usefulness\.ts/i);
+    assert.match(docs, /deterministic no-spend assessment helper/i);
+    assert.match(docs, /preserves the worst per-account classification/i);
     assertNoSpendNextStepBoundaries(docs);
     assertProviderPortabilityBoundary(docs);
     assertNoPrivateEvidenceLeakage(docs);

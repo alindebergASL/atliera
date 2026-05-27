@@ -11,8 +11,9 @@
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, JobQueue, and model activation probes, pure model-provider contract,
 // approval/cumulative-budget activation gates, deterministic model adapter stub,
-// pure AgentRun orchestration records, prompt-contract placeholders, and
-// deterministic launch-gate corpus assessment helpers.
+// pure AgentRun orchestration records, prompt-contract placeholders,
+// deterministic launch-gate corpus assessment helpers, and controlled corpus
+// usefulness assessment helpers.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -50,4 +51,5 @@ export * from "./model/activation-gates.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";
+export * from "./validation/controlled-corpus-usefulness.ts";
 export * from "./workshop/lens-usefulness.ts";

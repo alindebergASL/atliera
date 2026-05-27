@@ -40,6 +40,20 @@ Each account result should receive exactly one primary usefulness classification
 
 The primary classification should be accompanied by short non-sensitive reasons. Reasons may name categories and public fixture-style identifiers, but must not include raw source text, raw prompts, raw provider responses, credentials, private account names, private file paths, or private infrastructure details.
 
+## Executable no-spend assessment helper
+
+`src/validation/controlled-corpus-usefulness.ts` provides the deterministic local assessment helper for this contract. It classifies already-produced, already-sanitized account-level facts; it does not perform provider calls, does not authorize provider spend, does not read credentials, does not write production data, and does not integrate runtime/model mode.
+
+The helper requires a 3-5 account corpus with at least one representative account, one edge-case account, and one calibration account. It rejects unsafe account references, negative output counts, malformed hard-invariant flags, malformed soft-quality flags, and corpus sets that do not satisfy the pre-locked selection shape.
+
+The helper derives each account classification from:
+
+- hard invariants: invented-ID safety, provenance presence, graph validation, and private-leakage absence;
+- output counts: excerpts, claims, and account objects;
+- soft quality signals: materiality, specificity, account usefulness, lens usefulness, and source fit.
+
+The corpus summary preserves the worst per-account classification as the overall classification. A weak, zero-output, unsupported/invented, or contract-failure account cannot be hidden by averaging with useful accounts. The helper always reports `launch_readiness_claim: false`.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

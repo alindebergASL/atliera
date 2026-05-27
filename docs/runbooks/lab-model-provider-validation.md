@@ -102,6 +102,29 @@ If response-contract validation fails:
 - classify whether the failure is schema, provider/model mismatch, cost/usage mismatch, or prompt-contract output mismatch;
 - fix the wrapper or provider prompt outside the repo unless the neutral contract is wrong.
 
+## Current sanitized lab evidence status
+
+The first provider-boundary validation ran through the external command seam against OpenRouter `owl-alpha` for the `graph.propose` operation at commit `6e67b11`. The private evidence remains outside the repository, and the committed summary intentionally records only sanitized status.
+
+Sanitized result classification:
+
+- provider: OpenRouter;
+- model: `owl-alpha`;
+- operation: `graph.propose`;
+- validation scope: first provider-boundary validation;
+- evidence location: private evidence retained outside the repository;
+- observed cost: $0.
+
+Checks passed:
+
+- activation gates;
+- credential status;
+- provider call;
+- response contract;
+- cost ledger entry.
+
+This result satisfies the first real provider boundary and response-contract validation gate. It does not imply launch readiness, product readiness, broad quality acceptance, multi-account corpus readiness, production provider readiness, or full AgentRun-to-artifact pipeline validation. A follow-up validation slice should exercise more of the full pipeline before product-facing runtime work depends on real provider output.
+
 ## Exit criteria
 
 The first real provider validation gate is satisfied only when:

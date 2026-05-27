@@ -246,9 +246,10 @@ Minimum first-class records:
 - `RunArtifact`
   - id, research_run_id, artifact_type, path_or_json, created_at
 - Local run manifest v1 reserves provider-era fields even before real adapters are implemented:
-  - `model_run`: provider, model, started_at, completed_at; all null in local Phase 1 manifests
-  - `cost_ledger`: currency, total_cost, input_tokens, output_tokens; all null in local Phase 1 manifests
-  - `adapter_records`: empty array in local Phase 1 manifests; later phases append per-adapter-call records
+  - `model_run`: provider, model, operation/idempotency/status, and timestamps when provider-validation evidence is present; otherwise null placeholders
+  - `cost_ledger`: currency, observed/estimated cost, tokens, status, and stable error code when provider-validation evidence is present; otherwise null placeholders
+  - `adapter_records`: sanitized adapter-call summaries when validation evidence is present; otherwise an empty array
+  - `agent_run`: AgentRun id/status/operation/input graph ref plus relative AgentRun artifact path when AgentRun linkage is supplied; otherwise null
 - `AuditEvent`
   - id, team_id, actor_type, actor_id, event_type, target_type, target_id, payload_json, created_at
 

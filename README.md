@@ -284,7 +284,11 @@ When the programmatic writer receives a sanitized `ModelProviderValidationReport
 
 - `model-provider-validation-report.json`
 
-Only pass reports produced by the sanitized provider-validation pathway into the writer. `writeRunArtifactManifest` persists the supplied validation report and derives summaries from its stable IDs/status codes; it does not parse raw provider responses or scrub arbitrary caller-supplied payloads.
+When the programmatic writer also receives a validated `AgentRunRecord`, the package contains:
+
+- `agent-run-record.json`
+
+Only pass reports produced by the sanitized provider-validation pathway into the writer. `writeRunArtifactManifest` persists the supplied validation report and derives summaries from its stable IDs/status codes; it does not parse raw provider responses or scrub arbitrary caller-supplied payloads. `AgentRunRecord` inputs are revalidated through the pure AgentRun record seam before persistence.
 
 `run:manifest` writes through the same path guard as the file-backed graph store. It requires `--out-root` and `--run-slug`, refuses safe-mode writes, refuses implicit overwrites, records the per-bundle quality-gate status in `manifest.json`, and uses relative artifact paths inside the manifest.
 
@@ -293,6 +297,7 @@ The v1 manifest keeps stable model-run evidence fields so provider validation ph
 - `model_run`: records provider/model plus operation/idempotency/status when provider-validation evidence is present; otherwise these placeholders remain `null`
 - `cost_ledger`: records USD observed/estimated cost, tokens, status, and stable error code from the model cost-ledger entry when present; otherwise the placeholder cost fields remain `null`
 - `adapter_records`: records a sanitized `model_provider` adapter summary when validation evidence is present; otherwise an empty array
+- `agent_run`: records the AgentRun id/status/operation/input graph ref plus the relative `agent-run-record.json` path when AgentRun linkage is present; otherwise `null`
 
 ## Workshop shell smoke HTML
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
+import { createAgentRunRecord, type AgentRunRecord, type AgentRunRecordInput } from "../../src/agent/run-record.ts";
 import type { ModelProviderValidationReport } from "../../src/model/provider-validation.ts";
 import { writeRunArtifactManifest, type RunArtifactManifest } from "../../src/run/manifest.ts";
 import { makeValidBundle } from "../fixtures/valid-graph.ts";
@@ -57,6 +58,38 @@ function modelProviderValidationReport(overrides: Partial<ModelProviderValidatio
     },
     ...overrides,
   };
+}
+
+function agentRunRecord(overrides: Partial<AgentRunRecordInput> = {}): AgentRunRecord {
+  return createAgentRunRecord({
+    id: "agn_model_validation_1",
+    researchRunId: "run_manifest_validation_1",
+    operation: "graph.propose",
+    mode: "model",
+    status: "succeeded",
+    inputGraphRef: "fixtures/graph/valid/minimal-pass.json",
+    createdAt: "2026-05-23T00:00:00.000Z",
+    updatedAt: "2026-05-23T00:00:01.000Z",
+    artifacts: [
+      {
+        role: "input_graph",
+        runArtifactId: "art_model_validation_input",
+        ref: "model-validation-run/graph-bundle.json",
+      },
+      {
+        role: "quality_gate_report",
+        runArtifactId: "art_model_validation_quality_gate",
+        ref: "model-validation-run/quality-gate-report.json",
+      },
+      {
+        role: "run_manifest",
+        runArtifactId: "art_model_validation_manifest",
+        ref: "model-validation-run/manifest.json",
+      },
+    ],
+    metadata: { phase: "provider-validation-pipeline" },
+    ...overrides,
+  });
 }
 
 describe("writeRunArtifactManifest", () => {
@@ -238,6 +271,95 @@ describe("writeRunArtifactManifest", () => {
       assert.deepEqual(savedProviderReport, report);
       assert.deepEqual(savedManifest, result.manifest);
       assert.equal(savedManifest.artifacts.some((artifact) => artifact.path.startsWith(outputRoot)), false);
+    });
+  });
+
+  test("persists AgentRun linkage with provider validation, graph validation, quality gate, and artifacts", async () => {
+    await withTempDir(async (outputRoot) => {
+      const report = modelProviderValidationReport();
+      const agentRun = agentRunRecord();
+      const result = await writeRunArtifactManifest({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "model-validation-run",
+        mode: "model",
+        modelProviderValidationReport: report,
+        agentRunRecord: agentRun,
+      });
+
+      assert.ok(result.agent_run_record_path?.endsWith("model-validation-run/agent-run-record.json"));
+      assert.equal(result.manifest.quality_gate.status, "pass");
+      assert.equal(result.manifest.quality_gate.ok, true);
+      assert.equal(result.manifest.quality_gate.metrics.hard_failures, 0);
+      assert.deepEqual(
+        result.manifest.artifacts.map((artifact) => artifact.artifact_type).sort(),
+        ["agent_run_record", "graph_bundle", "model_provider_validation_report", "quality_gate_report"],
+      );
+      assert.deepEqual(result.manifest.agent_run, {
+        id: "agn_model_validation_1",
+        status: "succeeded",
+        operation: "graph.propose",
+        input_graph_ref: "fixtures/graph/valid/minimal-pass.json",
+        record_path: "model-validation-run/agent-run-record.json",
+      });
+
+      const savedAgentRun = await readJson(result.agent_run_record_path!);
+      const savedManifest = await readJson(result.manifest_path) as RunArtifactManifest;
+      assert.deepEqual(savedAgentRun, agentRun);
+      assert.deepEqual(savedManifest.agent_run, result.manifest.agent_run);
+      assert.equal(savedManifest.artifacts.some((artifact) => artifact.path.startsWith(outputRoot)), false);
+    });
+  });
+
+  test("does not advertise optional validation artifacts when untyped callers pass null", async () => {
+    await withTempDir(async (outputRoot) => {
+      const unsafeWriter = writeRunArtifactManifest as unknown as (options: Record<string, unknown>) => ReturnType<typeof writeRunArtifactManifest>;
+      const result = await unsafeWriter({
+        bundle: makeValidBundle(),
+        outputRoot,
+        runSlug: "null-optionals",
+        mode: "model",
+        modelProviderValidationReport: null,
+        agentRunRecord: null,
+      });
+
+      assert.equal(result.model_provider_validation_report_path, undefined);
+      assert.equal(result.agent_run_record_path, undefined);
+      assert.deepEqual(
+        result.manifest.artifacts.map((artifact) => artifact.artifact_type).sort(),
+        ["graph_bundle", "quality_gate_report"],
+      );
+      assert.equal(result.manifest.agent_run, null);
+      await assert.rejects(() => readFile(join(outputRoot, "null-optionals", "model-provider-validation-report.json"), "utf8"), /ENOENT/);
+      await assert.rejects(() => readFile(join(outputRoot, "null-optionals", "agent-run-record.json"), "utf8"), /ENOENT/);
+    });
+  });
+
+  test("rejects malformed non-null optional validation artifacts from untyped callers", async () => {
+    await withTempDir(async (outputRoot) => {
+      const unsafeWriter = writeRunArtifactManifest as unknown as (options: Record<string, unknown>) => ReturnType<typeof writeRunArtifactManifest>;
+      await assert.rejects(
+        () => unsafeWriter({
+          bundle: makeValidBundle(),
+          outputRoot,
+          runSlug: "malformed-provider-report",
+          mode: "model",
+          modelProviderValidationReport: false,
+        }),
+        /model provider validation report rejected/,
+      );
+      await assert.rejects(
+        () => unsafeWriter({
+          bundle: makeValidBundle(),
+          outputRoot,
+          runSlug: "malformed-agent-run",
+          mode: "model",
+          agentRunRecord: 0,
+        }),
+        /agent run record rejected/,
+      );
+      await assert.rejects(() => readFile(join(outputRoot, "malformed-provider-report", "manifest.json"), "utf8"), /ENOENT/);
+      await assert.rejects(() => readFile(join(outputRoot, "malformed-agent-run", "manifest.json"), "utf8"), /ENOENT/);
     });
   });
 

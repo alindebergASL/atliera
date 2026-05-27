@@ -1,6 +1,51 @@
 # Controlled 2b-expanded usefulness validation
 
-Status: pre-run approval packet, docs-only. This packet does not execute the run.
+Status: pre-run docs-only approval packet with sanitized execution record appended. The original docs-only approval packet does not execute the run; this later status update records the separate execution. This packet authorized the run but did not execute it inside the PR that created the approval.
+
+## Sanitized execution record
+
+The controlled 2b-expanded usefulness validation executed at commit `355c84e` using OpenRouter `owl-alpha` for `graph.propose` over a frozen 3-account controlled corpus. The selected roles were representative, edge-case, and calibration. The corpus reference used the `external-corpus/controlled-2b-expanded/` prefix, and private evidence stayed outside the repository.
+
+Execution shape:
+
+- provider route: OpenRouter;
+- model: `owl-alpha`;
+- operation: `graph.propose`;
+- corpus shape: 3-account controlled corpus;
+- selected roles: representative, edge-case, calibration;
+- call shape: one provider call per selected account;
+- approval: present through `atliera.model_activation_approval.v1`;
+- observed cost: $0;
+- total input tokens: 374;
+- total output tokens: 305;
+- production writes: no production writes;
+- runtime wiring: no runtime/model-mode integration.
+
+Checks passed for each selected account:
+
+- activation gates;
+- credential status;
+- provider call;
+- response contract;
+- cost ledger;
+- full-pipeline packaging;
+- bootstrap evidence verifier.
+
+Deterministic full-pipeline manifest hashes:
+
+- representative account package: `18be752143b01a5246205f8d4fcd7e3073a20894c9a1798a2010512ecf0f55ab`;
+- edge-case account package: `f25c9f98190a05b7ea020be84ffd397203291c07feb91abd703a402e566f90b6`;
+- calibration account package: `a11e073a6140c9283303119a466dcd51fe4bc3f51bf8430ca98fa7d93d0713ad`.
+
+The sanitized account-level facts were classified with `assessControlledCorpusUsefulness(...)`. Classification counts: weak-but-valid 3, zero-output 0, unsupported/invented 0, contract failure 0. The overall corpus classification was weak-but-valid because provider validation and packaging passed, while the sanitized output counts did not include accepted account objects or lens-usable claims. The assessment preserved `launch_readiness_claim: false`.
+
+The selected pre-locked interpretation branch is: weak-but-valid. Inspect rubric, prompts, proposal layer, and evidence policy before comparison or expansion; do not claim readiness.
+
+No post-validation rereads: interpretation used packaged sanitized evidence and already-produced sanitized account-level facts. Raw source text, prompts, provider responses, wrapper logs, headers, private paths, and credential-bearing materials were not reread to reinterpret the result.
+
+Full-pipeline packaging used private normalized copies of the successful provider-validation reports to satisfy the current `run_` research-run identifier contract. That normalization changed only sanitized identifier shape for packaging compatibility, did not change provider/model/operation/check/cost/token status, and happened without retrying provider calls.
+
+This result does not imply launch readiness, does not imply product readiness, does not establish production readiness, does not establish broad model quality, and does not establish multi-account corpus readiness. Provider portability remains intact: this is not OpenRouter lock-in, not an `owl-alpha` quality conclusion, and future separately approved direct provider routes such as the Anthropic API and OpenAI API remain first-class options behind the same `ModelProvider` boundary.
 
 This document is the approval and interpretation packet for one controlled 2b-expanded usefulness validation run after the usefulness contract and deterministic assessment helper have landed. It records scope, cost boundaries, corpus shape, provider route, and post-run interpretation before execution so the run cannot be expanded or reinterpreted around the outcome.
 

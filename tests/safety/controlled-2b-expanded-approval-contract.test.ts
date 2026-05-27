@@ -54,7 +54,7 @@ function assertNoScopeContradictions(docs: string): void {
 
 function assertExpandedApprovalContract(docs: string): void {
   assert.match(docs, /controlled 2b-expanded usefulness validation/i);
-  assert.match(docs, /Status: pre-run approval packet/i);
+  assert.match(docs, /Status: pre-run docs-only approval packet/i);
   assert.match(docs, /docs-only/i);
   assert.match(docs, /does not execute/i);
   assert.match(docs, /OpenRouter/i);

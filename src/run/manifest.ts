@@ -99,6 +99,7 @@ export interface WriteRunArtifactManifestOptions {
   mode: RuntimeMode;
   inputPath?: string | null;
   allowOverwrite?: boolean;
+  createdAt?: string;
   modelProviderValidationReport?: ModelProviderValidationReport;
   agentRunRecord?: AgentRunRecord;
 }
@@ -451,7 +452,7 @@ export async function writeRunArtifactManifest(
   });
 
   const qualityGateReport = runQualityGate(options.bundle);
-  const createdAt = new Date().toISOString();
+  const createdAt = options.createdAt ?? new Date().toISOString();
   const manifest = buildManifest({
     outputRoot: options.outputRoot,
     runSlug: options.runSlug,

@@ -54,6 +54,26 @@ The helper derives each account classification from:
 
 The corpus summary preserves the worst per-account classification as the overall classification. A weak, zero-output, unsupported/invented, or contract-failure account cannot be hidden by averaging with useful accounts. The helper always reports `launch_readiness_claim: false`.
 
+## Executable no-spend weakness diagnosis helper
+
+`src/validation/controlled-corpus-weakness-diagnosis.ts` provides the deterministic controlled corpus weakness diagnosis helper for weak or worse controlled-corpus outcomes. `diagnoseControlledCorpusWeakness(...)` consumes the same already-produced, already-sanitized account-level facts as the usefulness helper, reuses the usefulness assessment, and explains why the result did not become fully useful. It is no-spend: it does not authorize provider calls, does not authorize provider spend, does not read credentials, does not write production data, and does not integrate runtime/model mode.
+
+The diagnosis helper is for interpretation only. It sets `approves_expansion_or_comparison: false` and `launch_readiness_claim: false`; it does not approve comparison or expansion and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.
+
+Weak-but-valid diagnosis codes are intentionally bounded and non-sensitive:
+
+- `low_materiality`: the output is accepted but not material enough for account understanding or action.
+- `low_specificity`: the output is accepted but too generic for this account.
+- `missing_account_objects`: accepted account-object output is absent or account usefulness failed.
+- `missing_lens_usefulness`: the output cannot safely support a Signals, Maps, or Plays lens.
+- `insufficient_evidence_density`: accepted excerpt/claim/object density is too thin for confident use.
+- `rubric_threshold_gap`: materiality or specificity thresholds need inspection before changing prompts or rerunning.
+- `proposal_layer_underproduction`: the proposal layer underproduced account objects or lens-usable structure.
+- `evidence_policy_gap`: source-fit or evidence-policy handling needs inspection.
+- `non_weak_blocker`: a zero-output, unsupported/invented, or contract-failure account is present and must not be hidden as a weak-only rubric issue.
+
+The next required action labels are also non-execution labels: `inspect_rubric`, `inspect_prompts`, `inspect_proposal_layer`, and `inspect_evidence_policy`. They direct a no-spend review path before another approval packet. They do not authorize provider calls or provider spend.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

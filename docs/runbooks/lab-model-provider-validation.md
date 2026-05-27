@@ -125,6 +125,8 @@ Checks passed:
 
 This result satisfies the first real provider boundary and response-contract validation gate. It does not imply launch readiness, product readiness, broad quality acceptance, multi-account corpus readiness, production provider readiness, or full AgentRun-to-artifact pipeline validation. A follow-up validation slice should exercise more of the full pipeline before product-facing runtime work depends on real provider output.
 
+The clean-host reproducibility follow-up is recorded in `docs/runbooks/lab-ec2-bootstrap-validation.md`. That runbook captures the operator-repeatable EC2 bootstrap validation procedure and the deterministic no-spend package hash without committing private evidence.
+
 ## Exit criteria
 
 The first real provider validation gate is satisfied only when:

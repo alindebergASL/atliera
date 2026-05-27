@@ -7,8 +7,10 @@ const REPO_ROOT = new URL("../..", import.meta.url).pathname;
 const STRATEGY_PATH = join(REPO_ROOT, "docs", "strategy", "substrate-to-validation-transition.md");
 const PROVIDER_RUNBOOK_PATH = join(REPO_ROOT, "docs", "runbooks", "lab-model-provider-validation.md");
 const EC2_BOOTSTRAP_RUNBOOK_PATH = join(REPO_ROOT, "docs", "runbooks", "lab-ec2-bootstrap-validation.md");
+const CONTROLLED_2B_RUNBOOK_PATH = join(REPO_ROOT, "docs", "runbooks", "controlled-2b-live-provider-validation.md");
 
 const FULL_PIPELINE_MANIFEST_HASH = "cc9b26b50b12031368a9399fcdd9d949af90f8dd8e21c2b8628a9a9ff4b3eaab";
+const CONTROLLED_2B_MANIFEST_HASH = "9c7153776340cc36c20f275612ab2b369d7e5dddb5ec89dd164c1032e883e19e";
 
 const FORBIDDEN_PRIVATE_EVIDENCE_PATTERNS = [
   /\/home\//i,
@@ -85,6 +87,38 @@ function assertRepeatableEc2Procedure(docs: string): void {
   assert.match(docs, /bootstrap_validation_evidence\.v1/i);
 }
 
+function assertControlled2bMilestone(docs: string): void {
+  assert.match(docs, /controlled 2b live-provider validation/i);
+  assert.match(docs, /execution record/i);
+  assert.match(docs, /commit `?a5e4c0f/i);
+  assert.match(docs, /OpenRouter/i);
+  assert.match(docs, /owl-alpha/i);
+  assert.match(docs, /graph\.propose/i);
+  assert.match(docs, /one representative account/i);
+  assert.match(docs, /single provider call/i);
+  assert.match(docs, /approval[^\n]*present/i);
+  assert.match(docs, /external-corpus\/controlled-2b\//i);
+  assert.match(docs, /activation gates/i);
+  assert.match(docs, /credential status/i);
+  assert.match(docs, /provider call/i);
+  assert.match(docs, /response contract/i);
+  assert.match(docs, /cost ledger/i);
+  assert.match(docs, /input tokens[^\n]*177/i);
+  assert.match(docs, /output tokens[^\n]*34/i);
+  assert.match(docs, /observed cost[^\n]*\$0/i);
+  assert.match(docs, /full-pipeline packaging/i);
+  assert.match(docs, /bootstrap evidence verifier/i);
+  assert.match(docs, new RegExp(CONTROLLED_2B_MANIFEST_HASH));
+  assert.match(docs, /deterministic/i);
+  assert.match(docs, /no production writes/i);
+  assert.match(docs, /no runtime\/model-mode integration/i);
+  assert.match(docs, /does not imply launch readiness/i);
+  assert.match(docs, /does not imply product readiness/i);
+  assert.match(docs, /does not establish production readiness|does not imply production readiness/i);
+  assert.match(docs, /does not establish broad model quality/i);
+  assert.match(docs, /does not establish multi-account corpus readiness/i);
+}
+
 describe("safety: first provider validation status docs", () => {
   it("records the first provider-boundary validation status in the strategy document", () => {
     const strategy = readRepoFile(STRATEGY_PATH);
@@ -113,5 +147,19 @@ describe("safety: first provider validation status docs", () => {
     assertEc2BootstrapMilestone(runbook);
     assertRepeatableEc2Procedure(runbook);
     assertNoPrivateEvidenceLeakage(runbook);
+  });
+
+  it("records the controlled 2b execution milestone in the approval runbook", () => {
+    const runbook = readRepoFile(CONTROLLED_2B_RUNBOOK_PATH);
+
+    assertControlled2bMilestone(runbook);
+    assertNoPrivateEvidenceLeakage(runbook);
+  });
+
+  it("records the controlled 2b execution milestone in the validation strategy", () => {
+    const strategy = readRepoFile(STRATEGY_PATH);
+
+    assertControlled2bMilestone(strategy);
+    assertNoPrivateEvidenceLeakage(strategy);
   });
 });

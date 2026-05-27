@@ -334,7 +334,9 @@ Adapters must surface these failures clearly and preserve enough context for ope
 
 ## ModelProvider validation boundary
 
-The detailed `ModelProvider` contract now exists before any provider SDK import, API key read, or live model call. It carries forward Atliera/account-research lessons around:
+The detailed `ModelProvider` contract now exists before any provider SDK import, API key read, or live model call. Provider selection is a configuration choice, not an architectural commitment. Atliera's preferred product posture is provider-neutral: direct provider APIs and multi-provider gateways such as OpenRouter must both satisfy the same `ModelProvider` boundary instead of shaping product logic around one vendor. OpenRouter may be used as an SDK-neutral abstraction layer for early validation and later model comparison, but it is not itself a product lock-in. Direct provider APIs, including the Anthropic API and OpenAI API, remain first-class integration options when cost, latency, customer policy, compliance, reliability, model capability, or provider availability justify them; selecting one path must not require product-logic rewrites.
+
+The contract carries forward Atliera/account-research lessons around:
 
 - budget precheck before every call
 - retry only after rechecking budget

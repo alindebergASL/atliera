@@ -34,6 +34,8 @@ The deterministic full-pipeline manifest hash for the controlled 2b package was 
 
 This result does not imply launch readiness, does not imply product readiness, does not establish broad model quality, does not establish production readiness, and does not establish multi-account corpus readiness. The selected post-run decision-tree branch is: provider integration, validation, full-pipeline packaging, and bootstrap evidence verifier passed; output usefulness remains a separate model-quality question before broader corpus expansion.
 
+Next no-spend step: `controlled-corpus-usefulness-validation.md` defines the controlled corpus usefulness validation contract before another live provider run. That contract locks the tiny-corpus selection rule and usefulness rubric without authorizing provider calls, spend, production writes, or runtime/model-mode integration. It preserves provider portability rather than OpenRouter lock-in, including future separately approved direct provider routes such as the Anthropic API and OpenAI API.
+
 ## Decision
 
 Move to 2b now, tightly bounded, before designing a larger live corpus review contract.

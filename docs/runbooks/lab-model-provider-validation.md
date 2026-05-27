@@ -127,6 +127,8 @@ This result satisfies the first real provider boundary and response-contract val
 
 The clean-host reproducibility follow-up is recorded in `docs/runbooks/lab-ec2-bootstrap-validation.md`. That runbook captures the operator-repeatable EC2 bootstrap validation procedure and the deterministic no-spend package hash without committing private evidence.
 
+The next deliberately bounded live-provider slice is scoped in `docs/runbooks/controlled-2b-live-provider-validation.md`. That controlled 2b live-provider validation packet pins the first 2b run to OpenRouter `owl-alpha`, one representative account, a tiny approval cap, private evidence, and sanitized milestone reporting only.
+
 ## Exit criteria
 
 The first real provider validation gate is satisfied only when:

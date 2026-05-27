@@ -175,6 +175,8 @@ Current status: the sanitized execution record for controlled 2b live-provider v
 
 Current status: `docs/runbooks/controlled-corpus-usefulness-validation.md` now defines the controlled corpus usefulness validation contract as the no-spend next step before another live provider run. It locks a 3-5 account selection rule, usefulness classifications, hard invariants, soft quality signals, and a pre-locked decision tree without authorizing provider calls, spend, production writes, runtime/model-mode integration, provider lock-in, or launch/product readiness claims. It preserves provider portability across gateway routes and future separately approved direct provider routes such as the Anthropic API and OpenAI API.
 
+Current status: `src/validation/controlled-corpus-usefulness.ts` now makes that contract executable as a deterministic no-spend assessment helper. It classifies sanitized account-level facts, requires the 3-5 account corpus shape with representative, edge-case, and calibration coverage, rejects unsafe or malformed inputs, preserves the worst per-account classification in the corpus summary, and always reports no live provider call, no provider spend, no production writes, no runtime/model-mode integration, and no launch-readiness claim.
+
 ### Step 4: Revise or codify
 
 After the first durable adapter and first provider validation, choose one of two follow-up paths:

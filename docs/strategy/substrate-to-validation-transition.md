@@ -169,6 +169,8 @@ Current status: Atliera now has a provider-neutral external command seam for lab
 
 The next validation step should either codify the completed first-cycle lessons or run a second tiny approved validation that exercises more of the full pipeline: external command provider, response contract, AgentRun/evidence record, graph validation, quality gate, and artifact persistence. The deterministic full-pipeline package helper now provides the no-spend local bridge for that path: sanitized provider-validation evidence plus a GraphBundle can be packaged into AgentRun evidence, graph/quality reports, and a guarded local run manifest before any additional live provider call is approved.
 
+Current status: EC2 bootstrap validation has now reproduced that no-spend full-pipeline package on an operator-approved lab EC2 host from a fresh clone of commit `f862bbf`. The clean host ran `npm ci`, `npm run ci` with 402 tests across 63 suites, and deterministic packaging of the sanitized OpenRouter `owl-alpha` provider-validation report. The deterministic manifest hash was `cc9b26b50b12031368a9399fcdd9d949af90f8dd8e21c2b8628a9a9ff4b3eaab`, matching the local package hash and the remote rerun hash. Packaging safety flags remained no live provider call, no network, and no credential read. Remote commands should prefer the operator-approved DNS name over a raw IP command string so local execution supervisors do not route a benign lab copy step through a manual approval prompt. This milestone records substrate portability and repeatability, but it does not imply production readiness, launch readiness, or product-quality readiness.
+
 ### Step 4: Revise or codify
 
 After the first durable adapter and first provider validation, choose one of two follow-up paths:

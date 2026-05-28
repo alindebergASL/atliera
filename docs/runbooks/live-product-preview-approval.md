@@ -116,6 +116,6 @@ The sanitized status follow-up should include:
 
 ## Provider portability
 
-This approval preserves provider portability. It is not OpenRouter lock-in, not an `owl-alpha` quality conclusion, and not a permanent routing decision.
+This historical approval preserves provider portability. It is not OpenRouter lock-in, not an `owl-alpha` quality conclusion, and not a permanent routing decision. Future `owl-alpha` validation planning is clarified in `owl-alpha-validation-framing.md`: cost-limited: false and sample-limited-by-cost: false, while safety, provenance, quality, private evidence, no-tools/no-web-search, no production writes, and no readiness gates remain active.
 
 The same `ModelProvider` boundary must continue to support gateway and direct provider routes, including future direct Anthropic API and OpenAI API implementations. A future provider/model comparison must have its own approval packet, spend cap, corpus reference, private evidence handling, and sanitized status record.

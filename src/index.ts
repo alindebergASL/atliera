@@ -57,4 +57,5 @@ export * from "./agent/controlled-corpus-graph-propose-contract.ts";
 export * from "./validation/controlled-corpus-usefulness.ts";
 export * from "./validation/controlled-corpus-weakness-diagnosis.ts";
 export * from "./validation/controlled-corpus-remediation-plan.ts";
+export * from "./validation/controlled-corpus-rerun-request-packet.ts";
 export * from "./workshop/lens-usefulness.ts";

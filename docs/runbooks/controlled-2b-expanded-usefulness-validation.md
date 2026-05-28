@@ -122,6 +122,12 @@ The approval record must identify, outside the repository:
 
 The request path must use providerName `openrouter`, model `owl-alpha`, and operation `graph.propose`, matching the approval scope. Missing model mode, provider, model, cost cap, corpus reference, or operator approval is a refusal.
 
+## No-spend rerun request packet gate
+
+Before another execution attempt, `buildControlledCorpusRerunRequestPacket(...)` must produce a deterministic request packet from the current prompt/proposal contract. The request packet pins the prompt schema version, preserves the representative, edge-case, and calibration roles, and previews the `graph.propose` request shape without source text, private account identifiers, credentials, wrapper logs, private paths, or raw provider responses.
+
+This request packet does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. A separate approval packet is required before execution.
+
 ## Pre-run checks
 
 Before execution:

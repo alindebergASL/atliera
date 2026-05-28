@@ -76,6 +76,9 @@ describe("safety: first validation cycle exit contract", () => {
     assert.match(doc, /codify the validated engineering practice/i);
     assert.match(doc, /narrow product-facing fake-mode runtime/i);
     assert.match(doc, /deterministic\/fake-mode first/i);
+    assert.match(doc, /src\/runtime\/workshop-preview\.ts/i);
+    assert.match(doc, /providerCallsMade: 0/i);
+    assert.match(doc, /productionWrites: false/i);
     assert.match(doc, /no live provider call/i);
     assert.match(doc, /separate explicit approval packet/i);
     assert.match(doc, /gateway and direct provider APIs/i);

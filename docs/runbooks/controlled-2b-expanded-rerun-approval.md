@@ -134,3 +134,7 @@ A later status PR may record only non-sensitive facts:
 - no production writes;
 - no runtime/model-mode integration;
 - no readiness or broad-quality claim.
+
+## Separate execution follow-up
+
+The separate sanitized execution follow-up is recorded in `docs/runbooks/controlled-2b-expanded-rerun-status.md`. The approval PR was docs-only and did not execute the run. The status follow-up records the validated commit, provider route, public model id, prompt schema, request-packet schema, role labels, token counts, observed cost, activation/response/cost/packaging/bootstrap status, usefulness classification counts, and preserved no-readiness/no-broad-quality boundaries.

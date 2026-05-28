@@ -13,7 +13,8 @@
 // approval/cumulative-budget activation gates, deterministic model adapter stub,
 // pure AgentRun orchestration records, prompt-contract placeholders,
 // deterministic launch-gate corpus assessment helpers, controlled corpus
-// usefulness assessment helpers, and controlled corpus weakness diagnosis helpers.
+// usefulness assessment helpers, controlled corpus weakness diagnosis helpers,
+// and controlled corpus remediation planning helpers.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -53,4 +54,5 @@ export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";
 export * from "./validation/controlled-corpus-usefulness.ts";
 export * from "./validation/controlled-corpus-weakness-diagnosis.ts";
+export * from "./validation/controlled-corpus-remediation-plan.ts";
 export * from "./workshop/lens-usefulness.ts";

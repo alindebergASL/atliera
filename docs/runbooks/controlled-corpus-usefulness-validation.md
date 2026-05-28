@@ -74,6 +74,16 @@ Weak-but-valid diagnosis codes are intentionally bounded and non-sensitive:
 
 The next required action labels are also non-execution labels: `inspect_rubric`, `inspect_prompts`, `inspect_proposal_layer`, and `inspect_evidence_policy`. They direct a no-spend review path before another approval packet. They do not authorize provider calls or provider spend.
 
+## Executable no-spend weakness remediation helper
+
+`src/validation/controlled-corpus-remediation-plan.ts` provides the deterministic controlled corpus weakness remediation helper. `planControlledCorpusWeaknessRemediation(...)` consumes the already-produced weakness diagnosis and turns diagnosis buckets into a no-spend remediation plan before another live run, comparison, or expansion is considered.
+
+The helper maps weakness into bounded remediation areas: `prompt_contract`, `proposal_schema`, `evidence_policy`, `rubric_thresholds`, `fixture_coverage`, and `substrate_contract`. Its allowed next-action labels are no-execution labels: `no_spend_prompt_contract_revision`, `proposal_schema_revision`, `rubric_clarification`, `evidence_policy_clarification`, `deterministic_fixture_update`, and `fix_hard_substrate_or_contract_blocker`.
+
+The helper also records blocked next-action labels: `live_provider_rerun`, `provider_comparison`, `corpus_expansion`, `launch_readiness_claim`, and `product_readiness_claim`. It preserves `approves_live_provider_call: false`, `approves_provider_spend: false`, `approves_expansion_or_comparison: false`, and `launch_readiness_claim: false`.
+
+If the weakness diagnosis includes `non_weak_blocker`, remediation planning is blocked to `substrate_contract` and `fix_hard_substrate_or_contract_blocker`; the result must not be treated as a prompt/rubric-only issue. The remediation plan does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

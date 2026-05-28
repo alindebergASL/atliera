@@ -92,6 +92,12 @@ The contract corrects the weak-result underproduction path by requiring a strict
 
 This helper does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. A later live run still requires a separate approval packet after this no-spend prompt/proposal contract is reviewed.
 
+## Executable no-spend controlled corpus rerun request packet
+
+`src/validation/controlled-corpus-rerun-request-packet.ts` provides the deterministic no-spend request packet helper for the next step after prompt/proposal remediation. `buildControlledCorpusRerunRequestPacket(...)` builds a public request preview for the representative, edge-case, and calibration roles, pins the prompt schema version, and records safe account refs, safe input graph refs, token bounds, zero temperature, and request metadata without private source text or provider credentials.
+
+The request packet is still a no-spend request packet. It does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. It requires a separate live-run approval packet before any provider call.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

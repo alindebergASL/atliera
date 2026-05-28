@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "command": "report",
+  "kind": "runtime-workshop-preview-cli",
+  "environment": "test",
+  "modelProvider": "fake",
+  "preflight": {
+    "ok": true,
+    "environment": "test",
+    "failures": [],
+    "warnings": []
+  },
+  "previewFailures": [],
+  "accountId": "acc_acme_robotics",
+  "totals": {
+    "sources": 3,
+    "excerpts": 3,
+    "accepted_excerpts": 3,
+    "claims": 3,
+    "account_objects": 3,
+    "verified_objects": 3
+  },
+  "htmlRendered": true,
+  "htmlLength": 7806,
+  "graphSnapshotRead": true,
+  "serverStarted": false,
+  "clientsConstructed": false,
+  "providerCallsMade": 0,
+  "productionWrites": false
+}

@@ -77,4 +77,6 @@ The next step is not launch. Any further product-preview expansion, provider com
 
 Before requesting any such expansion packet, run the no-spend usefulness gate in `live-product-preview-usefulness-gate.md`. `assessLiveProductPreviewUsefulness(...)` consumes already-produced, already-sanitized one-run live product preview facts, preserves `launch_readiness_claim: false`, and authorizes no provider calls, no provider spend, no production writes, no runtime/model-mode integration, no comparison, no corpus expansion, no product-preview expansion, no web search, and no tools or plugins.
 
+The gate has now been applied in `live-product-preview-usefulness-assessment.md`. That no-spend assessment classifies preview ref `live-product-preview-20260528a` as `weak-but-valid` because the validation chain passed and output facts were present, but only one materially useful Workshop lens was present. It keeps `approves_expansion_or_comparison: false`.
+
 For future OpenRouter `owl-alpha` validation planning, `owl-alpha-validation-framing.md` records cost-limited: false and sample-limited-by-cost: false. Later `owl-alpha` batches should be sized by safety, provenance, quality, role coverage, and usefulness value rather than by spend avoidance.

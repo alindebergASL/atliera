@@ -128,6 +128,12 @@ Before another execution attempt, `buildControlledCorpusRerunRequestPacket(...)`
 
 This request packet does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. A separate approval packet is required before execution.
 
+## Remediated rerun approval packet
+
+`docs/runbooks/controlled-2b-expanded-rerun-approval.md` is the controlled 2b-expanded rerun approval packet for exactly one bounded remediated live-provider rerun after the no-spend prompt/proposal contract and controlled corpus rerun request packet. The controlled 2b-expanded rerun approval is docs-only in its approval PR, uses the request-packet scope, and does not execute the run inside that PR.
+
+The approval packet preserves the same no-comparison, no-expansion, no-production-writes, no-runtime/model-mode-integration, no-readiness, and sanitized-follow-up-only boundaries for the remediated rerun.
+
 ## Pre-run checks
 
 Before execution:

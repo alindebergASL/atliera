@@ -83,6 +83,6 @@ It does not prove provider quality, does not prove multi-account readiness, does
 
 ## Next artifact after exit
 
-The next artifact should be a separate docs-only approval packet for one controlled live-provider product preview. That packet must identify the provider/model, the tiny account or corpus, the budget cap, the private evidence handling, the success/failure interpretation, and the pre-run decision tree.
+The next artifact is `../runbooks/live-product-preview-approval.md`, the live product preview approval packet. It is a separate docs-only approval packet that identifies the provider/model, the tiny account or corpus, the budget cap, the private evidence handling, the success/failure interpretation, and the pre-run decision tree.
 
-The approval packet must continue to prohibit provider comparison, corpus expansion, production writes, production deployment, paid fallback unless separately approved, and launch/product/production readiness claims.
+The live product preview approval packet must continue to prohibit provider comparison, corpus expansion, production writes, production deployment, paid fallback unless separately approved, tools/plugins/search unless separately approved, and launch/product/production readiness claims.

@@ -12,9 +12,9 @@ The first validation cycle produced a useful tiny-corpus signal: useful 3, weak-
 
 ## Current implementation anchor
 
-The first implementation anchor is `src/runtime/workshop-preview.ts` and its public helper `prepareRuntimeWorkshopPreview(...)`.
+The first implementation anchor is `src/runtime/workshop-preview.ts` and its public helpers `prepareRuntimeWorkshopPreview(...)` and `prepareRuntimeWorkshopHtmlPreview(...)`.
 
-That helper is the permitted shape for this phase:
+Those helpers are the permitted shape for this phase:
 
 - it runs runtime preflight before reading graph state;
 - it requires `MODEL_PROVIDER=fake`;

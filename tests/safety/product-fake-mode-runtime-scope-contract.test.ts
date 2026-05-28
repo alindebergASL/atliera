@@ -59,6 +59,7 @@ describe("safety: product-facing fake-mode runtime scope", () => {
     assert.match(doc, /first-validation-cycle-exit\.md/i);
     assert.match(doc, /src\/runtime\/workshop-preview\.ts/i);
     assert.match(doc, /prepareRuntimeWorkshopPreview/i);
+    assert.match(doc, /prepareRuntimeWorkshopHtmlPreview/i);
     assert.match(doc, /MODEL_PROVIDER=fake/i);
     assert.match(doc, /deterministic\/fake-mode/i);
     assert.match(doc, /existing validated graph-backed outputs/i);

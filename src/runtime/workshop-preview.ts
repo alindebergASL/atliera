@@ -1,4 +1,5 @@
 import type { WorkshopViewModel } from "../workshop/view-model.ts";
+import { renderWorkshopHtml } from "../workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../workshop/view-model.ts";
 import type { AtlieraRuntime } from "./composition.ts";
 import {
@@ -23,6 +24,20 @@ export interface RuntimeWorkshopPreviewReport {
   readonly preflight: RuntimePreflightReport;
   readonly previewFailures: readonly RuntimeWorkshopPreviewFailure[];
   readonly viewModel?: WorkshopViewModel;
+  readonly graphSnapshotRead: boolean;
+  readonly serverStarted: false;
+  readonly clientsConstructed: false;
+  readonly providerCallsMade: 0;
+  readonly productionWrites: false;
+}
+
+export interface RuntimeWorkshopHtmlPreviewReport {
+  readonly ok: boolean;
+  readonly kind: "workshop-html-preview";
+  readonly environment: AtlieraRuntime["config"]["environment"];
+  readonly workshopPreview: RuntimeWorkshopPreviewReport;
+  readonly html?: string;
+  readonly htmlRendered: boolean;
   readonly graphSnapshotRead: boolean;
   readonly serverStarted: false;
   readonly clientsConstructed: false;
@@ -71,6 +86,41 @@ export function prepareRuntimeWorkshopPreview(
     previewFailures,
     viewModel,
     graphSnapshotRead: true,
+    serverStarted: false,
+    clientsConstructed: false,
+    providerCallsMade: 0,
+    productionWrites: false,
+  };
+}
+
+export function prepareRuntimeWorkshopHtmlPreview(
+  runtime: AtlieraRuntime,
+): RuntimeWorkshopHtmlPreviewReport {
+  const workshopPreview = prepareRuntimeWorkshopPreview(runtime);
+  if (!workshopPreview.ok || !workshopPreview.viewModel) {
+    return {
+      ok: false,
+      kind: "workshop-html-preview",
+      environment: workshopPreview.environment,
+      workshopPreview,
+      htmlRendered: false,
+      graphSnapshotRead: workshopPreview.graphSnapshotRead,
+      serverStarted: false,
+      clientsConstructed: false,
+      providerCallsMade: 0,
+      productionWrites: false,
+    };
+  }
+
+  const html = renderWorkshopHtml(workshopPreview.viewModel);
+  return {
+    ok: true,
+    kind: "workshop-html-preview",
+    environment: workshopPreview.environment,
+    workshopPreview,
+    html,
+    htmlRendered: true,
+    graphSnapshotRead: workshopPreview.graphSnapshotRead,
     serverStarted: false,
     clientsConstructed: false,
     providerCallsMade: 0,

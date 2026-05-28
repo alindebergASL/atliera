@@ -57,6 +57,8 @@ Any future product-preview expansion, provider comparison, corpus expansion, pai
 
 `live-product-preview-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-20260528a`: `weak-but-valid`, with `insufficient_useful_lenses` because only one materially useful Workshop lens was present. That assessment keeps `approves_expansion_or_comparison: false`.
 
+`live-product-preview-usefulness-remediation.md` records the next no-spend remediation plan. It maps `insufficient_useful_lenses` to prompt contract, proposal schema, Workshop lens mapping, product-surface expectation, and fixture-coverage work while keeping live reruns, provider comparison, corpus expansion, product-preview expansion, and readiness claims blocked.
+
 `owl-alpha-validation-framing.md` records the current OpenRouter `owl-alpha` planning rule: cost-limited: false, sample-limited-by-cost: false. For `owl-alpha`, a later product-preview expansion packet should choose batch size for safety, provenance, quality, role coverage, and usefulness value, not because spend forces a tiny sample.
 
 - If `useful`, the next step may be a separate approval packet for a bounded product-preview expansion. It is not launch.

@@ -14,9 +14,9 @@
 // pure AgentRun orchestration records, prompt-contract placeholders and
 // controlled corpus graph.propose prompt/proposal remediation contracts,
 // deterministic launch-gate corpus assessment helpers, controlled corpus
-// usefulness assessment helpers, live product preview usefulness gates,
-// controlled corpus weakness diagnosis helpers, and controlled corpus
-// remediation planning helpers.
+// usefulness assessment helpers, live product preview usefulness gates and
+// remediation planning helpers, controlled corpus weakness diagnosis helpers,
+// and controlled corpus remediation planning helpers.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -61,4 +61,5 @@ export * from "./validation/controlled-corpus-weakness-diagnosis.ts";
 export * from "./validation/controlled-corpus-remediation-plan.ts";
 export * from "./validation/controlled-corpus-rerun-request-packet.ts";
 export * from "./validation/live-product-preview-usefulness.ts";
+export * from "./validation/live-product-preview-remediation-plan.ts";
 export * from "./workshop/lens-usefulness.ts";

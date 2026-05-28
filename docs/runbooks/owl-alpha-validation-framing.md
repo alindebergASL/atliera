@@ -61,4 +61,6 @@ If the usefulness gate says the product preview is useful, the next approval pac
 
 The applied first-preview assessment is `live-product-preview-usefulness-assessment.md`. It classified preview ref `live-product-preview-20260528a` as `weak-but-valid`, so the next step remains no-spend remediation before broader validation.
 
+The remediation plan is `live-product-preview-usefulness-remediation.md`. It keeps live reruns, provider comparison, corpus expansion, product-preview expansion, and readiness claims blocked while planning prompt/proposal/lens/product-surface/fixture work.
+
 If the usefulness gate says the output is weak, zero-output, or contract-failing, the next step remains diagnosis or remediation before broader validation.

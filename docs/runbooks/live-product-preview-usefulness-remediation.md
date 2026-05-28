@@ -1,0 +1,75 @@
+# Live Product Preview Usefulness Remediation
+
+Status: accepted no-spend remediation plan for the first live product preview.
+
+This document applies `planLiveProductPreviewUsefulnessRemediation(...)` to the checked sanitized assessment for preview ref `live-product-preview-20260528a`.
+
+The source assessment is `weak-but-valid` with reason code `insufficient_useful_lenses`: only the Signals lens was materially useful, while the required threshold is two useful Workshop lenses.
+
+## Checked remediation plan
+
+The checked public fixture is `fixtures/validation/live-product-preview-20260528a-remediation-plan.json`.
+
+Plan markers:
+
+- status: `needs-remediation`;
+- source_classification: `weak-but-valid`;
+- source_reason_codes: `insufficient_useful_lenses`;
+- observed useful lenses: 1;
+- required useful lenses: 2.
+
+Remediation areas:
+
+- prompt_contract;
+- proposal_schema;
+- workshop_lens_mapping;
+- product_surface_expectations;
+- fixture_coverage.
+
+Allowed next actions are deterministic and no-spend only:
+
+- no_spend_prompt_contract_revision;
+- proposal_schema_revision;
+- workshop_lens_mapping_review;
+- product_surface_clarification;
+- deterministic_fixture_update.
+
+These actions are intended to make the next product-preview proposal shape elicit, preserve, and render Maps and Plays evidence when the source account supports them. They do not execute or approve a live rerun.
+
+## Safety output markers
+
+The remediation plan preserves:
+
+- launch_readiness_claim: false;
+- product_readiness_claim: false;
+- production_readiness_claim: false;
+- approves_live_provider_call: false;
+- approves_provider_spend: false;
+- approves_expansion_or_comparison: false.
+
+The remediation plan also preserves:
+
+- live_provider_call: false;
+- provider_spend: false;
+- production_writes: false;
+- runtime_model_mode_integration: false;
+- provider_or_model_comparison: false;
+- corpus_expansion: false;
+- product_preview_expansion: false;
+- web_search_or_tools: false.
+
+Blocked next actions:
+
+- live_provider_rerun;
+- provider_comparison;
+- corpus_expansion;
+- product_preview_expansion;
+- launch_readiness_claim;
+- product_readiness_claim;
+- production_readiness_claim.
+
+## Boundary interpretation
+
+This remediation plan is no-spend and no-execution. It records no live rerun, no provider comparison, no corpus expansion, no product-preview expansion, no production write, no runtime/model-mode integration, no web search, no tool, and no plugin.
+
+The next Atliera implementation step should be a deterministic remediation slice that updates prompt/proposal/lens/product-surface contracts and fixtures. Only after that no-spend remediation is reviewed should a separate approval packet consider any broader `owl-alpha` product-preview validation batch. That later approval remains separate and must preserve private evidence handling, sanitized status, no-readiness interpretation, and explicit scope.

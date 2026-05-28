@@ -55,7 +55,9 @@ Any future product-preview expansion, provider comparison, corpus expansion, pai
 
 ## Next-step interpretation
 
-- If `useful`, the next step may be a separate approval packet for a tiny bounded product-preview expansion. It is not launch.
+`owl-alpha-validation-framing.md` records the current OpenRouter `owl-alpha` planning rule: cost-limited: false, sample-limited-by-cost: false. For `owl-alpha`, a later product-preview expansion packet should choose batch size for safety, provenance, quality, role coverage, and usefulness value, not because spend forces a tiny sample.
+
+- If `useful`, the next step may be a separate approval packet for a bounded product-preview expansion. It is not launch.
 - If `weak-but-valid`, the next step is no-spend prompt, rubric, lens, or product-surface remediation before expansion.
 - If `zero-output`, the next step is provider-output or prompt/proposal diagnosis before expansion.
 - If `contract-failure`, the next step is targeted substrate or safety-boundary repair.

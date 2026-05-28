@@ -141,6 +141,24 @@ async function buildPreview(inputPath: string) {
   return prepareRuntimeWorkshopHtmlPreview(runtime);
 }
 
+function lensItemCounts(viewModel: ReturnType<typeof prepareRuntimeWorkshopHtmlPreview>["workshopPreview"]["viewModel"]): Record<"signals" | "maps" | "plays", number> | undefined {
+  if (!viewModel) return undefined;
+  return {
+    signals: viewModel.lenses.signals.length,
+    maps: viewModel.lenses.maps.length,
+    plays: viewModel.lenses.plays.length,
+  };
+}
+
+function lensEvidencePacketCounts(viewModel: ReturnType<typeof prepareRuntimeWorkshopHtmlPreview>["workshopPreview"]["viewModel"]): Record<"signals" | "maps" | "plays", number> | undefined {
+  if (!viewModel) return undefined;
+  return {
+    signals: viewModel.lenses.signals.reduce((count, item) => count + item.evidence_packets.length, 0),
+    maps: viewModel.lenses.maps.reduce((count, item) => count + item.evidence_packets.length, 0),
+    plays: viewModel.lenses.plays.reduce((count, item) => count + item.evidence_packets.length, 0),
+  };
+}
+
 function toSanitizedReport(
   report: ReturnType<typeof prepareRuntimeWorkshopHtmlPreview>,
   command: "report" | "html",
@@ -155,6 +173,8 @@ function toSanitizedReport(
     previewFailures: report.workshopPreview.previewFailures,
     accountId: report.workshopPreview.viewModel?.account_id,
     totals: report.workshopPreview.viewModel?.totals,
+    lensItemCounts: lensItemCounts(report.workshopPreview.viewModel),
+    lensEvidencePacketCounts: lensEvidencePacketCounts(report.workshopPreview.viewModel),
     htmlRendered: report.htmlRendered,
     htmlLength: report.html?.length ?? 0,
     graphSnapshotRead: report.graphSnapshotRead,

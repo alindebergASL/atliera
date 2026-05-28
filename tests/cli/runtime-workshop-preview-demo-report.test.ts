@@ -50,6 +50,16 @@ describe("runtime Workshop preview demo report", () => {
       account_objects: 3,
       verified_objects: 3,
     });
+    assert.deepEqual(checkedReport.lensItemCounts, {
+      signals: 1,
+      maps: 1,
+      plays: 1,
+    });
+    assert.deepEqual(checkedReport.lensEvidencePacketCounts, {
+      signals: 1,
+      maps: 1,
+      plays: 1,
+    });
     assert.equal(checkedReport.providerCallsMade, 0);
     assert.equal(checkedReport.productionWrites, false);
     assert.equal(checkedReport.serverStarted, false);

@@ -20,6 +20,16 @@
     "account_objects": 3,
     "verified_objects": 3
   },
+  "lensItemCounts": {
+    "signals": 1,
+    "maps": 1,
+    "plays": 1
+  },
+  "lensEvidencePacketCounts": {
+    "signals": 1,
+    "maps": 1,
+    "plays": 1
+  },
   "htmlRendered": true,
   "htmlLength": 7806,
   "graphSnapshotRead": true,

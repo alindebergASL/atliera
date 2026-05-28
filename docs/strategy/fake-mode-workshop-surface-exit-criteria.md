@@ -25,7 +25,9 @@ The fake-mode Workshop surface exits this phase only when every gate below remai
 
 ### 1. Product surface coverage
 
-- Signals, Maps, and Plays all render from graph-backed data.
+- Signals, Maps, and Plays render from graph-backed data.
+- The checked report records `lensItemCounts` as `signals: 1`, `maps: 1`, and `plays: 1`.
+- The checked report records `lensEvidencePacketCounts` as `signals: 1`, `maps: 1`, and `plays: 1`.
 - Empty and sparse graph states render visibly rather than pretending intelligence exists.
 - Unsupported, unverified, stale, and source-document-only objects are visibly labeled.
 - Accepted evidence packets are shown only when accepted support exists.
@@ -48,8 +50,8 @@ The fake-mode Workshop surface exits this phase only when every gate below remai
 - `productionWrites: false` is preserved.
 - `serverStarted: false` is preserved.
 - `clientsConstructed: false` is preserved.
-- The CLI ignores a hostile ambient provider environment and injects deterministic fake-mode preview config.
-- Fake-mode gates before graph reads when preflight or provider-mode checks fail.
+- Hostile ambient provider environment is ignored by the CLI, which injects deterministic fake-mode preview config.
+- Fake-mode gates happen before graph reads when preflight or provider-mode checks fail.
 - Product-facing report helpers remain stdout-only or return sanitized data; they do not write graph state or artifacts.
 
 ### 4. Demo and report evidence

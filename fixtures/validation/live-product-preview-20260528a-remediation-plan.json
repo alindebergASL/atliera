@@ -1,0 +1,67 @@
+{
+  "ok": false,
+  "status": "needs-remediation",
+  "preview_ref": "live-product-preview-20260528a",
+  "source_classification": "weak-but-valid",
+  "source_reason_codes": ["insufficient_useful_lenses"],
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "approves_live_provider_call": false,
+  "approves_provider_spend": false,
+  "approves_expansion_or_comparison": false,
+  "remediation_areas": [
+    "prompt_contract",
+    "proposal_schema",
+    "workshop_lens_mapping",
+    "product_surface_expectations",
+    "fixture_coverage"
+  ],
+  "allowed_next_actions": [
+    "no_spend_prompt_contract_revision",
+    "proposal_schema_revision",
+    "workshop_lens_mapping_review",
+    "product_surface_clarification",
+    "deterministic_fixture_update"
+  ],
+  "blocked_next_actions": [
+    "live_provider_rerun",
+    "provider_comparison",
+    "corpus_expansion",
+    "product_preview_expansion",
+    "launch_readiness_claim",
+    "product_readiness_claim",
+    "production_readiness_claim"
+  ],
+  "rules_triggered": [
+    {
+      "reason_code": "insufficient_useful_lenses",
+      "observed": 1,
+      "threshold": 2,
+      "remediation_areas": [
+        "prompt_contract",
+        "proposal_schema",
+        "workshop_lens_mapping",
+        "product_surface_expectations",
+        "fixture_coverage"
+      ],
+      "allowed_next_actions": [
+        "no_spend_prompt_contract_revision",
+        "proposal_schema_revision",
+        "workshop_lens_mapping_review",
+        "product_surface_clarification",
+        "deterministic_fixture_update"
+      ]
+    }
+  ],
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

@@ -41,6 +41,12 @@ Expected stable boundary fields:
 - `accountId: acc_acme_robotics`
 - `totals.account_objects: 3`
 - `totals.verified_objects: 3`
+- `lensItemCounts.signals: 1`
+- `lensItemCounts.maps: 1`
+- `lensItemCounts.plays: 1`
+- `lensEvidencePacketCounts.signals: 1`
+- `lensEvidencePacketCounts.maps: 1`
+- `lensEvidencePacketCounts.plays: 1`
 
 ## Interpretation limits
 

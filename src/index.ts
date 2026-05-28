@@ -11,7 +11,8 @@
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, JobQueue, and model activation probes, pure model-provider contract,
 // approval/cumulative-budget activation gates, deterministic model adapter stub,
-// pure AgentRun orchestration records, prompt-contract placeholders,
+// pure AgentRun orchestration records, prompt-contract placeholders and
+// controlled corpus graph.propose prompt/proposal remediation contracts,
 // deterministic launch-gate corpus assessment helpers, controlled corpus
 // usefulness assessment helpers, controlled corpus weakness diagnosis helpers,
 // and controlled corpus remediation planning helpers.
@@ -52,6 +53,7 @@ export * from "./model/activation-gates.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";
+export * from "./agent/controlled-corpus-graph-propose-contract.ts";
 export * from "./validation/controlled-corpus-usefulness.ts";
 export * from "./validation/controlled-corpus-weakness-diagnosis.ts";
 export * from "./validation/controlled-corpus-remediation-plan.ts";

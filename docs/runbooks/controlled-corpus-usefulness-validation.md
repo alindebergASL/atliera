@@ -84,6 +84,14 @@ The helper also records blocked next-action labels: `live_provider_rerun`, `prov
 
 If the weakness diagnosis includes `non_weak_blocker`, remediation planning is blocked to `substrate_contract` and `fix_hard_substrate_or_contract_blocker`; the result must not be treated as a prompt/rubric-only issue. The remediation plan does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.
 
+## Executable no-spend graph.propose prompt/proposal remediation contract
+
+`src/agent/controlled-corpus-graph-propose-contract.ts` provides the deterministic no-spend prompt/proposal remediation contract for the weak-but-valid follow-up path. `buildControlledCorpusGraphProposePromptContract(...)` returns a role-specific `graph.propose` prompt contract for representative, edge-case, and calibration accounts. It is a public contract template, not private run evidence: it does not include source text, private account identifiers, credentials, wrapper logs, private paths, or raw provider responses.
+
+The contract corrects the weak-result underproduction path by requiring a strict JSON proposal shape with `excerpts`, `claims`, `account_objects`, and `lens_summaries`. The shape requires `source_document_id` grounding, excerpt-backed claims, claim-backed account objects, and graph-backed Signals, Maps, or Plays lens summaries. Unsupported sections should be empty arrays rather than unsupported narrative. Return only strict JSON while preserving `Do not include private identifiers` and `do not invent` requirements.
+
+This helper does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. A later live run still requires a separate approval packet after this no-spend prompt/proposal contract is reviewed.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

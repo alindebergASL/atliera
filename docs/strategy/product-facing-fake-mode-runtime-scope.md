@@ -12,7 +12,7 @@ The first validation cycle produced a useful tiny-corpus signal: useful 3, weak-
 
 ## Current implementation anchor
 
-The first implementation anchor is `src/runtime/workshop-preview.ts` and its public helpers `prepareRuntimeWorkshopPreview(...)` and `prepareRuntimeWorkshopHtmlPreview(...)`.
+The first implementation anchor is `src/runtime/workshop-preview.ts` and its public helpers `prepareRuntimeWorkshopPreview(...)` and `prepareRuntimeWorkshopHtmlPreview(...)`. The first operator-facing smoke path is `src/cli/runtime-workshop-preview.ts`, which emits a sanitized JSON report or stdout-only HTML from a deterministic fake-mode runtime.
 
 Those helpers are the permitted shape for this phase:
 

@@ -79,6 +79,8 @@ The preferred first implementation target after this document is a small no-spen
 
 Current status: `src/runtime/workshop-preview.ts` now implements the first narrow product-facing fake-mode runtime slice. `prepareRuntimeWorkshopPreview(...)` builds a Workshop view model from the supplied runtime graph snapshot only after runtime preflight passes, and its report preserves `providerCallsMade: 0`, `productionWrites: false`, no server start, no client construction, and no live provider call.
 
+The detailed scope and known limitations for fake-mode product work are recorded in `docs/strategy/product-facing-fake-mode-runtime-scope.md`. That scope keeps fake-mode product work bounded to rendering existing graph-backed outputs while tracking limitations around small-sample validation, fake-mode integration gaps, provider portability versus multi-provider proof, $0.00 budget traversal, and one-route response-contract validation.
+
 ## PR shape for the next implementation slice
 
 The next implementation PR should be intentionally narrow:

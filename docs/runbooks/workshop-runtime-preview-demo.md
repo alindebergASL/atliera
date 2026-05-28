@@ -44,7 +44,7 @@ Expected stable boundary fields:
 
 ## Interpretation limits
 
-This runbook feeds the exit checklist in `docs/strategy/fake-mode-workshop-surface-exit-criteria.md`.
+This runbook feeds the exit checklist in `docs/strategy/fake-mode-workshop-surface-exit-criteria.md` and the later `docs/runbooks/live-product-preview-approval.md` live product preview approval packet.
 
 This is a deterministic fake-mode demo over a repo-safe fixture. It is useful as an operator smoke path and product-surface fixture, but it is not evidence that future provider output will have the same shape, coverage, quality, or completeness.
 

@@ -74,3 +74,5 @@ Safety status markers:
 - corpus_expansion: false.
 
 The next step is not launch. Any further product-preview expansion, provider comparison, corpus expansion, paid fallback, runtime/model-mode integration, production write, deployment, or web-search/tool capability requires a separate approval packet with its own scope, spend cap, private evidence plan, and sanitized status record.
+
+Before requesting any such expansion packet, run the no-spend usefulness gate in `live-product-preview-usefulness-gate.md`. `assessLiveProductPreviewUsefulness(...)` consumes already-produced, already-sanitized one-run live product preview facts, preserves `launch_readiness_claim: false`, and authorizes no provider calls, no provider spend, no production writes, no runtime/model-mode integration, no comparison, no corpus expansion, no product-preview expansion, no web search, and no tools or plugins.

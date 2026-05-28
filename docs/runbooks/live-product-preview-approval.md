@@ -1,6 +1,6 @@
 # Live Product Preview Approval
 
-Status: pre-run docs-only approval packet. This PR does not execute the run.
+Status: pre-run docs-only approval packet. This PR does not execute the run. Sanitized execution status is now recorded in `live-product-preview-status.md`; the approval PR was docs-only and did not execute the run.
 
 ## Decision
 

@@ -59,4 +59,6 @@ This is not OpenRouter lock-in. The provider boundary must continue to support g
 
 If the usefulness gate says the product preview is useful, the next approval packet may request a broader `owl-alpha` product-preview validation batch without treating cost as the limiting factor. That later packet still needs explicit scope, private evidence handling, sanitized status, and all safety/provenance/quality gates above.
 
+The applied first-preview assessment is `live-product-preview-usefulness-assessment.md`. It classified preview ref `live-product-preview-20260528a` as `weak-but-valid`, so the next step remains no-spend remediation before broader validation.
+
 If the usefulness gate says the output is weak, zero-output, or contract-failing, the next step remains diagnosis or remediation before broader validation.

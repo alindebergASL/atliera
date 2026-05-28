@@ -1,0 +1,40 @@
+{
+  "ok": false,
+  "status": "fail",
+  "preview_ref": "live-product-preview-20260528a",
+  "preview_usefulness_classification": "weak-but-valid",
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "approves_expansion_or_comparison": false,
+  "metrics": {
+    "account_count": 1,
+    "provider_calls_executed": 1,
+    "output_counts": {
+      "excerpts": 1,
+      "claims": 1,
+      "account_objects": 1
+    },
+    "useful_lens_count": 1,
+    "useful_lenses": ["signals"]
+  },
+  "reasons": [
+    {
+      "code": "insufficient_useful_lenses",
+      "severity": "fail",
+      "message": "fewer than the required number of Workshop lenses are materially useful",
+      "observed": 1,
+      "threshold": 2
+    }
+  ],
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

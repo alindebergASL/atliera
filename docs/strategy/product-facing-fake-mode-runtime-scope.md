@@ -93,6 +93,6 @@ Each PR in this phase should show:
 
 ## Exit from this phase
 
-The exit checklist is codified in `docs/strategy/fake-mode-workshop-surface-exit-criteria.md`. The separate follow-on live product preview approval packet is `docs/runbooks/live-product-preview-approval.md`; the sanitized one-run no-readiness execution status is `docs/runbooks/live-product-preview-status.md`; the next no-spend usefulness gate is `docs/runbooks/live-product-preview-usefulness-gate.md` via `assessLiveProductPreviewUsefulness(...)` before any separate expansion approval packet.
+The exit checklist is codified in `docs/strategy/fake-mode-workshop-surface-exit-criteria.md`. The separate follow-on live product preview approval packet is `docs/runbooks/live-product-preview-approval.md`; the sanitized one-run no-readiness execution status is `docs/runbooks/live-product-preview-status.md`; the no-spend usefulness gate is `docs/runbooks/live-product-preview-usefulness-gate.md` via `assessLiveProductPreviewUsefulness(...)`; and the applied first-preview result is `docs/runbooks/live-product-preview-usefulness-assessment.md`, which records `weak-but-valid` before any separate expansion approval packet.
 
 This phase exits only when there is a useful fake-mode Workshop/product surface that can render bounded graph-backed account intelligence without spend or production writes. Exiting this phase does not approve live model-mode product operation. A later live-provider product run requires a separate explicit approval packet.

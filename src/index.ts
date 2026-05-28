@@ -7,7 +7,7 @@
 // S3-compatible adapter, compatibility-validation boundaries, and local
 // filesystem-backed compatibility client, job-queue interfaces plus injected
 // database queue adapter boundary, runtime composition,
-// app/worker launch planning
+// app/worker launch planning and Workshop runtime preview
 // checks, config/resource preflight checks including injected ArtifactStore,
 // VersionedGraphStore, JobQueue, and model activation probes, pure model-provider contract,
 // approval/cumulative-budget activation gates, deterministic model adapter stub,
@@ -47,6 +47,7 @@ export * from "./runtime/job-queue-preflight.ts";
 export * from "./runtime/model-provider-preflight.ts";
 export * from "./runtime/launch.ts";
 export * from "./runtime/worker-launch.ts";
+export * from "./runtime/workshop-preview.ts";
 export * from "./model/provider.ts";
 export * from "./model/provider-validation.ts";
 export * from "./model/activation-gates.ts";

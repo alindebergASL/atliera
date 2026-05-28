@@ -77,6 +77,8 @@ The next phase is:
 
 The preferred first implementation target after this document is a small no-spend path that makes existing graph-backed evidence visible through product-facing runtime/workshop wiring while preserving fake adapters, deterministic fixtures, and current safety gates.
 
+Current status: `src/runtime/workshop-preview.ts` now implements the first narrow product-facing fake-mode runtime slice. `prepareRuntimeWorkshopPreview(...)` builds a Workshop view model from the supplied runtime graph snapshot only after runtime preflight passes, and its report preserves `providerCallsMade: 0`, `productionWrites: false`, no server start, no client construction, and no live provider call.
+
 ## PR shape for the next implementation slice
 
 The next implementation PR should be intentionally narrow:

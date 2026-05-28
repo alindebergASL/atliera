@@ -8,7 +8,10 @@ import type { GraphBundle } from "../../src/graph/types.ts";
 import { InMemoryJobQueue } from "../../src/jobs/queue.ts";
 import type { RuntimeMode } from "../../src/modes/index.ts";
 import { createAtlieraRuntime } from "../../src/runtime/composition.ts";
-import { prepareRuntimeWorkshopPreview } from "../../src/runtime/workshop-preview.ts";
+import {
+  prepareRuntimeWorkshopHtmlPreview,
+  prepareRuntimeWorkshopPreview,
+} from "../../src/runtime/workshop-preview.ts";
 import { makeValidBundle } from "../fixtures/valid-graph.ts";
 
 class StaticGraphStore implements GraphStore {
@@ -177,5 +180,74 @@ describe("runtime Workshop preview", () => {
         process.env.ATL_ENV = previous;
       }
     }
+  });
+
+  it("renders sanitized Workshop HTML from the fake-mode runtime preview without side effects", () => {
+    const graphStore = new StaticGraphStore(makeValidBundle());
+    const runtime = createPreviewRuntime(graphStore);
+
+    const report = prepareRuntimeWorkshopHtmlPreview(runtime);
+
+    assert.equal(report.ok, true);
+    assert.equal(report.kind, "workshop-html-preview");
+    assert.equal(report.environment, "test");
+    assert.equal(Object.hasOwn(report, "runtime"), false);
+    assert.equal(report.workshopPreview.ok, true);
+    assert.equal(Object.hasOwn(report.workshopPreview, "runtime"), false);
+    assert.equal(report.htmlRendered, true);
+    assert.ok(report.html);
+    assert.match(report.html, /<!doctype html>/i);
+    assert.match(report.html, /Atliera Workshop/);
+    assert.match(report.html, /data-lens="signals"/);
+    assert.equal(report.graphSnapshotRead, true);
+    assert.equal(report.serverStarted, false);
+    assert.equal(report.clientsConstructed, false);
+    assert.equal(report.providerCallsMade, 0);
+    assert.equal(report.productionWrites, false);
+    assert.equal(graphStore.commitCalls, 0);
+  });
+
+  it("does not render Workshop HTML when fake-mode preview gating fails", () => {
+    const graphStore: GraphStore = {
+      get snapshot(): GraphBundle {
+        throw new Error("graph snapshot must not be read for failed HTML preview");
+      },
+      commit(): void {
+        throw new Error("workshop HTML preview must not write graph state");
+      },
+    };
+    const runtime = createAtlieraRuntime({
+      config: parseAtlieraRuntimeConfig({
+        ATL_ENV: "test",
+        ARTIFACT_STORE: "memory",
+        QUEUE_BACKEND: "memory",
+        MODEL_PROVIDER: "real-provider",
+      }),
+      graphStore,
+      artifactStore: new InMemoryArtifactStore(),
+      jobQueue: new InMemoryJobQueue(),
+      modelAdapter: {
+        name: "throw-if-called",
+        async propose(_input: { prompt: string; mode: RuntimeMode }) {
+          throw new Error("workshop HTML preview must not call model adapters");
+        },
+      },
+    });
+
+    const report = prepareRuntimeWorkshopHtmlPreview(runtime);
+
+    assert.equal(report.ok, false);
+    assert.equal(report.html, undefined);
+    assert.equal(report.htmlRendered, false);
+    assert.equal(report.workshopPreview.ok, false);
+    assert.equal(report.graphSnapshotRead, false);
+    assert.equal(report.providerCallsMade, 0);
+    assert.equal(report.productionWrites, false);
+    assert.deepEqual(report.workshopPreview.previewFailures, [
+      {
+        code: "workshop_preview_requires_fake_model_provider",
+        message: "workshop preview requires MODEL_PROVIDER=fake",
+      },
+    ]);
   });
 });

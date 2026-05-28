@@ -1,0 +1,42 @@
+{
+  "preview_ref": "live-product-preview-20260528a",
+  "source_classification": "weak-but-valid",
+  "source_reason_codes": ["insufficient_useful_lenses"],
+  "validation_status": {
+    "graph_validation": "passed",
+    "quality_gate": "pass",
+    "workshop_preview": "passed"
+  },
+  "output_counts": {
+    "excerpts": 1,
+    "claims": 1,
+    "account_objects": 1
+  },
+  "graph_supported_lens_item_counts": {
+    "signals": 1,
+    "maps": 0,
+    "plays": 0
+  },
+  "workshop_lens_item_counts": {
+    "signals": 1,
+    "maps": 0,
+    "plays": 0
+  },
+  "useful_lens_item_counts": {
+    "signals": 1,
+    "maps": 0,
+    "plays": 0
+  },
+  "useful_lenses": ["signals"],
+  "fixture_validation_candidates": ["fixtures/graph/valid/workshop-three-lane.json"],
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

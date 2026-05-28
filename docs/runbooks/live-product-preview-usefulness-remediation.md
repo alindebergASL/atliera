@@ -36,6 +36,8 @@ Allowed next actions are deterministic and no-spend only:
 
 These actions are intended to make the next product-preview proposal shape elicit, preserve, and render Maps and Plays evidence when the source account supports them. They do not execute or approve a live rerun.
 
+`live-product-preview-lens-diagnostic.md` now applies a narrower diagnostic before any prompt or schema remediation. For `live-product-preview-20260528a`, the diagnostic classifies the weakness as `structure-absent-account-limitation`: the sanitized graph-level evidence contains supported Signals structure but no supported Maps or Plays structure. That means current-account remediation stops here; Atliera must not pressure prompts or schemas to invent unsupported Maps or Plays content.
+
 ## Safety output markers
 
 The remediation plan preserves:
@@ -72,4 +74,4 @@ Blocked next actions:
 
 This remediation plan is no-spend and no-execution. It records no live rerun, no provider comparison, no corpus expansion, no product-preview expansion, no production write, no runtime/model-mode integration, no web search, no tool, and no plugin.
 
-The next Atliera implementation step should be a deterministic remediation slice that updates prompt/proposal/lens/product-surface contracts and fixtures. Only after that no-spend remediation is reviewed should a separate approval packet consider any broader `owl-alpha` product-preview validation batch. That later approval remains separate and must preserve private evidence handling, sanitized status, no-readiness interpretation, and explicit scope.
+The next Atliera implementation step is not prompt/proposal/schema remediation for this account. `live-product-preview-lens-diagnostic.md` classifies the first live product preview as `structure-absent-account-limitation`, so current-account remediation stops unless a separate approval packet authorizes different validated data. The no-spend path that remains available is fixture-mode validation using the existing deterministic three-lane fixture. Any broader `owl-alpha` product-preview validation batch remains a separate future approval decision and must preserve private evidence handling, sanitized status, no-readiness interpretation, and explicit scope.

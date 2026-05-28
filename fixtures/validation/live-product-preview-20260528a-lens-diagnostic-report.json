@@ -1,0 +1,63 @@
+{
+  "ok": false,
+  "status": "decision",
+  "preview_ref": "live-product-preview-20260528a",
+  "classification": "structure-absent-account-limitation",
+  "terminal_next_action": "stop_current_account_remediation",
+  "allowed_no_spend_followups": ["use_existing_three_lane_fixture_for_mapping_validation"],
+  "blocked_next_actions": [
+    "live_provider_rerun",
+    "provider_comparison",
+    "corpus_expansion",
+    "product_preview_expansion",
+    "prompt_or_schema_pressure_for_unsupported_lens_content",
+    "launch_readiness_claim",
+    "product_readiness_claim",
+    "production_readiness_claim"
+  ],
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "approves_live_provider_call": false,
+  "approves_provider_spend": false,
+  "approves_expansion_or_comparison": false,
+  "diagnostic_basis": {
+    "output_counts": {
+      "excerpts": 1,
+      "claims": 1,
+      "account_objects": 1
+    },
+    "graph_supported_lens_item_counts": {
+      "signals": 1,
+      "maps": 0,
+      "plays": 0
+    },
+    "workshop_lens_item_counts": {
+      "signals": 1,
+      "maps": 0,
+      "plays": 0
+    },
+    "useful_lens_item_counts": {
+      "signals": 1,
+      "maps": 0,
+      "plays": 0
+    },
+    "useful_lenses": ["signals"],
+    "present_supported_lenses": ["signals"],
+    "absent_supported_lenses": ["maps", "plays"],
+    "unsurfaced_supported_lenses": [],
+    "fixture_validation_candidates": ["fixtures/graph/valid/workshop-three-lane.json"],
+    "exit_criterion_met": false,
+    "exit_criterion": "two_materially_useful_lenses_in_fixture_mode_against_supported_existing_outputs"
+  },
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

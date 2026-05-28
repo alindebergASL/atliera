@@ -68,6 +68,8 @@ Required before broader use beyond the initial user:
 
 The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, `evaluateWorkshopLensUsefulness` provides a deterministic first-pass review for whether graph-backed Signals / Maps / Plays are materially useful, and `assessLaunchGateCorpusManifestFile` ties those pieces into one local assessment object with explicit usable-account Gate 4 metrics. This v0 corpus/review/assessment path is still fixture-only and explicitly does not claim live launch readiness.
 
+`docs/strategy/first-validation-cycle-exit.md` records the first validation cycle exit assessment. It preserves no launch readiness and chooses no-spend methodology codification followed by a narrow product-facing fake-mode runtime slice; it does not approve runtime/model-mode integration, provider comparison, corpus expansion, production writes, or additional live provider calls.
+
 Before launch-readiness assessment, Atliera still needs live or expanded-corpus review artifacts that finalize and approve:
 
 - minimum usable gate-account count and corpus selection criteria

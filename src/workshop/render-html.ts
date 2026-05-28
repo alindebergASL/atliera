@@ -37,7 +37,10 @@ function renderSourceReference(source: WorkshopLensItemViewModel["evidence_packe
 
 function renderEvidencePackets(item: WorkshopLensItemViewModel): string {
   if (item.evidence_packets.length === 0) {
-    return `<p class="empty-evidence">No accepted supporting evidence packets for this object.</p>`;
+    const emptyEvidenceMessage = item.trust.provenance_status === "unsupported"
+      ? "No accepted supporting evidence packets for this unsupported object. Do not treat it as verified."
+      : "No accepted supporting evidence packets for this object.";
+    return `<p class="empty-evidence">${emptyEvidenceMessage}</p>`;
   }
   return item.evidence_packets
     .map(
@@ -91,6 +94,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
   const emptyState = vm.empty_state
     ? `<section class="empty-state"><h2>No graph-backed intelligence yet</h2><p>Add sources and validated graph records before treating account intelligence as verified.</p></section>`
     : "";
+  const accountLabel = vm.account_id
+    ? `<span>Account ${escapeHtml(vm.account_id)}</span>`
+    : `<span>Account not set</span>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -105,7 +111,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
     .hero { border: 1px solid #283044; border-radius: 24px; padding: 28px; background: linear-gradient(135deg, #121827, #0c1020); }
     .eyebrow { color: #99a7c7; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
     h1 { margin: 8px 0; font-size: 42px; }
-    .totals, .trust-row { display: flex; gap: 12px; flex-wrap: wrap; color: #aab6d3; }
+    .totals, .trust-row, .boundary-row { display: flex; gap: 12px; flex-wrap: wrap; color: #aab6d3; }
+    .boundary-row { margin-top: 14px; }
+    .boundary-row span { border: 1px solid #39476a; border-radius: 999px; padding: 5px 10px; background: #111a2d; }
     .lens-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
     .lens-panel, .empty-state { border: 1px solid #283044; border-radius: 20px; padding: 18px; background: #0f1424; }
     .lens-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
@@ -113,6 +121,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
     .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
     .trust-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
     .trust-verified { background: #0f5132; color: #d1fae5; }
+    .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
+    .trust-unverified { background: #4a3415; color: #fde68a; }
+    .trust-stale { background: #43335f; color: #e9d5ff; }
     .trust-unsupported { background: #5c1d1d; color: #fee2e2; }
     .evidence-drawer { margin-top: 10px; color: #cbd5e1; }
     .evidence-packet { border-top: 1px solid #283044; margin-top: 12px; padding-top: 10px; }
@@ -137,6 +148,12 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
         <span>${plural(vm.totals.claims, "claim")}</span>
         <span>${plural(vm.totals.account_objects, "graph object")}</span>
         <span>${plural(vm.totals.verified_objects, "verified object")}</span>
+      </div>
+      <div class="boundary-row" aria-label="Preview boundaries">
+        <span>Fake-mode preview</span>
+        ${accountLabel}
+        <span>No provider calls</span>
+        <span>No production writes</span>
       </div>
     </section>
     ${emptyState}

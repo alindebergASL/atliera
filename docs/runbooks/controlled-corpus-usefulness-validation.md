@@ -98,6 +98,12 @@ This helper does not authorize provider calls, does not authorize provider spend
 
 The request packet is still a no-spend request packet. It does not authorize provider calls, does not authorize provider spend, does not approve comparison or expansion, does not approve a rerun, and does not imply launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness. It requires a separate live-run approval packet before any provider call.
 
+## Controlled 2b-expanded rerun approval packet
+
+`docs/runbooks/controlled-2b-expanded-rerun-approval.md` is the separate docs-only controlled 2b-expanded rerun approval packet after the no-spend request-packet gate. The controlled 2b-expanded rerun approval authorizes exactly one bounded remediated rerun, keeps execution out of the approval PR, and preserves the usefulness contract interpretation path through already-produced, already-sanitized account-level facts.
+
+The approval packet does not approve provider comparison, corpus expansion, production writes, runtime/model-mode integration, launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.
+
 ## Hard invariants
 
 A run cannot be classified as useful if any hard invariant fails:

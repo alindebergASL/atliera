@@ -176,3 +176,7 @@ Controlled 2b proved that one approved live-provider evidence packet could trave
 `controlled-2b-expanded-usefulness-validation.md` is the next approved execution packet for controlled 2b-expanded usefulness validation after this contract. It uses `assessControlledCorpusUsefulness(...)` to classify already-produced sanitized account-level facts for a bounded 3-5 account corpus while preserving the no launch-readiness, no product-readiness, and no broad-model-quality boundaries.
 
 The result of this document alone is a safer interpretation contract, not an execution record and not an approval to spend.
+
+## Controlled 2b-expanded rerun sanitized status
+
+`docs/runbooks/controlled-2b-expanded-rerun-status.md` records the separate sanitized status for the remediated controlled 2b-expanded rerun after the request-packet and approval gates. The status uses already-produced, already-sanitized account-level facts, classifies the three selected role labels as useful 3, weak-but-valid 0, zero-output 0, unsupported/invented 0, contract failure 0, and keeps `launch_readiness_claim: false`. The result is a useful tiny-corpus validation signal only and does not authorize comparison, corpus expansion, provider spend, production writes, runtime/model-mode integration, launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.

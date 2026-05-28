@@ -231,3 +231,7 @@ A later status PR may record:
 - the selected pre-locked interpretation branch.
 
 A later status PR must not record private evidence, source text, prompts, raw provider responses, headers, credentials, account identifiers, private paths, raw wrapper logs, launch readiness, product readiness, production readiness, broad model quality, or multi-account corpus readiness.
+
+## Remediated rerun sanitized status
+
+`docs/runbooks/controlled-2b-expanded-rerun-status.md` records the separate sanitized execution follow-up for the remediated controlled 2b-expanded rerun. The rerun executed at commit `66a8b6f` using OpenRouter `owl-alpha` for `graph.propose` with `controlled_corpus_graph_propose_prompt.v1` and `controlled_corpus_rerun_request_packet.v1`, exactly three role labels, one provider call per role, observed cost $0.00, input tokens 2381, output tokens 1122, activation/response/cost/packaging/bootstrap checks passed for each role, and `assessControlledCorpusUsefulness(...)` classified the sanitized role facts as useful 3, weak-but-valid 0, zero-output 0, unsupported/invented 0, contract failure 0. This records a useful tiny-corpus signal only; it does not imply launch readiness, product readiness, production readiness, broad model quality, multi-account corpus readiness, provider comparison, corpus expansion, production writes, or runtime/model-mode integration.

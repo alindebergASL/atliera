@@ -1,0 +1,35 @@
+{
+  "preview_ref": "live-product-preview-three-lane-20260529a",
+  "account_count": 1,
+  "provider_calls_executed": 1,
+  "output_counts": {
+    "excerpts": 3,
+    "claims": 3,
+    "account_objects": 3
+  },
+  "validation_status": {
+    "activation_gates": "passed",
+    "credential_status": "passed",
+    "provider_call": "passed",
+    "response_contract": "passed",
+    "cost_ledger": "succeeded",
+    "graph_validation": "passed",
+    "quality_gate": "pass",
+    "full_pipeline_packaging": "passed",
+    "bootstrap_evidence_verifier": "passed",
+    "workshop_preview": "passed"
+  },
+  "request_surface": {
+    "tools_or_plugins_requested": false,
+    "online_model_variant_requested": false,
+    "web_search_requested": false
+  },
+  "workshop_surface": {
+    "html_rendered": true,
+    "provider_calls_made": 0,
+    "production_writes": false,
+    "useful_lens_count": 3,
+    "useful_lenses": ["signals", "maps", "plays"]
+  },
+  "runtime_model_mode_integration": false
+}

@@ -117,6 +117,36 @@ function assertPlainRecord(value: unknown, label: string): asserts value is Reco
   }
 }
 
+function assertExactOwnEnumerableDataKeys(
+  record: Record<string, unknown>,
+  label: string,
+  expectedKeys: readonly string[],
+): void {
+  let names: string[];
+  let symbols: symbol[];
+  try {
+    names = Object.getOwnPropertyNames(record);
+    symbols = Object.getOwnPropertySymbols(record);
+  } catch {
+    throw new Error(`invalid ${label}`);
+  }
+
+  if (symbols.length > 0 || names.length !== expectedKeys.length) {
+    throw new Error(`${label} must contain exactly the expected own data keys`);
+  }
+
+  const expected = new Set(expectedKeys);
+  for (const name of names) {
+    if (!expected.has(name)) {
+      throw new Error(`${label} must contain exactly the expected own data keys`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(record, name);
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+      throw new Error(`${label}.${name} must be an enumerable own data field`);
+    }
+  }
+}
+
 function readOwnDataField(record: Record<string, unknown>, field: string, label: string): unknown {
   let descriptor: PropertyDescriptor | undefined;
   try {
@@ -190,6 +220,7 @@ function assertSafePreviewRef(previewRef: string): void {
 
 function readOutputCounts(record: Record<string, unknown>): LiveProductPreviewOutputCounts {
   const output = readRecord(record, "output_counts", "live product preview input");
+  assertExactOwnEnumerableDataKeys(output, "output_counts", ["excerpts", "claims", "account_objects"]);
   return Object.freeze({
     excerpts: readNonNegativeInteger(output, "excerpts", "output_counts"),
     claims: readNonNegativeInteger(output, "claims", "output_counts"),
@@ -212,6 +243,18 @@ function readStatus<T extends string>(
 
 function readValidationStatus(record: Record<string, unknown>): LiveProductPreviewValidationStatus {
   const validation = readRecord(record, "validation_status", "live product preview input");
+  assertExactOwnEnumerableDataKeys(validation, "validation_status", [
+    "activation_gates",
+    "credential_status",
+    "provider_call",
+    "response_contract",
+    "cost_ledger",
+    "graph_validation",
+    "quality_gate",
+    "full_pipeline_packaging",
+    "bootstrap_evidence_verifier",
+    "workshop_preview",
+  ]);
   const passedOrFailed = ["passed", "failed"] as const;
   return Object.freeze({
     activation_gates: readStatus(validation, "activation_gates", "validation_status", passedOrFailed),
@@ -229,6 +272,11 @@ function readValidationStatus(record: Record<string, unknown>): LiveProductPrevi
 
 function readRequestSurface(record: Record<string, unknown>): LiveProductPreviewRequestSurface {
   const request = readRecord(record, "request_surface", "live product preview input");
+  assertExactOwnEnumerableDataKeys(request, "request_surface", [
+    "tools_or_plugins_requested",
+    "online_model_variant_requested",
+    "web_search_requested",
+  ]);
   return Object.freeze({
     tools_or_plugins_requested: readBoolean(request, "tools_or_plugins_requested", "request_surface"),
     online_model_variant_requested: readBoolean(request, "online_model_variant_requested", "request_surface"),
@@ -242,8 +290,12 @@ function readUsefulLenses(record: Record<string, unknown>): readonly WorkshopLen
     throw new Error("workshop_surface.useful_lenses must be an array");
   }
   let lengthDescriptor: PropertyDescriptor | undefined;
+  let names: string[];
+  let symbols: symbol[];
   try {
     lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+    names = Object.getOwnPropertyNames(value);
+    symbols = Object.getOwnPropertySymbols(value);
   } catch {
     throw new Error("invalid workshop_surface.useful_lenses");
   }
@@ -254,6 +306,10 @@ function readUsefulLenses(record: Record<string, unknown>): readonly WorkshopLen
   if (!Number.isInteger(length) || length < 0 || length > WORKSHOP_LENSES.length) {
     throw new Error("workshop_surface.useful_lenses has invalid length");
   }
+  const expectedNames = new Set(["length", ...Array.from({ length }, (_, index) => String(index))]);
+  if (symbols.length > 0 || names.length !== expectedNames.size || names.some((name) => !expectedNames.has(name))) {
+    throw new Error("workshop_surface.useful_lenses must contain only array indices");
+  }
   const result: WorkshopLens[] = [];
   for (let index = 0; index < length; index += 1) {
     let descriptor: PropertyDescriptor | undefined;
@@ -262,7 +318,7 @@ function readUsefulLenses(record: Record<string, unknown>): readonly WorkshopLen
     } catch {
       throw new Error("invalid workshop_surface.useful_lenses");
     }
-    if (!descriptor || !("value" in descriptor)) {
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
       throw new Error("invalid workshop_surface.useful_lenses");
     }
     const lens = descriptor.value;
@@ -276,6 +332,13 @@ function readUsefulLenses(record: Record<string, unknown>): readonly WorkshopLen
 
 function readWorkshopSurface(record: Record<string, unknown>): LiveProductPreviewWorkshopSurface {
   const workshop = readRecord(record, "workshop_surface", "live product preview input");
+  assertExactOwnEnumerableDataKeys(workshop, "workshop_surface", [
+    "html_rendered",
+    "provider_calls_made",
+    "production_writes",
+    "useful_lens_count",
+    "useful_lenses",
+  ]);
   const usefulLenses = readUsefulLenses(workshop);
   const usefulLensCount = readNonNegativeInteger(workshop, "useful_lens_count", "workshop_surface");
   if (usefulLensCount !== usefulLenses.length) {
@@ -295,6 +358,16 @@ function snapshotInput(input: unknown): LiveProductPreviewUsefulnessInput {
   try {
     assertPlainRecord(input, "live product preview input");
     record = input;
+    assertExactOwnEnumerableDataKeys(record, "live product preview input", [
+      "preview_ref",
+      "account_count",
+      "provider_calls_executed",
+      "output_counts",
+      "validation_status",
+      "request_surface",
+      "workshop_surface",
+      "runtime_model_mode_integration",
+    ]);
     const previewRef = readString(record, "preview_ref", "live product preview input");
     assertSafePreviewRef(previewRef);
     return Object.freeze({

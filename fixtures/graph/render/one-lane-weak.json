@@ -1,0 +1,128 @@
+{
+  "sources": [
+    {
+      "id": "src_northwind_status_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northwind_freight",
+      "url": "https://example.invalid/northwind/status",
+      "canonical_url": "https://example.invalid/northwind/status",
+      "title": "Northwind Freight status page update",
+      "publisher": "Northwind Freight",
+      "source_type": "company_page",
+      "fetched_at": "2026-04-01T10:00:00Z",
+      "accessed_at": "2026-04-01T10:00:00Z",
+      "content_hash": "sha256:render-fixture-northwind-status",
+      "raw_text": "Northwind Freight disclosed a Q1 2026 outage affecting its dispatch portal, per a company status page update.",
+      "reliability": "high",
+      "status": "active"
+    }
+  ],
+  "excerpts": [
+    {
+      "id": "exc_northwind_outage_001",
+      "source_document_id": "src_northwind_status_001",
+      "text": "Northwind Freight disclosed a Q1 2026 outage affecting its dispatch portal",
+      "kind": "literal",
+      "char_start": 0,
+      "char_end": 74,
+      "captured_at": "2026-04-01T10:00:01Z",
+      "validation_status": "accepted",
+      "rejection_reason": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "clm_northwind_outage",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northwind_freight",
+      "claim_type": "operational_signal",
+      "text": "Northwind Freight reported a Q1 2026 dispatch portal outage.",
+      "normalized_subject": "northwind_freight:q1_2026_dispatch_outage",
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-01T10:00:02Z"
+    }
+  ],
+  "claim_evidence": [
+    {
+      "id": "cev_northwind_outage_001",
+      "claim_id": "clm_northwind_outage",
+      "evidence_excerpt_id": "exc_northwind_outage_001",
+      "relationship": "supports",
+      "rationale": "Status page excerpt directly states the disclosed Q1 2026 dispatch portal outage.",
+      "confidence": "high",
+      "created_at": "2026-04-01T10:00:03Z"
+    }
+  ],
+  "account_objects": [
+    {
+      "id": "obj_northwind_signal_outage",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northwind_freight",
+      "object_type": "signal",
+      "title": "Q1 2026 dispatch portal outage",
+      "summary": "Northwind Freight disclosed a Q1 2026 outage affecting its dispatch portal.",
+      "payload_json": {
+        "source_type": "company_page"
+      },
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-01T10:00:04Z",
+      "updated_at": "2026-04-01T10:00:04Z"
+    }
+  ],
+  "account_object_claims": [
+    {
+      "id": "oclm_northwind_signal_outage_001",
+      "account_object_id": "obj_northwind_signal_outage",
+      "claim_id": "clm_northwind_outage",
+      "relationship": "primary"
+    }
+  ],
+  "research_runs": [
+    {
+      "id": "run_northwind_render_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northwind_freight",
+      "mode": "fixture",
+      "provider": null,
+      "model": null,
+      "status": "completed",
+      "cost_cap_usd": 0,
+      "observed_cost_usd": 0,
+      "started_at": "2026-04-01T09:59:00Z",
+      "completed_at": "2026-04-01T10:00:05Z"
+    }
+  ],
+  "run_artifacts": [
+    {
+      "id": "art_northwind_render_validation",
+      "research_run_id": "run_northwind_render_001",
+      "artifact_type": "validation_report",
+      "payload_json": {
+        "note": "render-coverage one-lane-weak fixture"
+      },
+      "created_at": "2026-04-01T10:00:05Z"
+    }
+  ],
+  "audit_events": [
+    {
+      "id": "aud_northwind_render_001",
+      "team_id": "team_atliera_lab",
+      "actor_type": "system",
+      "actor_id": "atliera-fixture",
+      "event_type": "graph.validated",
+      "target_type": "research_run",
+      "target_id": "run_northwind_render_001",
+      "payload_json": {
+        "ok": true,
+        "fixture": "render/one-lane-weak"
+      },
+      "created_at": "2026-04-01T10:00:06Z"
+    }
+  ]
+}

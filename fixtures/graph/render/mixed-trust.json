@@ -1,0 +1,326 @@
+{
+  "sources": [
+    {
+      "id": "src_vertex_press_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "url": "https://example.invalid/vertex/press/erp",
+      "canonical_url": "https://example.invalid/vertex/press/erp",
+      "title": "Vertex Manufacturing ERP migration announcement",
+      "publisher": "Vertex Manufacturing",
+      "source_type": "press_release",
+      "fetched_at": "2026-04-10T12:00:00Z",
+      "accessed_at": "2026-04-10T12:00:00Z",
+      "content_hash": "sha256:render-fixture-vertex-press",
+      "raw_text": "Vertex Manufacturing confirmed it migrated its ERP to a cloud platform in April 2026.",
+      "reliability": "high",
+      "status": "active"
+    },
+    {
+      "id": "src_vertex_forum_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "url": "https://example.invalid/vertex/forum/thread",
+      "canonical_url": "https://example.invalid/vertex/forum/thread",
+      "title": "Community forum thread on Vertex vendor strategy",
+      "publisher": "Industry Forum",
+      "source_type": "forum_post",
+      "fetched_at": "2026-04-11T08:00:00Z",
+      "accessed_at": "2026-04-11T08:00:00Z",
+      "content_hash": "sha256:render-fixture-vertex-forum",
+      "raw_text": "A community forum thread speculated about Vertex Manufacturing's vendor strategy without citing sources.",
+      "reliability": "low",
+      "status": "active"
+    },
+    {
+      "id": "src_vertex_leadership_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "url": "https://example.invalid/vertex/leadership",
+      "canonical_url": "https://example.invalid/vertex/leadership",
+      "title": "Vertex Manufacturing leadership page",
+      "publisher": "Vertex Manufacturing",
+      "source_type": "company_page",
+      "fetched_at": "2026-04-11T07:30:00Z",
+      "accessed_at": "2026-04-11T07:30:00Z",
+      "content_hash": "sha256:render-fixture-vertex-leadership",
+      "raw_text": "Vertex Manufacturing's leadership page lists Dana Okafor as Chief Information Officer.",
+      "reliability": "high",
+      "status": "active"
+    }
+  ],
+  "excerpts": [
+    {
+      "id": "exc_vertex_erp_001",
+      "source_document_id": "src_vertex_press_001",
+      "text": "Vertex Manufacturing confirmed it migrated its ERP to a cloud platform in April 2026.",
+      "kind": "literal",
+      "char_start": 0,
+      "char_end": 85,
+      "captured_at": "2026-04-10T12:00:01Z",
+      "validation_status": "accepted",
+      "rejection_reason": null
+    },
+    {
+      "id": "exc_vertex_forum_001",
+      "source_document_id": "src_vertex_forum_001",
+      "text": "speculated about Vertex Manufacturing's vendor strategy",
+      "kind": "literal",
+      "char_start": 25,
+      "char_end": 80,
+      "captured_at": "2026-04-11T08:00:01Z",
+      "validation_status": "proposed",
+      "rejection_reason": null
+    },
+    {
+      "id": "exc_vertex_cio_001",
+      "source_document_id": "src_vertex_leadership_001",
+      "text": "Dana Okafor as Chief Information Officer",
+      "kind": "literal",
+      "char_start": 45,
+      "char_end": 85,
+      "captured_at": "2026-04-11T07:30:01Z",
+      "validation_status": "accepted",
+      "rejection_reason": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "clm_vertex_erp",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "claim_type": "technology_adoption",
+      "text": "Vertex Manufacturing migrated its ERP to a cloud platform in April 2026.",
+      "normalized_subject": "vertex_manufacturing:erp_cloud_migration_2026",
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:00Z"
+    },
+    {
+      "id": "clm_vertex_competitor_risk",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "claim_type": "risk",
+      "text": "Vertex Manufacturing may be evaluating a competing vendor.",
+      "normalized_subject": "vertex_manufacturing:competitor_evaluation_hypothesis",
+      "confidence": "low",
+      "provenance_status": "unverified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:00Z"
+    },
+    {
+      "id": "clm_vertex_cio",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "claim_type": "stakeholder",
+      "text": "Dana Okafor is listed as Vertex Manufacturing's Chief Information Officer.",
+      "normalized_subject": "vertex_manufacturing:cio_dana_okafor",
+      "confidence": "medium",
+      "provenance_status": "source_document_only",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:00Z"
+    }
+  ],
+  "claim_evidence": [
+    {
+      "id": "cev_vertex_erp_001",
+      "claim_id": "clm_vertex_erp",
+      "evidence_excerpt_id": "exc_vertex_erp_001",
+      "relationship": "supports",
+      "rationale": "Press release excerpt states the ERP cloud migration and date.",
+      "confidence": "high",
+      "created_at": "2026-04-11T09:00:01Z"
+    },
+    {
+      "id": "cev_vertex_risk_001",
+      "claim_id": "clm_vertex_competitor_risk",
+      "evidence_excerpt_id": "exc_vertex_forum_001",
+      "relationship": "supports",
+      "rationale": "Forum excerpt is an unverified proposal, not accepted evidence.",
+      "confidence": "low",
+      "created_at": "2026-04-11T09:00:01Z"
+    },
+    {
+      "id": "cev_vertex_cio_001",
+      "claim_id": "clm_vertex_cio",
+      "evidence_excerpt_id": "exc_vertex_cio_001",
+      "relationship": "supports",
+      "rationale": "Leadership-page excerpt names the CIO; source-document-only until corroborated.",
+      "confidence": "medium",
+      "created_at": "2026-04-11T09:00:01Z"
+    }
+  ],
+  "account_objects": [
+    {
+      "id": "obj_vertex_signal_erp",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "signal",
+      "title": "ERP cloud migration",
+      "summary": "Vertex Manufacturing migrated its ERP to a cloud platform in April 2026.",
+      "payload_json": { "lane": "signals" },
+      "confidence": "high",
+      "provenance_status": "verified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_risk_competitor",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "risk",
+      "title": "Possible competitor evaluation",
+      "summary": "Unverified signal that Vertex may be evaluating a competing vendor.",
+      "payload_json": { "lane": "signals" },
+      "confidence": "low",
+      "provenance_status": "unverified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_question_budget",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "open_question",
+      "title": "Is there a 2026 modernization budget?",
+      "summary": "Open question about Vertex's modernization budget; prior reporting may be stale.",
+      "payload_json": { "lane": "signals" },
+      "confidence": "low",
+      "provenance_status": "stale",
+      "status": "stale",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_stakeholder_cio",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "stakeholder",
+      "title": "CIO (named in source only)",
+      "summary": "CIO identified from a source document but not yet corroborated by accepted excerpts.",
+      "payload_json": { "lane": "maps" },
+      "confidence": "medium",
+      "provenance_status": "source_document_only",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_snapshot",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "account_snapshot",
+      "title": "Vertex Manufacturing snapshot",
+      "summary": "Working snapshot of Vertex Manufacturing assembled from source documents.",
+      "payload_json": { "lane": "maps" },
+      "confidence": "medium",
+      "provenance_status": "source_document_only",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_play_speculative",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "play",
+      "title": "Speculative displacement play",
+      "summary": "Model-proposed displacement angle with no accepted supporting evidence.",
+      "payload_json": { "lane": "plays" },
+      "confidence": "low",
+      "provenance_status": "unsupported",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    },
+    {
+      "id": "obj_vertex_reco_expand",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "object_type": "recommendation",
+      "title": "Consider an integration-readiness conversation",
+      "summary": "Unverified recommendation derived from the ERP migration signal.",
+      "payload_json": { "lane": "plays" },
+      "confidence": "medium",
+      "provenance_status": "unverified",
+      "status": "active",
+      "created_by": "model",
+      "created_at": "2026-04-11T09:00:02Z",
+      "updated_at": "2026-04-11T09:00:02Z"
+    }
+  ],
+  "account_object_claims": [
+    {
+      "id": "oclm_vertex_signal_erp_001",
+      "account_object_id": "obj_vertex_signal_erp",
+      "claim_id": "clm_vertex_erp",
+      "relationship": "primary"
+    },
+    {
+      "id": "oclm_vertex_risk_competitor_001",
+      "account_object_id": "obj_vertex_risk_competitor",
+      "claim_id": "clm_vertex_competitor_risk",
+      "relationship": "primary"
+    },
+    {
+      "id": "oclm_vertex_stakeholder_cio_001",
+      "account_object_id": "obj_vertex_stakeholder_cio",
+      "claim_id": "clm_vertex_cio",
+      "relationship": "primary"
+    }
+  ],
+  "research_runs": [
+    {
+      "id": "run_vertex_render_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_vertex_manufacturing",
+      "mode": "fixture",
+      "provider": null,
+      "model": null,
+      "status": "completed",
+      "cost_cap_usd": 0,
+      "observed_cost_usd": 0,
+      "started_at": "2026-04-11T08:59:00Z",
+      "completed_at": "2026-04-11T09:00:05Z"
+    }
+  ],
+  "run_artifacts": [
+    {
+      "id": "art_vertex_render_validation",
+      "research_run_id": "run_vertex_render_001",
+      "artifact_type": "validation_report",
+      "payload_json": {
+        "note": "render-coverage mixed-trust fixture"
+      },
+      "created_at": "2026-04-11T09:00:05Z"
+    }
+  ],
+  "audit_events": [
+    {
+      "id": "aud_vertex_render_001",
+      "team_id": "team_atliera_lab",
+      "actor_type": "system",
+      "actor_id": "atliera-fixture",
+      "event_type": "graph.validated",
+      "target_type": "research_run",
+      "target_id": "run_vertex_render_001",
+      "payload_json": {
+        "ok": true,
+        "fixture": "render/mixed-trust"
+      },
+      "created_at": "2026-04-11T09:00:06Z"
+    }
+  ]
+}

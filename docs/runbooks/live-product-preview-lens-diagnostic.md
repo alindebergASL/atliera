@@ -34,7 +34,9 @@ The checked report classifies the first live product preview as `structure-absen
 
 A later live product-preview approval packet may only be considered after deterministic fixture mode demonstrates at least two materially useful Workshop lenses against supported existing outputs when the source account supports them. The criterion is recorded as `two_materially_useful_lenses_in_fixture_mode_against_supported_existing_outputs`.
 
-This criterion does not approve any live provider call. It only defines the no-spend boundary for deciding whether a separate future approval packet is even worth drafting.
+That criterion is now used by `live-product-preview-three-lane-approval.md`, a docs-only one-run approval packet for a screened account whose private source-evidence screen is expected to support Signals plus at least one of Maps or Plays. The approval packet does not reopen current-account remediation and does not pressure prompts or schemas to invent unsupported content.
+
+This criterion does not approve any live provider call by itself. It only defines the no-spend boundary for deciding whether a separate future approval packet is even worth drafting.
 
 ## Safety boundaries
 

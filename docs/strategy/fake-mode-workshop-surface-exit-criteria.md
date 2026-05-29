@@ -85,6 +85,8 @@ It does not prove provider quality, does not prove multi-account readiness, does
 
 ## Next artifact after exit
 
-The next artifact is `../runbooks/live-product-preview-approval.md`, the live product preview approval packet. It is a separate docs-only approval packet that identifies the provider/model, the tiny account or corpus, the budget cap, the private evidence handling, the success/failure interpretation, and the pre-run decision tree. The later sanitized execution follow-up is recorded in `../runbooks/live-product-preview-status.md` as a no-readiness status record.
+The first historical live-preview artifact is `../runbooks/live-product-preview-approval.md`, with sanitized execution follow-up in `../runbooks/live-product-preview-status.md` as a no-readiness status record. That first run is already consumed and should not be treated as a standing approval.
 
-The live product preview approval packet must continue to prohibit provider comparison, corpus expansion, production writes, production deployment, paid fallback unless separately approved, tools/plugins/search unless separately approved, and launch/product/production readiness claims.
+The next artifact after this three-lane fake-mode exit is `../runbooks/live-product-preview-three-lane-approval.md`, a separate docs-only approval packet for one screened live-provider product preview. It identifies the provider/model, the screened tiny account or corpus scope, the budget cap, the private evidence handling, the success/failure interpretation, and the pre-run decision tree.
+
+The live product preview approval packet must continue to prohibit provider comparison, broad corpus expansion, production writes, production deployment, paid fallback, tools/plugins/search, and launch/product/production readiness claims for this run. Any future paid fallback or tool/search capability remains a separate approval surface with its own scope, spend, provenance, private-evidence, and sanitized-status plan.

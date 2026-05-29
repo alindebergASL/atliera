@@ -79,4 +79,6 @@ Before requesting any such expansion packet, run the no-spend usefulness gate in
 
 The gate has now been applied in `live-product-preview-usefulness-assessment.md`. That no-spend assessment classifies preview ref `live-product-preview-20260528a` as `weak-but-valid` because the validation chain passed and output facts were present, but only one materially useful Workshop lens was present. It keeps `approves_expansion_or_comparison: false`.
 
+The current-account lens diagnostic in `live-product-preview-lens-diagnostic.md` classifies that first preview as `structure-absent-account-limitation`; current-account remediation remains closed. The later screened-account handoff is `live-product-preview-three-lane-approval.md`, a separate docs-only one-run approval packet that depends on deterministic three-lane fake-mode evidence and requires a later sanitized status record before interpretation.
+
 For future OpenRouter `owl-alpha` validation planning, `owl-alpha-validation-framing.md` records cost-limited: false and sample-limited-by-cost: false. Later `owl-alpha` batches should be sized by safety, provenance, quality, role coverage, and usefulness value rather than by spend avoidance.

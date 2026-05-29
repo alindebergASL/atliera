@@ -1,6 +1,6 @@
 # Live Product Preview Broader Batch Approval
 
-Status: pre-run docs-only approval packet. This PR does not execute the batch.
+Status: pre-run docs-only approval packet. This PR does not execute the batch. The later sanitized execution record is `live-product-preview-broader-batch-status.md`.
 
 ## Decision
 

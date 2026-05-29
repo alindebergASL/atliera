@@ -57,7 +57,7 @@ Any future product-preview expansion, provider comparison, corpus expansion, pai
 
 `live-product-preview-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-20260528a`: `weak-but-valid`, with `insufficient_useful_lenses` because only one materially useful Workshop lens was present. That assessment keeps `approves_expansion_or_comparison: false`.
 
-`live-product-preview-three-lane-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-three-lane-20260529a`: `useful`, with graph-backed Signals, Maps, and Plays lens material. That assessment also keeps `approves_expansion_or_comparison: false` and does not request another provider call. The separate docs-only approval packet for the next bounded broader batch is `live-product-preview-broader-batch-approval.md`.
+`live-product-preview-three-lane-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-three-lane-20260529a`: `useful`, with graph-backed Signals, Maps, and Plays lens material. That assessment also keeps `approves_expansion_or_comparison: false` and does not request another provider call. The separate docs-only approval packet for the bounded broader batch is `live-product-preview-broader-batch-approval.md`; its sanitized execution status is `live-product-preview-broader-batch-status.md`.
 
 `live-product-preview-usefulness-remediation.md` records the next no-spend remediation plan. It maps `insufficient_useful_lenses` to prompt contract, proposal schema, Workshop lens mapping, product-surface expectation, and fixture-coverage work while keeping live reruns, provider comparison, corpus expansion, product-preview expansion, and readiness claims blocked.
 

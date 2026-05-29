@@ -61,7 +61,7 @@ If the usefulness gate says the product preview is useful, the next approval pac
 
 For the immediate post-fake-mode handoff, `live-product-preview-three-lane-approval.md` is the screened-account one-run approval packet. It remains `owl-alpha`/OpenRouter-scoped, but its size is still one provider call because the purpose is validating a richer Signals/Maps/Plays source path before any broader batch. The later sanitized execution record is `live-product-preview-three-lane-status.md`, and its no-spend applied usefulness assessment is `live-product-preview-three-lane-usefulness-assessment.md`.
 
-The applied three-lane assessment classifies preview ref `live-product-preview-three-lane-20260529a` as `useful`, with graph-backed Signals, Maps, and Plays lens material. It keeps `approves_expansion_or_comparison: false`; the separate broader-batch approval packet is `live-product-preview-broader-batch-approval.md`.
+The applied three-lane assessment classifies preview ref `live-product-preview-three-lane-20260529a` as `useful`, with graph-backed Signals, Maps, and Plays lens material. It keeps `approves_expansion_or_comparison: false`; the separate broader-batch approval packet is `live-product-preview-broader-batch-approval.md`, and the later sanitized broader-batch status is `live-product-preview-broader-batch-status.md`.
 
 The applied first-preview assessment is `live-product-preview-usefulness-assessment.md`. It classified preview ref `live-product-preview-20260528a` as `weak-but-valid`, so the first-preview path remains no-spend remediation before broader validation.
 

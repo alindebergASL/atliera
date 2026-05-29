@@ -179,11 +179,11 @@ describe("live product preview usefulness gate", () => {
     );
     assert.throws(
       () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 0, provider_calls_executed: 0 }),
-      /account_count must be between 1 and 5/,
+      /account_count must be between 1 and 4/,
     );
     assert.throws(
-      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 6, provider_calls_executed: 6 }),
-      /account_count must be between 1 and 5/,
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 5, provider_calls_executed: 5 }),
+      /account_count must be between 1 and 4/,
     );
     assert.throws(
       () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 3, provider_calls_executed: 2 }),

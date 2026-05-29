@@ -116,7 +116,7 @@ const WORKSHOP_LENSES: readonly WorkshopLens[] = ["signals", "maps", "plays"];
 const SLOT_ROLES: readonly LiveProductPreviewUsefulnessSlotRole[] = ["representative", "edge-case", "calibration", "additional"];
 const MIN_USEFUL_LENSES = 2;
 const MIN_ACCOUNT_COUNT = 1;
-const MAX_ACCOUNT_COUNT = 5;
+const MAX_ACCOUNT_COUNT = SLOT_ROLES.length;
 
 function assertPlainRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

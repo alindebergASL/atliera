@@ -259,6 +259,34 @@ Minimum first-class records:
 
 The first launch architecture is not three isolated modules. It is one Workshop backed by one Graph, assisted by one Agent, with multiple lens-style views over the same graph objects. Signals, Maps, and Plays are allowed to have distinct UI affordances, but they must not have separate provenance rules, validators, or data pipelines.
 
+### Lens surfaces and object-type mapping
+
+Each lens is a distinct product surface with a distinct job:
+
+- `Signals` is the attention surface: graph-backed items that should be noticed, monitored, investigated, qualified, or escalated.
+- `Maps` is the stable-reference surface: relatively stable account context such as stakeholders and account snapshots.
+- `Plays` is the action surface: recommended next moves and tactical guidance.
+
+The Workshop builder projects each AccountObject `object_type` to exactly one lens. This is the canonical mapping; the per-lens subsections below describe the same mapping in workflow terms and must not contradict it:
+
+| object_type | lens |
+| --- | --- |
+| `signal` | Signals |
+| `risk` | Signals |
+| `open_question` | Signals |
+| `stakeholder` | Maps |
+| `account_snapshot` | Maps |
+| `play` | Plays |
+| `recommendation` | Plays |
+
+Why `risk` and `open_question` sit in Signals, not Maps:
+
+- Risks are volatile, attention-demanding items. Rendering them as passive map context would make them feel like account furniture instead of something to monitor or mitigate.
+- Open questions are more ambiguous, but for now they also belong in Signals because they are research prompts / evidence gaps that demand follow-up.
+- Keeping volatile risks and unresolved questions out of Maps preserves Maps as a trustworthy reference surface rather than a mixed surface of stable structure plus speculative attention items.
+
+This mapping ratifies the current Workshop builder behavior pinned by PR #127. Future product evidence may justify splitting these two object types — for example, keeping `risk` in Signals while moving `open_question` to Maps — but that is a conditional possibility, not a planned change, and would require its own decision before any code or docs change.
+
 ### Atliera Workshop
 
 Purpose:
@@ -313,7 +341,11 @@ Must not:
 ### Signals lens
 
 Purpose:
+- The attention surface: graph-backed items that should be noticed, monitored, investigated, qualified, or escalated.
 - Data ingestion, source discovery, source fetching, change detection, and evidence capture.
+
+Renders object types:
+- `signal`, `risk`, and `open_question` — change/attention items, volatile risks to monitor or mitigate, and unresolved research prompts / evidence gaps that demand follow-up.
 
 Owns:
 - source discovery jobs
@@ -330,28 +362,40 @@ Must not:
 ### Maps lens
 
 Purpose:
+- The stable-reference surface: relatively stable account context such as stakeholders and account snapshots.
 - Stakeholder, relationship, influence, and account-structure mapping.
+
+Renders object types:
+- `stakeholder` and `account_snapshot`.
 
 Owns:
 - stakeholder AccountObjects
+- account_snapshot AccountObjects
 - relationship edges/view models
 - buying committee hypotheses
-- champion/blocker/risk labels when evidenced
+- champion/blocker labels when evidenced
 
 Must distinguish:
 - evidenced stakeholder facts
 - inferred/hypothesized relationships
 - user-entered notes
 
+Must not:
+- absorb volatile risks or unresolved questions; those are `risk` and `open_question` objects and belong in Signals so Maps stays a trustworthy stable-reference surface rather than a mix of stable structure and speculative attention items
+
 ### Plays lens
 
 Purpose:
+- The action surface: recommended next moves and tactical guidance.
 - Sales recommendations and action planning.
+
+Renders object types:
+- `play` and `recommendation`.
 
 Owns:
 - recommended actions
 - outreach angles
-- discovery questions
+- discovery questions (a Plays affordance — questions to ask the account; distinct from the `open_question` object type, which is a research/evidence gap surfaced in Signals)
 - risk mitigation plays
 - expansion/renewal/displacement plays
 

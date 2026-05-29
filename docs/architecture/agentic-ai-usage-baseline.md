@@ -26,7 +26,7 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 
 ## Current validation behavior
 
-Recent `owl-alpha` usage was limited to explicitly approved validation runs. Those runs exercised provider-boundary and product-preview slices under merged approval/status docs, private evidence retention, activation gates, cost ledgers, sanitized graph outputs, manifest/bootstrap verification, and no-spend / no-paid-fallback constraints.
+Recent `owl-alpha` usage was limited to explicitly approved validation runs. Those runs exercised provider-boundary and product-preview slices under merged approval/status docs, private evidence retention, activation gates, cost ledgers, sanitized graph outputs, manifest/bootstrap verification, and no-spend / no-paid-fallback constraints. The no-spend batch assessment record is `live-product-preview-broader-batch-usefulness-assessment.md`; it preserves `approves_expansion_or_comparison: false` and provider calls made 0 in the assessment path.
 
 That evidence is validation evidence, not default app behavior. It shows bounded approved provider calls can traverse the validation substrate and feed the existing graph-backed Workshop surface. It does not make Atliera's normal runtime materially agentic yet.
 

@@ -1,0 +1,62 @@
+{
+  "ok": true,
+  "status": "pass",
+  "preview_ref": "live-product-preview-broader-batch-20260529b",
+  "preview_usefulness_classification": "useful",
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "approves_expansion_or_comparison": false,
+  "metrics": {
+    "account_count": 3,
+    "provider_calls_executed": 3,
+    "output_counts": {
+      "excerpts": 9,
+      "claims": 9,
+      "account_objects": 9
+    },
+    "slot_output_counts": [
+      {
+        "role": "representative",
+        "output_counts": {
+          "excerpts": 3,
+          "claims": 3,
+          "account_objects": 3
+        }
+      },
+      {
+        "role": "edge-case",
+        "output_counts": {
+          "excerpts": 3,
+          "claims": 3,
+          "account_objects": 3
+        }
+      },
+      {
+        "role": "calibration",
+        "output_counts": {
+          "excerpts": 3,
+          "claims": 3,
+          "account_objects": 3
+        }
+      }
+    ],
+    "useful_lens_count": 3,
+    "useful_lenses": [
+      "signals",
+      "maps",
+      "plays"
+    ]
+  },
+  "reasons": [],
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

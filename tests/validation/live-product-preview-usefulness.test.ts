@@ -106,18 +106,107 @@ describe("live product preview usefulness gate", () => {
     );
   });
 
+  test("classifies a sanitized multi-account product preview batch as useful without approving expansion", () => {
+    const input = usefulInput();
+    input.preview_ref = "live-product-preview-broader-batch-20260529b";
+    input.account_count = 3;
+    input.provider_calls_executed = 3;
+    input.output_counts = { excerpts: 9, claims: 9, account_objects: 9 };
+    input.slot_output_counts = [
+      { role: "representative", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+      { role: "edge-case", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+      { role: "calibration", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+    ];
+    input.workshop_surface = { ...input.workshop_surface, useful_lens_count: 3, useful_lenses: ["signals", "maps", "plays"] };
+
+    const assessment = assessLiveProductPreviewUsefulness(input);
+
+    assert.equal(assessment.ok, true);
+    assert.equal(assessment.status, "pass");
+    assert.equal(assessment.preview_usefulness_classification, "useful");
+    assert.deepEqual(assessment.reasons, []);
+    assert.deepEqual(assessment.metrics, {
+      account_count: 3,
+      provider_calls_executed: 3,
+      output_counts: { excerpts: 9, claims: 9, account_objects: 9 },
+      slot_output_counts: [
+        { role: "representative", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+        { role: "edge-case", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+        { role: "calibration", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+      ],
+      useful_lens_count: 3,
+      useful_lenses: ["signals", "maps", "plays"],
+    });
+    assert.equal(assessment.launch_readiness_claim, false);
+    assert.equal(assessment.product_readiness_claim, false);
+    assert.equal(assessment.production_readiness_claim, false);
+    assert.equal(assessment.approves_expansion_or_comparison, false);
+    assert.equal(assessment.safety.live_provider_call, false);
+    assert.equal(assessment.safety.product_preview_expansion, false);
+  });
+
+  test("classifies multi-account batches with per-account graph underproduction as weak-but-valid", () => {
+    const input = usefulInput();
+    input.preview_ref = "live-product-preview-broader-batch-20260529b";
+    input.account_count = 3;
+    input.provider_calls_executed = 3;
+    input.output_counts = { excerpts: 9, claims: 8, account_objects: 9 };
+    input.slot_output_counts = [
+      { role: "representative", output_counts: { excerpts: 3, claims: 3, account_objects: 3 } },
+      { role: "edge-case", output_counts: { excerpts: 3, claims: 0, account_objects: 3 } },
+      { role: "calibration", output_counts: { excerpts: 3, claims: 5, account_objects: 3 } },
+    ];
+    input.workshop_surface = { ...input.workshop_surface, useful_lens_count: 3, useful_lenses: ["signals", "maps", "plays"] };
+
+    const assessment = assessLiveProductPreviewUsefulness(input);
+
+    assert.equal(assessment.ok, false);
+    assert.equal(assessment.status, "fail");
+    assert.equal(assessment.preview_usefulness_classification, "weak-but-valid");
+    assert.deepEqual(
+      assessment.reasons.map((reason) => reason.code),
+      ["underproduced_graph_output"],
+    );
+    assert.equal(assessment.reasons[0]?.observed, 0);
+    assert.equal(assessment.reasons[0]?.threshold, 1);
+    assert.equal(assessment.approves_expansion_or_comparison, false);
+  });
+
   test("rejects malformed and hostile sanitized inputs before assessment", () => {
     assert.throws(
       () => assessLiveProductPreviewUsefulness({ ...usefulInput(), preview_ref: "../private" }),
       /safe live product preview ref/,
     );
     assert.throws(
-      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 2 }),
-      /account_count must be exactly one/,
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 0, provider_calls_executed: 0 }),
+      /account_count must be between 1 and 5/,
     );
     assert.throws(
-      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), provider_calls_executed: 2 }),
-      /provider_calls_executed must be exactly one/,
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 6, provider_calls_executed: 6 }),
+      /account_count must be between 1 and 5/,
+    );
+    assert.throws(
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 3, provider_calls_executed: 2 }),
+      /provider_calls_executed must equal account_count/,
+    );
+
+    assert.throws(
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), account_count: 3, provider_calls_executed: 3 }),
+      /slot_output_counts required for multi-account preview input/,
+    );
+    assert.throws(
+      () =>
+        assessLiveProductPreviewUsefulness({
+          ...usefulInput(),
+          account_count: 3,
+          provider_calls_executed: 3,
+          slot_output_counts: [
+            { role: "representative", output_counts: { excerpts: 1, claims: 1, account_objects: 1 } },
+            { role: "representative", output_counts: { excerpts: 1, claims: 1, account_objects: 1 } },
+            { role: "calibration", output_counts: { excerpts: 1, claims: 1, account_objects: 1 } },
+          ],
+        }),
+      /slot_output_counts must contain distinct roles/,
     );
 
     assert.throws(

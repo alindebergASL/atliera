@@ -120,6 +120,22 @@ describe("live product preview usefulness gate", () => {
       /provider_calls_executed must be exactly one/,
     );
 
+    assert.throws(
+      () => assessLiveProductPreviewUsefulness({ ...usefulInput(), provider_endpoint: "https://provider.example.invalid" }),
+      /invalid live product preview input/,
+    );
+    assert.throws(
+      () =>
+        assessLiveProductPreviewUsefulness({
+          ...usefulInput(),
+          request_surface: { ...usefulInput().request_surface, tool_choice: "auto" },
+        }),
+      /invalid live product preview input/,
+    );
+    const symbolic = usefulInput() as unknown as Record<string | symbol, unknown>;
+    symbolic[Symbol.for("provider") as symbol] = "hidden";
+    assert.throws(() => assessLiveProductPreviewUsefulness(symbolic), /invalid live product preview input/);
+
     const hostile = usefulInput() as unknown as Record<string, unknown>;
     Object.defineProperty(hostile, "preview_ref", {
       enumerable: true,
@@ -130,7 +146,7 @@ describe("live product preview usefulness gate", () => {
     assert.throws(() => assessLiveProductPreviewUsefulness(hostile), /invalid live product preview input/);
   });
 
-  test("rejects accessor-backed useful lens entries without invoking them", () => {
+  test("rejects accessor-backed and non-enumerable useful lens entries without invoking getters", () => {
     const input = usefulInput();
     const hostileLenses: string[] = ["signals", "plays"];
     let getterReads = 0;
@@ -145,5 +161,16 @@ describe("live product preview usefulness gate", () => {
 
     assert.throws(() => assessLiveProductPreviewUsefulness(input), /invalid live product preview input/);
     assert.equal(getterReads, 0);
+
+    const nonEnumerable = usefulInput();
+    const hiddenIndex: string[] = ["signals", "plays"];
+    Object.defineProperty(hiddenIndex, "1", {
+      value: "plays",
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    nonEnumerable.workshop_surface = { ...nonEnumerable.workshop_surface, useful_lenses: hiddenIndex as never };
+    assert.throws(() => assessLiveProductPreviewUsefulness(nonEnumerable), /invalid live product preview input/);
   });
 });

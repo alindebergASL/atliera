@@ -1,6 +1,6 @@
 # Live Product Preview Three-Lane Approval
 
-Status: pre-run docs-only approval packet. This PR does not execute the run.
+Status: pre-run docs-only approval packet. This PR does not execute the run. The later sanitized execution record is `live-product-preview-three-lane-status.md`.
 
 ## Decision
 

@@ -34,7 +34,7 @@ The checked report classifies the first live product preview as `structure-absen
 
 A later live product-preview approval packet may only be considered after deterministic fixture mode demonstrates at least two materially useful Workshop lenses against supported existing outputs when the source account supports them. The criterion is recorded as `two_materially_useful_lenses_in_fixture_mode_against_supported_existing_outputs`.
 
-That criterion is now used by `live-product-preview-three-lane-approval.md`, a docs-only one-run approval packet for a screened account whose private source-evidence screen is expected to support Signals plus at least one of Maps or Plays. The approval packet does not reopen current-account remediation and does not pressure prompts or schemas to invent unsupported content.
+That criterion is now used by `live-product-preview-three-lane-approval.md`, a docs-only one-run approval packet for a screened account whose private source-evidence screen is expected to support Signals plus at least one of Maps or Plays. The later sanitized execution record is `live-product-preview-three-lane-status.md`. The approval and status do not reopen current-account remediation and do not pressure prompts or schemas to invent unsupported content.
 
 This criterion does not approve any live provider call by itself. It only defines the no-spend boundary for deciding whether a separate future approval packet is even worth drafting.
 
@@ -55,6 +55,7 @@ It also preserves:
 - provider_spend: false;
 - production_writes: false;
 - runtime_model_mode_integration: false;
+- runtime/model-mode integration: false;
 - provider_or_model_comparison: false;
 - corpus_expansion: false;
 - product_preview_expansion: false;

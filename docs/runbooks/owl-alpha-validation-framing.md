@@ -59,7 +59,7 @@ This is not OpenRouter lock-in. The provider boundary must continue to support g
 
 If the usefulness gate says the product preview is useful, the next approval packet may request a broader `owl-alpha` product-preview validation batch without treating cost as the limiting factor. That later packet still needs explicit scope, private evidence handling, sanitized status, and all safety/provenance/quality gates above.
 
-For the immediate post-fake-mode handoff, `live-product-preview-three-lane-approval.md` is the screened-account one-run approval packet. It remains `owl-alpha`/OpenRouter-scoped, but its size is still one provider call because the purpose is validating a richer Signals/Maps/Plays source path before any broader batch.
+For the immediate post-fake-mode handoff, `live-product-preview-three-lane-approval.md` is the screened-account one-run approval packet. It remains `owl-alpha`/OpenRouter-scoped, but its size is still one provider call because the purpose is validating a richer Signals/Maps/Plays source path before any broader batch. The later sanitized execution record is `live-product-preview-three-lane-status.md` and must be interpreted through the no-spend usefulness gate before any broader validation.
 
 The applied first-preview assessment is `live-product-preview-usefulness-assessment.md`. It classified preview ref `live-product-preview-20260528a` as `weak-but-valid`, so the next step remains no-spend remediation before broader validation.
 

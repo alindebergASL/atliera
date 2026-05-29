@@ -9,6 +9,7 @@
 import type { WorkshopLens } from "../workshop/view-model.ts";
 
 export type LiveProductPreviewUsefulnessClassification = "useful" | "weak-but-valid" | "zero-output" | "contract-failure";
+export type LiveProductPreviewUsefulnessSlotRole = "representative" | "edge-case" | "calibration" | "additional";
 
 export type LiveProductPreviewUsefulnessStatus = "pass" | "fail";
 
@@ -24,6 +25,11 @@ export interface LiveProductPreviewOutputCounts {
   excerpts: number;
   claims: number;
   account_objects: number;
+}
+
+export interface LiveProductPreviewSlotOutputCounts {
+  role: LiveProductPreviewUsefulnessSlotRole;
+  output_counts: LiveProductPreviewOutputCounts;
 }
 
 export interface LiveProductPreviewValidationStatus {
@@ -58,6 +64,7 @@ export interface LiveProductPreviewUsefulnessInput {
   account_count: number;
   provider_calls_executed: number;
   output_counts: LiveProductPreviewOutputCounts;
+  slot_output_counts?: readonly LiveProductPreviewSlotOutputCounts[];
   validation_status: LiveProductPreviewValidationStatus;
   request_surface: LiveProductPreviewRequestSurface;
   workshop_surface: LiveProductPreviewWorkshopSurface;
@@ -76,6 +83,7 @@ export interface LiveProductPreviewUsefulnessMetrics {
   account_count: number;
   provider_calls_executed: number;
   output_counts: LiveProductPreviewOutputCounts;
+  slot_output_counts?: readonly LiveProductPreviewSlotOutputCounts[];
   useful_lens_count: number;
   useful_lenses: readonly WorkshopLens[];
 }
@@ -105,7 +113,10 @@ export interface LiveProductPreviewUsefulnessAssessment {
 
 const SAFE_PREVIEW_REF = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const WORKSHOP_LENSES: readonly WorkshopLens[] = ["signals", "maps", "plays"];
+const SLOT_ROLES: readonly LiveProductPreviewUsefulnessSlotRole[] = ["representative", "edge-case", "calibration", "additional"];
 const MIN_USEFUL_LENSES = 2;
+const MIN_ACCOUNT_COUNT = 1;
+const MAX_ACCOUNT_COUNT = 5;
 
 function assertPlainRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -160,6 +171,20 @@ function readOwnDataField(record: Record<string, unknown>, field: string, label:
   return descriptor.value;
 }
 
+function hasOwnDataField(record: Record<string, unknown>, field: string, label: string): boolean {
+  let descriptor: PropertyDescriptor | undefined;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(record, field);
+  } catch {
+    throw new Error(`invalid ${label}`);
+  }
+  if (descriptor === undefined) return false;
+  if (!("value" in descriptor) || !descriptor.enumerable) {
+    throw new Error(`${label}.${field} must be an enumerable own data field`);
+  }
+  return true;
+}
+
 function readRecord(record: Record<string, unknown>, field: string, label: string): Record<string, unknown> {
   const value = readOwnDataField(record, field, label);
   try {
@@ -197,13 +222,20 @@ function readNonNegativeInteger(record: Record<string, unknown>, field: string, 
   return value as number;
 }
 
-function readExactInteger(record: Record<string, unknown>, field: string, label: string, expected: number): number {
-  const value = readNonNegativeInteger(record, field, label);
-  if (value !== expected) {
-    const expectedLabel = expected === 1 ? "one" : String(expected);
-    throw new Error(`${field} must be exactly ${expectedLabel}`);
+function readBoundedAccountCount(record: Record<string, unknown>): number {
+  const accountCount = readNonNegativeInteger(record, "account_count", "live product preview input");
+  if (accountCount < MIN_ACCOUNT_COUNT || accountCount > MAX_ACCOUNT_COUNT) {
+    throw new Error(`account_count must be between ${MIN_ACCOUNT_COUNT} and ${MAX_ACCOUNT_COUNT}`);
   }
-  return value;
+  return accountCount;
+}
+
+function readProviderCallsExecuted(record: Record<string, unknown>, accountCount: number): number {
+  const providerCalls = readNonNegativeInteger(record, "provider_calls_executed", "live product preview input");
+  if (providerCalls !== accountCount) {
+    throw new Error("provider_calls_executed must equal account_count");
+  }
+  return providerCalls;
 }
 
 function assertSafePreviewRef(previewRef: string): void {
@@ -239,6 +271,82 @@ function readStatus<T extends string>(
     throw new Error(`${label}.${field} has unsupported status`);
   }
   return value as T;
+}
+
+function readSlotOutputCounts(
+  record: Record<string, unknown>,
+  accountCount: number,
+): readonly LiveProductPreviewSlotOutputCounts[] | undefined {
+  const hasSlotOutputCounts = hasOwnDataField(record, "slot_output_counts", "live product preview input");
+  if (!hasSlotOutputCounts) {
+    if (accountCount > 1) {
+      throw new Error("slot_output_counts required for multi-account preview input");
+    }
+    return undefined;
+  }
+
+  const value = readOwnDataField(record, "slot_output_counts", "live product preview input");
+  if (!Array.isArray(value)) {
+    throw new Error("slot_output_counts must be an array");
+  }
+  let lengthDescriptor: PropertyDescriptor | undefined;
+  let names: string[];
+  let symbols: symbol[];
+  try {
+    lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+    names = Object.getOwnPropertyNames(value);
+    symbols = Object.getOwnPropertySymbols(value);
+  } catch {
+    throw new Error("invalid slot_output_counts");
+  }
+  if (!lengthDescriptor || !("value" in lengthDescriptor)) {
+    throw new Error("invalid slot_output_counts");
+  }
+  const length = lengthDescriptor.value;
+  if (!Number.isInteger(length) || length !== accountCount) {
+    throw new Error("slot_output_counts length must equal account_count");
+  }
+  const expectedNames = new Set(["length", ...Array.from({ length }, (_, index) => String(index))]);
+  if (symbols.length > 0 || names.length !== expectedNames.size || names.some((name) => !expectedNames.has(name))) {
+    throw new Error("slot_output_counts must contain only array indices");
+  }
+
+  const roles = new Set<LiveProductPreviewUsefulnessSlotRole>();
+  const slots: LiveProductPreviewSlotOutputCounts[] = [];
+  for (let index = 0; index < length; index += 1) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    } catch {
+      throw new Error("invalid slot_output_counts");
+    }
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) {
+      throw new Error("invalid slot_output_counts");
+    }
+    const slot = descriptor.value;
+    assertPlainRecord(slot, "slot_output_counts entry");
+    assertExactOwnEnumerableDataKeys(slot, "slot_output_counts entry", ["role", "output_counts"]);
+    const role = readStatus(slot, "role", "slot_output_counts entry", SLOT_ROLES);
+    if (roles.has(role)) {
+      throw new Error("slot_output_counts must contain distinct roles");
+    }
+    roles.add(role);
+    const output = readRecord(slot, "output_counts", "slot_output_counts entry");
+    assertExactOwnEnumerableDataKeys(output, "slot_output_counts entry.output_counts", [
+      "excerpts",
+      "claims",
+      "account_objects",
+    ]);
+    slots.push(Object.freeze({
+      role,
+      output_counts: Object.freeze({
+        excerpts: readNonNegativeInteger(output, "excerpts", "slot_output_counts entry.output_counts"),
+        claims: readNonNegativeInteger(output, "claims", "slot_output_counts entry.output_counts"),
+        account_objects: readNonNegativeInteger(output, "account_objects", "slot_output_counts entry.output_counts"),
+      }),
+    }));
+  }
+  return Object.freeze(slots);
 }
 
 function readValidationStatus(record: Record<string, unknown>): LiveProductPreviewValidationStatus {
@@ -358,22 +466,39 @@ function snapshotInput(input: unknown): LiveProductPreviewUsefulnessInput {
   try {
     assertPlainRecord(input, "live product preview input");
     record = input;
-    assertExactOwnEnumerableDataKeys(record, "live product preview input", [
-      "preview_ref",
-      "account_count",
-      "provider_calls_executed",
-      "output_counts",
-      "validation_status",
-      "request_surface",
-      "workshop_surface",
-      "runtime_model_mode_integration",
-    ]);
+    const rootKeys = hasOwnDataField(record, "slot_output_counts", "live product preview input")
+      ? [
+        "preview_ref",
+        "account_count",
+        "provider_calls_executed",
+        "output_counts",
+        "slot_output_counts",
+        "validation_status",
+        "request_surface",
+        "workshop_surface",
+        "runtime_model_mode_integration",
+      ]
+      : [
+        "preview_ref",
+        "account_count",
+        "provider_calls_executed",
+        "output_counts",
+        "validation_status",
+        "request_surface",
+        "workshop_surface",
+        "runtime_model_mode_integration",
+      ];
+    assertExactOwnEnumerableDataKeys(record, "live product preview input", rootKeys);
     const previewRef = readString(record, "preview_ref", "live product preview input");
     assertSafePreviewRef(previewRef);
+    const accountCount = readBoundedAccountCount(record);
+    const providerCallsExecuted = readProviderCallsExecuted(record, accountCount);
+    const slotOutputCounts = readSlotOutputCounts(record, accountCount);
     return Object.freeze({
       preview_ref: previewRef,
-      account_count: readExactInteger(record, "account_count", "live product preview input", 1),
-      provider_calls_executed: readExactInteger(record, "provider_calls_executed", "live product preview input", 1),
+      account_count: accountCount,
+      provider_calls_executed: providerCallsExecuted,
+      ...(slotOutputCounts === undefined ? {} : { slot_output_counts: slotOutputCounts }),
       output_counts: readOutputCounts(record),
       validation_status: readValidationStatus(record),
       request_surface: readRequestSurface(record),
@@ -381,7 +506,7 @@ function snapshotInput(input: unknown): LiveProductPreviewUsefulnessInput {
       runtime_model_mode_integration: readBoolean(record, "runtime_model_mode_integration", "live product preview input"),
     });
   } catch (error) {
-    if (error instanceof Error && /safe live product preview ref|account_count must be exactly one|provider_calls_executed must be exactly one/.test(error.message)) {
+    if (error instanceof Error && /safe live product preview ref|account_count must be between|provider_calls_executed must equal account_count|slot_output_counts required for multi-account preview input|slot_output_counts length must equal account_count|slot_output_counts must contain distinct roles/.test(error.message)) {
       throw error;
     }
     throw new Error("invalid live product preview input");
@@ -448,8 +573,25 @@ function classify(
     return "zero-output";
   }
 
-  if (input.output_counts.excerpts === 0 || input.output_counts.claims === 0 || input.output_counts.account_objects === 0) {
-    addReason(reasons, "underproduced_graph_output", "sanitized graph output is missing one or more required graph fact types", totalOutputs, 3);
+  const minimumObservedKindOutput = input.slot_output_counts === undefined
+    ? Math.min(input.output_counts.excerpts, input.output_counts.claims, input.output_counts.account_objects)
+    : Math.min(
+      ...input.slot_output_counts.flatMap((slot) => [
+        slot.output_counts.excerpts,
+        slot.output_counts.claims,
+        slot.output_counts.account_objects,
+      ]),
+    );
+  if (minimumObservedKindOutput < 1) {
+    addReason(
+      reasons,
+      "underproduced_graph_output",
+      input.slot_output_counts === undefined
+        ? "sanitized graph output is missing one or more required graph fact types"
+        : "one or more sanitized batch slots produced fewer than one required graph fact type",
+      minimumObservedKindOutput,
+      1,
+    );
   }
 
   if (input.workshop_surface.useful_lens_count < MIN_USEFUL_LENSES) {
@@ -471,6 +613,20 @@ export function assessLiveProductPreviewUsefulness(input: unknown): LiveProductP
   const classification = classify(snapshot, reasons);
   const ok = classification === "useful";
 
+  const metrics: LiveProductPreviewUsefulnessMetrics = Object.freeze({
+    account_count: snapshot.account_count,
+    provider_calls_executed: snapshot.provider_calls_executed,
+    output_counts: Object.freeze({ ...snapshot.output_counts }),
+    ...(snapshot.slot_output_counts === undefined ? {} : {
+      slot_output_counts: Object.freeze(snapshot.slot_output_counts.map((slot) => Object.freeze({
+        role: slot.role,
+        output_counts: Object.freeze({ ...slot.output_counts }),
+      }))),
+    }),
+    useful_lens_count: snapshot.workshop_surface.useful_lens_count,
+    useful_lenses: Object.freeze([...snapshot.workshop_surface.useful_lenses]),
+  });
+
   return Object.freeze({
     ok,
     status: ok ? "pass" : "fail",
@@ -480,13 +636,7 @@ export function assessLiveProductPreviewUsefulness(input: unknown): LiveProductP
     product_readiness_claim: false,
     production_readiness_claim: false,
     approves_expansion_or_comparison: false,
-    metrics: Object.freeze({
-      account_count: snapshot.account_count,
-      provider_calls_executed: snapshot.provider_calls_executed,
-      output_counts: Object.freeze({ ...snapshot.output_counts }),
-      useful_lens_count: snapshot.workshop_surface.useful_lens_count,
-      useful_lenses: Object.freeze([...snapshot.workshop_surface.useful_lenses]),
-    }),
+    metrics,
     reasons: Object.freeze([...reasons]),
     safety: Object.freeze({
       live_provider_call: false,

@@ -59,6 +59,8 @@ Any future product-preview expansion, provider comparison, corpus expansion, pai
 
 `live-product-preview-three-lane-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-three-lane-20260529a`: `useful`, with graph-backed Signals, Maps, and Plays lens material. That assessment also keeps `approves_expansion_or_comparison: false` and does not request another provider call. The separate docs-only approval packet for the bounded broader batch is `live-product-preview-broader-batch-approval.md`; its sanitized execution status is `live-product-preview-broader-batch-status.md`.
 
+`live-product-preview-broader-batch-usefulness-assessment.md` records the applied no-spend result for preview ref `live-product-preview-broader-batch-20260529b`: `useful`, with three sanitized slots and `approves_expansion_or_comparison: false`. The assessment path made provider calls made 0 and keeps live provider calls, provider spend, tools/search, production writes, and runtime/model-mode integration false.
+
 `live-product-preview-usefulness-remediation.md` records the next no-spend remediation plan. It maps `insufficient_useful_lenses` to prompt contract, proposal schema, Workshop lens mapping, product-surface expectation, and fixture-coverage work while keeping live reruns, provider comparison, corpus expansion, product-preview expansion, and readiness claims blocked.
 
 `owl-alpha-validation-framing.md` records the current OpenRouter `owl-alpha` planning rule: cost-limited: false, sample-limited-by-cost: false. For `owl-alpha`, a later product-preview expansion packet should choose batch size for safety, provenance, quality, role coverage, and usefulness value, not because spend forces a tiny sample.

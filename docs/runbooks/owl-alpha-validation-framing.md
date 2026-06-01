@@ -63,6 +63,8 @@ For the immediate post-fake-mode handoff, `live-product-preview-three-lane-appro
 
 The applied three-lane assessment classifies preview ref `live-product-preview-three-lane-20260529a` as `useful`, with graph-backed Signals, Maps, and Plays lens material. It keeps `approves_expansion_or_comparison: false`; the separate broader-batch approval packet is `live-product-preview-broader-batch-approval.md`, and the later sanitized broader-batch status is `live-product-preview-broader-batch-status.md`.
 
+The applied broader-batch assessment classifies preview ref `live-product-preview-broader-batch-20260529b` as `useful`, with graph-backed Signals, Maps, and Plays material across the representative, edge-case, and calibration roles. It keeps `approves_expansion_or_comparison: false`; the separate next bounded approval packet is `live-product-preview-six-slot-approval.md`.
+
 The applied first-preview assessment is `live-product-preview-usefulness-assessment.md`. It classified preview ref `live-product-preview-20260528a` as `weak-but-valid`, so the first-preview path remains no-spend remediation before broader validation.
 
 The remediation plan is `live-product-preview-usefulness-remediation.md`. It keeps live reruns, provider comparison, corpus expansion, product-preview expansion, and readiness claims blocked while planning prompt/proposal/lens/product-surface/fixture work.

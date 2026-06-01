@@ -160,7 +160,7 @@ test("safety: six-slot live product preview sanitized status", async (t) => {
     assert.match(docs, /not OpenRouter lock-in/i);
     assert.match(docs, /not an `owl-alpha` quality conclusion/i);
     assert.match(docs, /not a provider comparison/i);
-    assert.match(docs, /next step is a separate no-spend six-slot usefulness assessment/i);
+    assert.match(docs, /separate no-spend six-slot usefulness assessment/i);
     assert.match(docs, /Any further provider run, provider comparison, corpus expansion beyond these six screened slots, web\/tool-enabled retrieval, paid fallback, production write, deployment, or runtime\/model-mode integration needs another separate approval packet/i);
     assertNoPrivateLeakage("six-slot status doc", docs);
     assertNoPositiveReadinessOrBroadening("six-slot status doc", docs);

@@ -9,7 +9,16 @@
 import type { WorkshopLens } from "../workshop/view-model.ts";
 
 export type LiveProductPreviewUsefulnessClassification = "useful" | "weak-but-valid" | "zero-output" | "contract-failure";
-export type LiveProductPreviewUsefulnessSlotRole = "representative" | "edge-case" | "calibration" | "additional";
+export type LiveProductPreviewUsefulnessSlotRole =
+  | "representative"
+  | "representative-a"
+  | "representative-b"
+  | "edge-case"
+  | "edge-case-a"
+  | "edge-case-b"
+  | "calibration"
+  | "sparse-control"
+  | "additional";
 
 export type LiveProductPreviewUsefulnessStatus = "pass" | "fail";
 
@@ -113,7 +122,17 @@ export interface LiveProductPreviewUsefulnessAssessment {
 
 const SAFE_PREVIEW_REF = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const WORKSHOP_LENSES: readonly WorkshopLens[] = ["signals", "maps", "plays"];
-const SLOT_ROLES: readonly LiveProductPreviewUsefulnessSlotRole[] = ["representative", "edge-case", "calibration", "additional"];
+const SLOT_ROLES: readonly LiveProductPreviewUsefulnessSlotRole[] = [
+  "representative",
+  "representative-a",
+  "representative-b",
+  "edge-case",
+  "edge-case-a",
+  "edge-case-b",
+  "calibration",
+  "sparse-control",
+  "additional",
+];
 const MIN_USEFUL_LENSES = 2;
 const MIN_ACCOUNT_COUNT = 1;
 const MAX_ACCOUNT_COUNT = SLOT_ROLES.length;

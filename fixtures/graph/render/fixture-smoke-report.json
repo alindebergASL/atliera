@@ -1,0 +1,113 @@
+{
+  "schema_version": "atliera.workshop_fixture_smoke.v1",
+  "generated_from": "graph_bundle_fixture",
+  "readiness": false,
+  "provider_calls_made": 0,
+  "production_writes": false,
+  "fixtures": [
+    {
+      "path": "fixtures/graph/render/one-lane-weak.json",
+      "account_id": "acc_northwind_freight",
+      "totals": {
+        "sources": 1,
+        "excerpts": 1,
+        "accepted_excerpts": 1,
+        "claims": 1,
+        "account_objects": 1,
+        "verified_objects": 1
+      },
+      "lens_richness": {
+        "signals": 1,
+        "maps": 0,
+        "plays": 0
+      },
+      "useful_lens_richness": {
+        "signals": 1,
+        "maps": 0,
+        "plays": 0
+      },
+      "useful_lenses": [
+        "signals"
+      ],
+      "empty_lanes": [
+        "maps",
+        "plays"
+      ],
+      "trust_state_counts": {
+        "verified": 1,
+        "source_document_only": 0,
+        "unverified": 0,
+        "unsupported": 0,
+        "stale": 0
+      }
+    },
+    {
+      "path": "fixtures/graph/render/mixed-trust.json",
+      "account_id": "acc_vertex_manufacturing",
+      "totals": {
+        "sources": 3,
+        "excerpts": 3,
+        "accepted_excerpts": 2,
+        "claims": 3,
+        "account_objects": 7,
+        "verified_objects": 1
+      },
+      "lens_richness": {
+        "signals": 3,
+        "maps": 2,
+        "plays": 2
+      },
+      "useful_lens_richness": {
+        "signals": 1,
+        "maps": 0,
+        "plays": 0
+      },
+      "useful_lenses": [
+        "signals"
+      ],
+      "empty_lanes": [],
+      "trust_state_counts": {
+        "verified": 1,
+        "source_document_only": 2,
+        "unverified": 2,
+        "unsupported": 1,
+        "stale": 1
+      }
+    },
+    {
+      "path": "fixtures/graph/valid/workshop-three-lane.json",
+      "account_id": "acc_acme_robotics",
+      "totals": {
+        "sources": 3,
+        "excerpts": 3,
+        "accepted_excerpts": 3,
+        "claims": 3,
+        "account_objects": 3,
+        "verified_objects": 3
+      },
+      "lens_richness": {
+        "signals": 1,
+        "maps": 1,
+        "plays": 1
+      },
+      "useful_lens_richness": {
+        "signals": 1,
+        "maps": 1,
+        "plays": 1
+      },
+      "useful_lenses": [
+        "signals",
+        "maps",
+        "plays"
+      ],
+      "empty_lanes": [],
+      "trust_state_counts": {
+        "verified": 3,
+        "source_document_only": 0,
+        "unverified": 0,
+        "unsupported": 0,
+        "stale": 0
+      }
+    }
+  ]
+}

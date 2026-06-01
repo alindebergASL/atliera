@@ -65,3 +65,4 @@ export * from "./validation/live-product-preview-remediation-plan.ts";
 export * from "./validation/live-product-preview-lens-diagnostic.ts";
 export * from "./workshop/lens-usefulness.ts";
 export * from "./workshop/lens-richness.ts";
+export * from "./workshop/fixture-smoke.ts";

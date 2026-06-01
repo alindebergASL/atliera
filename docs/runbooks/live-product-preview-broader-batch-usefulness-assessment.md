@@ -68,3 +68,5 @@ The assessment also preserves:
 This useful batch result does not approve expansion, does not approve comparison, does not request another provider call, and does not imply launch readiness, product readiness, production readiness, broad model quality, multi-account readiness, provider lock-in, or an `owl-alpha` quality conclusion.
 
 This useful result may inform a later separately reviewed docs-only approval packet if another bounded validation step is proposed. That later decision needs a separate approval packet, private evidence handling, explicit no-tools/no-search policy unless separately changed, sanitized status follow-up, and no readiness or provider-quality claims.
+
+The next bounded approval packet is `live-product-preview-six-slot-approval.md`. It is a pre-run docs-only approval surface for exactly six screened account slots; the broader-batch usefulness assessment itself still preserves `approves_expansion_or_comparison: false` and does not execute or authorize future provider calls by itself.

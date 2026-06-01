@@ -1,6 +1,6 @@
 # Live Product Preview Six-Slot Approval
 
-Status: pre-run docs-only approval packet. This PR does not execute the slice. A later sanitized execution record must be committed separately if the slice runs.
+Status: pre-run docs-only approval packet. This PR does not execute the slice. A later sanitized execution record must be committed separately if the slice runs. The later sanitized execution record is `live-product-preview-six-slot-status.md`.
 
 ## Decision
 

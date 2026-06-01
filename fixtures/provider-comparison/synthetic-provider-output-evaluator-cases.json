@@ -1,0 +1,29 @@
+{
+  "benchmark_id": "synthetic-provider-output-evaluator-v1",
+  "cases": [
+    {
+      "case_id": "arithmetic_consistency_pass",
+      "check": "arithmetic_total_equals_phase_sum",
+      "required_keys": ["total_hours", "phase_hours", "confidence"],
+      "output_text": "{\"total_hours\":16,\"phase_hours\":{\"A\":3,\"B\":5,\"C\":2.5,\"D\":5.5},\"confidence\":1}"
+    },
+    {
+      "case_id": "arithmetic_consistency_fail",
+      "check": "arithmetic_total_equals_phase_sum",
+      "required_keys": ["total_hours", "phase_hours", "confidence"],
+      "output_text": "{\"total_hours\":12,\"phase_hours\":{\"A\":3,\"B\":5,\"C\":2.5,\"D\":5.5},\"confidence\":1}"
+    },
+    {
+      "case_id": "schema_invented_field_fail",
+      "check": "required_keys_only",
+      "required_keys": ["person", "risk"],
+      "output_text": "{\"person\":\"Nora\",\"risk\":\"vendor lock-in\",\"private_note\":\"invented\"}"
+    },
+    {
+      "case_id": "synthetic_signal_map_play_pass",
+      "check": "synthetic_signal_map_play_coverage",
+      "required_keys": ["signals", "maps", "plays", "open_questions"],
+      "output_text": "{\"signals\":[{\"claim\":\"slow onboarding\",\"support\":\"duplicate forms\"}],\"maps\":[{\"object\":\"billing workflow\",\"relationships\":\"touches CRM and invoicing\"}],\"plays\":[{\"action\":\"test shared intake form\",\"timing\":\"next week\"}],\"open_questions\":[\"legal approval required\"]}"
+    }
+  ]
+}

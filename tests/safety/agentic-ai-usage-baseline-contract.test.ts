@@ -71,7 +71,8 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /No resident autonomous shell agent/i);
     assert.match(doc, /No app server or worker path currently invokes `ModelProvider\.generate`/i);
     assert.match(doc, /No source call sites currently invoke `ModelAdapter\.propose`/i);
-    assert.match(doc, /The only `\.generate\(` source call site is the provider-validation harness/i);
+    assert.match(doc, /The only `\.generate\(` source call sites are the provider-validation harness/i);
+    assert.match(doc, /Codex-auth bridge adapter/i);
     assert.match(doc, /`ExternalCommandModelProvider` is a sealed validation seam/i);
     assert.match(doc, /`AgentRunRecord` is orchestration evidence, not a running autonomous loop/i);
     assert.match(doc, /Recent `owl-alpha` usage was limited to explicitly approved validation runs/i);
@@ -92,14 +93,13 @@ test("agentic AI usage baseline records current runtime and validation boundarie
   await t.test("source scan supports the documented default-path provider-call boundary", () => {
     assert.deepEqual(matchingSourceLines(/\.propose\(/), []);
     const generateMatches = matchingSourceLines(/\.generate\(/);
-    assert.equal(generateMatches.length, 1);
-    const onlyGenerateMatch = generateMatches[0];
-    if (onlyGenerateMatch === undefined) {
-      throw new Error("expected one provider generate call site");
-    }
-    assert.match(
-      onlyGenerateMatch,
-      /^src\/model\/provider-validation\.ts:\d+:response = await input\.provider\.generate\(input\.request\);$/,
+    assert.equal(generateMatches.length, 2);
+    assert.deepEqual(
+      generateMatches.map((match) => match.replace(/:\d+:/, ":LINE:")),
+      [
+        "src/model/codex-auth-provider-bridge.ts:LINE:response = await this.transport.generate(request);",
+        "src/model/provider-validation.ts:LINE:response = await input.provider.generate(input.request);",
+      ],
     );
     assert.deepEqual(matchingSourceLines(/new ExternalCommandModelProvider\(/), []);
   });

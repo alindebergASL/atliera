@@ -52,6 +52,7 @@ export * from "./runtime/workshop-preview.ts";
 export * from "./model/provider.ts";
 export * from "./model/provider-validation.ts";
 export * from "./model/activation-gates.ts";
+export * from "./model/codex-auth-provider-bridge.ts";
 export * from "./agent/model-adapter.ts";
 export * from "./agent/run-record.ts";
 export * from "./agent/prompt-contracts.ts";

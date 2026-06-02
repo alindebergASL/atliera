@@ -62,6 +62,10 @@ The bridge requires candidate `ModelProviderRequest.metadata` to include:
 
 If any marker is missing or broadened, the bridge rejects the request before touching the injected transport.
 
+## Operator smoke status
+
+A separate operator-only GPT-5.5 smoke record exists at `live-product-preview-gpt55-operator-smoke-status.md`. That record confirms the Hermes operator connection can return strict JSON for one synthetic prompt, but it is not an Atliera `ModelProvider` execution and does not satisfy this bridge gate.
+
 ## Remaining blocker
 
 The code now provides the bridge gate and adapter contract, but a real candidate GPT-5.5 run is still blocked until deployment/private validation proves an injected `model-only-codex-auth` transport. The current Codex CLI agent surface alone remains insufficient because it has not been proven to be a model-only, no-tools, no-shell, no-file-access provider call.

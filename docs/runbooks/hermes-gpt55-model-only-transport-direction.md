@@ -58,9 +58,11 @@ The second implementation artifact is `HermesGpt55ModelOnlyInjectedTransportProo
 
 The third implementation artifact is `createHermesGpt55ActivationPreflightProof`, a no-spend activation preflight proof. It evaluates existing model activation gates for provider `openai-codex`, model `gpt-5.5`, a synthetic-only external corpus and `prompts/synthetic-*` prompt ref, explicit approval and budget limits, and sanitized injected credential readiness. It can mark `ready_for_one_synthetic_smoke: true`, but still records `provider_calls_executed: 0`, `provider_spend: false`, `credential_value_observed: false`, `raw_evidence_committed: false`, `authorizes_comparison_run: false`, and `model_only_transport_proven: false`. The proof helper accepts already-materialized plain data from Atliera activation/credential wiring; hostile JavaScript Proxy objects are outside this proof boundary because introspection traps can run caller-supplied code before any helper can validate them.
 
-## Current proof-state markers
+The first approved live synthetic smoke is recorded in `hermes-gpt55-model-only-live-smoke-status.md`. It executed one provider call under a $1.00 cap and failed with `BadRequestError`; therefore `model_only_transport_proven: false` remains active and any retry requires separate approval.
 
-This direction preserves:
+## Current no-spend proof-state markers
+
+The no-spend proof artifacts preserve:
 
 - model_only_transport_proven: false
 - tool_use_disabled: false

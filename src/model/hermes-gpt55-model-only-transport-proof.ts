@@ -1,5 +1,6 @@
 import {
   assertSafeModelProviderRequest,
+  type ModelProvider,
   type ModelProviderRequest,
   type ModelProviderResponse,
 } from "./provider.ts";
@@ -59,6 +60,28 @@ export interface HermesGpt55ModelOnlyFakeCaller {
 
 export interface HermesGpt55ModelOnlyInjectedTransportProofOptions {
   readonly fakeCaller: HermesGpt55ModelOnlyFakeCaller;
+}
+
+export interface HermesGpt55StreamingTextDeltaEvent {
+  readonly type: "response.output_text.delta";
+  readonly delta: string;
+}
+
+export interface HermesGpt55StreamingTerminalEvent {
+  readonly type: "response.completed" | "response.failed" | "response.incomplete";
+}
+
+export type HermesGpt55StreamingEvent =
+  | HermesGpt55StreamingTextDeltaEvent
+  | HermesGpt55StreamingTerminalEvent;
+
+export interface HermesGpt55InjectedStreamCaller {
+  readonly kind: "injected-stream-caller";
+  stream(payload: HermesGpt55ModelOnlyProviderPayload): AsyncIterable<HermesGpt55StreamingEvent>;
+}
+
+export interface HermesGpt55StreamingModelProviderOptions {
+  readonly streamCaller: HermesGpt55InjectedStreamCaller;
 }
 
 const MODEL_ONLY_INSTRUCTIONS =
@@ -171,6 +194,57 @@ export class HermesGpt55ModelOnlyInjectedTransportProof {
   }
 }
 
+export class HermesGpt55StreamingModelProvider implements ModelProvider {
+  readonly name = "hermes-gpt55-streaming-adapter";
+  readonly #streamCaller: HermesGpt55InjectedStreamCaller;
+
+  constructor(options: HermesGpt55StreamingModelProviderOptions) {
+    if (
+      typeof options !== "object" ||
+      options === null ||
+      typeof options.streamCaller !== "object" ||
+      options.streamCaller === null ||
+      options.streamCaller.kind !== "injected-stream-caller" ||
+      typeof options.streamCaller.stream !== "function"
+    ) {
+      throw new Error("Hermes GPT-5.5 streaming adapter requires an injected stream caller");
+    }
+    this.#streamCaller = options.streamCaller;
+  }
+
+  async generate(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    const plan = createHermesGpt55ModelOnlyRequestPlan(request);
+    const events = this.#streamCaller.stream(plan.provider_payload);
+    if (typeof events !== "object" || events === null || typeof events[Symbol.asyncIterator] !== "function") {
+      throw new Error("Hermes GPT-5.5 streaming adapter requires an async event stream");
+    }
+
+    let rawJson = "";
+    let completed = false;
+    for await (const event of events) {
+      if (completed) {
+        throw new Error("invalid Hermes GPT-5.5 streaming event order");
+      }
+      if (!isStreamingEvent(event)) {
+        throw new Error("invalid Hermes GPT-5.5 streaming event");
+      }
+      if (event.type === "response.output_text.delta") {
+        rawJson += event.delta;
+      } else if (event.type === "response.completed") {
+        completed = true;
+      } else {
+        throw new Error("Hermes GPT-5.5 streaming response failed");
+      }
+    }
+
+    if (!completed || rawJson.trim() === "") {
+      throw new Error("invalid Hermes GPT-5.5 streaming response");
+    }
+
+    return parseHermesGpt55StreamingResponse(rawJson, request);
+  }
+}
+
 function parseHermesGpt55ModelOnlyResponse(
   result: HermesGpt55ModelOnlyFakeCallerResult,
   request: ModelProviderRequest,
@@ -179,15 +253,41 @@ function parseHermesGpt55ModelOnlyResponse(
     throw new Error("invalid Hermes GPT-5.5 model-only response");
   }
 
+  return parseHermesGpt55ResponseJson({
+    rawJson: result.rawJson,
+    request,
+    expectedProvider: "hermes-gpt55-model-only-proof",
+    invalidMessage: "invalid Hermes GPT-5.5 model-only response",
+  });
+}
+
+function parseHermesGpt55StreamingResponse(
+  rawJson: string,
+  request: ModelProviderRequest,
+): ModelProviderResponse {
+  return parseHermesGpt55ResponseJson({
+    rawJson,
+    request,
+    expectedProvider: "hermes-gpt55-streaming-adapter",
+    invalidMessage: "invalid Hermes GPT-5.5 streaming response",
+  });
+}
+
+function parseHermesGpt55ResponseJson(input: {
+  readonly rawJson: string;
+  readonly request: ModelProviderRequest;
+  readonly expectedProvider: string;
+  readonly invalidMessage: string;
+}): ModelProviderResponse {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(result.rawJson);
+    parsed = JSON.parse(input.rawJson);
   } catch {
-    throw new Error("invalid Hermes GPT-5.5 model-only response");
+    throw new Error(input.invalidMessage);
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("invalid Hermes GPT-5.5 model-only response");
+    throw new Error(input.invalidMessage);
   }
 
   const response = parsed as Record<string, unknown>;
@@ -197,20 +297,20 @@ function parseHermesGpt55ModelOnlyResponse(
 
   if (
     !hasExactKeys(response, ["cost", "idempotencyKey", "model", "output", "provider", "usage"]) ||
-    response.provider !== "hermes-gpt55-model-only-proof" ||
+    response.provider !== input.expectedProvider ||
     response.model !== "gpt-5.5" ||
-    response.idempotencyKey !== request.idempotencyKey ||
+    response.idempotencyKey !== input.request.idempotencyKey ||
     !isEmptyGraphOutput(output) ||
     !isZeroUsage(usage) ||
     !isZeroUsdCost(cost)
   ) {
-    throw new Error("invalid Hermes GPT-5.5 model-only response");
+    throw new Error(input.invalidMessage);
   }
 
   return Object.freeze({
-    provider: "hermes-gpt55-model-only-proof",
+    provider: input.expectedProvider,
     model: "gpt-5.5",
-    idempotencyKey: request.idempotencyKey,
+    idempotencyKey: input.request.idempotencyKey,
     output: Object.freeze({
       excerpts: Object.freeze([]) as never[],
       claims: Object.freeze([]) as never[],
@@ -226,6 +326,20 @@ function parseHermesGpt55ModelOnlyResponse(
       amount: 0,
     }),
   });
+}
+
+function isStreamingEvent(event: unknown): event is HermesGpt55StreamingEvent {
+  if (typeof event !== "object" || event === null || Array.isArray(event)) return false;
+  const record = event as Record<string, unknown>;
+  if (record.type === "response.output_text.delta") {
+    return typeof record.delta === "string" && hasExactKeys(record, ["delta", "type"]);
+  }
+  return (
+    (record.type === "response.completed" ||
+      record.type === "response.failed" ||
+      record.type === "response.incomplete") &&
+    hasExactKeys(record, ["type"])
+  );
 }
 
 function isEmptyGraphOutput(value: unknown): boolean {

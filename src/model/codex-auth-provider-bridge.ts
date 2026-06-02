@@ -154,6 +154,18 @@ const REQUIRED_FALSE_METADATA_KEYS = [
   "online_variant",
 ] as const;
 
+function assertSafeProviderName(name: unknown): asserts name is string {
+  if (typeof name !== "string" || !SAFE_PROVIDER_NAME.test(name)) {
+    throw new Error("codex auth bridge provider name rejected");
+  }
+}
+
+function assertSafeModelId(model: unknown): asserts model is string {
+  if (typeof model !== "string" || !SAFE_MODEL_ID.test(model)) {
+    throw new Error("codex auth bridge model rejected");
+  }
+}
+
 export function evaluateCodexAuthBridgeReadiness(input: CodexAuthBridgeReadinessInput): CodexAuthBridgeReadinessReport {
   const snapshot = snapshotReadinessInput(input);
   const refusalReasons: CodexAuthBridgeRefusalReason[] = [];
@@ -245,12 +257,8 @@ export function createCodexAuthModelProviderBridgeFromProof(
   } catch {
     throw new Error("codex auth bridge options rejected");
   }
-  if (!SAFE_PROVIDER_NAME.test(name)) {
-    throw new Error("codex auth bridge provider name rejected");
-  }
-  if (!SAFE_MODEL_ID.test(candidateModel)) {
-    throw new Error("codex auth bridge model rejected");
-  }
+  assertSafeProviderName(name);
+  assertSafeModelId(candidateModel);
   assertSafeSuccessfulTransportProofReport(proof);
 
   let transport: CodexAuthModelProviderTransport;
@@ -440,29 +448,31 @@ function snapshotModelOnlyTransportProofInput(
 }
 
 function snapshotBridgeOptions(options: CodexAuthModelProviderBridgeOptions): CodexAuthModelProviderBridgeOptions {
+  let snapshot: CodexAuthModelProviderBridgeOptions;
   try {
-    const snapshot = Object.freeze({
+    snapshot = Object.freeze({
       name: options.name,
       candidateModel: options.candidateModel,
       guarantee: options.guarantee,
       transport: options.transport,
     });
-    if (!SAFE_PROVIDER_NAME.test(snapshot.name)) {
-      throw new Error("codex auth bridge provider name rejected");
-    }
-    if (!SAFE_MODEL_ID.test(snapshot.candidateModel)) {
-      throw new Error("codex auth bridge model rejected");
-    }
-    if (snapshot.transport.kind !== "model-only-codex-auth") {
-      throw new Error("codex auth bridge transport rejected");
-    }
-    return snapshot;
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith("codex auth bridge")) {
-      throw error;
-    }
+  } catch {
     throw new Error("codex auth bridge options rejected");
   }
+
+  assertSafeProviderName(snapshot.name);
+  assertSafeModelId(snapshot.candidateModel);
+
+  let transportKind: string;
+  try {
+    transportKind = snapshot.transport.kind;
+  } catch {
+    throw new Error("codex auth bridge options rejected");
+  }
+  if (transportKind !== "model-only-codex-auth") {
+    throw new Error("codex auth bridge transport rejected");
+  }
+  return snapshot;
 }
 
 function assertSafeBridgeGuarantee(guarantee: CodexAuthModelOnlyGuarantee): void {

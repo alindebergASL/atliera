@@ -22,7 +22,7 @@ export interface HermesGpt55ModelOnlyProviderPayload {
     },
   ];
   readonly store: false;
-  readonly max_output_tokens: number;
+  readonly stream: true;
 }
 
 export interface HermesGpt55ModelOnlyRequestPlan {
@@ -32,6 +32,7 @@ export interface HermesGpt55ModelOnlyRequestPlan {
   readonly model: "gpt-5.5";
   readonly store: false;
   readonly provider_payload: HermesGpt55ModelOnlyProviderPayload;
+  readonly requested_max_output_tokens_not_sent: number;
   readonly provider_calls_executed: 0;
   readonly provider_spend: false;
   readonly authorizes_candidate_calls: false;
@@ -109,7 +110,7 @@ export function createHermesGpt55ModelOnlyRequestPlan(
       }),
     ]) as HermesGpt55ModelOnlyProviderPayload["input"],
     store: false,
-    max_output_tokens: request.maxOutputTokens,
+    stream: true,
   });
 
   return Object.freeze({
@@ -119,6 +120,7 @@ export function createHermesGpt55ModelOnlyRequestPlan(
     model: "gpt-5.5",
     store: false,
     provider_payload: providerPayload,
+    requested_max_output_tokens_not_sent: request.maxOutputTokens,
     provider_calls_executed: 0,
     provider_spend: false,
     authorizes_candidate_calls: false,

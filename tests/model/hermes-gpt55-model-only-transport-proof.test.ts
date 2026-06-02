@@ -52,6 +52,8 @@ test("creates a no-spend Hermes GPT-5.5 provider payload with no autonomous surf
   assert.equal(Object.hasOwn(plan.provider_payload, "retrieval"), false);
   assert.equal(Object.hasOwn(plan.provider_payload, "mcp"), false);
   assert.equal(Object.hasOwn(plan.provider_payload, "extra_headers"), false);
+  assert.equal(Object.hasOwn(plan.provider_payload, "max_output_tokens"), false);
+  assert.equal(plan.requested_max_output_tokens_not_sent, 4096);
 
   assert.deepEqual(plan.provider_payload, {
     model: "gpt-5.5",
@@ -68,7 +70,7 @@ test("creates a no-spend Hermes GPT-5.5 provider payload with no autonomous surf
       },
     ],
     store: false,
-    max_output_tokens: 4096,
+    stream: true,
   });
 });
 

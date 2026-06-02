@@ -22,6 +22,8 @@ test("safety: GPT-5.5 operator smoke status", () => {
   assert.match(docs, /not a provider-quality conclusion/i);
   assert.match(docs, /not launch\/product\/production readiness/i);
   assert.match(docs, /synthetic-only/i);
+  assert.match(docs, /deterministic no-spend verifier/i);
+  assert.match(docs, /verifyGpt55OperatorSmokePayload/i);
   assert.match(docs, /strict JSON parsed: true/i);
   assert.match(docs, /markdown JSON fence present: false/i);
   assert.match(docs, /excerpts returned: 2/i);

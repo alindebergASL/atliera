@@ -64,6 +64,7 @@ export * from "./validation/controlled-corpus-rerun-request-packet.ts";
 export * from "./validation/live-product-preview-usefulness.ts";
 export * from "./validation/live-product-preview-remediation-plan.ts";
 export * from "./validation/live-product-preview-lens-diagnostic.ts";
+export * from "./validation/gpt55-operator-smoke-verifier.ts";
 export * from "./workshop/lens-usefulness.ts";
 export * from "./workshop/lens-richness.ts";
 export * from "./workshop/fixture-smoke.ts";

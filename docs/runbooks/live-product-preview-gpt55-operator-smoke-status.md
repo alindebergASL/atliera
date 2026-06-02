@@ -19,6 +19,10 @@ It was intentionally narrower than the approved Atliera comparison path:
 - no committed raw model payload;
 - private evidence retained outside the repository.
 
+## Sanitized verifier
+
+The repository now includes a deterministic no-spend verifier, `verifyGpt55OperatorSmokePayload`, for this operator-smoke payload shape. The verifier parses already-captured synthetic payload text only; it does not call models, read credentials, access private evidence paths, compare providers, or authorize GPT-5.5 candidate calls.
+
 ## Sanitized result
 
 The private verification report recorded:

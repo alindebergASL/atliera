@@ -1,0 +1,35 @@
+{
+  "schema_version": "atliera.validated_model_route_catalog.snapshot.v1",
+  "generated_at": "2026-06-03T00:00:00.000Z",
+  "provider_calls_executed": 0,
+  "provider_spend": false,
+  "runtime_model_mode_integration": false,
+  "default_model_selection_claim": false,
+  "provider_lock_in": false,
+  "validated_routes": [
+    {
+      "route_ref": "gpt-5.5-openai-codex-20260602a",
+      "provider_ref": "openai-codex",
+      "model_label": "gpt-5.5",
+      "route_kind": "candidate",
+      "validated_at": "2026-06-02T00:00:00.000Z",
+      "evidence_expires_at": "2026-07-02T00:00:00.000Z",
+      "validation_refs": ["docs/runbooks/live-product-preview-gpt55-comparison-status.md"]
+    },
+    {
+      "route_ref": "owl-alpha-openrouter-validation-20260601a",
+      "provider_ref": "openrouter",
+      "model_label": "owl-alpha",
+      "route_kind": "validation",
+      "validated_at": "2026-06-01T00:00:00.000Z",
+      "evidence_expires_at": "2026-07-01T00:00:00.000Z",
+      "validation_refs": ["docs/runbooks/live-product-preview-six-slot-status.md"]
+    }
+  ],
+  "candidate_label_examples_not_validated": ["opus-4.8", "gpt-5.6"],
+  "notes": [
+    "Route validation evidence is time-boxed and replaceable.",
+    "Candidate label examples are not validated routes and do not authorize calls.",
+    "This snapshot keeps default_model_selection_claim false."
+  ]
+}

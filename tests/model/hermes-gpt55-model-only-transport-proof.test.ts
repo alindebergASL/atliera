@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createHermesGpt55ModelOnlyRequestPlan } from "../../src/model/hermes-gpt55-model-only-transport-proof.ts";
-import { createModelProviderRequest } from "../../src/model/provider.ts";
+import {
+  createHermesGpt55ModelOnlyRequestPlan,
+  HermesGpt55ModelOnlyInjectedTransportProof,
+  type HermesGpt55ModelOnlyProviderPayload,
+} from "../../src/model/hermes-gpt55-model-only-transport-proof.ts";
+import { createModelProviderRequest, type ModelProviderResponse } from "../../src/model/provider.ts";
 
 function validRequest(metadata: Record<string, string> = {}) {
   return createModelProviderRequest({
@@ -109,6 +113,137 @@ test("constructs the no-spend plan without reading process.env", () => {
     const plan = createHermesGpt55ModelOnlyRequestPlan(validRequest());
     assert.equal(plan.provider_calls_executed, 0);
     assert.equal(plan.provider_spend, false);
+  } finally {
+    if (originalDescriptor) Object.defineProperty(process, "env", originalDescriptor);
+  }
+});
+
+function successfulRawResponse(request = validRequest()): string {
+  const response: ModelProviderResponse = {
+    provider: "hermes-gpt55-model-only-proof",
+    model: "gpt-5.5",
+    idempotencyKey: request.idempotencyKey,
+    output: {
+      excerpts: [],
+      claims: [],
+      account_objects: [],
+    },
+    usage: {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    },
+    cost: {
+      currency: "USD",
+      amount: 0,
+    },
+  };
+  return JSON.stringify(response);
+}
+
+test("injected transport proof maps a strict fake caller response without provider spend", async () => {
+  const calls: HermesGpt55ModelOnlyProviderPayload[] = [];
+  const request = validRequest({ corpus_ref: "controlled-fixture" });
+  const provider = new HermesGpt55ModelOnlyInjectedTransportProof({
+    fakeCaller: {
+      kind: "no-spend-fake-caller",
+      respond: (payload) => {
+        calls.push(payload);
+        return { rawJson: successfulRawResponse(request) };
+      },
+    },
+  });
+
+  const response = provider.generateNoSpendProof(request);
+
+  assert.equal(provider.name, "hermes-gpt55-model-only-proof");
+  assert.equal(response.provider, "hermes-gpt55-model-only-proof");
+  assert.equal(response.model, "gpt-5.5");
+  assert.equal(response.idempotencyKey, request.idempotencyKey);
+  assert.deepEqual(response.output, { excerpts: [], claims: [], account_objects: [] });
+  assert.deepEqual(response.usage, { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+  assert.deepEqual(response.cost, { currency: "USD", amount: 0 });
+
+  assert.equal(calls.length, 1);
+  const call = calls[0] as HermesGpt55ModelOnlyProviderPayload;
+  assert.equal(call.store, false);
+  assert.equal(Object.hasOwn(call, "tools"), false);
+  assert.equal(Object.hasOwn(call, "tool_choice"), false);
+  assert.equal(Object.hasOwn(call, "parallel_tool_calls"), false);
+  assert.equal(Object.hasOwn(call, "plugins"), false);
+  assert.equal(Object.hasOwn(call, "web_search"), false);
+  assert.equal(Object.hasOwn(call, "retrieval"), false);
+  assert.equal(Object.hasOwn(call, "mcp"), false);
+});
+
+test("injected transport proof rejects smuggled surfaces before invoking the caller", async () => {
+  let calls = 0;
+  const provider = new HermesGpt55ModelOnlyInjectedTransportProof({
+    fakeCaller: {
+      kind: "no-spend-fake-caller",
+      respond: () => {
+        calls += 1;
+        return { rawJson: successfulRawResponse() };
+      },
+    },
+  });
+
+  assert.throws(
+    () => provider.generateNoSpendProof(validRequest({ tools: "true" })),
+    /forbidden metadata key/i,
+  );
+  assert.equal(calls, 0);
+});
+
+test("injected transport proof fails closed on malformed fake caller responses", () => {
+  const provider = new HermesGpt55ModelOnlyInjectedTransportProof({
+    fakeCaller: {
+      kind: "no-spend-fake-caller",
+      respond: () => ({ rawJson: JSON.stringify({ provider: "wrong", output: {} }) }),
+    },
+  });
+
+  assert.throws(
+    () => provider.generateNoSpendProof(validRequest()),
+    /invalid Hermes GPT-5.5 model-only response/i,
+  );
+});
+
+test("injected transport proof rejects extra raw or credential-like response fields", () => {
+  const request = validRequest();
+  const parsed = JSON.parse(successfulRawResponse(request));
+  parsed.raw_response = "forbidden";
+  const provider = new HermesGpt55ModelOnlyInjectedTransportProof({
+    fakeCaller: {
+      kind: "no-spend-fake-caller",
+      respond: () => ({ rawJson: JSON.stringify(parsed) }),
+    },
+  });
+
+  assert.throws(
+    () => provider.generateNoSpendProof(request),
+    /invalid Hermes GPT-5.5 model-only response/i,
+  );
+});
+
+test("injected transport proof does not read process.env while generating through the fake caller", () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process, "env");
+  Object.defineProperty(process, "env", {
+    configurable: true,
+    get() {
+      throw new Error("process.env must not be read");
+    },
+  });
+
+  try {
+    const provider = new HermesGpt55ModelOnlyInjectedTransportProof({
+      fakeCaller: {
+        kind: "no-spend-fake-caller",
+        respond: () => ({ rawJson: successfulRawResponse() }),
+      },
+    });
+    const response = provider.generateNoSpendProof(validRequest());
+    assert.equal(response.cost.amount, 0);
   } finally {
     if (originalDescriptor) Object.defineProperty(process, "env", originalDescriptor);
   }

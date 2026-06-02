@@ -362,6 +362,80 @@ describe("Codex-auth ModelProvider bridge", () => {
     );
   });
 
+  it("sanitizes prefix-spoofed direct-constructor transport getter failures", () => {
+    const hostileTransport = Object.create(null);
+    Object.defineProperty(hostileTransport, "kind", {
+      enumerable: true,
+      get() {
+        throw new Error("codex auth bridge transport rejected: hostile direct constructor detail");
+      },
+    });
+
+    assert.throws(
+      () => new CodexAuthModelProviderBridge({
+        name: "codex-auth",
+        candidateModel: "gpt-5.5",
+        guarantee: GUARANTEE,
+        transport: hostileTransport,
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth bridge options rejected");
+        assert.doesNotMatch(error.message, /hostile|detail/i);
+        return true;
+      },
+    );
+  });
+
+  it("rejects non-string constructor provider and model identifiers without coercing hostile values", () => {
+    let providerToStringCalls = 0;
+    let modelToStringCalls = 0;
+    const hostileProviderName = {
+      toString() {
+        providerToStringCalls += 1;
+        throw new Error("codex auth bridge provider name rejected: hostile provider detail");
+      },
+    };
+    const hostileModel = {
+      toString() {
+        modelToStringCalls += 1;
+        throw new Error("codex auth bridge model rejected: hostile model detail");
+      },
+    };
+
+    assert.throws(
+      () => new CodexAuthModelProviderBridge({
+        name: hostileProviderName as unknown as string,
+        candidateModel: "gpt-5.5",
+        guarantee: GUARANTEE,
+        transport: providerTransport(),
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth bridge provider name rejected");
+        assert.doesNotMatch(error.message, /hostile|detail/i);
+        return true;
+      },
+    );
+    assert.equal(providerToStringCalls, 0);
+
+    assert.throws(
+      () => createCodexAuthModelProviderBridgeFromProof({
+        name: "codex-auth",
+        candidateModel: hostileModel as unknown as string,
+        proof: evaluateCodexAuthModelOnlyTransportProof(proofInput()),
+        transport: providerTransport(),
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth bridge model rejected");
+        assert.doesNotMatch(error.message, /hostile|detail/i);
+        return true;
+      },
+    );
+    assert.equal(modelToStringCalls, 0);
+  });
+
   it("rejects requests that omit or broaden the explicit no-tools request-surface metadata", async () => {
     const provider = new CodexAuthModelProviderBridge({
       name: "codex-auth",

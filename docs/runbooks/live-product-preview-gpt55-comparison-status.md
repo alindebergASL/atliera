@@ -101,4 +101,4 @@ This is not a launch-readiness, product-readiness, production-readiness, broad m
 
 ## Next step
 
-next step: separate no-spend comparison usefulness assessment over these already-sanitized facts. That assessment should compare candidate and baseline usefulness without making provider calls, without reading raw private evidence into the repository, and without converting this bounded status into readiness or model-selection claims.
+The applied no-spend comparison usefulness assessment is `live-product-preview-gpt55-comparison-usefulness-assessment.md`. That assessment compares candidate and baseline usefulness without making provider calls, without reading raw private evidence into the repository, and without converting this bounded status into readiness or model-selection claims. It classifies the candidate as comparable-useful and recommends provider-neutral runtime-integration planning as a separate no-spend planning step.

@@ -70,7 +70,8 @@ test("safety: live product preview GPT-5.5 comparison status is sanitized and bo
 
   assert.match(status, /bounded comparison signal/i);
   assert.match(status, /not a launch-readiness, product-readiness, production-readiness, broad model-quality, or default-model-selection claim/i);
-  assert.match(status, /next step: separate no-spend comparison usefulness assessment/i);
+  assert.match(status, /live-product-preview-gpt55-comparison-usefulness-assessment\.md/i);
+  assert.match(status, /no-spend comparison usefulness assessment/i);
   assert.match(approval, /comparison name: `live-product-preview-gpt55-comparison-20260602a`/i);
   assert.match(direction, /live-product-preview-gpt55-comparison-status\.md/i);
 

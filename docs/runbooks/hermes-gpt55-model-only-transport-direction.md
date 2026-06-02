@@ -52,7 +52,9 @@ A future adapter must be independent of the live operator process. It must start
 - raw request, raw response, transcript, and operational evidence kept outside the repository;
 - sanitized status only in committed docs.
 
-The first implementation artifact is `createHermesGpt55ModelOnlyRequestPlan`, a no-spend request-factory/proof harness. It verifies that the planned outgoing provider payload has no tools, no shell/file/web/plugin/retrieval affordances, and no session/memory/skill context. Only after this harness is extended into an injected transport and reviewed should any tiny live smoke call be considered.
+The first implementation artifact is `createHermesGpt55ModelOnlyRequestPlan`, a no-spend request-factory/proof harness. It verifies that the planned outgoing provider payload has no tools, no shell/file/web/plugin/retrieval affordances, and no session/memory/skill context.
+
+The second implementation artifact is `HermesGpt55ModelOnlyInjectedTransportProof`, a no-spend injected transport proof seam. It accepts Atliera `ModelProviderRequest`, builds the same safe provider payload, invokes only an injected fake caller through `generateNoSpendProof`, parses exact-schema strict JSON back into Atliera `ModelProviderResponse`, rejects malformed or extra-field responses, and preserves zero spend. It is intentionally not a `ModelProvider` runtime implementation and still does not create credentials, clients, SDK imports, network access, or candidate-call authorization.
 
 ## Current proof-state markers
 

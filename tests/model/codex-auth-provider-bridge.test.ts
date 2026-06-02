@@ -287,6 +287,8 @@ describe("Codex-auth ModelProvider bridge", () => {
     ]);
     assert.equal(report.provider_calls_executed, 0);
     assert.equal(report.provider_spend, false);
+    assert.equal(report.authorizes_candidate_calls, false);
+    assert.equal(report.raw_evidence_committed, false);
     assert.equal(report.tool_use_allowed, false);
     assert.equal(report.shell_access_allowed, false);
     assert.equal(report.file_access_allowed, false);
@@ -317,6 +319,8 @@ describe("Codex-auth ModelProvider bridge", () => {
     assert.deepEqual(report.refusal_reasons, []);
     assert.equal(report.provider_calls_executed, 0);
     assert.equal(report.provider_spend, false);
+    assert.equal(report.authorizes_candidate_calls, false);
+    assert.equal(report.raw_evidence_committed, false);
   });
 
   it("adapts a proven model-only transport through the ModelProvider request and response contract", async () => {

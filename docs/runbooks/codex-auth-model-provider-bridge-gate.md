@@ -11,6 +11,8 @@ The implemented source is `src/model/codex-auth-provider-bridge.ts`.
 It adds:
 
 - `evaluateCodexAuthBridgeReadiness(...)`, a sanitized readiness gate;
+- `evaluateCodexAuthModelOnlyTransportProof(...)`, a no-spend proof evaluator for an injected `model-only-codex-auth` transport record;
+- `createCodexAuthModelProviderBridgeFromProof(...)`, a construction helper that refuses failed proof reports before the bridge can touch transport;
 - `CodexAuthModelProviderBridge`, a `ModelProvider` adapter around an injected model-only Codex-auth transport;
 - `CodexAuthModelOnlyGuarantee`, an explicit all-true guarantee object required before construction;
 - request-surface enforcement that requires explicit model-only/no-tools metadata;
@@ -39,6 +41,8 @@ The readiness report always preserves:
 
 - provider_calls_executed: 0
 - provider_spend: false
+- authorizes_candidate_calls: false
+- raw_evidence_committed: false
 - tool_use_allowed: false
 - shell_access_allowed: false
 - file_access_allowed: false
@@ -46,6 +50,21 @@ The readiness report always preserves:
 - plugins_allowed: false
 - retrieval_allowed: false
 - credential_material_committed: false
+
+## Transport-proof gate
+
+The transport-proof evaluator records whether a separately assembled, injected `model-only-codex-auth` transport proof satisfies the request/response-only boundary. It must show:
+
+- accepted input is only an Atliera `ModelProviderRequest`;
+- returned output is only an Atliera `ModelProviderResponse`;
+- request metadata contract verification is present;
+- response schema and strict JSON verification are present;
+- no tools, shell access, file access, web search, plugins, or retrieval are available;
+- credential neutrality and private evidence boundaries are proven;
+- raw evidence is not committed;
+- proof evidence records zero provider calls and zero spend.
+
+Even when this proof report is `ok`, it preserves `authorizes_candidate_calls: false`; it only allows construction of the bridge from proof. The separately approved GPT-5.5 comparison slice still needs its own pre-call approval, budget, private-evidence, and provider-validation gates.
 
 ## Request metadata contract
 

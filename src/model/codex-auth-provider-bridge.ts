@@ -22,6 +22,25 @@ export type CodexAuthBridgeRefusalReason =
   | "credential_neutrality_unproven"
   | "private_evidence_boundary_unproven";
 
+export type CodexAuthModelOnlyTransportProofRefusalReason =
+  | "transport_kind_mismatch"
+  | "request_contract_unproven"
+  | "response_contract_unproven"
+  | "request_metadata_contract_unproven"
+  | "response_schema_unproven"
+  | "strict_json_unproven"
+  | "tool_disable_unproven"
+  | "shell_access_disable_unproven"
+  | "file_access_disable_unproven"
+  | "web_search_disable_unproven"
+  | "plugin_disable_unproven"
+  | "retrieval_disable_unproven"
+  | "credential_neutrality_unproven"
+  | "private_evidence_boundary_unproven"
+  | "raw_evidence_committed"
+  | "provider_calls_executed"
+  | "provider_spend_observed";
+
 export interface CodexAuthBridgeReadinessInput {
   readonly codexCliInstalled: boolean;
   readonly codexAuthPresent: boolean;
@@ -53,6 +72,43 @@ export interface CodexAuthBridgeReadinessReport {
   readonly credential_material_committed: false;
 }
 
+export interface CodexAuthModelOnlyTransportProofInput {
+  readonly transportKind: string;
+  readonly acceptsModelProviderRequestOnly: boolean;
+  readonly returnsModelProviderResponseOnly: boolean;
+  readonly requestMetadataContractVerified: boolean;
+  readonly responseSchemaVerified: boolean;
+  readonly strictJsonVerified: boolean;
+  readonly toolUseDisabled: boolean;
+  readonly shellAccessDisabled: boolean;
+  readonly fileAccessDisabled: boolean;
+  readonly webSearchDisabled: boolean;
+  readonly pluginsDisabled: boolean;
+  readonly retrievalDisabled: boolean;
+  readonly credentialNeutral: boolean;
+  readonly privateEvidenceBoundaryProven: boolean;
+  readonly rawEvidenceCommitted: boolean;
+  readonly providerCallsExecuted: number;
+  readonly spendUsd: number;
+}
+
+export interface CodexAuthModelOnlyTransportProofReport {
+  readonly schema_version: typeof CODEX_AUTH_MODEL_PROVIDER_BRIDGE_SCHEMA_VERSION;
+  readonly ok: boolean;
+  readonly refusal_reasons: readonly CodexAuthModelOnlyTransportProofRefusalReason[];
+  readonly provider_calls_executed: 0;
+  readonly provider_spend: false;
+  readonly authorizes_candidate_calls: false;
+  readonly raw_evidence_committed: false;
+  readonly tool_use_allowed: false;
+  readonly shell_access_allowed: false;
+  readonly file_access_allowed: false;
+  readonly web_search_allowed: false;
+  readonly plugins_allowed: false;
+  readonly retrieval_allowed: false;
+  readonly credential_material_committed: false;
+}
+
 export interface CodexAuthModelOnlyGuarantee {
   readonly modelOnlyTransport: true;
   readonly toolUseDisabled: true;
@@ -74,6 +130,13 @@ export interface CodexAuthModelProviderBridgeOptions {
   readonly name: string;
   readonly candidateModel: string;
   readonly guarantee: CodexAuthModelOnlyGuarantee;
+  readonly transport: CodexAuthModelProviderTransport;
+}
+
+export interface CodexAuthModelProviderBridgeFromProofOptions {
+  readonly name: string;
+  readonly candidateModel: string;
+  readonly proof: CodexAuthModelOnlyTransportProofReport;
   readonly transport: CodexAuthModelProviderTransport;
 }
 
@@ -120,6 +183,98 @@ export function evaluateCodexAuthBridgeReadiness(input: CodexAuthBridgeReadiness
     plugins_allowed: false,
     retrieval_allowed: false,
     credential_material_committed: false,
+  });
+}
+
+export function evaluateCodexAuthModelOnlyTransportProof(
+  input: CodexAuthModelOnlyTransportProofInput,
+): CodexAuthModelOnlyTransportProofReport {
+  const snapshot = snapshotModelOnlyTransportProofInput(input);
+  const refusalReasons: CodexAuthModelOnlyTransportProofRefusalReason[] = [];
+
+  if (snapshot.transportKind !== "model-only-codex-auth") refusalReasons.push("transport_kind_mismatch");
+  if (!snapshot.acceptsModelProviderRequestOnly) refusalReasons.push("request_contract_unproven");
+  if (!snapshot.returnsModelProviderResponseOnly) refusalReasons.push("response_contract_unproven");
+  if (!snapshot.requestMetadataContractVerified) refusalReasons.push("request_metadata_contract_unproven");
+  if (!snapshot.responseSchemaVerified) refusalReasons.push("response_schema_unproven");
+  if (!snapshot.strictJsonVerified) refusalReasons.push("strict_json_unproven");
+  if (!snapshot.toolUseDisabled) refusalReasons.push("tool_disable_unproven");
+  if (!snapshot.shellAccessDisabled) refusalReasons.push("shell_access_disable_unproven");
+  if (!snapshot.fileAccessDisabled) refusalReasons.push("file_access_disable_unproven");
+  if (!snapshot.webSearchDisabled) refusalReasons.push("web_search_disable_unproven");
+  if (!snapshot.pluginsDisabled) refusalReasons.push("plugin_disable_unproven");
+  if (!snapshot.retrievalDisabled) refusalReasons.push("retrieval_disable_unproven");
+  if (!snapshot.credentialNeutral) refusalReasons.push("credential_neutrality_unproven");
+  if (!snapshot.privateEvidenceBoundaryProven) refusalReasons.push("private_evidence_boundary_unproven");
+  if (snapshot.rawEvidenceCommitted) refusalReasons.push("raw_evidence_committed");
+  if (snapshot.providerCallsExecuted !== 0) refusalReasons.push("provider_calls_executed");
+  if (snapshot.spendUsd !== 0) refusalReasons.push("provider_spend_observed");
+
+  return Object.freeze({
+    schema_version: CODEX_AUTH_MODEL_PROVIDER_BRIDGE_SCHEMA_VERSION,
+    ok: refusalReasons.length === 0,
+    refusal_reasons: Object.freeze(refusalReasons),
+    provider_calls_executed: 0,
+    provider_spend: false,
+    authorizes_candidate_calls: false,
+    raw_evidence_committed: false,
+    tool_use_allowed: false,
+    shell_access_allowed: false,
+    file_access_allowed: false,
+    web_search_allowed: false,
+    plugins_allowed: false,
+    retrieval_allowed: false,
+    credential_material_committed: false,
+  });
+}
+
+export function createCodexAuthModelProviderBridgeFromProof(
+  options: CodexAuthModelProviderBridgeFromProofOptions,
+): CodexAuthModelProviderBridge {
+  let name: string;
+  let candidateModel: string;
+  let proof: CodexAuthModelOnlyTransportProofReport;
+  try {
+    name = options.name;
+    candidateModel = options.candidateModel;
+    proof = options.proof;
+  } catch {
+    throw new Error("codex auth bridge options rejected");
+  }
+  if (!SAFE_PROVIDER_NAME.test(name)) {
+    throw new Error("codex auth bridge provider name rejected");
+  }
+  if (!SAFE_MODEL_ID.test(candidateModel)) {
+    throw new Error("codex auth bridge model rejected");
+  }
+  assertSafeSuccessfulTransportProofReport(proof);
+
+  let transport: CodexAuthModelProviderTransport;
+  let transportKind: string;
+  try {
+    transport = options.transport;
+    transportKind = transport.kind;
+  } catch {
+    throw new Error("codex auth bridge options rejected");
+  }
+  if (transportKind !== "model-only-codex-auth") {
+    throw new Error("codex auth bridge transport rejected");
+  }
+  return new CodexAuthModelProviderBridge({
+    name,
+    candidateModel,
+    guarantee: Object.freeze({
+      modelOnlyTransport: true,
+      toolUseDisabled: true,
+      shellAccessDisabled: true,
+      fileAccessDisabled: true,
+      webSearchDisabled: true,
+      pluginsDisabled: true,
+      retrievalDisabled: true,
+      credentialNeutral: true,
+      privateEvidenceOutsideRepo: true,
+    }),
+    transport,
   });
 }
 
@@ -188,6 +343,95 @@ function snapshotReadinessInput(input: CodexAuthBridgeReadinessInput): CodexAuth
     });
   } catch {
     throw new Error("codex auth bridge readiness input rejected");
+  }
+}
+
+function assertSafeSuccessfulTransportProofReport(proof: CodexAuthModelOnlyTransportProofReport): void {
+  try {
+    if (proof.schema_version !== CODEX_AUTH_MODEL_PROVIDER_BRIDGE_SCHEMA_VERSION) {
+      throw new Error("invalid transport proof report");
+    }
+    if (proof.ok !== true) {
+      throw new Error("invalid transport proof report");
+    }
+    if (!Array.isArray(proof.refusal_reasons) || proof.refusal_reasons.length !== 0) {
+      throw new Error("invalid transport proof report");
+    }
+    if (
+      proof.provider_calls_executed !== 0 ||
+      proof.provider_spend !== false ||
+      proof.authorizes_candidate_calls !== false ||
+      proof.raw_evidence_committed !== false ||
+      proof.tool_use_allowed !== false ||
+      proof.shell_access_allowed !== false ||
+      proof.file_access_allowed !== false ||
+      proof.web_search_allowed !== false ||
+      proof.plugins_allowed !== false ||
+      proof.retrieval_allowed !== false ||
+      proof.credential_material_committed !== false
+    ) {
+      throw new Error("invalid transport proof report");
+    }
+  } catch {
+    throw new Error("codex auth model-only transport proof rejected");
+  }
+}
+
+function snapshotModelOnlyTransportProofInput(
+  input: CodexAuthModelOnlyTransportProofInput,
+): CodexAuthModelOnlyTransportProofInput {
+  try {
+    const snapshot = Object.freeze({
+      transportKind: input.transportKind,
+      acceptsModelProviderRequestOnly: input.acceptsModelProviderRequestOnly,
+      returnsModelProviderResponseOnly: input.returnsModelProviderResponseOnly,
+      requestMetadataContractVerified: input.requestMetadataContractVerified,
+      responseSchemaVerified: input.responseSchemaVerified,
+      strictJsonVerified: input.strictJsonVerified,
+      toolUseDisabled: input.toolUseDisabled,
+      shellAccessDisabled: input.shellAccessDisabled,
+      fileAccessDisabled: input.fileAccessDisabled,
+      webSearchDisabled: input.webSearchDisabled,
+      pluginsDisabled: input.pluginsDisabled,
+      retrievalDisabled: input.retrievalDisabled,
+      credentialNeutral: input.credentialNeutral,
+      privateEvidenceBoundaryProven: input.privateEvidenceBoundaryProven,
+      rawEvidenceCommitted: input.rawEvidenceCommitted,
+      providerCallsExecuted: input.providerCallsExecuted,
+      spendUsd: input.spendUsd,
+    });
+    if (typeof snapshot.transportKind !== "string") {
+      throw new Error("invalid transport proof");
+    }
+    for (const value of [
+      snapshot.acceptsModelProviderRequestOnly,
+      snapshot.returnsModelProviderResponseOnly,
+      snapshot.requestMetadataContractVerified,
+      snapshot.responseSchemaVerified,
+      snapshot.strictJsonVerified,
+      snapshot.toolUseDisabled,
+      snapshot.shellAccessDisabled,
+      snapshot.fileAccessDisabled,
+      snapshot.webSearchDisabled,
+      snapshot.pluginsDisabled,
+      snapshot.retrievalDisabled,
+      snapshot.credentialNeutral,
+      snapshot.privateEvidenceBoundaryProven,
+      snapshot.rawEvidenceCommitted,
+    ]) {
+      if (typeof value !== "boolean") {
+        throw new Error("invalid transport proof");
+      }
+    }
+    if (!Number.isInteger(snapshot.providerCallsExecuted) || snapshot.providerCallsExecuted < 0) {
+      throw new Error("invalid transport proof");
+    }
+    if (typeof snapshot.spendUsd !== "number" || !Number.isFinite(snapshot.spendUsd) || snapshot.spendUsd < 0) {
+      throw new Error("invalid transport proof");
+    }
+    return snapshot;
+  } catch {
+    throw new Error("codex auth model-only transport proof input rejected");
   }
 }
 

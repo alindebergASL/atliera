@@ -19,6 +19,8 @@ test("safety: Codex-auth ModelProvider bridge gate docs", () => {
   assert.match(docs, /does not spend/i);
   assert.match(docs, /does not compare output/i);
   assert.match(docs, /evaluateCodexAuthBridgeReadiness/i);
+  assert.match(docs, /evaluateCodexAuthModelOnlyTransportProof/i);
+  assert.match(docs, /createCodexAuthModelProviderBridgeFromProof/i);
   assert.match(docs, /CodexAuthModelProviderBridge/i);
   assert.match(docs, /CodexAuthModelOnlyGuarantee/i);
   assert.match(docs, /model-only transport proven/i);
@@ -35,6 +37,8 @@ test("safety: Codex-auth ModelProvider bridge gate docs", () => {
   assert.match(docs, /file_access: "false"/i);
   assert.match(docs, /online_variant: "false"/i);
   assert.match(docs, /still blocked until deployment\/private validation proves an injected `model-only-codex-auth` transport/i);
+  assert.match(docs, /authorizes_candidate_calls: false/i);
+  assert.match(docs, /raw_evidence_committed: false/i);
   assert.match(docs, /not a provider-quality result/i);
   assert.match(docs, /not runtime\/model-mode integration/i);
 

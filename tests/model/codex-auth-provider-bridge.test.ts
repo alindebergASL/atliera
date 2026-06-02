@@ -3,8 +3,11 @@ import { describe, it } from "node:test";
 
 import {
   CodexAuthModelProviderBridge,
+  createCodexAuthModelProviderBridgeFromProof,
   evaluateCodexAuthBridgeReadiness,
+  evaluateCodexAuthModelOnlyTransportProof,
   type CodexAuthModelOnlyGuarantee,
+  type CodexAuthModelOnlyTransportProofInput,
   type CodexAuthModelProviderTransport,
 } from "../../src/model/codex-auth-provider-bridge.ts";
 import { createModelProviderRequest, type ModelProviderRequest, type ModelProviderResponse } from "../../src/model/provider.ts";
@@ -69,7 +72,190 @@ function providerTransport(fn?: (input: ModelProviderRequest) => Promise<ModelPr
   };
 }
 
+function proofInput(overrides: Partial<CodexAuthModelOnlyTransportProofInput> = {}): CodexAuthModelOnlyTransportProofInput {
+  return {
+    transportKind: "model-only-codex-auth",
+    acceptsModelProviderRequestOnly: true,
+    returnsModelProviderResponseOnly: true,
+    requestMetadataContractVerified: true,
+    responseSchemaVerified: true,
+    strictJsonVerified: true,
+    toolUseDisabled: true,
+    shellAccessDisabled: true,
+    fileAccessDisabled: true,
+    webSearchDisabled: true,
+    pluginsDisabled: true,
+    retrievalDisabled: true,
+    credentialNeutral: true,
+    privateEvidenceBoundaryProven: true,
+    rawEvidenceCommitted: false,
+    providerCallsExecuted: 0,
+    spendUsd: 0,
+    ...overrides,
+  };
+}
+
 describe("Codex-auth ModelProvider bridge", () => {
+  it("evaluates a no-spend model-only transport proof without authorizing candidate calls", () => {
+    const report = evaluateCodexAuthModelOnlyTransportProof(proofInput());
+
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.refusal_reasons, []);
+    assert.equal(report.provider_calls_executed, 0);
+    assert.equal(report.provider_spend, false);
+    assert.equal(report.authorizes_candidate_calls, false);
+    assert.equal(report.raw_evidence_committed, false);
+    assert.equal(report.tool_use_allowed, false);
+    assert.equal(report.shell_access_allowed, false);
+    assert.equal(report.file_access_allowed, false);
+    assert.equal(report.web_search_allowed, false);
+    assert.equal(report.plugins_allowed, false);
+    assert.equal(report.retrieval_allowed, false);
+  });
+
+  it("fails the transport proof if proof evidence spent, executed provider calls, or leaves a boundary unproven", () => {
+    const report = evaluateCodexAuthModelOnlyTransportProof(proofInput({
+      providerCallsExecuted: 1,
+      spendUsd: 0.02,
+      rawEvidenceCommitted: true,
+      shellAccessDisabled: false,
+      credentialNeutral: false,
+    }));
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.refusal_reasons, [
+      "shell_access_disable_unproven",
+      "credential_neutrality_unproven",
+      "raw_evidence_committed",
+      "provider_calls_executed",
+      "provider_spend_observed",
+    ]);
+    assert.equal(report.provider_calls_executed, 0);
+    assert.equal(report.provider_spend, false);
+    assert.equal(report.authorizes_candidate_calls, false);
+  });
+
+  it("constructs the bridge from a successful transport proof and refuses failed proofs before transport access", async () => {
+    const transport = providerTransport();
+    const provider = createCodexAuthModelProviderBridgeFromProof({
+      name: "codex-auth",
+      candidateModel: "gpt-5.5",
+      proof: evaluateCodexAuthModelOnlyTransportProof(proofInput()),
+      transport,
+    });
+
+    assert.ok(provider instanceof CodexAuthModelProviderBridge);
+    await provider.generate(request());
+    assert.equal(transport.calls.length, 1);
+
+    const rejectedTransport = providerTransport();
+    assert.throws(
+      () => createCodexAuthModelProviderBridgeFromProof({
+        name: "codex-auth",
+        candidateModel: "gpt-5.5",
+        proof: evaluateCodexAuthModelOnlyTransportProof(proofInput({ webSearchDisabled: false })),
+        transport: rejectedTransport,
+      }),
+      /codex auth model-only transport proof rejected/,
+    );
+    assert.equal(rejectedTransport.calls.length, 0);
+  });
+
+  it("sanitizes hostile transport-proof input before returning a refusal", () => {
+    const hostile = Object.create(null) as CodexAuthModelOnlyTransportProofInput;
+    Object.defineProperty(hostile, "transportKind", {
+      enumerable: true,
+      get() {
+        throw new Error("hostile getter detail");
+      },
+    });
+
+    assert.throws(
+      () => evaluateCodexAuthModelOnlyTransportProof(hostile),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth model-only transport proof input rejected");
+        assert.doesNotMatch(error.message, /getter|detail|hostile/i);
+        return true;
+      },
+    );
+  });
+
+  it("rejects forged proof reports that set unsafe boundary markers while claiming ok", () => {
+    const forgedProof = {
+      ...evaluateCodexAuthModelOnlyTransportProof(proofInput()),
+      authorizes_candidate_calls: true,
+      provider_calls_executed: 999,
+      provider_spend: true,
+      raw_evidence_committed: true,
+    };
+
+    assert.throws(
+      () => createCodexAuthModelProviderBridgeFromProof({
+        name: "codex-auth",
+        candidateModel: "gpt-5.5",
+        proof: forgedProof as unknown as ReturnType<typeof evaluateCodexAuthModelOnlyTransportProof>,
+        transport: providerTransport(),
+      }),
+      /codex auth model-only transport proof rejected/,
+    );
+  });
+
+  it("rejects failed proof reports before reading transport fields", () => {
+    const failedProof = evaluateCodexAuthModelOnlyTransportProof(proofInput({ webSearchDisabled: false }));
+    let transportKindReads = 0;
+    const hostileTransport = Object.create(null);
+    Object.defineProperty(hostileTransport, "kind", {
+      enumerable: true,
+      get() {
+        transportKindReads += 1;
+        throw new Error("transport getter detail");
+      },
+    });
+
+    assert.throws(
+      () => createCodexAuthModelProviderBridgeFromProof({
+        name: "codex-auth",
+        candidateModel: "gpt-5.5",
+        proof: failedProof,
+        transport: hostileTransport,
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth model-only transport proof rejected");
+        assert.doesNotMatch(error.message, /transport getter|detail/i);
+        return true;
+      },
+    );
+    assert.equal(transportKindReads, 0);
+  });
+
+  it("sanitizes prefix-spoofed transport getter failures after proof validation passes", () => {
+    const proof = evaluateCodexAuthModelOnlyTransportProof(proofInput());
+    const hostileTransport = Object.create(null);
+    Object.defineProperty(hostileTransport, "kind", {
+      enumerable: true,
+      get() {
+        throw new Error("codex auth bridge transport rejected: hostile transport detail");
+      },
+    });
+
+    assert.throws(
+      () => createCodexAuthModelProviderBridgeFromProof({
+        name: "codex-auth",
+        candidateModel: "gpt-5.5",
+        proof,
+        transport: hostileTransport,
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "codex auth bridge options rejected");
+        assert.doesNotMatch(error.message, /hostile|detail/i);
+        return true;
+      },
+    );
+  });
+
   it("fails closed until every no-tools and credential-neutral readiness proof is present", () => {
     const report = evaluateCodexAuthBridgeReadiness({
       codexCliInstalled: true,

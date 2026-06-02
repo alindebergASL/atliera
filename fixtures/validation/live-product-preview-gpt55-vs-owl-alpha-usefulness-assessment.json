@@ -1,0 +1,91 @@
+{
+  "ok": true,
+  "status": "pass",
+  "comparison_ref": "live-product-preview-gpt55-comparison-20260602a-usefulness",
+  "comparison_usefulness_classification": "candidate-comparable-useful",
+  "recommended_next_step": "provider-neutral-runtime-integration-planning",
+  "baseline": {
+    "label": "baseline",
+    "provider_route": "owl-alpha",
+    "model": "owl-alpha",
+    "preview_ref": "live-product-preview-six-slot-20260601a",
+    "preview_usefulness_classification": "useful",
+    "output_counts": {
+      "excerpts": 18,
+      "claims": 18,
+      "account_objects": 18
+    },
+    "useful_lens_count": 3,
+    "useful_lenses": [
+      "signals",
+      "maps",
+      "plays"
+    ],
+    "tokens": {
+      "input": 5958,
+      "output": 5317
+    },
+    "observed_cost_usd": 0,
+    "estimated_cost_usd": 0.06
+  },
+  "candidate": {
+    "label": "candidate",
+    "provider_route": "openai-codex",
+    "model": "gpt-5.5",
+    "preview_ref": "live-product-preview-gpt55-comparison-20260602a",
+    "preview_usefulness_classification": "useful",
+    "output_counts": {
+      "excerpts": 18,
+      "claims": 18,
+      "account_objects": 18
+    },
+    "useful_lens_count": 3,
+    "useful_lenses": [
+      "signals",
+      "maps",
+      "plays"
+    ],
+    "tokens": {
+      "input": 5929,
+      "output": 4630
+    },
+    "observed_cost_usd": 0,
+    "estimated_cost_usd": 0.06
+  },
+  "deltas": {
+    "output_counts": {
+      "excerpts": 0,
+      "claims": 0,
+      "account_objects": 0
+    },
+    "useful_lens_count": 0,
+    "input_tokens": -29,
+    "output_tokens": -687,
+    "observed_cost_usd": 0,
+    "estimated_cost_usd": 0
+  },
+  "reasons": [
+    "candidate matched the baseline sanitized usefulness floor across six screened slots",
+    "candidate matched baseline graph-supported Signals, Maps, and Plays counts",
+    "candidate used fewer provider-reported output tokens in this bounded slice",
+    "result is not a model-quality, readiness, lock-in, or default-selection claim"
+  ],
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "default_model_selection_claim": false,
+  "provider_lock_in": false,
+  "approves_provider_call": false,
+  "approves_expansion_or_comparison": false,
+  "safety": {
+    "live_provider_call": false,
+    "provider_spend": false,
+    "raw_private_evidence_read": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_selection": false,
+    "corpus_expansion": false,
+    "product_preview_expansion": false,
+    "web_search_or_tools": false
+  }
+}

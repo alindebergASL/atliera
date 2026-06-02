@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   createHermesGpt55ModelOnlyRequestPlan,
   HermesGpt55ModelOnlyInjectedTransportProof,
+  HermesGpt55StreamingModelProvider,
   type HermesGpt55ModelOnlyProviderPayload,
+  type HermesGpt55StreamingEvent,
 } from "../../src/model/hermes-gpt55-model-only-transport-proof.ts";
 import { createModelProviderRequest, type ModelProviderResponse } from "../../src/model/provider.ts";
 
@@ -246,6 +248,132 @@ test("injected transport proof does not read process.env while generating throug
     });
     const response = provider.generateNoSpendProof(validRequest());
     assert.equal(response.cost.amount, 0);
+  } finally {
+    if (originalDescriptor) Object.defineProperty(process, "env", originalDescriptor);
+  }
+});
+
+function streamingResponseJson(request = validRequest()): string {
+  return JSON.stringify({
+    provider: "hermes-gpt55-streaming-adapter",
+    model: "gpt-5.5",
+    idempotencyKey: request.idempotencyKey,
+    output: { excerpts: [], claims: [], account_objects: [] },
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    cost: { currency: "USD", amount: 0 },
+  });
+}
+
+async function* streamingEvents(events: readonly HermesGpt55StreamingEvent[]): AsyncIterable<HermesGpt55StreamingEvent> {
+  for (const event of events) yield event;
+}
+
+test("streaming adapter consumes injected text deltas and maps exact ModelProviderResponse", async () => {
+  const calls: HermesGpt55ModelOnlyProviderPayload[] = [];
+  const request = validRequest({ corpus_ref: "controlled-fixture" });
+  const rawJson = streamingResponseJson(request);
+  const provider = new HermesGpt55StreamingModelProvider({
+    streamCaller: {
+      kind: "injected-stream-caller",
+      stream: (payload) => {
+        calls.push(payload);
+        return streamingEvents([
+          { type: "response.output_text.delta", delta: rawJson.slice(0, 25) },
+          { type: "response.output_text.delta", delta: rawJson.slice(25) },
+          { type: "response.completed" },
+        ]);
+      },
+    },
+  });
+
+  const response = await provider.generate(request);
+
+  assert.equal(provider.name, "hermes-gpt55-streaming-adapter");
+  assert.equal(calls.length, 1);
+  const call = calls[0] as HermesGpt55ModelOnlyProviderPayload;
+  assert.equal(call.stream, true);
+  assert.equal(call.store, false);
+  assert.equal(Object.hasOwn(call, "max_output_tokens"), false);
+  assert.equal(Object.hasOwn(call, "tools"), false);
+  assert.deepEqual(response, {
+    provider: "hermes-gpt55-streaming-adapter",
+    model: "gpt-5.5",
+    idempotencyKey: request.idempotencyKey,
+    output: { excerpts: [], claims: [], account_objects: [] },
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    cost: { currency: "USD", amount: 0 },
+  });
+});
+
+test("streaming adapter fails closed on failed terminal events and extra response fields", async () => {
+  const failedProvider = new HermesGpt55StreamingModelProvider({
+    streamCaller: {
+      kind: "injected-stream-caller",
+      stream: () => streamingEvents([{ type: "response.failed" }]),
+    },
+  });
+  await assert.rejects(
+    () => failedProvider.generate(validRequest()),
+    /Hermes GPT-5.5 streaming response failed/i,
+  );
+
+  const postCompletedProvider = new HermesGpt55StreamingModelProvider({
+    streamCaller: {
+      kind: "injected-stream-caller",
+      stream: () => streamingEvents([
+        { type: "response.output_text.delta", delta: streamingResponseJson() },
+        { type: "response.completed" },
+        { type: "response.output_text.delta", delta: " " },
+      ]),
+    },
+  });
+  await assert.rejects(
+    () => postCompletedProvider.generate(validRequest()),
+    /invalid Hermes GPT-5.5 streaming event order/i,
+  );
+
+  const parsed = JSON.parse(streamingResponseJson());
+  parsed.raw_response = "forbidden";
+  const extraFieldProvider = new HermesGpt55StreamingModelProvider({
+    streamCaller: {
+      kind: "injected-stream-caller",
+      stream: () => streamingEvents([
+        { type: "response.output_text.delta", delta: JSON.stringify(parsed) },
+        { type: "response.completed" },
+      ]),
+    },
+  });
+  await assert.rejects(
+    () => extraFieldProvider.generate(validRequest()),
+    /invalid Hermes GPT-5.5 streaming response/i,
+  );
+});
+
+test("streaming adapter rejects smuggled metadata before invoking stream caller and does not read process.env", async () => {
+  let calls = 0;
+  const originalDescriptor = Object.getOwnPropertyDescriptor(process, "env");
+  Object.defineProperty(process, "env", {
+    configurable: true,
+    get() {
+      throw new Error("process.env must not be read");
+    },
+  });
+
+  try {
+    const provider = new HermesGpt55StreamingModelProvider({
+      streamCaller: {
+        kind: "injected-stream-caller",
+        stream: () => {
+          calls += 1;
+          return streamingEvents([]);
+        },
+      },
+    });
+    await assert.rejects(
+      () => provider.generate(validRequest({ endpoint: "https://example.invalid" })),
+      /forbidden metadata key/i,
+    );
+    assert.equal(calls, 0);
   } finally {
     if (originalDescriptor) Object.defineProperty(process, "env", originalDescriptor);
   }

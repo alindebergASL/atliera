@@ -40,6 +40,30 @@ export interface ValidateRouteCatalogOptions {
   maxValidationAgeDays?: number;
 }
 
+export type RuntimeSelectionEnvironment = "development" | "test" | "lab" | "staging" | "production";
+
+export interface RouteSelectionInput {
+  routeRef?: string;
+  modelLabel?: string;
+  environment: RuntimeSelectionEnvironment;
+  approvalRef?: string;
+  now: string;
+  maxValidationAgeDays: number;
+}
+
+export interface SelectedModelRoute {
+  route: ValidatedModelRoute;
+  selectionReason: "explicit-route-ref";
+  approvalRef: string | null;
+  environment: RuntimeSelectionEnvironment;
+  validationAgeDays: number;
+  providerCallsExecuted: 0;
+  providerSpend: false;
+  runtimeModelModeIntegration: false;
+  defaultModelSelectionClaim: false;
+  providerLockIn: false;
+}
+
 const ROUTE_KEYS = [
   "routeRef",
   "providerRef",
@@ -199,6 +223,57 @@ export function validateRouteCatalog(
 
   return Object.freeze({
     routes: Object.freeze(snapshots),
+    providerCallsExecuted: 0,
+    providerSpend: false,
+    runtimeModelModeIntegration: false,
+    defaultModelSelectionClaim: false,
+    providerLockIn: false,
+  });
+}
+
+function isProductionLike(environment: RuntimeSelectionEnvironment): boolean {
+  return environment === "production" || environment === "staging";
+}
+
+export function selectRouteFromCatalog(catalog: ValidatedRouteCatalog, input: RouteSelectionInput): SelectedModelRoute {
+  assertPlainRecord(input, "selection");
+  if (!Object.hasOwn(input, "routeRef") || typeof input.routeRef !== "string" || input.routeRef.length === 0) {
+    throw new Error("selection.routeRef is required; model/provider defaults are not allowed");
+  }
+  assertSafeId(input.routeRef, "selection.routeRef");
+  if (Object.hasOwn(input, "modelLabel")) {
+    throw new Error("selection by modelLabel is not allowed; routeRef is required");
+  }
+  if (!Number.isInteger(input.maxValidationAgeDays) || input.maxValidationAgeDays < 0) {
+    throw new Error("selection.maxValidationAgeDays must be a non-negative integer");
+  }
+  assertIsoInstant(input.now, "selection.now");
+
+  const route = catalog.routes.find((candidate) => candidate.routeRef === input.routeRef);
+  if (!route) throw new Error(`routeRef not found: ${input.routeRef}`);
+
+  if (isProductionLike(input.environment)) {
+    if (typeof input.approvalRef !== "string" || input.approvalRef.length === 0) {
+      throw new Error("approvalRef is required for production-like route selection");
+    }
+    assertSafeRef(input.approvalRef, "selection.approvalRef");
+    if (route.routeKind === "fake") {
+      throw new Error("fake routes are not allowed for production-like route selection");
+    }
+  }
+
+  const ageMs = Date.parse(input.now) - Date.parse(route.validatedAt);
+  const validationAgeDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+  if (ageMs > input.maxValidationAgeDays * 24 * 60 * 60 * 1000) {
+    throw new Error(`route validation evidence is stale for ${route.routeRef}`);
+  }
+
+  return Object.freeze({
+    route,
+    selectionReason: "explicit-route-ref",
+    approvalRef: input.approvalRef ?? null,
+    environment: input.environment,
+    validationAgeDays,
     providerCallsExecuted: 0,
     providerSpend: false,
     runtimeModelModeIntegration: false,

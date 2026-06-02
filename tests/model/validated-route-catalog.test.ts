@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  selectRouteFromCatalog,
   snapshotValidatedModelRoute,
   validateRouteCatalog,
   type ValidatedModelRouteInput,
@@ -126,6 +127,98 @@ describe("validated model route catalog", () => {
         maxValidationAgeDays: 30,
       }),
       /validation evidence is stale/i,
+    );
+  });
+
+  test("selects a route by explicit ref with approval and recency context", () => {
+    const catalog = validateRouteCatalog([
+      baseRoute(),
+      baseRoute({
+        routeRef: "owl-alpha-openrouter-validation-20260601a",
+        providerRef: "openrouter",
+        modelLabel: "owl-alpha",
+        routeKind: "validation",
+        validationRefs: ["docs/runbooks/live-product-preview-six-slot-status.md"],
+      }),
+    ]);
+
+    const selected = selectRouteFromCatalog(catalog, {
+      routeRef: "gpt-5.5-openai-codex-20260602a",
+      environment: "staging",
+      approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+      now: "2026-06-03T00:00:00.000Z",
+      maxValidationAgeDays: 30,
+    });
+
+    assert.equal(selected.route.routeRef, "gpt-5.5-openai-codex-20260602a");
+    assert.equal(selected.selectionReason, "explicit-route-ref");
+    assert.equal(selected.defaultModelSelectionClaim, false);
+    assert.equal(selected.providerLockIn, false);
+    assert.equal(selected.providerCallsExecuted, 0);
+    assert.equal(selected.runtimeModelModeIntegration, false);
+  });
+
+  test("requires explicit production-like route selection context", () => {
+    const catalog = validateRouteCatalog([baseRoute()]);
+
+    assert.throws(
+      () => selectRouteFromCatalog(catalog, {
+        routeRef: "gpt-5.5-openai-codex-20260602a",
+        environment: "production",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+      }),
+      /approvalRef is required/i,
+    );
+  });
+
+  test("does not select by model label or provider default", () => {
+    const catalog = validateRouteCatalog([baseRoute()]);
+
+    assert.throws(
+      () => selectRouteFromCatalog(catalog, {
+        modelLabel: "gpt-5.5",
+        environment: "staging",
+        approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+      }),
+      /routeRef is required/i,
+    );
+  });
+
+  test("fails closed for stale, unknown, or fake production-like route selection", () => {
+    assert.throws(
+      () => selectRouteFromCatalog(validateRouteCatalog([baseRoute()]), {
+        routeRef: "missing-route",
+        environment: "staging",
+        approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+      }),
+      /routeRef not found/i,
+    );
+
+    assert.throws(
+      () => selectRouteFromCatalog(validateRouteCatalog([baseRoute({ validatedAt: "2026-01-01T00:00:00.000Z" })]), {
+        routeRef: "gpt-5.5-openai-codex-20260602a",
+        environment: "staging",
+        approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+      }),
+      /route validation evidence is stale/i,
+    );
+
+    assert.throws(
+      () => selectRouteFromCatalog(validateRouteCatalog([baseRoute({ routeKind: "fake" })]), {
+        routeRef: "gpt-5.5-openai-codex-20260602a",
+        environment: "production",
+        approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+      }),
+      /fake routes are not allowed/i,
     );
   });
 });

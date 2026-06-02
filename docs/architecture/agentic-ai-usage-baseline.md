@@ -18,7 +18,7 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 - Runtime Workshop preview remains fake-mode/no-write and reports `providerCallsMade: 0` with `productionWrites: false`.
 - No app server or worker path currently invokes `ModelProvider.generate`.
 - No source call sites currently invoke `ModelAdapter.propose`.
-- The only `.generate(` source call site is the provider-validation harness, `src/model/provider-validation.ts`.
+- The only `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`, and the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; neither is a default runtime app path.
 - No source path constructs `ExternalCommandModelProvider` as a default runtime dependency.
 - No resident autonomous shell agent is installed or required by the app.
 - No worker polling loop currently dequeues jobs to execute model/tool plans.
@@ -31,6 +31,8 @@ Recent `owl-alpha` usage was limited to explicitly approved validation runs. Tho
 That evidence is validation evidence, not default app behavior. It shows bounded approved provider calls can traverse the validation substrate and feed the existing graph-backed Workshop surface. It does not make Atliera's normal runtime materially agentic yet.
 
 `ExternalCommandModelProvider` is a sealed validation seam for real providers. It isolates provider transport behind an external command and keeps provider SDKs, credentials, raw provider bodies, prompts, and wrapper logs out of the application source and committed repository evidence.
+
+`CodexAuthModelProviderBridge` is a fail-closed bridge gate for the future GPT-5.5 comparison path. It requires an injected model-only Codex-auth transport plus explicit no-tools/no-shell/no-file/no-search/no-plugin/no-retrieval guarantees before it can call that transport. It is not wired into the default app runtime path and does not by itself execute provider calls.
 
 ## AgentRun and prompt-contract status
 

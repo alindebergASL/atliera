@@ -35,6 +35,10 @@ Reason: the available Codex CLI surface is an autonomous agent execution surface
 
 The approval packet requires the Codex-auth bridge to expose only the Atliera `ModelProvider` request/response contract and not grant tools, shell access, web search, file access, or plugin access to the candidate model request. That bridge has not been proven in this repo yet.
 
+## Follow-up bridge gate
+
+The first no-spend bridge gate is `codex-auth-model-provider-bridge-gate.md`. It adds a credential-neutral `ModelProvider` bridge contract and readiness gate in source, but it still blocks candidate calls until a real injected `model-only-codex-auth` transport is proven outside the autonomous Codex CLI agent surface.
+
 ## Required next step before candidate calls
 
 Before any GPT-5.5 candidate provider call, add or prove a credential-neutral Codex-auth bridge that:

@@ -63,6 +63,8 @@ export interface CodexAuthBridgeReadinessReport {
   readonly refusal_reasons: readonly CodexAuthBridgeRefusalReason[];
   readonly provider_calls_executed: 0;
   readonly provider_spend: false;
+  readonly authorizes_candidate_calls: false;
+  readonly raw_evidence_committed: false;
   readonly tool_use_allowed: false;
   readonly shell_access_allowed: false;
   readonly file_access_allowed: false;
@@ -176,6 +178,8 @@ export function evaluateCodexAuthBridgeReadiness(input: CodexAuthBridgeReadiness
     refusal_reasons: Object.freeze(refusalReasons),
     provider_calls_executed: 0,
     provider_spend: false,
+    authorizes_candidate_calls: false,
+    raw_evidence_committed: false,
     tool_use_allowed: false,
     shell_access_allowed: false,
     file_access_allowed: false,

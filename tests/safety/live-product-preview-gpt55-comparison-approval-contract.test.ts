@@ -57,8 +57,9 @@ test("safety: live product preview GPT-5.5 comparison approval", async (t) => {
     const docs = readRepoFile(APPROVAL_DOC);
 
     assert.match(docs, /Live Product Preview GPT-5\.5 Comparison Approval/i);
-    assert.match(docs, /Status: pre-run docs-only approval packet/i);
-    assert.match(docs, /This PR does not execute provider calls, does not spend/i);
+    assert.match(docs, /Status: historical pre-run docs-only approval packet/i);
+    assert.match(docs, /This approval packet did not execute provider calls, did not spend/i);
+    assert.match(docs, /live-product-preview-gpt55-comparison-status\.md/i);
     assert.match(docs, /useful six-slot `owl-alpha` product-preview assessment/i);
     assert.match(docs, /live-product-preview-six-slot-next-validation-options\.md/i);
     assert.match(docs, /recommended a GPT-5\.5 comparison packet/i);

@@ -49,7 +49,7 @@ The sanitized usefulness comparison says GPT-5.5 is comparable to the `owl-alpha
 
 The only directional signal in this sanitized comparison is token accounting: GPT-5.5 used 687 fewer provider-reported output tokens in this bounded slice while matching the same public usefulness floor. That is an efficiency signal for this slice, not a broad model-quality claim.
 
-The recommended next step is provider-neutral-runtime-integration-planning. That means plan the runtime integration seam and switching/selection policy without making a provider call and without selecting a default production model. Any real runtime integration, additional provider call, broader corpus, production write, or default-model decision needs a separate approval packet.
+The recommended next step is provider-neutral-runtime-integration-planning. The applied planning contract is `docs/plans/2026-06-02-provider-neutral-runtime-integration.md`. That plan records that model choices are replaceable because models get better over time, and it defines a provider-neutral runtime integration planning path without making a provider call and without selecting a default production model. Any real runtime integration, additional provider call, broader corpus, production write, or default-model decision needs a separate approval packet.
 
 ## Safety output markers
 

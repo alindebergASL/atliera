@@ -89,6 +89,8 @@ A separate operator-only GPT-5.5 smoke record exists at `live-product-preview-gp
 
 The code now provides the bridge gate and adapter contract, but a real candidate GPT-5.5 run is still blocked until deployment/private validation proves an injected `model-only-codex-auth` transport. The current Codex CLI agent surface alone remains insufficient because it has not been proven to be a model-only, no-tools, no-shell, no-file-access provider call.
 
+The sanitized follow-up status is `codex-auth-model-only-transport-proof-status.md`. It records local tooling checks after the bridge gate and constructor-input hardening landed, and it preserves that candidate calls remain blocked because the available Codex CLI surface is still an autonomous agent execution surface rather than a proven model-only transport.
+
 ## Interpretation limits
 
 This bridge gate is not a provider-quality result, not a GPT-5.5 quality conclusion, not a production-model selection, not runtime/model-mode integration, and not launch/product/production readiness.

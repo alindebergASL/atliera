@@ -3,6 +3,8 @@ import * as assert from "node:assert/strict";
 
 import { FakeModelAdapter } from "../../src/agent/model-adapter.ts";
 import { InMemoryArtifactStore } from "../../src/artifacts/store.ts";
+import type { ModelProvider } from "../../src/model/provider.ts";
+import type { SelectedModelRoute } from "../../src/model/validated-route-catalog.ts";
 import { parseAtlieraRuntimeConfig } from "../../src/config/runtime.ts";
 import { InMemoryGraphStore, type GraphStore } from "../../src/graph/store.ts";
 import { InMemoryJobQueue } from "../../src/jobs/queue.ts";
@@ -12,6 +14,36 @@ import {
 } from "../../src/runtime/composition.ts";
 
 describe("runtime composition seam", () => {
+  const selectedRoute = (): SelectedModelRoute => ({
+    route: {
+      routeRef: "gpt-5.5-openai-codex-20260602a",
+      providerRef: "openai-codex",
+      modelLabel: "gpt-5.5",
+      routeKind: "candidate",
+      validationRefs: ["docs/runbooks/live-product-preview-gpt55-comparison-status.md"],
+      validatedAt: "2026-06-02T00:00:00.000Z",
+      evidenceExpiresAt: "2026-07-02T00:00:00.000Z",
+      defaultModelSelectionClaim: false,
+      providerLockIn: false,
+      productionReadinessClaim: false,
+    },
+    selectionReason: "explicit-route-ref",
+    approvalRef: "approvals/provider-neutral-runtime-integration-pr157",
+    environment: "staging",
+    validationAgeDays: 1,
+    providerCallsExecuted: 0,
+    providerSpend: false,
+    runtimeModelModeIntegration: false,
+    defaultModelSelectionClaim: false,
+    providerLockIn: false,
+  });
+
+  const fakeProvider: ModelProvider = {
+    name: "fake-provider",
+    async generate() {
+      throw new Error("must not be called during composition");
+    },
+  };
   it("assembles runtime services from explicit config and dependency inputs", () => {
     const config = parseAtlieraRuntimeConfig({
       ATL_ENV: "test",
@@ -115,5 +147,74 @@ describe("runtime composition seam", () => {
       () => createInMemoryAtlieraRuntime({ ATL_ENV: "staging" }),
       /in-memory runtime is only allowed/,
     );
+  });
+
+  it("binds a selected model route and provider by interface without provider calls", () => {
+    const config = parseAtlieraRuntimeConfig({ ATL_ENV: "staging", MODEL_PROVIDER: "external" });
+    const selectedModelRoute = selectedRoute();
+    const runtime = createAtlieraRuntime({
+      config,
+      graphStore: new InMemoryGraphStore(),
+      artifactStore: new InMemoryArtifactStore(),
+      jobQueue: new InMemoryJobQueue(),
+      modelAdapter: new FakeModelAdapter(),
+      modelProvider: fakeProvider,
+      selectedModelRoute,
+    });
+
+    assert.equal(runtime.modelProvider, fakeProvider);
+    assert.deepEqual(runtime.selectedModelRoute, {
+      routeRef: "gpt-5.5-openai-codex-20260602a",
+      providerRef: "openai-codex",
+      modelLabel: "gpt-5.5",
+      routeKind: "candidate",
+      selectionReason: "explicit-route-ref",
+      approvalRef: "approvals/provider-neutral-runtime-integration-pr157",
+      validationAgeDays: 1,
+      defaultModelSelectionClaim: false,
+      providerLockIn: false,
+      runtimeModelModeIntegration: false,
+      providerCallsExecuted: 0,
+    });
+  });
+
+  it("refuses fake model routes for production-like runtime binding", () => {
+    assert.throws(
+      () => createAtlieraRuntime({
+        config: parseAtlieraRuntimeConfig({ ATL_ENV: "production", MODEL_PROVIDER: "external" }),
+        graphStore: new InMemoryGraphStore(),
+        artifactStore: new InMemoryArtifactStore(),
+        jobQueue: new InMemoryJobQueue(),
+        modelAdapter: new FakeModelAdapter(),
+        modelProvider: fakeProvider,
+        selectedModelRoute: { ...selectedRoute(), route: { ...selectedRoute().route, routeKind: "fake" } },
+      }),
+      /fake model routes are not allowed/i,
+    );
+  });
+
+  it("runtime binding does not read process.env", () => {
+    const config = parseAtlieraRuntimeConfig({ ATL_ENV: "lab", MODEL_PROVIDER: "fake" });
+    const original = Object.getOwnPropertyDescriptor(process, "env");
+    Object.defineProperty(process, "env", {
+      configurable: true,
+      get() {
+        throw new Error("process.env must not be read");
+      },
+    });
+    try {
+      const runtime = createAtlieraRuntime({
+        config,
+        graphStore: new InMemoryGraphStore(),
+        artifactStore: new InMemoryArtifactStore(),
+        jobQueue: new InMemoryJobQueue(),
+        modelAdapter: new FakeModelAdapter(),
+        modelProvider: fakeProvider,
+        selectedModelRoute: { ...selectedRoute(), environment: "lab", approvalRef: null },
+      });
+      assert.equal(runtime.selectedModelRoute?.routeRef, "gpt-5.5-openai-codex-20260602a");
+    } finally {
+      if (original) Object.defineProperty(process, "env", original);
+    }
   });
 });

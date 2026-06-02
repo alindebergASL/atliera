@@ -1,0 +1,91 @@
+# Hermes GPT-5.5 Model-only Transport Direction
+
+Status: no-spend direction record.
+
+This document records the approved next direction: investigate whether Atliera can reuse the same underlying provider route that makes GPT-5.5 available to the operator environment, while refusing to use the live Hermes operator runtime itself as a candidate provider. This record does not execute provider calls, does not spend, does not compare model output, does not capture raw model evidence, and does not approve candidate calls.
+
+## Decision
+
+The viable direction is the same underlying provider route, not this live Hermes operator session and not this agent API.
+
+The operator runtime has skills, tools, memory, shell/file/web capabilities, session history, and task context. Those are useful for later Atliera operator workflows and reviews, but they must stay outside the GPT-5.5 comparison candidate call boundary.
+
+For the model comparison route, the target must be a dedicated model-only adapter that maps exactly:
+
+1. Atliera `ModelProviderRequest` in;
+2. provider model call through a narrow request builder;
+3. Atliera `ModelProviderResponse` out;
+4. no extra operator context, no agent loop, and no autonomous tool surface.
+
+## Sanitized Hermes provider-route facts
+
+No-spend source inspection found a plausible implementation seam in Hermes, separate from the Codex CLI autonomous-agent surface:
+
+- provider profile: `openai-codex`;
+- api_mode: `codex_responses`;
+- profile type: `ProviderProfile`;
+- transport type: `ResponsesApiTransport`;
+- the provider route is Responses-API shaped rather than Codex CLI app-server shaped;
+- `ResponsesApiTransport.build_kwargs` only adds a `tools` field when converted response tools exist;
+- tools omitted when no functions are exposed;
+- the operator agent loop is still outside the acceptable boundary and must not be reused directly.
+
+These facts make the direction worth pursuing, but they do not by themselves prove a transport.
+
+## Required adapter shape
+
+A future adapter must be independent of the live operator process. It must start from a minimal process or library boundary that has:
+
+- model-only adapter;
+- Atliera `ModelProviderRequest` accepted as the only request contract;
+- Atliera `ModelProviderResponse` returned as the only response contract;
+- no skills loaded;
+- no memory loaded;
+- no terminal;
+- no file tools;
+- no browser;
+- no web search;
+- no MCP;
+- no plugins;
+- no retrieval;
+- credential-neutral behavior at the Atliera boundary;
+- raw request, raw response, transcript, and operational evidence kept outside the repository;
+- sanitized status only in committed docs.
+
+The first implementation artifact is `createHermesGpt55ModelOnlyRequestPlan`, a no-spend request-factory/proof harness. It verifies that the planned outgoing provider payload has no tools, no shell/file/web/plugin/retrieval affordances, and no session/memory/skill context. Only after this harness is extended into an injected transport and reviewed should any tiny live smoke call be considered.
+
+## Current proof-state markers
+
+This direction preserves:
+
+- model_only_transport_proven: false
+- tool_use_disabled: false
+- shell_access_disabled: false
+- file_access_disabled: false
+- web_search_disabled: false
+- plugins_disabled: false
+- retrieval_disabled: false
+- credential_neutrality_proven: false
+- private_evidence_boundary_proven: false
+- authorizes_candidate_calls: false
+- provider_calls_executed: 0
+- provider_spend: false
+- raw_evidence_committed: false
+- approved_gpt55_comparison_executed: false
+- runtime_model_mode_integration: false
+- launch_readiness_claim: false
+- product_readiness_claim: false
+- production_readiness_claim: false
+- broad_provider_quality_claim: false
+
+## Non-goals
+
+This record does not claim that Hermes-as-operated is provider-quality. It does not change the Codex-auth blocker status. It does not authorize GPT-5.5 comparison calls. It does not make skills or tools part of candidate calls. It only narrows the next engineering path from the Codex CLI surface to a possible Responses-API model-only adapter derived from the same provider route.
+
+## Next no-spend slice
+
+1. Add a pure request factory for the Hermes-backed GPT-5.5 direction or a fixture-equivalent proof harness.
+2. Feed adversarial Atliera request metadata with forbidden fields such as tool, shell, file, web, MCP, plugin, retrieval, session, memory, and endpoint override hints.
+3. Verify the outgoing provider payload rejects or strips those fields and omits tools entirely.
+4. Verify the harness cannot read process environment or credential material while constructing the safe payload.
+5. Keep the existing Codex status blocked until the transport proof, budget gate, source screen, and explicit operator approval all pass.

@@ -1,6 +1,6 @@
 # Live Product Preview GPT-5.5 Comparison Approval
 
-Status: pre-run docs-only approval packet. This PR does not execute provider calls, does not spend, and does not create raw model evidence. A later sanitized execution record must be committed separately if this comparison runs.
+Status: historical pre-run docs-only approval packet. This approval packet did not execute provider calls, did not spend, and did not create raw model evidence. The later sanitized execution record is `live-product-preview-gpt55-comparison-status.md`.
 
 ## Decision
 

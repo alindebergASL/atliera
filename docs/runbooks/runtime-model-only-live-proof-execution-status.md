@@ -1,25 +1,26 @@
 # Runtime Model-Only Live Proof Execution Status
 
-Status: exception after one approved corrected synthetic provider request.
+Status: exception after one approved parameter-compatible synthetic provider request.
 
-Approval packet: `runtime-model-only-live-proof-corrected-retry-approval-packet.md`.
+Approval packet: `runtime-model-only-live-proof-parameter-compatible-approval-packet.md`.
 
-This status records the separate execution step allowed by the corrected-retry approval packet. The corrected retry was performed after PR #178 merged. It is a sanitized public status only; raw request, raw response, provider body details, stack traces, model output, credentials, and private evidence remain outside the repository.
+This status records the separate execution step allowed by the parameter-compatible approval packet. The parameter-compatible attempt was performed after PR #180 merged. It is a sanitized public status only; raw request, raw response, provider body details, stack traces, model output, credentials, and private evidence remain outside the repository.
 
 ## Prior attempt history
 
-The prior one-call approval packet was already consumed before this corrected retry:
+Earlier approval packets were already consumed before this parameter-compatible attempt:
 
 - PR #176 approved exactly one synthetic attempt.
 - PR #177 recorded that attempt as an exception.
-- PR #177 recorded provider_calls_executed: 1 and accepted_output_received: false.
-- PR #177 preserved retry_requires_new_approval: true.
+- PR #178 approved exactly one corrected retry.
+- PR #179 recorded that corrected retry as an exception.
+- PR #180 recorded the sanitized diagnostic category and approved exactly one parameter-compatible attempt.
 
-PR #178 supplied the fresh approval packet for exactly one corrected retry. This document records that corrected retry only.
+This document records the PR #180 parameter-compatible attempt only.
 
-## Corrected retry outcome
+## Parameter-compatible attempt outcome
 
-The corrected retry attempted exactly one synthetic provider request under the same route/provider/model/transport boundary. The provider call did not produce accepted output for the public proof contract.
+The parameter-compatible attempt used the approved execution-envelope correction: streaming remained enabled and the generic output-token-cap parameter was omitted for this Codex auxiliary route. The provider request was attempted once. It did not produce accepted output for the public proof contract.
 
 Sanitized outcome:
 
@@ -42,9 +43,9 @@ Sanitized outcome:
 - credential_value_observed: false
 - raw_evidence_committed: false
 
-## Corrected retry boundary
+## Request boundary preserved
 
-The corrected retry stayed within the approved model-only boundary:
+The parameter-compatible attempt stayed within the approved model-only boundary:
 
 - no tools
 - no shell
@@ -67,9 +68,11 @@ This status is not an approval packet and does not authorize another provider re
 
 - max_attempts: 1
 - one_call_only: true
-- corrected_retry_only: true
+- parameter_compatible_retry_only: true
 - prior_approval_consumed: true
 - corrected_retry_approval_consumed: true
+- parameter_compatible_approval_consumed: true
+- prior_exception_count: 3
 - authorizes_provider_call: false
 - authorizes_candidate_calls: false
 - authorizes_comparison_run: false
@@ -91,4 +94,4 @@ This status is not an approval packet and does not authorize another provider re
 - no product readiness claim
 - no launch readiness claim
 
-Any further attempt requires another fresh approval packet before execution. Do not treat either PR #176 or PR #178 as reusable authorization.
+Any further attempt requires another fresh approval packet before execution. Do not treat PR #176, PR #178, or PR #180 as reusable authorization.

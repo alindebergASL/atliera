@@ -12,16 +12,21 @@ const DOC = join(
   "runtime-model-only-live-proof-execution-status.md",
 );
 
-test("runtime model-only live proof execution status records exactly one sanitized exception and remains non-authorizing", () => {
+test("runtime model-only live proof execution status records exactly one sanitized corrected-retry exception and remains non-authorizing", () => {
   const doc = readFileSync(DOC, "utf8");
 
   for (const required of [
-    /Status: exception after one approved synthetic provider request/i,
-    /Approval packet: `runtime-model-only-live-proof-one-call-approval-packet\.md`/i,
-    /Exactly one synthetic provider request was attempted/i,
-    /does not authorize another provider call/i,
-    /Retry requires a fresh approval packet/i,
-    // Sanitized outcome.
+    /Status: exception after one approved corrected synthetic provider request/i,
+    /Approval packet: `runtime-model-only-live-proof-corrected-retry-approval-packet\.md`/i,
+    /corrected retry was performed after PR #178 merged/i,
+    /sanitized public status only/i,
+    /does not authorize another provider request/i,
+    // Prior attempt history.
+    /PR #176 approved exactly one synthetic attempt/i,
+    /PR #177 recorded that attempt as an exception/i,
+    /PR #177 recorded provider_calls_executed: 1 and accepted_output_received: false/i,
+    /PR #178 supplied the fresh approval packet for exactly one corrected retry/i,
+    // Sanitized corrected-retry outcome.
     /status: exception/i,
     /reason_code: synthetic_model_only_live_proof_exception/i,
     /stable_error_code: provider_call_or_parse_failed/i,
@@ -53,9 +58,15 @@ test("runtime model-only live proof execution status records exactly one sanitiz
     /no provider comparison/i,
     /no default model selection/i,
     /no provider lock-in/i,
+    /no production writes/i,
+    /no production deployment/i,
+    /no autonomous-agent substitution/i,
     // Required non-authorizing markers.
     /max_attempts: 1/i,
     /one_call_only: true/i,
+    /corrected_retry_only: true/i,
+    /prior_approval_consumed: true/i,
+    /corrected_retry_approval_consumed: true/i,
     /authorizes_provider_call: false/i,
     /authorizes_candidate_calls: false/i,
     /authorizes_comparison_run: false/i,
@@ -68,6 +79,7 @@ test("runtime model-only live proof execution status records exactly one sanitiz
     /no automatic retry/i,
     /no live proof completed/i,
     /no accepted model output recorded/i,
+    /Do not treat either PR #176 or PR #178 as reusable authorization/i,
   ]) {
     assert.match(doc, required, `execution status runbook must contain: ${required}`);
   }

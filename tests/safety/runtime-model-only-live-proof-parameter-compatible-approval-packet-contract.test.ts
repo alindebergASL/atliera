@@ -1,0 +1,118 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+
+const DOC = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "docs",
+  "runbooks",
+  "runtime-model-only-live-proof-parameter-compatible-approval-packet.md",
+);
+
+test("parameter-compatible approval packet records sanitized diagnosis and bounds exactly one attempt", () => {
+  const doc = readFileSync(DOC, "utf8");
+
+  for (const required of [
+    /Status: pre-run docs-only parameter-compatible approval packet/i,
+    /This PR does not execute a provider call/i,
+    /adds no runtime provider-call source/i,
+    /PR #176 approved exactly one synthetic attempt/i,
+    /PR #177 recorded that attempt as an exception with provider_calls_executed: 1 and accepted_output_received: false/i,
+    /PR #178 approved exactly one corrected retry/i,
+    /PR #179 recorded that corrected retry as an exception with provider_calls_executed: 1 and accepted_output_received: false/i,
+    /Private root-cause category: codex_aux_responses_parameter_compatibility/i,
+    /mechanical execution-envelope compatibility issue/i,
+    /requires a streaming request envelope/i,
+    /rejects the output-token-cap parameter/i,
+    /omits raw provider bodies, stack traces, raw requests, raw responses, model output, credential details, and private evidence locations/i,
+    /keep stream mode enabled/i,
+    /omit the generic Responses output-token-cap parameter/i,
+    /preserve the same synthetic prompt contract and exact route\/provider\/model\/transport boundary/i,
+    /must not broaden model, route, provider, transport, prompt scope, data scope, tool scope, budget, retry count/i,
+    /route_ref: gpt-5\.5-openai-codex-20260602a/i,
+    /provider_ref: openai-codex/i,
+    /model_label: gpt-5\.5/i,
+    /transport_kind: model-only-codex-auth/i,
+    /max_attempts: 1/i,
+    /one_call_only: true/i,
+    /parameter_compatible_retry_only: true/i,
+    /approved max cost <= \$1/i,
+    /max_cost_usd: 1/i,
+    /synthetic model-only proof, no production data/i,
+    /private raw evidence must remain outside the repository/i,
+    /separate later PR/i,
+    /blocked: provider_calls_executed must be 0/i,
+    /exception: .*must not claim accepted output/i,
+    /completed: requires exactly one provider call and accepted_output_received: true/i,
+    /raw_request_committed: false/i,
+    /raw_response_committed: false/i,
+    /model_output_committed: false/i,
+    /private_evidence_committed: false/i,
+    /credential_value_observed: false/i,
+    /raw_evidence_committed: false/i,
+    /prior_approval_consumed: true/i,
+    /corrected_retry_approval_consumed: true/i,
+    /prior_exception_count: 2/i,
+    /provider_call_executed_in_this_pr: false/i,
+    /adds_runtime_provider_call_source: false/i,
+    /execution_requires_separate_later_pr: true/i,
+    /authorizes_provider_call: false/i,
+    /authorizes_candidate_calls: false/i,
+    /authorizes_comparison_run: false/i,
+    /default_model_selection_claim: false/i,
+    /provider_lock_in: false/i,
+    /production_readiness_claim: false/i,
+    /product_readiness_claim: false/i,
+    /launch_readiness_claim: false/i,
+    /retry_requires_new_approval: true/i,
+    /no tools/i,
+    /no shell/i,
+    /no file access/i,
+    /no web search/i,
+    /no plugins/i,
+    /no MCP/i,
+    /no retrieval/i,
+    /no session carryover/i,
+    /no provider comparison/i,
+    /no default model selection/i,
+    /no provider lock-in/i,
+    /no autonomous-agent substitution/i,
+    /Any further attempt after this parameter-compatible attempt requires another fresh approval packet/i,
+  ]) {
+    assert.match(doc, required, `parameter-compatible approval packet must contain: ${required}`);
+  }
+
+  for (const forbidden of [
+    /retries authorized/i,
+    /automatic retry allowed/i,
+    /comparison authorized/i,
+    /comparison run authorized/i,
+    /candidate calls authorized/i,
+    /default production model/i,
+    /default model selection authorized/i,
+    /provider_lock_in: true/i,
+    /provider lock-in authorized/i,
+    /\bproduction[ -]ready\b/i,
+    /launch ready/i,
+    /production writes allowed/i,
+    /production deployment authorized/i,
+    /provider call executed in this pr/i,
+    /max_attempts: [2-9]/i,
+    /accepted output already received/i,
+    /raw prompt/i,
+    /raw request body/i,
+    /raw response body/i,
+    /private evidence path/i,
+    /credential value:/i,
+    /raw_evidence_committed: true/i,
+  ]) {
+    assert.doesNotMatch(
+      doc,
+      forbidden,
+      `parameter-compatible approval packet must not contain: ${forbidden}`,
+    );
+  }
+});

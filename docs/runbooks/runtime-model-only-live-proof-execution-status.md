@@ -1,32 +1,35 @@
 # Runtime Model-Only Live Proof Execution Status
 
-Status: exception after one approved parameter-compatible synthetic provider request.
+Status: completed for one approved output-contract-compatible synthetic provider request.
 
-Approval packet: `runtime-model-only-live-proof-parameter-compatible-approval-packet.md`.
+Approval packet: `runtime-model-only-live-proof-output-contract-approval-packet.md`.
 
-This status records the separate execution step allowed by the parameter-compatible approval packet. The parameter-compatible attempt was performed after PR #180 merged. It is a sanitized public status only; raw request, raw response, provider body details, stack traces, model output, credentials, and private evidence remain outside the repository.
+This status records the separate execution step allowed by the output-contract approval packet merged in PR #183. The output-contract-compatible attempt was performed after PR #183 merged. It is a sanitized public status only; raw request, raw response, provider body details, stack traces, model output, credentials, and private evidence remain outside the repository.
 
 ## Prior attempt history
 
-Earlier approval packets were already consumed before this parameter-compatible attempt:
+Earlier approval packets were consumed before this output-contract-compatible attempt:
 
 - PR #176 approved exactly one synthetic attempt.
-- PR #177 recorded that attempt as an exception.
+- PR #177 recorded that attempt as a sanitized exception.
 - PR #178 approved exactly one corrected retry.
-- PR #179 recorded that corrected retry as an exception.
-- PR #180 recorded the sanitized diagnostic category and approved exactly one parameter-compatible attempt.
+- PR #179 recorded that corrected retry as a sanitized exception.
+- PR #180 approved exactly one parameter-compatible attempt.
+- PR #181 recorded that parameter-compatible attempt as a sanitized exception.
+- PR #182 merged the no-call output-contract collector and guardrail.
+- PR #183 approved exactly one output-contract-compatible attempt.
 
-This document records the PR #180 parameter-compatible attempt only.
+This document records the PR #183 output-contract-compatible attempt only.
 
-## Parameter-compatible attempt outcome
+## Output-contract-compatible attempt outcome
 
-The parameter-compatible attempt used the approved execution-envelope correction: streaming remained enabled and the generic output-token-cap parameter was omitted for this Codex auxiliary route. The provider request was attempted once. It did not produce accepted output for the public proof contract.
+The output-contract-compatible attempt used the approved collector correction from PR #182: streamed `response.output_text.delta` text was the canonical output source, completed item text was not concatenated with delta text, and strict exact JSON proof parsing was enforced.
 
 Sanitized outcome:
 
-- status: exception
-- reason_code: synthetic_model_only_live_proof_exception
-- stable_error_code: provider_call_or_parse_failed
+- status: completed
+- reason_code: synthetic_model_only_live_proof_completed
+- stable_error_code: none
 - route_ref: gpt-5.5-openai-codex-20260602a
 - provider_ref: openai-codex
 - model_label: gpt-5.5
@@ -35,7 +38,10 @@ Sanitized outcome:
 - provider_spend: false
 - observed_cost_usd: 0
 - approved_max_cost_usd: 1
-- accepted_output_received: false
+- accepted_output_received: true
+- output_source: delta
+- input_tokens_observed: 125
+- output_tokens_observed: 16
 - raw_request_committed: false
 - raw_response_committed: false
 - model_output_committed: false
@@ -45,7 +51,7 @@ Sanitized outcome:
 
 ## Request boundary preserved
 
-The parameter-compatible attempt stayed within the approved model-only boundary:
+The output-contract-compatible attempt stayed within the approved model-only boundary:
 
 - no tools
 - no shell
@@ -62,17 +68,27 @@ The parameter-compatible attempt stayed within the approved model-only boundary:
 - no production deployment
 - no autonomous-agent substitution
 
+## What this proves
+
+This proves only the exact tiny synthetic model-only route under the approved boundary:
+
+- the Codex-auth model-only route was reachable for this synthetic request
+- exactly one provider request was attempted
+- the delta-first output collector produced one accepted proof object
+- the accepted proof object satisfied the exact top-level output contract
+- no public raw/private evidence was committed
+
 ## Non-authorizing markers
 
 This status is not an approval packet and does not authorize another provider request.
 
 - max_attempts: 1
 - one_call_only: true
-- parameter_compatible_retry_only: true
+- output_contract_compatible_attempt_only: true
 - prior_approval_consumed: true
 - corrected_retry_approval_consumed: true
 - parameter_compatible_approval_consumed: true
-- prior_exception_count: 3
+- output_contract_approval_consumed: true
 - authorizes_provider_call: false
 - authorizes_candidate_calls: false
 - authorizes_comparison_run: false
@@ -85,13 +101,12 @@ This status is not an approval packet and does not authorize another provider re
 
 ## Interpretation
 
+- live proof completed for this exact synthetic route only
 - no automatic retry
-- no live proof completed
-- no accepted model output recorded
 - no default model selected
 - no provider comparison performed
 - no production readiness claim
 - no product readiness claim
 - no launch readiness claim
 
-Any further attempt requires another fresh approval packet before execution. Do not treat PR #176, PR #178, or PR #180 as reusable authorization.
+Any further attempt or broader validation requires another fresh approval packet before execution. Do not treat PR #176, PR #178, PR #180, or PR #183 as reusable authorization.

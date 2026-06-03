@@ -154,7 +154,9 @@ function assertAccounting(input: RuntimeModelOnlyLiveProofStatusInput): void {
   if (input.status === "exception" && input.acceptedOutputReceived) throw new Error("runtime model-only live proof status accounting rejected");
 }
 
-function assertRenderStatus(status: RuntimeModelOnlyLiveProofStatus): void {
+function snapshotStatusForRender(
+  status: RuntimeModelOnlyLiveProofStatus,
+): RuntimeModelOnlyLiveProofStatus {
   const snapshot = snapshotExactOwnDataObject(status, STATUS_KEYS, "runtime model-only live proof status render input rejected");
   assertSafeLogicalId(snapshot.route_ref, "runtime model-only live proof status render input rejected");
   assertSafeLogicalId(snapshot.provider_ref, "runtime model-only live proof status render input rejected");
@@ -174,6 +176,12 @@ function assertRenderStatus(status: RuntimeModelOnlyLiveProofStatus): void {
     if (snapshot[key] !== false) throw new Error("runtime model-only live proof status render input rejected");
   }
   if (snapshot.retry_requires_new_approval !== true) throw new Error("runtime model-only live proof status render input rejected");
+  // snapshotExactOwnDataObject already returned a frozen plain object built
+  // from the validated own-data descriptor values. Returning it here ensures
+  // the renderer reads from the sanitized snapshot instead of re-invoking
+  // the original status object (which could be Proxy-backed and inject
+  // unsafe markdown via a hostile get trap after validation passes).
+  return snapshot as unknown as RuntimeModelOnlyLiveProofStatus;
 }
 
 export function createRuntimeModelOnlyLiveProofStatus(input: RuntimeModelOnlyLiveProofStatusInput): RuntimeModelOnlyLiveProofStatus {
@@ -210,6 +218,9 @@ export function createRuntimeModelOnlyLiveProofStatus(input: RuntimeModelOnlyLiv
 }
 
 export function renderRuntimeModelOnlyLiveProofStatusMarkdown(status: RuntimeModelOnlyLiveProofStatus): string {
-  assertRenderStatus(status);
-  return `# Runtime Model-Only Live Proof Status\n\nStatus: ${status.status}\n\n## Sanitized outcome\n\n- route_ref: ${status.route_ref}\n- provider_ref: ${status.provider_ref}\n- model_label: ${status.model_label}\n- reason_code: ${status.reason_code}\n- stable_error_code: ${status.stable_error_code ?? "none"}\n- provider_calls_executed: ${status.provider_calls_executed}\n- provider_spend: ${status.provider_spend}\n- observed_cost_usd: ${status.observed_cost_usd}\n- approved_max_cost_usd: ${status.approved_max_cost_usd}\n- accepted_output_received: ${status.accepted_output_received}\n- raw_request_committed: false\n- raw_response_committed: false\n- model_output_committed: false\n- private_evidence_committed: false\n- credential_value_observed: false\n\n## Interpretation limits\n\n- authorizes_provider_call: false\n- authorizes_candidate_calls: false\n- authorizes_comparison_run: false\n- default_model_selection_claim: false\n- provider_lock_in: false\n- production_readiness_claim: false\n- product_readiness_claim: false\n- launch_readiness_claim: false\n\n## Follow-up\n\n- retry_requires_new_approval: true\n- no automatic retry\n`;
+  // Take a sanitized descriptor snapshot first, then render exclusively
+  // from that frozen plain object — never from the original `status`
+  // input after validation.
+  const snapshot = snapshotStatusForRender(status);
+  return `# Runtime Model-Only Live Proof Status\n\nStatus: ${snapshot.status}\n\n## Sanitized outcome\n\n- route_ref: ${snapshot.route_ref}\n- provider_ref: ${snapshot.provider_ref}\n- model_label: ${snapshot.model_label}\n- reason_code: ${snapshot.reason_code}\n- stable_error_code: ${snapshot.stable_error_code ?? "none"}\n- provider_calls_executed: ${snapshot.provider_calls_executed}\n- provider_spend: ${snapshot.provider_spend}\n- observed_cost_usd: ${snapshot.observed_cost_usd}\n- approved_max_cost_usd: ${snapshot.approved_max_cost_usd}\n- accepted_output_received: ${snapshot.accepted_output_received}\n- raw_request_committed: false\n- raw_response_committed: false\n- model_output_committed: false\n- private_evidence_committed: false\n- credential_value_observed: false\n\n## Interpretation limits\n\n- authorizes_provider_call: false\n- authorizes_candidate_calls: false\n- authorizes_comparison_run: false\n- default_model_selection_claim: false\n- provider_lock_in: false\n- production_readiness_claim: false\n- product_readiness_claim: false\n- launch_readiness_claim: false\n\n## Follow-up\n\n- retry_requires_new_approval: true\n- no automatic retry\n`;
 }

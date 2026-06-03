@@ -148,6 +148,52 @@ describe("runtime model-only live proof sanitized status writer", () => {
     );
   });
 
+  test("renders from a sanitized snapshot, not from the original status object (hostile Proxy getter cannot leak)", () => {
+    // Start with a safe, builder-produced status, then spread into a plain
+    // mutable object so Proxy's get-trap can override individual fields
+    // (the builder freezes its own output, which would block direct
+    // mutation). Wrap the mutable copy in a Proxy whose get trap returns
+    // an unsafe multi-line value for `route_ref`.
+    const safe = createRuntimeModelOnlyLiveProofStatus(baseInput());
+    const mutable = { ...safe };
+    let getCount = 0;
+    let routeRefGetterReads = 0;
+    const hostile = new Proxy(mutable, {
+      get(target, property, receiver) {
+        getCount += 1;
+        if (property === "route_ref") {
+          routeRefGetterReads += 1;
+          return "safe\n- raw_request: SECRET";
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    const markdown = renderRuntimeModelOnlyLiveProofStatusMarkdown(
+      hostile as never,
+    );
+
+    // The hostile getter value MUST NOT appear in the rendered markdown.
+    assert.doesNotMatch(markdown, /raw_request: SECRET/);
+    assert.doesNotMatch(markdown, /raw_request:/);
+    // The safe value from the sanitized snapshot MUST appear in its place.
+    assert.match(markdown, /route_ref: gpt-5\.5-openai-codex-20260602a/);
+    // Snapshotting reads property descriptors (not [[Get]]), and the
+    // renderer reads from the frozen snapshot afterwards — so the hostile
+    // `get` trap must never fire during render. This guards against
+    // regressing back to interpolating ${status.X} from the original input.
+    assert.equal(
+      getCount,
+      0,
+      `proxy get trap fired ${getCount} times during render — renderer must not re-read original status fields after snapshotting`,
+    );
+    assert.equal(routeRefGetterReads, 0);
+    // The frozen, non-authorizing markers must still all be present.
+    assert.match(markdown, /retry_requires_new_approval: true/);
+    assert.match(markdown, /authorizes_provider_call: false/);
+    assert.match(markdown, /production_readiness_claim: false/);
+  });
+
   test("rejects unsafe accounting and automatic retry semantics", () => {
     assert.throws(
       () => createRuntimeModelOnlyLiveProofStatus({ ...baseInput(), providerCallsExecuted: 2 }),

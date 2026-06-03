@@ -4,6 +4,8 @@ Status: pre-run docs-only approval packet. This PR does not execute the live pro
 
 This packet authorizes exactly one future bounded runtime model-only live proof attempt and nothing more. It binds together the two merged building blocks and the single-call envelope they must run inside. It is a paper authorization only: merging this PR runs no provider call.
 
+The fresh one-call approval packet that builds on the now-proven no-call `model-only-codex-auth` boundary is `runtime-model-only-live-proof-one-call-approval-packet.md`.
+
 ## Prerequisites (merged building blocks)
 
 - PR #166 merged a no-spend activation/preflight wrapper reporting `ready_for_one_synthetic_live_proof: true` while preserving zero-call/non-authorizing markers.

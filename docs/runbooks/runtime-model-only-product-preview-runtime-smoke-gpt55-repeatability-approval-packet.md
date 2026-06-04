@@ -1,6 +1,6 @@
 # Runtime Model-Only Product-Preview Runtime Smoke GPT-5.5 Repeatability Approval Packet
 
-Status: pre-run docs-only approval packet. This PR does not execute a provider call. No execution may occur in this approval PR.
+Status: historical pre-run docs-only approval packet. This approval packet did not execute a provider call. The later sanitized execution record is `runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-status.md`.
 
 Input options analysis: `runtime-model-only-product-preview-runtime-smoke-post-six-slot-next-validation-options.md`.
 Input status: `runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-status.md`.
@@ -8,13 +8,13 @@ Input assessment: `runtime-model-only-product-preview-runtime-smoke-six-slot-exp
 
 ## Decision
 
-This packet approves exactly one future bounded GPT-5.5 repeatability attempt for the runtime/model-mode product-preview smoke path.
+This packet historically approved exactly one bounded GPT-5.5 repeatability attempt for the runtime/model-mode product-preview smoke path. That approval is now consumed by the later sanitized execution record linked above.
 
-The approved future attempt checks whether the already-useful six-slot GPT-5.5 model-only runtime smoke can repeat under the same app-owned harness, public-safe role shape, no-tools/no-search/no-production/no-graph-ingestion boundaries, and private evidence discipline.
+The approved attempt checked whether the already-useful six-slot GPT-5.5 model-only runtime smoke could repeat under the same app-owned harness, public-safe role shape, no-tools/no-search/no-production/no-graph-ingestion boundaries, and private evidence discipline.
 
-This packet is not a standing approval. It does not authorize any provider call, retry set, corpus growth, model route, spend, comparison, or product use beyond the exact scope below.
+This packet was not a standing approval. After the linked status consumed it, it does not currently authorize any provider call, retry set, corpus growth, model route, spend, comparison, or product use beyond the historical scope below.
 
-## Approved scope
+## Historical approved scope
 
 - job_id: product-preview-runtime-smoke-six-slot-gpt55-repeatability-20260604h
 - approval_id: runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-20260604h
@@ -35,9 +35,9 @@ This packet is not a standing approval. It does not authorize any provider call,
 - retry_authorized: false
 - status_followup_required: true
 
-## Required pre-execution gate
+## Historical required pre-execution gate
 
-Before any provider access in the future execution step:
+Before any provider access in the execution step:
 
 - planner_required_before_execution: true
 - planner_must_be_dry_run: true
@@ -74,10 +74,13 @@ Raw prompt material, screened source text, request bodies, response bodies, prov
 
 The later sanitized status follow-up may record only public-safe facts: job id, approval id, route/model labels, role labels, completed/failed status, provider-call count, token/cost totals, v2 output counts, support counts, remediation count, and explicit false authorization/readiness markers.
 
-## Authorization state
+## Authorization state after linked execution
 
-- authorizes_gpt55_repeatability_attempt: true
-- authorizes_provider_call: true
+- historically_authorized_gpt55_repeatability_attempt: true
+- historically_authorized_provider_call: true
+- authorization_consumed_by_status: true
+- current_authorizes_provider_call: false
+- current_authorizes_retry: false
 - authorizes_retry_after_this_attempt: false
 - authorizes_product_preview_expansion: false
 - authorizes_provider_comparison: false
@@ -92,7 +95,7 @@ The later sanitized status follow-up may record only public-safe facts: job id, 
 - production_readiness_claim: false
 - launch_readiness_claim: false
 
-This approval authorizes only the one named future GPT-5.5 repeatability attempt. It does not authorize a retry, provider comparison, default model selection, runtime integration, graph ingestion, production use, background orchestration, broader corpus expansion, product readiness, launch readiness, production readiness, or provider lock-in.
+This historical approval authorized only the one named GPT-5.5 repeatability attempt, and that authorization has been consumed by the linked status. It does not currently authorize another provider call, a retry, provider comparison, default model selection, runtime integration, graph ingestion, production use, background orchestration, broader corpus expansion, product readiness, launch readiness, production readiness, or provider lock-in.
 
 ## Interpretation limits
 

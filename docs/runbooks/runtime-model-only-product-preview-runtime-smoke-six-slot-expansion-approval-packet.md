@@ -2,6 +2,8 @@
 
 Status: pre-run docs-only approval packet. This PR does not execute a provider call.
 
+Execution status: `runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-status.md` records the later sanitized completed status.
+
 Options analysis: `runtime-model-only-product-preview-runtime-smoke-next-slice-options-analysis.md`.
 Source usefulness assessment: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-usefulness-assessment.md`.
 Source execution status: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-status.md`.

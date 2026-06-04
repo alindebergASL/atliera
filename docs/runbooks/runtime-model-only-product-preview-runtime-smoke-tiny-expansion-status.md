@@ -5,6 +5,7 @@ Status: completed for the approved three-slot runtime/model-mode product-preview
 Approval packet: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-approval-packet.md`.
 Source status: `runtime-model-only-product-preview-runtime-smoke-corrected-retry-status.md`.
 Source assessment: `runtime-model-only-product-preview-runtime-smoke-usefulness-assessment.md`.
+Follow-up interpretation: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-usefulness-assessment.md` records a later deterministic no-spend usefulness assessment. The `usefulness_evaluated: false` marker below remains a historical marker for this execution-status record.
 
 The tiny-expansion approval has now been consumed by this attempt. No retry or additional provider call is authorized by this status.
 

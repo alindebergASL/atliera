@@ -1,0 +1,152 @@
+{
+  "assessment_ref": "runtime-smoke-tiny-expansion-usefulness-20260604f",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-tiny-expansion-20260604f",
+  "source_status": "completed",
+  "provider_calls_executed": 3,
+  "screened_account_slots": 3,
+  "completed_slot_count": 3,
+  "accepted_output_received": true,
+  "v2_contract_validated": true,
+  "required_slot_roles": [
+    "representative",
+    "edge-case",
+    "calibration"
+  ],
+  "output_counts": {
+    "excerpts": 12,
+    "claims": 9,
+    "account_objects": 12
+  },
+  "object_type_counts": {
+    "account_snapshot": 3,
+    "signal": 3,
+    "stakeholder": 0,
+    "initiative": 0,
+    "risk": 3,
+    "open_question": 0,
+    "play": 3,
+    "recommendation": 0,
+    "map": 0,
+    "relationship": 0,
+    "milestone": 0
+  },
+  "support_coverage": {
+    "excerpt_text_presence_count": 12,
+    "claim_text_presence_count": 9,
+    "claim_supported_count": 9,
+    "account_object_summary_presence_count": 12,
+    "account_object_supported_count": 12
+  },
+  "slot_statuses": [
+    {
+      "role": "representative",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 4,
+        "claims": 3,
+        "account_objects": 4
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 0,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 4,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 4,
+        "account_object_supported_count": 4
+      }
+    },
+    {
+      "role": "edge-case",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 4,
+        "claims": 3,
+        "account_objects": 4
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 0,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 4,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 4,
+        "account_object_supported_count": 4
+      }
+    },
+    {
+      "role": "calibration",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 4,
+        "claims": 3,
+        "account_objects": 4
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 0,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 4,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 4,
+        "account_object_supported_count": 4
+      }
+    }
+  ],
+  "assessment_boundaries": {
+    "provider_call": false,
+    "provider_spend": false,
+    "raw_private_evidence_read": false,
+    "network_access": false,
+    "graph_ingestion": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_comparison": false,
+    "default_model_selection": false,
+    "product_readiness_claim": false,
+    "launch_readiness_claim": false,
+    "provider_lock_in": false
+  }
+}

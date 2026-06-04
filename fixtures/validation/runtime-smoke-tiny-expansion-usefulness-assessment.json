@@ -1,0 +1,75 @@
+{
+  "assessment_ref": "runtime-smoke-tiny-expansion-usefulness-20260604f",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-tiny-expansion-20260604f",
+  "status": "pass",
+  "usefulness_classification": "useful",
+  "useful_lenses": [
+    "signals",
+    "maps",
+    "plays"
+  ],
+  "reasons": [],
+  "metrics": {
+    "provider_calls_executed_source": 3,
+    "provider_calls_executed_by_assessment": 0,
+    "screened_account_slots": 3,
+    "completed_slot_count": 3,
+    "output_counts": {
+      "excerpts": 12,
+      "claims": 9,
+      "account_objects": 12
+    },
+    "object_type_counts": {
+      "account_snapshot": 3,
+      "initiative": 0,
+      "map": 0,
+      "milestone": 0,
+      "open_question": 0,
+      "play": 3,
+      "recommendation": 0,
+      "relationship": 0,
+      "risk": 3,
+      "signal": 3,
+      "stakeholder": 0
+    },
+    "support_coverage": {
+      "account_object_summary_presence_count": 12,
+      "account_object_supported_count": 12,
+      "claim_supported_count": 9,
+      "claim_text_presence_count": 9,
+      "excerpt_text_presence_count": 12
+    },
+    "lens_counts": {
+      "maps": 3,
+      "signals": 6,
+      "plays": 3
+    }
+  },
+  "recommends_next_step": "separate-reviewed-next-approval-required",
+  "authorizes_provider_call": false,
+  "authorizes_retry": false,
+  "authorizes_product_preview_expansion": false,
+  "authorizes_provider_comparison": false,
+  "authorizes_default_model_selection": false,
+  "authorizes_graph_ingestion": false,
+  "authorizes_background_orchestrator_bypass": false,
+  "authorizes_production_use": false,
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "provider_lock_in": false,
+  "safety": {
+    "provider_call": false,
+    "provider_spend": false,
+    "raw_private_evidence_read": false,
+    "network_access": false,
+    "graph_ingestion": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_comparison": false,
+    "default_model_selection": false,
+    "product_readiness_claim": false,
+    "launch_readiness_claim": false,
+    "provider_lock_in": false
+  }
+}

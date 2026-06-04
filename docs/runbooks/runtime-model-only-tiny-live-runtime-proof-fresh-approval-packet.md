@@ -1,8 +1,12 @@
 # Runtime Model-Only Tiny Live Runtime Proof Fresh Approval Packet
 
-Status: pre-run docs-only fresh approval packet. This PR does not execute the live proof.
+Status: historical pre-run docs-only fresh approval packet. The original approval-packet PR did not execute the live proof.
 
-This packet records a fresh bounded approval after the previous tiny live runtime proof stopped before provider access and after the no-spend transport remediation status was merged. It permits only one future tiny runtime/model-mode proof attempt, in a separate later execution/status PR, after this packet is merged and the pre-run checks still match this scope.
+Later sanitized status: `runtime-model-only-tiny-live-runtime-proof-fresh-status.md`. The approved attempt was later consumed exactly once by that status.
+
+Current effective authorization after that later status: none. This historical packet must not be reused for another provider call, retry, runtime/model-mode execution, provider comparison, product expansion, tools/search/plugins/retrieval change, default model selection, provider lock-in, or readiness claim.
+
+This packet recorded a fresh bounded approval after the previous tiny live runtime proof stopped before provider access and after the no-spend transport remediation status was merged. Before it was consumed, it permitted only one future tiny runtime/model-mode proof attempt, in a separate later execution/status PR, after this packet was merged and the pre-run checks still matched this scope.
 
 ## Prerequisites
 
@@ -18,7 +22,7 @@ This packet records a fresh bounded approval after the previous tiny live runtim
 - product_slice_status_ref: `runtime-model-only-product-vertical-slice-deterministic-status.md`
 - route_selection_policy: explicit-route-ref-only
 
-## Approved future attempt scope
+## Historical approved attempt scope
 
 - approval_id: runtime-model-only-tiny-live-runtime-proof-fresh-20260604k
 - approved_future_attempts: 1
@@ -78,11 +82,14 @@ The later status may record only bounded facts:
 
 The later status must not commit prompt text, model text, source excerpts, account refs, provider payloads, headers, operator filesystem locations, logs, credential-bearing values, client handles, or request identifiers.
 
-## Authorization state
+## Historical approval-time authorization state
 
-- authorizes_provider_call: true
+These markers describe the original pre-run approval scope before the later sanitized status consumed the attempt. They are not current authorization.
+
+- historical_provider_call_authorized: true
+- historical_runtime_model_mode_execution_authorized: true
+- historical_approved_future_attempts: 1
 - authorizes_retry: false
-- authorizes_runtime_model_mode_execution: true
 - authorizes_provider_comparison: false
 - authorizes_product_preview_expansion: false
 - authorizes_default_model_selection: false
@@ -97,4 +104,26 @@ The later status must not commit prompt text, model text, source excerpts, accou
 - production_readiness_claim: false
 - launch_readiness_claim: false
 
-A successful future attempt would prove only the exact tiny runtime/model-mode route under this approved boundary. It would not approve provider comparison, corpus expansion, product-preview expansion, graph ingestion, production use, tool/search/plugin/retrieval changes, launch, or another provider request.
+## Current effective authorization state after consumption
+
+- approval_consumed: true
+- remaining_approved_future_attempts: 0
+- remaining_provider_calls_authorized: 0
+- authorizes_provider_call: false
+- authorizes_retry: false
+- authorizes_runtime_model_mode_execution: false
+- authorizes_provider_comparison: false
+- authorizes_product_preview_expansion: false
+- authorizes_default_model_selection: false
+- authorizes_tools: false
+- authorizes_web_search: false
+- authorizes_plugins: false
+- authorizes_retrieval: false
+- retry_requires_new_approval: true
+- default_model_selection_claim: false
+- provider_lock_in: false
+- product_readiness_claim: false
+- production_readiness_claim: false
+- launch_readiness_claim: false
+
+A successful historical attempt would have proved only the exact tiny runtime/model-mode route under this approved boundary. The later status did not produce accepted contract output. This packet now proves no provider comparison, corpus expansion, product-preview expansion, graph ingestion, production use, tool/search/plugin/retrieval changes, launch, retry, or another provider request.

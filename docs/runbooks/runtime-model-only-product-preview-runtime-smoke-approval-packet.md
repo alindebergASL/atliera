@@ -2,6 +2,8 @@
 
 Status: pre-run docs-only approval packet. This PR does not execute a provider call.
 
+Execution status: `runtime-model-only-product-preview-runtime-smoke-status.md` records the later sanitized exception status.
+
 Input decision: `runtime-model-only-product-preview-post-comparison-decision.md`.
 Input hardening: `runtime-model-only-product-preview-runtime-hardening.md`.
 Input comparison: `runtime-model-only-product-preview-sanitized-provider-comparison.md`.

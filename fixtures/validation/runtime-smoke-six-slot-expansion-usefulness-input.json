@@ -1,0 +1,251 @@
+{
+  "assessment_ref": "runtime-smoke-six-slot-expansion-usefulness-20260604g",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-20260604g",
+  "source_status": "completed",
+  "provider_calls_executed": 6,
+  "screened_account_slots": 6,
+  "completed_slot_count": 6,
+  "accepted_output_received": true,
+  "v2_contract_validated": true,
+  "required_slot_roles": [
+    "representative-a",
+    "representative-b",
+    "edge-case-a",
+    "edge-case-b",
+    "calibration",
+    "sparse-control"
+  ],
+  "output_counts": {
+    "excerpts": 30,
+    "claims": 19,
+    "account_objects": 29
+  },
+  "object_type_counts": {
+    "account_snapshot": 6,
+    "signal": 5,
+    "stakeholder": 0,
+    "initiative": 0,
+    "risk": 6,
+    "open_question": 2,
+    "play": 5,
+    "recommendation": 0,
+    "map": 5,
+    "relationship": 0,
+    "milestone": 0
+  },
+  "support_coverage": {
+    "excerpt_text_presence_count": 30,
+    "claim_text_presence_count": 19,
+    "claim_supported_count": 19,
+    "account_object_summary_presence_count": 29,
+    "account_object_supported_count": 29
+  },
+  "slot_statuses": [
+    {
+      "role": "representative-a",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 3,
+        "account_objects": 5
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 1,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 5,
+        "account_object_supported_count": 5
+      }
+    },
+    {
+      "role": "representative-b",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 3,
+        "account_objects": 5
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 1,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 5,
+        "account_object_supported_count": 5
+      }
+    },
+    {
+      "role": "edge-case-a",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 3,
+        "account_objects": 5
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 1,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 5,
+        "account_object_supported_count": 5
+      }
+    },
+    {
+      "role": "edge-case-b",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 4,
+        "account_objects": 6
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 1,
+        "play": 1,
+        "recommendation": 0,
+        "map": 1,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 4,
+        "claim_supported_count": 4,
+        "account_object_summary_presence_count": 6,
+        "account_object_supported_count": 6
+      }
+    },
+    {
+      "role": "calibration",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 3,
+        "account_objects": 4
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 0,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 0,
+        "play": 1,
+        "recommendation": 0,
+        "map": 1,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 4,
+        "account_object_supported_count": 4
+      }
+    },
+    {
+      "role": "sparse-control",
+      "status": "completed",
+      "provider_calls_executed": 1,
+      "accepted_output_received": true,
+      "v2_contract_validated": true,
+      "output_counts": {
+        "excerpts": 5,
+        "claims": 3,
+        "account_objects": 4
+      },
+      "object_type_counts": {
+        "account_snapshot": 1,
+        "signal": 1,
+        "stakeholder": 0,
+        "initiative": 0,
+        "risk": 1,
+        "open_question": 1,
+        "play": 0,
+        "recommendation": 0,
+        "map": 0,
+        "relationship": 0,
+        "milestone": 0
+      },
+      "support_coverage": {
+        "excerpt_text_presence_count": 5,
+        "claim_text_presence_count": 3,
+        "claim_supported_count": 3,
+        "account_object_summary_presence_count": 4,
+        "account_object_supported_count": 4
+      }
+    }
+  ],
+  "assessment_boundaries": {
+    "provider_call": false,
+    "provider_spend": false,
+    "raw_private_evidence_read": false,
+    "network_access": false,
+    "graph_ingestion": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_comparison": false,
+    "default_model_selection": false,
+    "product_readiness_claim": false,
+    "launch_readiness_claim": false,
+    "provider_lock_in": false
+  }
+}

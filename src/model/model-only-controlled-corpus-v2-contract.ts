@@ -146,7 +146,7 @@ function snapshotExcerpt(value: unknown): ControlledCorpusV2Excerpt {
   if (text !== undefined && typeof text !== "string") {
     throw new Error("controlled-corpus v2 excerpt text must be a string when present");
   }
-  return Object.freeze({ id, account_ref: accountRef, ...(text === undefined ? {} : { text }) });
+  return Object.freeze({ id, account_ref: accountRef, ...(text === undefined ? {} : { text: text as string }) });
 }
 
 function snapshotClaim(value: unknown): ControlledCorpusV2Claim {
@@ -163,7 +163,7 @@ function snapshotClaim(value: unknown): ControlledCorpusV2Claim {
   return Object.freeze({
     id,
     account_ref: accountRef,
-    ...(claim === undefined ? {} : { claim }),
+    ...(claim === undefined ? {} : { claim: claim as string }),
     supporting_excerpt_ids: supportingIds,
   });
 }
@@ -190,8 +190,8 @@ function snapshotAccountObject(value: unknown): ControlledCorpusV2AccountObject 
   return Object.freeze({
     id,
     account_ref: accountRef,
-    ...(type === undefined ? {} : { type }),
-    ...(summary === undefined ? {} : { summary }),
+    ...(type === undefined ? {} : { type: type as string }),
+    ...(summary === undefined ? {} : { summary: summary as string }),
     supporting_excerpt_ids: supportingIds,
   });
 }
@@ -244,7 +244,8 @@ export function validateControlledCorpusV2ModelOnlyOutput(input: unknown): Contr
     for (const accountObject of accountObjects) validateSupport(accountObject, excerptById);
 
     const output = Object.freeze({ excerpts, claims, account_objects: accountObjects });
-    const accountRefs = Object.freeze([...new Set([...excerpts, ...claims, ...accountObjects].map((item) => item.account_ref))].sort());
+    const accountRefSet = new Set([...excerpts, ...claims, ...accountObjects].map((item) => item.account_ref));
+    const accountRefs = Object.freeze(Array.from(accountRefSet).sort());
     return Object.freeze({
       output,
       counts: Object.freeze({ excerpts: excerpts.length, claims: claims.length, account_objects: accountObjects.length }),

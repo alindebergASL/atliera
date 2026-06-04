@@ -5,6 +5,7 @@ Status: completed for one approved corrected runtime/model-mode smoke retry.
 Approval packet: `runtime-model-only-product-preview-runtime-smoke-corrected-retry-approval-packet.md`.
 Source status: `runtime-model-only-product-preview-runtime-smoke-status.md`.
 Source remediation: `runtime-model-only-product-preview-runtime-smoke-remediation.md`.
+Follow-up interpretation: `runtime-model-only-product-preview-runtime-smoke-usefulness-assessment.md` records a later deterministic no-spend usefulness assessment. The `usefulness_evaluated: false` marker below remains a historical marker for this execution-status record.
 
 The corrected retry approval has now been consumed by this attempt. No additional retry is authorized by this status.
 

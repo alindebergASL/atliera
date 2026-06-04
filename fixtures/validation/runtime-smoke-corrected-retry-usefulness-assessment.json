@@ -1,0 +1,73 @@
+{
+  "assessment_ref": "runtime-smoke-corrected-retry-usefulness-20260604e",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-corrected-retry-20260604e",
+  "status": "pass",
+  "usefulness_classification": "useful",
+  "lens_counts": {
+    "maps": 1,
+    "signals": 2,
+    "plays": 1
+  },
+  "useful_lens_count": 3,
+  "useful_lenses": [
+    "signals",
+    "maps",
+    "plays"
+  ],
+  "metrics": {
+    "provider_calls_executed_source": 1,
+    "provider_calls_executed_by_assessment": 0,
+    "output_counts": {
+      "excerpts": 4,
+      "claims": 3,
+      "account_objects": 4
+    },
+    "object_type_counts": {
+      "account_snapshot": 1,
+      "signal": 1,
+      "stakeholder": 0,
+      "initiative": 0,
+      "risk": 1,
+      "open_question": 0,
+      "play": 1,
+      "recommendation": 0
+    },
+    "support_coverage": {
+      "excerpt_text_presence_count": 4,
+      "claim_text_presence_count": 3,
+      "claim_supported_count": 3,
+      "account_object_summary_presence_count": 4,
+      "account_object_supported_count": 4
+    }
+  },
+  "reasons": [],
+  "recommends_next_step": "separate-tiny-expansion-approval-packet",
+  "authorizes_provider_call": false,
+  "authorizes_retry": false,
+  "authorizes_product_preview_expansion": false,
+  "authorizes_provider_comparison": false,
+  "authorizes_default_model_selection": false,
+  "authorizes_graph_ingestion": false,
+  "authorizes_background_orchestrator_bypass": false,
+  "authorizes_production_use": false,
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "provider_lock_in": false,
+  "safety": {
+    "provider_call": false,
+    "provider_spend": false,
+    "network_access": false,
+    "graph_ingestion": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_or_model_comparison": false,
+    "default_model_selection": false,
+    "product_preview_expansion": false,
+    "readiness_claim": false,
+    "raw_or_model_output_committed": false,
+    "private_evidence_committed": false,
+    "prompt_material_committed": false,
+    "credentials_committed": false
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "accepted_output_received": true,
+  "assessment_boundaries": {
+    "credentials_committed": false,
+    "default_model_selection": false,
+    "graph_ingestion": false,
+    "network_access": false,
+    "private_evidence_committed": false,
+    "product_preview_expansion": false,
+    "production_writes": false,
+    "prompt_material_committed": false,
+    "provider_call": false,
+    "provider_or_model_comparison": false,
+    "provider_spend": false,
+    "raw_or_model_output_committed": false,
+    "readiness_claim": false,
+    "runtime_model_mode_integration": false
+  },
+  "assessment_ref": "runtime-smoke-corrected-retry-usefulness-20260604e",
+  "object_type_counts": {
+    "account_snapshot": 1,
+    "play": 1,
+    "risk": 1,
+    "signal": 1
+  },
+  "output_counts": {
+    "account_objects": 4,
+    "claims": 3,
+    "excerpts": 4
+  },
+  "provider_calls_executed": 1,
+  "slot_role": "calibration",
+  "source_status": "completed",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-corrected-retry-20260604e",
+  "support_coverage": {
+    "account_object_summary_presence_count": 4,
+    "account_object_supported_count": 4,
+    "claim_supported_count": 3,
+    "claim_text_presence_count": 3,
+    "excerpt_text_presence_count": 4
+  },
+  "v2_contract_validated": true
+}

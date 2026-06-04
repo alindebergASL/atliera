@@ -2,6 +2,8 @@
 
 Status: pre-run docs-only approval packet. This PR does not execute a provider call.
 
+Execution status: `runtime-model-only-product-preview-runtime-smoke-corrected-retry-status.md` records the later sanitized completed status.
+
 source_status: runtime-model-only-product-preview-runtime-smoke-status.md
 source_remediation: runtime-model-only-product-preview-runtime-smoke-remediation.md
 

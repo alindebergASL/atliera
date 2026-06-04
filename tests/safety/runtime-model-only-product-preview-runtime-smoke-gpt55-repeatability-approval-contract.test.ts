@@ -66,9 +66,9 @@ test("post-six-slot next validation options are no-spend and select bounded GPT-
 test("GPT-5.5 repeatability approval authorizes only one future bounded attempt", () => {
   const doc = read(APPROVAL);
   assertAll(doc, [
-    /Status: pre-run docs-only approval packet/i,
-    /This PR does not execute a provider call/i,
-    /No execution may occur in this approval PR/i,
+    /Status: historical pre-run docs-only approval packet/i,
+    /did not execute a provider call/i,
+    /later sanitized execution record is `runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-status\.md`/i,
     /job_id: product-preview-runtime-smoke-six-slot-gpt55-repeatability-20260604h/i,
     /approval_id: runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-20260604h/i,
     /route_ref: gpt-5\.5-openai-codex-20260602a/i,
@@ -98,8 +98,11 @@ test("GPT-5.5 repeatability approval authorizes only one future bounded attempt"
     /production_writes: false/i,
     /graph_ingestion: false/i,
     /provider_comparison: false/i,
-    /authorizes_gpt55_repeatability_attempt: true/i,
-    /authorizes_provider_call: true/i,
+    /historically_authorized_gpt55_repeatability_attempt: true/i,
+    /historically_authorized_provider_call: true/i,
+    /authorization_consumed_by_status: true/i,
+    /current_authorizes_provider_call: false/i,
+    /current_authorizes_retry: false/i,
     /authorizes_retry_after_this_attempt: false/i,
     /authorizes_product_preview_expansion: false/i,
     /authorizes_provider_comparison: false/i,
@@ -116,6 +119,10 @@ test("GPT-5.5 repeatability approval authorizes only one future bounded attempt"
   ]);
   assertNoPrivateLeakage(doc);
   for (const forbidden of [
+    /authorizes_gpt55_repeatability_attempt: true/i,
+    /authorizes_provider_call: true/i,
+    /current_authorizes_provider_call: true/i,
+    /current_authorizes_retry: true/i,
     /authorizes_retry_after_this_attempt: true/i,
     /authorizes_product_preview_expansion: true/i,
     /authorizes_provider_comparison: true/i,

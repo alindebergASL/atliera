@@ -3,6 +3,7 @@
 Status: no-spend usefulness assessment over the sanitized runtime-smoke tiny-expansion status. This document does not execute or approve a provider call.
 
 Source status: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-status.md`.
+Follow-up approval: `runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-approval-packet.md` records a later separate docs-only six-slot approval. The authorization markers below remain historical markers for this no-spend assessment.
 Input fixture: `fixtures/validation/runtime-smoke-tiny-expansion-usefulness-input.json`.
 Assessment fixture: `fixtures/validation/runtime-smoke-tiny-expansion-usefulness-assessment.json`.
 

@@ -1,0 +1,113 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+
+const DOC = join(
+  import.meta.dirname,
+  "..",
+  "..",
+  "docs",
+  "runbooks",
+  "runtime-model-only-controlled-corpus-status.md",
+);
+
+test("controlled-corpus status records one sanitized completed harness run without usefulness or readiness claims", () => {
+  const doc = readFileSync(DOC, "utf8");
+
+  for (const required of [
+    /Status: completed for one approved controlled-corpus model-only harness run/i,
+    /Approval packet: `runtime-model-only-controlled-corpus-approval-packet\.md`/i,
+    /merged in PR #188/i,
+    /sanitized public status only/i,
+    /Raw controlled account text/i,
+    /raw provider request/i,
+    /model output text/i,
+    /private evidence paths remain outside the repository/i,
+    /approval_ref: docs\/runbooks\/runtime-model-only-controlled-corpus-approval-packet\.md/i,
+    /route_ref: gpt-5\.5-openai-codex-20260602a/i,
+    /provider_ref: openai-codex/i,
+    /model_label: gpt-5\.5/i,
+    /transport_kind: model-only-codex-auth/i,
+    /harness: Atliera model-only harness/i,
+    /corpus_ref: controlled-corpus\/model-only-harness-smoke-v1/i,
+    /corpus_size: 3/i,
+    /corpus_roles: representative, edge-case, calibration/i,
+    /prompt_contract_ref: prompts\/controlled-corpus-model-only-v1/i,
+    /max_provider_calls: 1/i,
+    /max_attempts: 1/i,
+    /The PR #188 approval is consumed and is not reusable/i,
+    /status: completed/i,
+    /reason_code: model_only_harness_completed/i,
+    /stable_error_code: none/i,
+    /provider_calls_executed: 1/i,
+    /transport_calls_observed_by_runner: 1/i,
+    /accepted_output_received: true/i,
+    /observed_cost_usd: 0/i,
+    /approved_max_cost_usd: 1/i,
+    /input_tokens_observed: 320/i,
+    /output_tokens_observed: 812/i,
+    /raw_request_committed: false/i,
+    /raw_response_committed: false/i,
+    /raw_controlled_account_text_committed: false/i,
+    /model_output_committed: false/i,
+    /private_evidence_committed: false/i,
+    /usefulness_evaluated: false/i,
+    /no tools/i,
+    /no shell/i,
+    /no file access/i,
+    /no web search/i,
+    /no plugins/i,
+    /no MCP/i,
+    /no retrieval/i,
+    /no session carryover/i,
+    /no production writes/i,
+    /no graph ingestion into production state/i,
+    /no provider comparison/i,
+    /no default model selection/i,
+    /no background orchestrator bypass/i,
+    /approved three-account synthetic controlled-corpus request/i,
+    /strict top-level output contract/i,
+    /does not evaluate usefulness/i,
+    /separate no-spend usefulness assessment/i,
+    /authorizes_provider_call: false/i,
+    /authorizes_retry: false/i,
+    /authorizes_product_preview_run: false/i,
+    /authorizes_provider_comparison: false/i,
+    /authorizes_default_model_selection: false/i,
+    /authorizes_background_orchestrator_bypass: false/i,
+    /authorizes_production_use: false/i,
+    /authorizes_graph_ingestion: false/i,
+    /default_model_selection_claim: false/i,
+    /provider_lock_in: false/i,
+    /production_readiness_claim: false/i,
+    /product_readiness_claim: false/i,
+    /launch_readiness_claim: false/i,
+    /retry_requires_new_approval: true/i,
+  ]) {
+    assert.match(doc, required, `status doc must contain ${required}`);
+  }
+
+  for (const forbidden of [
+    /provider_calls_executed: [2-9]/i,
+    /transport_calls_observed_by_runner: [2-9]/i,
+    /authorizes_provider_call: true/i,
+    /authorizes_retry: true/i,
+    /authorizes_product_preview_run: true/i,
+    /authorizes_provider_comparison: true/i,
+    /authorizes_default_model_selection: true/i,
+    /authorizes_background_orchestrator_bypass: true/i,
+    /authorizes_production_use: true/i,
+    /authorizes_graph_ingestion: true/i,
+    /provider_lock_in: true/i,
+    /production_readiness_claim: true/i,
+    /product_readiness_claim: true/i,
+    /launch_readiness_claim: true/i,
+    /usefulness_evaluated: true/i,
+    /default production model/i,
+    /production ready/i,
+    /launch ready/i,
+  ]) {
+    assert.doesNotMatch(doc, forbidden, `status doc must not contain ${forbidden}`);
+  }
+});

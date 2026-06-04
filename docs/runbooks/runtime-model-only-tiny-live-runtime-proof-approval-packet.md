@@ -2,6 +2,8 @@
 
 Status: pre-run docs-only approval packet. This PR does not execute the live proof.
 
+Later sanitized status: `runtime-model-only-tiny-live-runtime-proof-status.md`.
+
 This packet records the next bounded live step after the no-call runtime smoke and deterministic product vertical slice. It is not a standing approval. It permits only one future tiny runtime/model-mode proof attempt, in a separate later execution/status PR, after this packet is merged and the pre-run checks still match this scope.
 
 ## Prerequisites

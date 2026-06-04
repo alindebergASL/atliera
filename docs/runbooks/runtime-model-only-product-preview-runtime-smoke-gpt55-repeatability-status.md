@@ -5,6 +5,7 @@ Status: completed for the approved GPT-5.5 six-slot runtime/model-mode repeatabi
 Approval packet: `runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-approval-packet.md`.
 Source status: `runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-status.md`.
 Source assessment: `runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-usefulness-assessment.md`.
+Follow-up interpretation: `runtime-model-only-product-preview-runtime-smoke-gpt55-repeatability-usefulness-assessment.md` records a later deterministic no-spend repeatability assessment. The `usefulness_evaluated: false` marker below remains a historical marker for this execution-status record.
 
 The GPT-5.5 repeatability approval has now been consumed by this attempt. No retry or additional provider call is authorized by this status.
 

@@ -1,0 +1,87 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+
+const DOC = join(import.meta.dirname, "..", "..", "docs", "runbooks", "runtime-model-only-product-preview-retry-approval-packet.md");
+
+test("product-preview retry approval is exactly one future docs-only retry", () => {
+  const doc = readFileSync(DOC, "utf8");
+
+  for (const required of [
+    /Status: pre-run docs-only approval packet/i,
+    /This PR does not execute a provider call/i,
+    /No execution may occur in this approval PR/i,
+    /Prior consumed approval: `runtime-model-only-product-preview-approval-packet\.md`/i,
+    /Prior status: `runtime-model-only-product-preview-status\.md`/i,
+    /No-spend remediation preflight: `runtime-model-only-product-preview-transport-remediation\.md`/i,
+    /prior_approval_consumed: true/i,
+    /prior_retry_requires_new_approval: true/i,
+    /transport_remediation_recorded: true/i,
+    /provider_api_requests_executed_during_remediation: 0/i,
+    /provider_spend_during_remediation: false/i,
+    /firewall_or_network_blocker_observed: false/i,
+    /max_attempts: 1/i,
+    /max_provider_calls: 1/i,
+    /approved_max_cost_usd: 1/i,
+    /route_ref: gpt-5\.5-openai-codex-20260602a/i,
+    /provider_ref: openai-codex/i,
+    /model_label: gpt-5\.5/i,
+    /transport_kind: model-only-codex-auth/i,
+    /runtime_surface: app-owned-model-only-harness/i,
+    /corpus_ref: product-preview\/single-screened-account-v1/i,
+    /prompt_contract_ref: prompts\/product-preview-model-only-v1/i,
+    /output_contract_ref: src\/model\/model-only-controlled-corpus-v2-contract\.ts/i,
+    /screened_account_slots: 1/i,
+    /tools: false/i,
+    /web_search: false/i,
+    /plugins: false/i,
+    /mcp: false/i,
+    /shell: false/i,
+    /file_access: false/i,
+    /retrieval: false/i,
+    /production_writes: false/i,
+    /graph_ingestion: false/i,
+    /authorizes_product_preview_retry: true/i,
+    /authorizes_product_preview_run: true/i,
+    /authorizes_provider_call: true/i,
+    /authorizes_retry_after_this_attempt: false/i,
+    /authorizes_provider_comparison: false/i,
+    /authorizes_default_model_selection: false/i,
+    /authorizes_background_orchestrator_bypass: false/i,
+    /authorizes_production_use: false/i,
+    /authorizes_graph_ingestion: false/i,
+    /status_followup_required: true/i,
+    /raw_or_model_output_must_remain_private: true/i,
+    /If the retry blocks or fails, no additional retry is authorized/i,
+  ]) assert.match(doc, required);
+
+  for (const forbidden of [
+    /authorizes_retry_after_this_attempt: true/i,
+    /authorizes_provider_comparison: true/i,
+    /authorizes_default_model_selection: true/i,
+    /authorizes_background_orchestrator_bypass: true/i,
+    /authorizes_production_use: true/i,
+    /authorizes_graph_ingestion: true/i,
+    /web_search: true/i,
+    /plugins: true/i,
+    /mcp: true/i,
+    /shell: true/i,
+    /file_access: true/i,
+    /retrieval: true/i,
+    /production_writes: true/i,
+    /graph_ingestion: true/i,
+    /provider_api_requests_executed_during_remediation: [1-9]/i,
+    /provider_spend_during_remediation: true/i,
+    /api[_-]?key/i,
+    /authorization header/i,
+    /bearer /i,
+    /private-provider-evidence/i,
+    /raw_provider_output_text/i,
+    /raw_harness_transport_request/i,
+    /raw_provider_metadata/i,
+    /production ready/i,
+    /launch ready/i,
+    /default production model/i,
+  ]) assert.doesNotMatch(doc, forbidden);
+});

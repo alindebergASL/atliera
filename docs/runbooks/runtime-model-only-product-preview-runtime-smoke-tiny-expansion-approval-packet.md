@@ -1,6 +1,7 @@
 # Runtime Model-Only Product-Preview Runtime Smoke Tiny Expansion Approval Packet
 
 Status: pre-run docs-only approval packet. This PR does not execute a provider call.
+Execution status: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-status.md` records the later sanitized completed status.
 
 Input assessment: `runtime-model-only-product-preview-runtime-smoke-usefulness-assessment.md`.
 Source status: `runtime-model-only-product-preview-runtime-smoke-corrected-retry-status.md`.

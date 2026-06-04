@@ -1,0 +1,75 @@
+{
+  "assessment_ref": "runtime-smoke-six-slot-expansion-usefulness-20260604g",
+  "status_ref": "runtime-model-only-product-preview-runtime-smoke-six-slot-expansion-20260604g",
+  "status": "pass",
+  "usefulness_classification": "useful",
+  "useful_lenses": [
+    "signals",
+    "maps",
+    "plays"
+  ],
+  "reasons": [],
+  "metrics": {
+    "provider_calls_executed_source": 6,
+    "provider_calls_executed_by_assessment": 0,
+    "screened_account_slots": 6,
+    "completed_slot_count": 6,
+    "output_counts": {
+      "excerpts": 30,
+      "claims": 19,
+      "account_objects": 29
+    },
+    "object_type_counts": {
+      "account_snapshot": 6,
+      "initiative": 0,
+      "map": 5,
+      "milestone": 0,
+      "open_question": 2,
+      "play": 5,
+      "recommendation": 0,
+      "relationship": 0,
+      "risk": 6,
+      "signal": 5,
+      "stakeholder": 0
+    },
+    "support_coverage": {
+      "account_object_summary_presence_count": 29,
+      "account_object_supported_count": 29,
+      "claim_supported_count": 19,
+      "claim_text_presence_count": 19,
+      "excerpt_text_presence_count": 30
+    },
+    "lens_counts": {
+      "maps": 11,
+      "signals": 13,
+      "plays": 5
+    }
+  },
+  "recommends_next_step": "separate-reviewed-next-approval-required",
+  "authorizes_provider_call": false,
+  "authorizes_retry": false,
+  "authorizes_product_preview_expansion": false,
+  "authorizes_provider_comparison": false,
+  "authorizes_default_model_selection": false,
+  "authorizes_graph_ingestion": false,
+  "authorizes_background_orchestrator_bypass": false,
+  "authorizes_production_use": false,
+  "launch_readiness_claim": false,
+  "product_readiness_claim": false,
+  "production_readiness_claim": false,
+  "provider_lock_in": false,
+  "safety": {
+    "provider_call": false,
+    "provider_spend": false,
+    "raw_private_evidence_read": false,
+    "network_access": false,
+    "graph_ingestion": false,
+    "production_writes": false,
+    "runtime_model_mode_integration": false,
+    "provider_comparison": false,
+    "default_model_selection": false,
+    "product_readiness_claim": false,
+    "launch_readiness_claim": false,
+    "provider_lock_in": false
+  }
+}

@@ -3,6 +3,7 @@
 Status: applied deterministic no-spend assessment.
 
 Source status: `runtime-model-only-product-preview-runtime-smoke-corrected-retry-status.md`.
+Follow-up approval packet: `runtime-model-only-product-preview-runtime-smoke-tiny-expansion-approval-packet.md` records the later separate docs-only approval. The authorization markers below remain historical markers for this no-spend assessment record.
 Assessment helper: `src/product-preview/runtime-smoke-usefulness-assessment.ts`.
 Sanitized input fixture: `fixtures/validation/runtime-smoke-corrected-retry-usefulness-input.json`.
 Sanitized assessment fixture: `fixtures/validation/runtime-smoke-corrected-retry-usefulness-assessment.json`.

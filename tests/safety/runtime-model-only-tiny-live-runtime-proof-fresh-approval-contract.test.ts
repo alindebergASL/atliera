@@ -28,7 +28,7 @@ function assertNoForbiddenApprovalBroadening(label: string, text: string): void 
     /source material/i,
     /account reference/i,
     /local evidence location/i,
-    /atliera-private-provider-evidence/i,
+    /private[-_ ]provider[-_ ]evidence/i,
     /authorizes_retry:\s*true/i,
     /authorizes_provider_comparison:\s*true/i,
     /authorizes_product_preview_expansion:\s*true/i,
@@ -59,10 +59,16 @@ test("fresh tiny live runtime proof approval is one-call only after remediation 
   assert.match(remediation, /dependency_preflight_result: pass/i);
   assert.match(remediation, /fresh_approval_required_before_retry: true/i);
 
-  assert.match(approval, /Status: pre-run docs-only fresh approval packet/i);
-  assert.match(approval, /This PR does not execute the live proof/i);
+  assert.match(approval, /Status: historical pre-run docs-only fresh approval packet/i);
+  assert.match(approval, /The original approval-packet PR did not execute the live proof/i);
+  assert.match(approval, /Later sanitized status: `runtime-model-only-tiny-live-runtime-proof-fresh-status\.md`/i);
+  assert.match(approval, /approved attempt was later consumed exactly once/i);
+  assert.match(approval, /Current effective authorization after that later status: none/i);
+  assert.match(approval, /must not be reused for another provider call/i);
+  assert.match(approval, /Before it was consumed, it permitted only one future tiny runtime\/model-mode proof attempt/i);
   assert.match(approval, /remediation_status_ref: `runtime-model-only-tiny-live-runtime-proof-transport-remediation-status\.md`/i);
   assert.match(approval, /previous_status_ref: `runtime-model-only-tiny-live-runtime-proof-status\.md`/i);
+  assert.match(approval, /Historical approved attempt scope/i);
   assert.match(approval, /approval_id: runtime-model-only-tiny-live-runtime-proof-fresh-20260604k/i);
   assert.match(approval, /approved_future_attempts: 1/i);
   assert.match(approval, /one_call_only: true/i);
@@ -84,7 +90,14 @@ test("fresh tiny live runtime proof approval is one-call only after remediation 
   assert.match(approval, /no file access/i);
   assert.match(approval, /no production writes/i);
 
-  assert.match(approval, /authorizes_provider_call: true/i);
+  assert.match(approval, /historical_provider_call_authorized: true/i);
+  assert.match(approval, /historical_runtime_model_mode_execution_authorized: true/i);
+  assert.match(approval, /historical_approved_future_attempts: 1/i);
+  assert.match(approval, /approval_consumed: true/i);
+  assert.match(approval, /remaining_approved_future_attempts: 0/i);
+  assert.match(approval, /remaining_provider_calls_authorized: 0/i);
+  assert.match(approval, /authorizes_provider_call: false/i);
+  assert.match(approval, /authorizes_runtime_model_mode_execution: false/i);
   assert.match(approval, /authorizes_retry: false/i);
   assert.match(approval, /authorizes_provider_comparison: false/i);
   assert.match(approval, /authorizes_product_preview_expansion: false/i);

@@ -58,6 +58,10 @@ The first generation completed but failed the private sanitizer because it conta
 
 The preview shows the existing graph-backed Workshop shell rendering five Signals, five Maps, and five Plays from the validated candidate bundle. The preview is an operator review artifact only; it is not graph ingestion, a production write, deployment, launch readiness, product readiness, provider-quality proof, provider comparison, default-model selection, or provider lock-in.
 
+## Preview boundary label
+
+The Workshop HTML shell now distinguishes the two non-production preview boundaries by label. The default preview keeps the `Fake-mode preview` boundary span (backward compatible). A preview produced for operator review of a validated GraphBundle candidate, like the one recorded above, can be rendered with the explicit validation label `Validation preview (non-production)` via `renderWorkshopHtml(viewModel, { previewMode: "validation" })`, or from the CLI with `tsx src/cli/workshop-shell.ts write ... --preview-mode validation`. Both modes keep the same `No provider calls` and `No production writes` boundary spans; the label only changes which non-production preview an operator is looking at. The CLI defaults to `--preview-mode fake` and rejects unknown, missing, or duplicate `--preview-mode` values.
+
 ## Repository safety
 
 - raw_prompt_committed: false

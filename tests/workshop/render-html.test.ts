@@ -72,4 +72,34 @@ describe("renderWorkshopHtml", () => {
     assert.match(html, /Unsupported/);
     assert.doesNotMatch(html, /trust-pill trust-verified">Verified/);
   });
+
+  test("defaults to a fake-mode preview boundary label (backward compatible)", () => {
+    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()));
+
+    assert.match(html, /Fake-mode preview/);
+    assert.doesNotMatch(html, /Validation preview/);
+    assert.match(html, /No provider calls/);
+    assert.match(html, /No production writes/);
+  });
+
+  test("renders a non-production validation preview label when requested", () => {
+    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()), {
+      previewMode: "validation",
+    });
+
+    assert.match(html, /Validation preview \(non-production\)/);
+    assert.doesNotMatch(html, /Fake-mode preview/);
+    // Validation previews keep the same no-provider / no-write boundaries.
+    assert.match(html, /No provider calls/);
+    assert.match(html, /No production writes/);
+  });
+
+  test("treats an explicit fake preview mode the same as the default", () => {
+    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()), {
+      previewMode: "fake",
+    });
+
+    assert.match(html, /Fake-mode preview/);
+    assert.doesNotMatch(html, /Validation preview/);
+  });
 });

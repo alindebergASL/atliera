@@ -6,6 +6,26 @@ const LENS_TITLES: Record<WorkshopLens, string> = {
   plays: "Plays",
 };
 
+/**
+ * Preview boundary mode for the Workshop HTML shell.
+ *
+ * Both modes are strictly non-production: no provider calls and no production
+ * writes. The mode only changes the visible boundary label so an operator can
+ * tell apart the default fake-mode preview from a preview produced for
+ * validation review of a candidate GraphBundle.
+ */
+export type WorkshopPreviewMode = "fake" | "validation";
+
+export interface RenderWorkshopHtmlOptions {
+  /** Defaults to "fake" to preserve the existing fake-mode preview label. */
+  previewMode?: WorkshopPreviewMode;
+}
+
+const PREVIEW_MODE_LABELS: Record<WorkshopPreviewMode, string> = {
+  fake: "Fake-mode preview",
+  validation: "Validation preview (non-production)",
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -90,7 +110,12 @@ function renderLens(lens: WorkshopLens, items: WorkshopLensItemViewModel[]): str
   </section>`;
 }
 
-export function renderWorkshopHtml(vm: WorkshopViewModel): string {
+export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorkshopHtmlOptions = {}): string {
+  const previewMode = options.previewMode ?? "fake";
+  const previewLabel = PREVIEW_MODE_LABELS[previewMode];
+  if (previewLabel === undefined) {
+    throw new Error(`unknown workshop preview mode: ${String(previewMode)}`);
+  }
   const emptyState = vm.empty_state
     ? `<section class="empty-state"><h2>No graph-backed intelligence yet</h2><p>Add sources and validated graph records before treating account intelligence as verified.</p></section>`
     : "";
@@ -150,7 +175,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel): string {
         <span>${plural(vm.totals.verified_objects, "verified object")}</span>
       </div>
       <div class="boundary-row" aria-label="Preview boundaries">
-        <span>Fake-mode preview</span>
+        <span>${escapeHtml(previewLabel)}</span>
         ${accountLabel}
         <span>No provider calls</span>
         <span>No production writes</span>

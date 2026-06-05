@@ -53,6 +53,103 @@ describe("workshop-shell CLI", () => {
     });
   });
 
+  test("defaults to a fake-mode preview label when no --preview-mode is given", async () => {
+    await withTempDir(async (outputRoot) => {
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+      ]);
+
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout) as { preview_mode: string; output_path: string };
+      assert.equal(payload.preview_mode, "fake");
+      const html = await readFile(payload.output_path, "utf8");
+      assert.match(html, /Fake-mode preview/);
+      assert.doesNotMatch(html, /Validation preview/);
+    });
+  });
+
+  test("renders a non-production validation preview label with --preview-mode validation", async () => {
+    await withTempDir(async (outputRoot) => {
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+        "--preview-mode",
+        "validation",
+      ]);
+
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(result.stdout) as { preview_mode: string; output_path: string };
+      assert.equal(payload.preview_mode, "validation");
+      const html = await readFile(payload.output_path, "utf8");
+      assert.match(html, /Validation preview \(non-production\)/);
+      assert.doesNotMatch(html, /Fake-mode preview/);
+      // Non-production boundaries are preserved regardless of preview mode.
+      assert.match(html, /No provider calls/);
+      assert.match(html, /No production writes/);
+    });
+  });
+
+  test("rejects unknown --preview-mode values", async () => {
+    await withTempDir(async (outputRoot) => {
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+        "--preview-mode",
+        "production",
+      ]);
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /invalid --preview-mode|fake or validation/i);
+    });
+  });
+
+  test("rejects a missing --preview-mode value", async () => {
+    await withTempDir(async (outputRoot) => {
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+        "--preview-mode",
+      ]);
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /missing value for --preview-mode|usage:/i);
+    });
+  });
+
+  test("rejects a duplicate --preview-mode flag", async () => {
+    await withTempDir(async (outputRoot) => {
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+        "--preview-mode",
+        "fake",
+        "--preview-mode",
+        "validation",
+      ]);
+      assert.equal(result.code, 2);
+      assert.match(result.stderr, /duplicate/i);
+    });
+  });
+
   test("requires explicit --out-root and --out-file", async () => {
     const result = await runCli(["write", "fixtures/graph/valid/minimal-pass.json"]);
     assert.equal(result.code, 2);

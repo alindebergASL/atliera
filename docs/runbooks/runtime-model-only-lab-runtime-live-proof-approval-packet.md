@@ -6,6 +6,17 @@ This packet authorizes only one future tiny synthetic lab runtime/model-mode pro
 
 This approval-packet PR adds no provider transport and runs no model. It keeps `provider_call_executed_in_this_pr: false` and `adds_runtime_provider_call_source: false`.
 
+## Consumption update
+
+The one approved future attempt has since been executed and recorded in the separate sanitized status `runtime-model-only-lab-runtime-live-proof-status.md`. That status consumed this approval. The current remaining authorization under this packet is zero.
+
+- approval_consumed: true
+- consuming_status_ref: `runtime-model-only-lab-runtime-live-proof-status.md`
+- current_remaining_approved_future_attempts: 0
+- retry_requires_new_approval: true
+
+This consumption note does not add, restore, or broaden any authorization. The historical approval-time scope and all non-authorizing follow-up markers below are preserved unchanged as the record of what this packet approved at approval time. Any further provider call or retry requires a fresh approval packet.
+
 ## Source and prerequisites
 
 - harness_status_ref: `live-provider-proof-verifier-runtime-harness-status.md`

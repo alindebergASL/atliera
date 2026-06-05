@@ -88,3 +88,7 @@ The preview shows the existing graph-backed Workshop shell rendering five Signal
 - provider_call_requires_new_approval: true
 - retry_requires_new_approval: true
 - product_preview_expansion_requires_new_approval: true
+
+## Usefulness assessment
+
+A no-spend usefulness assessment of this preview is recorded in `live-provider-broader-batch-workshop-preview-usefulness-assessment.md`. That assessment consumes only the sanitized public facts above (workshop_preview_provider_calls: 0), classifies the preview as `useful`, and preserves `approves_expansion_or_comparison: false`. It does not authorize any future provider call, retry, or product-preview expansion.

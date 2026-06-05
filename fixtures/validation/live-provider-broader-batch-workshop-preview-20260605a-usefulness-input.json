@@ -1,0 +1,86 @@
+{
+  "preview_ref": "live-provider-broader-batch-workshop-preview-20260605a",
+  "selected_slot_count": 5,
+  "provider_ledger": {
+    "provider_api_requests_attempted": 2,
+    "provider_calls_executed": 2,
+    "rejected_generations": 1,
+    "successful_validated_generations": 1
+  },
+  "output_counts": {
+    "excerpts": 10,
+    "claims": 10,
+    "account_objects": 15
+  },
+  "slot_output_counts": [
+    {
+      "role": "representative-a",
+      "output_counts": {
+        "excerpts": 2,
+        "claims": 2,
+        "account_objects": 3
+      }
+    },
+    {
+      "role": "representative-b",
+      "output_counts": {
+        "excerpts": 2,
+        "claims": 2,
+        "account_objects": 3
+      }
+    },
+    {
+      "role": "edge-case-a",
+      "output_counts": {
+        "excerpts": 2,
+        "claims": 2,
+        "account_objects": 3
+      }
+    },
+    {
+      "role": "edge-case-b",
+      "output_counts": {
+        "excerpts": 2,
+        "claims": 2,
+        "account_objects": 3
+      }
+    },
+    {
+      "role": "calibration",
+      "output_counts": {
+        "excerpts": 2,
+        "claims": 2,
+        "account_objects": 3
+      }
+    }
+  ],
+  "validation_status": {
+    "activation_gates": "passed",
+    "credential_status": "passed",
+    "provider_call": "passed",
+    "response_contract": "passed",
+    "cost_ledger": "succeeded",
+    "graph_validation": "passed",
+    "quality_gate": "pass",
+    "full_pipeline_packaging": "passed",
+    "bootstrap_evidence_verifier": "passed",
+    "workshop_preview": "passed"
+  },
+  "request_surface": {
+    "tools_or_plugins_requested": false,
+    "online_model_variant_requested": false,
+    "web_search_requested": false
+  },
+  "workshop_surface": {
+    "html_rendered": true,
+    "provider_calls_made": 0,
+    "production_writes": false,
+    "useful_lens_count": 3,
+    "useful_lenses": [
+      "signals",
+      "maps",
+      "plays"
+    ]
+  },
+  "runtime_model_mode_integration": false
+}

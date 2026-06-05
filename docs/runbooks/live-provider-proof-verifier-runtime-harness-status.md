@@ -83,3 +83,7 @@ The GraphBundle conversion produces a candidate bundle and lens outputs for vali
 
 - provider_call_requires_new_approval: true
 - retry_requires_new_approval: true
+
+## Separate live-attempt approval
+
+A separate pre-run approval packet, `runtime-model-only-lab-runtime-live-proof-approval-packet.md`, authorizes exactly one future tiny synthetic lab runtime/model-mode proof attempt through this harness, to be executed in a later execution/status PR. This status document is not itself an authorizer: its markers above remain unchanged, `authorizes_future_runtime_model_mode_execution: false` still holds for this doc, and any provider call still requires that separate merged approval packet.

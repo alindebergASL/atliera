@@ -71,7 +71,8 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /No resident autonomous shell agent/i);
     assert.match(doc, /No app server or worker path currently invokes `ModelProvider\.generate`/i);
     assert.match(doc, /No source call sites currently invoke `ModelAdapter\.propose`/i);
-    assert.match(doc, /The only `\.generate\(` source call sites are the provider-validation harness/i);
+    assert.match(doc, /The `\.generate\(` source call sites are the provider-validation harness/i);
+    assert.match(doc, /lab\/test-only runtime proof harness/i);
     assert.match(doc, /Codex-auth bridge adapter/i);
     assert.match(doc, /`ExternalCommandModelProvider` is a sealed validation seam/i);
     assert.match(doc, /`AgentRunRecord` is orchestration evidence, not a running autonomous loop/i);
@@ -93,12 +94,13 @@ test("agentic AI usage baseline records current runtime and validation boundarie
   await t.test("source scan supports the documented default-path provider-call boundary", () => {
     assert.deepEqual(matchingSourceLines(/\.propose\(/), []);
     const generateMatches = matchingSourceLines(/\.generate\(/);
-    assert.equal(generateMatches.length, 2);
+    assert.equal(generateMatches.length, 3);
     assert.deepEqual(
       generateMatches.map((match) => match.replace(/:\d+:/, ":LINE:")),
       [
         "src/model/codex-auth-provider-bridge.ts:LINE:response = await this.transport.generate(request);",
         "src/model/provider-validation.ts:LINE:response = await input.provider.generate(input.request);",
+        "src/validation/live-provider-moderate-proof-verifier.ts:LINE:const response: ModelProviderResponse = await input.provider.generate(input.request);",
       ],
     );
     assert.deepEqual(matchingSourceLines(/new ExternalCommandModelProvider\(/), []);

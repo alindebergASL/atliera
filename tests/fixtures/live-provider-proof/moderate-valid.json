@@ -1,0 +1,47 @@
+{
+  "schema_version": "atliera.live_provider_moderate_proof.v1",
+  "provider_path": "hermes-openai-codex-operator",
+  "model": "gpt-5.5",
+  "source_scope": "synthetic-only",
+  "accounts": [
+    { "account_ref": "synthetic_account_a", "role": "representative" },
+    { "account_ref": "synthetic_account_b", "role": "edge_case" },
+    { "account_ref": "synthetic_account_c", "role": "calibration" }
+  ],
+  "excerpts": [
+    { "id": "ex_a_1", "account_ref": "synthetic_account_a", "text": "Synthetic account A is expanding analytics into regulated financial services.", "supports": "Expansion context" },
+    { "id": "ex_a_2", "account_ref": "synthetic_account_a", "text": "Synthetic account A needs audit-ready controls before wider adoption.", "supports": "Governance need" },
+    { "id": "ex_b_1", "account_ref": "synthetic_account_b", "text": "Synthetic account B has a slow ERP migration across regional teams.", "supports": "Migration context" },
+    { "id": "ex_b_2", "account_ref": "synthetic_account_b", "text": "Synthetic account B requires procurement alignment before platform changes.", "supports": "Procurement need" },
+    { "id": "ex_c_1", "account_ref": "synthetic_account_c", "text": "Synthetic account C grows through partner-led pipeline motion.", "supports": "Partner motion" },
+    { "id": "ex_c_2", "account_ref": "synthetic_account_c", "text": "Synthetic account C faces board pressure to expand efficiently.", "supports": "Expansion pressure" }
+  ],
+  "claims": [
+    { "id": "cl_a_1", "account_ref": "synthetic_account_a", "text": "Account A has regulated-market expansion demand.", "supporting_excerpt_ids": ["ex_a_1"] },
+    { "id": "cl_a_2", "account_ref": "synthetic_account_a", "text": "Account A needs audit-ready governance before scaling.", "supporting_excerpt_ids": ["ex_a_2"] },
+    { "id": "cl_b_1", "account_ref": "synthetic_account_b", "text": "Account B has regional ERP migration drag.", "supporting_excerpt_ids": ["ex_b_1"] },
+    { "id": "cl_b_2", "account_ref": "synthetic_account_b", "text": "Account B requires procurement coalition-building.", "supporting_excerpt_ids": ["ex_b_2"] },
+    { "id": "cl_c_1", "account_ref": "synthetic_account_c", "text": "Account C depends on partner-led growth.", "supporting_excerpt_ids": ["ex_c_1"] },
+    { "id": "cl_c_2", "account_ref": "synthetic_account_c", "text": "Account C has urgent efficient-expansion pressure.", "supporting_excerpt_ids": ["ex_c_2"] }
+  ],
+  "account_objects": [
+    { "id": "obj_a_signal", "account_ref": "synthetic_account_a", "object_type": "signal", "text": "Regulated expansion signal", "supporting_claim_ids": ["cl_a_1"] },
+    { "id": "obj_a_map", "account_ref": "synthetic_account_a", "object_type": "map", "text": "Governance buyer map", "supporting_claim_ids": ["cl_a_2"] },
+    { "id": "obj_a_play", "account_ref": "synthetic_account_a", "object_type": "play", "text": "Lead with audit-ready analytics controls", "supporting_claim_ids": ["cl_a_1", "cl_a_2"] },
+    { "id": "obj_b_signal", "account_ref": "synthetic_account_b", "object_type": "signal", "text": "ERP migration drag signal", "supporting_claim_ids": ["cl_b_1"] },
+    { "id": "obj_b_map", "account_ref": "synthetic_account_b", "object_type": "map", "text": "Procurement and regional stakeholder map", "supporting_claim_ids": ["cl_b_2"] },
+    { "id": "obj_b_play", "account_ref": "synthetic_account_b", "object_type": "play", "text": "Build procurement-aligned regional migration plan", "supporting_claim_ids": ["cl_b_1", "cl_b_2"] },
+    { "id": "obj_c_signal", "account_ref": "synthetic_account_c", "object_type": "signal", "text": "Partner-led pipeline signal", "supporting_claim_ids": ["cl_c_1"] },
+    { "id": "obj_c_map", "account_ref": "synthetic_account_c", "object_type": "map", "text": "Board and partner growth map", "supporting_claim_ids": ["cl_c_2"] },
+    { "id": "obj_c_play", "account_ref": "synthetic_account_c", "object_type": "play", "text": "Scale partner channel with board-visible efficiency metrics", "supporting_claim_ids": ["cl_c_1", "cl_c_2"] }
+  ],
+  "boundary": {
+    "atliera_runtime_executed": false,
+    "graph_ingestion_performed": false,
+    "production_writes_performed": false,
+    "provider_quality_conclusion": false,
+    "production_readiness_claim": false,
+    "default_model_selection_claim": false,
+    "provider_lock_in": false
+  }
+}

@@ -18,7 +18,7 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 - Runtime Workshop preview remains fake-mode/no-write and reports `providerCallsMade: 0` with `productionWrites: false`.
 - No app server or worker path currently invokes `ModelProvider.generate`.
 - No source call sites currently invoke `ModelAdapter.propose`.
-- The only `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`, and the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; neither is a default runtime app path.
+- The `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; and the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`. None is a default runtime app path.
 - No source path constructs `ExternalCommandModelProvider` as a default runtime dependency.
 - No resident autonomous shell agent is installed or required by the app.
 - No worker polling loop currently dequeues jobs to execute model/tool plans.

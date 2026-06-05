@@ -146,6 +146,25 @@ test("lab runtime model proof live-attempt packet is a pre-run, one-call, non-br
   assertNoForbiddenBroadening("lab runtime live-attempt approval", approval);
 });
 
+test("lab runtime live-attempt packet records consumption without restoring or broadening authorization", () => {
+  const approval = readFileSync(APPROVAL_DOC, "utf8");
+
+  // Consumed state documented and pointed at the separate sanitized status.
+  assert.match(approval, /approval_consumed: true/i);
+  assert.match(approval, /consuming_status_ref: `runtime-model-only-lab-runtime-live-proof-status\.md`/i);
+  assert.match(approval, /current_remaining_approved_future_attempts: 0/i);
+
+  // Pre-run packet checks remain intact alongside the consumption note.
+  assert.match(approval, /Status: pre-run docs-only approval packet\. This PR does not execute a provider call\./i);
+  assert.match(approval, /approval_id: lab-runtime-model-proof-live-attempt-20260605f/i);
+  assert.match(approval, /authorizes_one_future_lab_runtime_model_mode_attempt: true/i);
+  assert.match(approval, /retry_requires_new_approval: true/i);
+
+  // Consumption must not restore or broaden authorization.
+  assert.match(approval, /does not add, restore, or broaden any authorization/i);
+  assertNoForbiddenBroadening("lab runtime live-attempt approval consumption", approval);
+});
+
 test("harness status doc links the live-attempt packet without broadening its own authorization", () => {
   const status = readFileSync(HARNESS_STATUS_DOC, "utf8");
   assert.match(status, /runtime-model-only-lab-runtime-live-proof-approval-packet\.md/i);

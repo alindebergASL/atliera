@@ -82,6 +82,8 @@ test("tiny live runtime proof exception diagnosis isolates v2 allowlist mismatch
   assert.match(diagnosis, /stable_diagnosis_code: account_object_type_allowlist_mismatch/i);
   assert.match(diagnosis, /strict JSON parsing succeeded/i);
   assert.match(diagnosis, /account-object type check/i);
+  assert.match(diagnosis, /runtime-model-only-tiny-live-runtime-proof-contract-remediation\.md/i);
+  assert.match(diagnosis, /A separate fresh one-call approval is still required/i);
 
   assert.match(diagnosis, /Enumerate the exact account-object type allowlist/i);
   assert.match(diagnosis, /prove that the prompt contract and validator allowlist are aligned/i);

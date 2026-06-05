@@ -75,4 +75,4 @@ Before any future live retry approval packet is written, the no-spend remediatio
 
 This is a useful engineering diagnosis, not product evidence. It says the previous local transport blocker is cleared, the fresh attempt reached a provider response path, and the remaining failure is a public contract alignment problem between the tiny-live prompt contract and the v2 account-object type allowlist.
 
-Provider retry is not authorized by this diagnosis. The next safe step is a docs/tests-only remediation packet that aligns the prompt contract and validator expectations, followed only later by a separate fresh one-call approval if retrying still looks worthwhile.
+Provider retry is not authorized by this diagnosis. Later no-spend remediation in `runtime-model-only-tiny-live-runtime-proof-contract-remediation.md` aligns the prompt contract and validator expectations. A separate fresh one-call approval is still required if retrying later looks worthwhile.

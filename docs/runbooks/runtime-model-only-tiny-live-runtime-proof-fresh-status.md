@@ -71,4 +71,4 @@ The fresh approval succeeded in reaching the model-only transport path exactly o
 
 The useful engineering signal is narrower: the earlier local runtime blocker was cleared, the approved call boundary was consumed exactly once, and the status failed closed without retry, comparison, expansion, production write, tools, search, plugins, retrieval, or readiness claims.
 
-Any future provider attempt requires a new approval packet. The next non-provider step is to review the deterministic Workshop product slice and decide whether the current product surface is worth further live-proof work.
+Any future provider attempt requires a new approval packet. Later no-spend diagnosis in `runtime-model-only-tiny-live-runtime-proof-exception-diagnosis.md` classified the consumed attempt as a v2 contract mismatch at the account-object type allowlist gate, not as request shape, transport parsing, or streaming event handling failure.

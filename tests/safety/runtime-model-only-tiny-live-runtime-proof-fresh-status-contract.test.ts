@@ -79,6 +79,9 @@ test("fresh tiny live runtime proof status records consumed exception without re
   assert.match(doc, /reason_code: tiny_live_runtime_proof_exception/i);
   assert.match(doc, /stable_error_code: provider_call_or_v2_contract_failed/i);
   assert.match(doc, /retry_requires_new_approval: true/i);
+  assert.match(doc, /runtime-model-only-tiny-live-runtime-proof-exception-diagnosis\.md/i);
+  assert.match(doc, /v2 contract mismatch at the account-object type allowlist gate/i);
+  assert.match(doc, /not as request shape, transport parsing, or streaming event handling failure/i);
   assert.match(doc, /authorizes_provider_call: false/i);
   assert.match(doc, /authorizes_retry: false/i);
   assert.match(doc, /authorizes_runtime_model_mode_execution: false/i);

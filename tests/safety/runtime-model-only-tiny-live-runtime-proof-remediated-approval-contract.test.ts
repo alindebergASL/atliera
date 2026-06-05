@@ -54,10 +54,17 @@ const requiredApprovalPatterns = [
   /pre_run_transport_interpreter: pinned-hermes-uv-project/i,
   /runtime_mode: model-only-smoke/i,
   /test_slots: 3/i,
-  /future_authorized_test_slot_count: 3/i,
-  /future_authorized_provider_call_count: 3/i,
-  /future_authorized_attempt_count: 1/i,
-  /future_execution_authorized_after_merge: true/i,
+  /historical_future_authorized_test_slot_count: 3/i,
+  /historical_future_authorized_provider_call_count: 3/i,
+  /historical_future_authorized_attempt_count: 1/i,
+  /historical_future_execution_authorized_after_merge: true/i,
+  /current_future_execution_authorized_after_status: false/i,
+  /current_future_authorized_test_slot_count: 0/i,
+  /current_future_authorized_provider_call_count: 0/i,
+  /current_future_authorized_attempt_count: 0/i,
+  /current_future_authorized_runtime_model_mode_suite: false/i,
+  /approval_consumed_by_status: true/i,
+  /status_followup: runtime-model-only-tiny-live-runtime-proof-remediated-status\.md/i,
   /current_pr_executes_provider_call: false/i,
   /provider_calls_executed_in_this_pr: 0/i,
   /provider_spend_in_this_pr: false/i,
@@ -89,6 +96,12 @@ const requiredApprovalPatterns = [
 ] as const;
 
 const forbiddenBroadeningPatterns = [
+  /^-\s*future_execution_authorized_after_merge:\s*true/im,
+  /^-\s*future_authorized_runtime_model_mode_suite:\s*true/im,
+  /^-\s*future_authorized_provider_call_count:\s*(?:[1-9]|\d{2,})\b/im,
+  /^-\s*future_authorized_test_slot_count:\s*(?:[1-9]|\d{2,})\b/im,
+  /^-\s*future_authorized_attempt_count:\s*(?:[1-9]|\d{2,})\b/im,
+  /^-\s*authorizes_provider_call:\s*true/im,
   /max_attempts:\s*(?:[2-9]|\d{2,})\b/i,
   /max_provider_calls:\s*(?:[4-9]|\d{2,})\b/i,
   /future_authorized_provider_call_count:\s*(?:[4-9]|\d{2,})\b/i,
@@ -138,6 +151,12 @@ const forbiddenBroadeningPatterns = [
 const trueFlag = (name: string) => `${name}: ${"true"}`;
 
 const broadeningContradictions = [
+  "- future_execution_authorized_after_merge: true",
+  "- future_authorized_runtime_model_mode_suite: true",
+  "- future_authorized_provider_call_count: 1",
+  "- future_authorized_test_slot_count: 1",
+  "- future_authorized_attempt_count: 1",
+  "- authorizes_provider_call: true",
   "max_attempts: 2",
   "max_provider_calls: 4",
   "max_provider_calls: 10",

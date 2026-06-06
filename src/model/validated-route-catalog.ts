@@ -132,25 +132,44 @@ function assertSafeRef(value: string, label: string): void {
 }
 
 function assertIsoInstant(value: string, label: string): void {
-  if (!ISO_INSTANT.test(value) || Number.isNaN(Date.parse(value))) {
+  if (!ISO_INSTANT.test(value)) {
+    throw new Error(`${label} must be an ISO instant`);
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed) || new Date(parsed).toISOString() !== value) {
     throw new Error(`${label} must be an ISO instant`);
   }
 }
 
-function readValidationRefs(record: Record<string, unknown>, label: string): string[] {
-  const value = record.validationRefs;
-  if (!Array.isArray(value)) throw new Error(`${label}.validationRefs must be an array`);
+function snapshotArrayValues(value: unknown, label: string, min: number, max: number): readonly unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (Object.getPrototypeOf(value) !== Array.prototype) throw new Error(`${label} array prototype rejected`);
   const descriptors = Object.getOwnPropertyDescriptors(value);
   const symbols = Object.getOwnPropertySymbols(value);
-  if (symbols.length > 0) throw new Error(`${label}.validationRefs symbol fields rejected`);
+  if (symbols.length > 0) throw new Error(`${label} symbol fields rejected`);
   const length = value.length;
-  if (length < 1 || length > 12) throw new Error(`${label}.validationRefs length invalid`);
+  if (length < min || length > max) throw new Error(`${label} length invalid`);
   for (const [key, descriptor] of Object.entries(descriptors)) {
     if (key === "length") continue;
-    if (!descriptor.enumerable) throw new Error(`${label}.validationRefs non-enumerable fields rejected`);
-    if ("get" in descriptor || "set" in descriptor) throw new Error(`${label}.validationRefs accessor field rejected`);
+    if (!/^\d+$/.test(key)) throw new Error(`${label} unexpected array field rejected`);
+    if (!descriptor.enumerable) throw new Error(`${label} non-enumerable fields rejected`);
+    if ("get" in descriptor || "set" in descriptor) throw new Error(`${label} accessor field rejected`);
   }
-  return value.map((entry, index) => {
+
+  const snapshot: unknown[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (!descriptor || !descriptor.enumerable || "get" in descriptor || "set" in descriptor) {
+      throw new Error(`${label}[${index}] descriptor invalid`);
+    }
+    snapshot.push(descriptor.value);
+  }
+  return Object.freeze(snapshot);
+}
+
+function readValidationRefs(record: Record<string, unknown>, label: string): string[] {
+  const refs = snapshotArrayValues(record.validationRefs, `${label}.validationRefs`, 1, 12);
+  return refs.map((entry, index) => {
     if (typeof entry !== "string") throw new Error(`${label}.validationRefs[${index}] must be a string`);
     assertSafeRef(entry, `${label}.validationRefs[${index}]`);
     return entry;
@@ -203,8 +222,9 @@ export function validateRouteCatalog(
   const nowMs = options.now ? Date.parse(options.now) : undefined;
   if (options.now) assertIsoInstant(options.now, "options.now");
 
-  const snapshots = routes.map((route) => {
-    const snapshot = snapshotValidatedModelRoute(route);
+  const routeInputs = snapshotArrayValues(routes, "route catalog", 1, 50);
+  const snapshots = routeInputs.map((route) => {
+    const snapshot = snapshotValidatedModelRoute(route as ValidatedModelRouteInput);
     if (seen.has(snapshot.routeRef)) throw new Error(`duplicate routeRef: ${snapshot.routeRef}`);
     seen.add(snapshot.routeRef);
 

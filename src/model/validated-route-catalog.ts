@@ -41,6 +41,7 @@ export interface ValidateRouteCatalogOptions {
 }
 
 export type RuntimeSelectionEnvironment = "development" | "test" | "lab" | "staging" | "production";
+export type SelectedRouteEvidenceStatus = "fresh" | "nearing-expiry" | "expired-needs-revalidation";
 
 export interface RouteSelectionInput {
   routeRef?: string;
@@ -49,6 +50,7 @@ export interface RouteSelectionInput {
   approvalRef?: string;
   now: string;
   maxValidationAgeDays: number;
+  nearingExpiryDays?: number;
 }
 
 export interface SelectedModelRoute {
@@ -57,6 +59,10 @@ export interface SelectedModelRoute {
   approvalRef: string | null;
   environment: RuntimeSelectionEnvironment;
   validationAgeDays: number;
+  routeEvidenceStatus: SelectedRouteEvidenceStatus;
+  routeEvidenceExpiresAt: string;
+  routeRequiresFreshApprovalBeforeUse: boolean;
+  routeUsableWithoutRevalidation: boolean;
   providerCallsExecuted: 0;
   providerSpend: false;
   runtimeModelModeIntegration: false;
@@ -255,6 +261,19 @@ function isProductionLike(environment: RuntimeSelectionEnvironment): boolean {
   return environment === "production" || environment === "staging";
 }
 
+function classifySelectedRouteEvidence(
+  route: ValidatedModelRoute,
+  now: string,
+  nearingExpiryDays: number,
+): SelectedRouteEvidenceStatus {
+  const remainingMs = Date.parse(route.evidenceExpiresAt) - Date.parse(now);
+  if (remainingMs < 0) {
+    throw new Error(`expired route evidence requires fresh approval before use: ${route.routeRef}`);
+  }
+  const remainingDays = remainingMs / (24 * 60 * 60 * 1000);
+  return remainingDays <= nearingExpiryDays ? "nearing-expiry" : "fresh";
+}
+
 export function selectRouteFromCatalog(catalog: ValidatedRouteCatalog, input: RouteSelectionInput): SelectedModelRoute {
   assertPlainRecord(input, "selection");
   if (!Object.hasOwn(input, "routeRef") || typeof input.routeRef !== "string" || input.routeRef.length === 0) {
@@ -266,6 +285,10 @@ export function selectRouteFromCatalog(catalog: ValidatedRouteCatalog, input: Ro
   }
   if (!Number.isInteger(input.maxValidationAgeDays) || input.maxValidationAgeDays < 0) {
     throw new Error("selection.maxValidationAgeDays must be a non-negative integer");
+  }
+  const nearingExpiryDays = input.nearingExpiryDays ?? 0;
+  if (!Number.isInteger(nearingExpiryDays) || nearingExpiryDays < 0) {
+    throw new Error("selection.nearingExpiryDays must be a non-negative integer");
   }
   assertIsoInstant(input.now, "selection.now");
 
@@ -288,12 +311,18 @@ export function selectRouteFromCatalog(catalog: ValidatedRouteCatalog, input: Ro
     throw new Error(`route validation evidence is stale for ${route.routeRef}`);
   }
 
+  const routeEvidenceStatus = classifySelectedRouteEvidence(route, input.now, nearingExpiryDays);
+
   return Object.freeze({
     route,
     selectionReason: "explicit-route-ref",
     approvalRef: input.approvalRef ?? null,
     environment: input.environment,
     validationAgeDays,
+    routeEvidenceStatus,
+    routeEvidenceExpiresAt: route.evidenceExpiresAt,
+    routeRequiresFreshApprovalBeforeUse: false,
+    routeUsableWithoutRevalidation: true,
     providerCallsExecuted: 0,
     providerSpend: false,
     runtimeModelModeIntegration: false,

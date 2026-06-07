@@ -25,6 +25,10 @@ const selectedRoute = (): SelectedModelRoute => ({
   approvalRef: "approvals/provider-neutral-runtime-integration-pr158",
   environment: "staging",
   validationAgeDays: 1,
+  routeEvidenceStatus: "fresh",
+  routeEvidenceExpiresAt: "2026-07-02T00:00:00.000Z",
+  routeRequiresFreshApprovalBeforeUse: false,
+  routeUsableWithoutRevalidation: true,
   providerCallsExecuted: 0,
   providerSpend: false,
   runtimeModelModeIntegration: false,
@@ -129,6 +133,91 @@ describe("runtime model execution preflight", () => {
     });
     assert.equal(overflow.ok, false);
     assert.match(overflow.refusalReasons.join(" "), /budget/i);
+  });
+
+  test("refuses expired selected route evidence before provider access", () => {
+    const expiredRoute: SelectedModelRoute = {
+      ...selectedRoute(),
+      routeEvidenceStatus: "expired-needs-revalidation",
+      routeRequiresFreshApprovalBeforeUse: true,
+      routeUsableWithoutRevalidation: false,
+      routeEvidenceExpiresAt: "2026-06-01T00:00:00.000Z",
+    };
+
+    const decision = preflightRuntimeModelExecution({
+      selectedRoute: expiredRoute,
+      mode: "model",
+      corpusRef: "external-corpus/runtime-model-preflight.json",
+      approval: approval(),
+      costLedgerEntries: [],
+      nextEstimatedCostUsd: 0.05,
+      credentialReady: true,
+      now: "2026-06-03T00:00:00.000Z",
+      requestMetadata: { prompt_contract_ref: "prompt-contracts/graph-propose-v1" },
+    });
+
+    assert.equal(decision.ok, false);
+    assert.match(decision.refusalReasons.join(" "), /route evidence expired requires revalidation/i);
+    assert.equal(decision.providerCallsExecuted, 0);
+    assert.equal(decision.authorizesProviderCall, false);
+  });
+
+  test("refuses selected route evidence that expires between selection and preflight", () => {
+    const staleAtPreflight: SelectedModelRoute = {
+      ...selectedRoute(),
+      routeEvidenceStatus: "fresh",
+      routeEvidenceExpiresAt: "2026-06-04T00:00:00.000Z",
+      routeRequiresFreshApprovalBeforeUse: false,
+      routeUsableWithoutRevalidation: true,
+      route: { ...selectedRoute().route, evidenceExpiresAt: "2026-06-04T00:00:00.000Z" },
+    };
+
+    const decision = preflightRuntimeModelExecution({
+      selectedRoute: staleAtPreflight,
+      mode: "model",
+      corpusRef: "external-corpus/runtime-model-preflight.json",
+      approval: approval(),
+      costLedgerEntries: [],
+      nextEstimatedCostUsd: 0.05,
+      credentialReady: true,
+      now: "2026-06-05T00:00:00.000Z",
+      requestMetadata: { prompt_contract_ref: "prompt-contracts/graph-propose-v1" },
+    });
+
+    assert.equal(decision.ok, false);
+    assert.match(decision.refusalReasons.join(" "), /route evidence expired requires revalidation/i);
+    assert.equal(decision.routeEvidenceStatus, "expired-needs-revalidation");
+    assert.equal(decision.routeRequiresFreshApprovalBeforeUse, true);
+    assert.equal(decision.providerCallsExecuted, 0);
+    assert.equal(decision.authorizesProviderCall, false);
+  });
+
+  test("allows near-expiry selected route metadata without turning it into authorization", () => {
+    const nearingExpiryRoute: SelectedModelRoute = {
+      ...selectedRoute(),
+      routeEvidenceStatus: "nearing-expiry",
+      routeRequiresFreshApprovalBeforeUse: false,
+      routeUsableWithoutRevalidation: true,
+      routeEvidenceExpiresAt: "2026-06-05T00:00:00.000Z",
+      route: { ...selectedRoute().route, evidenceExpiresAt: "2026-06-05T00:00:00.000Z" },
+    };
+
+    const decision = preflightRuntimeModelExecution({
+      selectedRoute: nearingExpiryRoute,
+      mode: "model",
+      corpusRef: "external-corpus/runtime-model-preflight.json",
+      approval: approval(),
+      costLedgerEntries: [ledger()],
+      nextEstimatedCostUsd: 0.05,
+      credentialReady: true,
+      now: "2026-06-03T00:00:00.000Z",
+      requestMetadata: { prompt_contract_ref: "prompt-contracts/graph-propose-v1" },
+    });
+
+    assert.equal(decision.ok, true);
+    assert.equal(decision.routeEvidenceStatus, "nearing-expiry");
+    assert.equal(decision.routeRequiresFreshApprovalBeforeUse, false);
+    assert.equal(decision.authorizesProviderCall, false);
   });
 
   test("refuses missing credentials and forbidden tool/search/plugin metadata before provider access", () => {

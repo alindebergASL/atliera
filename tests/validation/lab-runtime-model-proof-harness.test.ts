@@ -103,6 +103,54 @@ describe("lab runtime model proof harness", () => {
     assert.equal(report.request_identifier_committed, false);
   });
 
+  test("blocks expired selected-route evidence at harness preflight before provider call", async () => {
+    let providerCalls = 0;
+    const route = selectedRoute("test");
+    const request = createModelProviderRequest({
+      operation: "graph.propose",
+      mode: "model",
+      model: "gpt-5.5",
+      prompt: "Return synthetic graph JSON only.",
+      inputGraphRef: "external-corpus/lab-runtime-model-proof.json",
+      idempotencyKey: "lab-runtime-model-proof-harness.expired-evidence",
+      maxOutputTokens: 1024,
+      temperature: 0,
+      metadata: { prompt_contract_ref: "prompt-contracts/lab-runtime-model-proof" },
+    });
+
+    const report = await executeLabRuntimeModelProof({
+      selectedRoute: {
+        ...route,
+        routeEvidenceStatus: "fresh",
+        routeEvidenceExpiresAt: "2026-06-04T00:00:00.000Z",
+        routeRequiresFreshApprovalBeforeUse: false,
+        routeUsableWithoutRevalidation: true,
+        route: { ...route.route, evidenceExpiresAt: "2026-06-04T00:00:00.000Z" },
+      },
+      provider: {
+        name: "must-not-call-expired-evidence",
+        async generate() {
+          providerCalls += 1;
+          throw new Error("should not be called");
+        },
+      },
+      request,
+      approval: approval(),
+      costLedgerEntries: [],
+      now: "2026-06-05T00:00:00.000Z",
+      corpusRef: "external-corpus/lab-runtime-model-proof.json",
+      environment: "test",
+      nextEstimatedCostUsd: 0,
+      credentialReady: true,
+    });
+
+    assert.equal(providerCalls, 0);
+    assert.equal(report.ok, false);
+    assert.equal(report.status, "blocked");
+    assert.equal(report.provider_calls_executed, 0);
+    assert.match(report.refusal_reasons.join(" "), /route evidence expired requires revalidation/i);
+  });
+
   test("blocks before provider call when gates fail and refuses non-lab environments", async () => {
     let providerCalls = 0;
     const route = selectedRoute("test");

@@ -148,14 +148,38 @@ describe("validated model route catalog", () => {
       approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
       now: "2026-06-03T00:00:00.000Z",
       maxValidationAgeDays: 30,
+      nearingExpiryDays: 7,
     });
 
     assert.equal(selected.route.routeRef, "gpt-5.5-openai-codex-20260602a");
     assert.equal(selected.selectionReason, "explicit-route-ref");
+    assert.equal(selected.routeEvidenceStatus, "fresh");
+    assert.equal(selected.routeEvidenceExpiresAt, "2026-07-02T00:00:00.000Z");
+    assert.equal(selected.routeRequiresFreshApprovalBeforeUse, false);
+    assert.equal(selected.routeUsableWithoutRevalidation, true);
     assert.equal(selected.defaultModelSelectionClaim, false);
     assert.equal(selected.providerLockIn, false);
     assert.equal(selected.providerCallsExecuted, 0);
     assert.equal(selected.runtimeModelModeIntegration, false);
+  });
+
+  test("surfaces near-expiry route evidence as warning metadata without defaulting or authorization", () => {
+    const selected = selectRouteFromCatalog(validateRouteCatalog([baseRoute({ evidenceExpiresAt: "2026-06-05T00:00:00.000Z" })]), {
+      routeRef: "gpt-5.5-openai-codex-20260602a",
+      environment: "staging",
+      approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+      now: "2026-06-03T00:00:00.000Z",
+      maxValidationAgeDays: 30,
+      nearingExpiryDays: 7,
+    });
+
+    assert.equal(selected.routeEvidenceStatus, "nearing-expiry");
+    assert.equal(selected.routeRequiresFreshApprovalBeforeUse, false);
+    assert.equal(selected.routeUsableWithoutRevalidation, true);
+    assert.equal(selected.providerCallsExecuted, 0);
+    assert.equal(selected.runtimeModelModeIntegration, false);
+    assert.equal(selected.defaultModelSelectionClaim, false);
+    assert.equal(selected.providerLockIn, false);
   });
 
   test("requires explicit production-like route selection context", () => {
@@ -187,7 +211,7 @@ describe("validated model route catalog", () => {
     );
   });
 
-  test("fails closed for stale, unknown, or fake production-like route selection", () => {
+  test("fails closed for stale, expired, unknown, or fake production-like route selection", () => {
     assert.throws(
       () => selectRouteFromCatalog(validateRouteCatalog([baseRoute()]), {
         routeRef: "missing-route",
@@ -195,6 +219,7 @@ describe("validated model route catalog", () => {
         approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
         now: "2026-06-03T00:00:00.000Z",
         maxValidationAgeDays: 30,
+        nearingExpiryDays: 7,
       }),
       /routeRef not found/i,
     );
@@ -206,8 +231,21 @@ describe("validated model route catalog", () => {
         approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
         now: "2026-06-03T00:00:00.000Z",
         maxValidationAgeDays: 30,
+        nearingExpiryDays: 7,
       }),
       /route validation evidence is stale/i,
+    );
+
+    assert.throws(
+      () => selectRouteFromCatalog(validateRouteCatalog([baseRoute({ evidenceExpiresAt: "2026-06-01T00:00:00.000Z" })]), {
+        routeRef: "gpt-5.5-openai-codex-20260602a",
+        environment: "staging",
+        approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
+        now: "2026-06-03T00:00:00.000Z",
+        maxValidationAgeDays: 30,
+        nearingExpiryDays: 7,
+      }),
+      /expired route evidence requires fresh approval/i,
     );
 
     assert.throws(
@@ -217,6 +255,7 @@ describe("validated model route catalog", () => {
         approvalRef: "approvals/provider-neutral-runtime-integration-pr156",
         now: "2026-06-03T00:00:00.000Z",
         maxValidationAgeDays: 30,
+        nearingExpiryDays: 7,
       }),
       /fake routes are not allowed/i,
     );

@@ -25,6 +25,10 @@ export interface RuntimeModelExecutionReport {
     readonly route_kind: SelectedModelRoute["route"]["routeKind"];
     readonly validation_refs: readonly string[];
     readonly validation_age_days: number;
+    readonly evidence_expires_at: string;
+    readonly evidence_status: SelectedModelRoute["routeEvidenceStatus"];
+    readonly requires_fresh_approval_before_use: boolean;
+    readonly usable_without_revalidation: boolean;
     readonly approval_ref: string | null;
   };
   readonly preflight: {
@@ -91,6 +95,7 @@ function sanitizeRefusalReason(reason: string): string {
     ["metadata non-enumerable fields rejected", "metadata_non_enumerable_fields_rejected"],
     ["metadata values must be strings", "metadata_values_must_be_strings"],
     ["credential readiness is required before runtime model execution", "credential_readiness_required"],
+    ["route evidence expired requires revalidation before runtime model execution", "route_evidence_expired_requires_revalidation"],
   ]);
   if (safeReasons.has(reason)) return safeReasons.get(reason)!;
   if (/^forbidden metadata key rejected: [A-Za-z0-9_.-]+$/.test(reason)) return "forbidden_metadata_key_rejected";
@@ -125,6 +130,10 @@ export function createRuntimeModelExecutionReport(input: RuntimeModelExecutionRe
       route_kind: input.selectedRoute.route.routeKind,
       validation_refs: Object.freeze([...input.selectedRoute.route.validationRefs]),
       validation_age_days: input.selectedRoute.validationAgeDays,
+      evidence_expires_at: input.selectedRoute.routeEvidenceExpiresAt,
+      evidence_status: input.selectedRoute.routeEvidenceStatus,
+      requires_fresh_approval_before_use: input.selectedRoute.routeRequiresFreshApprovalBeforeUse,
+      usable_without_revalidation: input.selectedRoute.routeUsableWithoutRevalidation,
       approval_ref: input.selectedRoute.approvalRef,
     }),
     preflight: Object.freeze({

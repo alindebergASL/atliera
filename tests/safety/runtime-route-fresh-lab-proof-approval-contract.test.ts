@@ -53,7 +53,7 @@ function assertNoForbiddenBroadening(label: string, text: string): void {
     /retry_requires_new_approval:\s*false/i,
     /fresh_route_required_at_execution_time:\s*false/i,
     /^- approved_future_attempts:\s*(?!1$)\d+/im,
-    /^- remaining_approved_future_attempts:\s*(?!1$)\d+/im,
+    /^- remaining_approved_future_attempts:\s*(?!0$)\d+/im,
     /^- max_provider_calls:\s*(?!1$)\d+/im,
     /^- max_attempts:\s*(?!1$)\d+/im,
     /^- max_cost_usd:\s*(?!1$)\d+/im,
@@ -186,7 +186,8 @@ test("fresh route lab proof approval keeps runtime and provider capability bound
     /provider_lock_in: false/i,
   ]);
 
-  assertExactMarker("authorization state", approval, "remaining_approved_future_attempts", "1");
+  assertExactMarker("authorization state", approval, "remaining_approved_future_attempts", "0");
+  assertExactMarker("authorization state", approval, "historical_remaining_approved_future_attempts_at_approval_time", "1");
 
   assertNoForbiddenBroadening("fresh route lab proof approval boundaries", approval);
 });

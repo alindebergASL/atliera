@@ -77,7 +77,16 @@ function assertSafeRef(value: string, label: string): void {
 }
 
 function assertIso(value: string, label: string): void {
-  if (!ISO_INSTANT.test(value) || Number.isNaN(Date.parse(value))) throw new Error(`${label} must be an ISO instant`);
+  if (!ISO_INSTANT.test(value)) throw new Error(`${label} must be an ISO instant`);
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed) || new Date(parsed).toISOString() !== value) {
+    throw new Error(`${label} must be an ISO instant`);
+  }
+}
+
+function parseIso(value: string, label: string): number {
+  assertIso(value, label);
+  return Date.parse(value);
 }
 
 function assertNonNegativeInteger(value: number, label: string): void {
@@ -102,10 +111,48 @@ function sanitizeRefusalReason(reason: string): string {
   return "unsafe_refusal_reason_redacted";
 }
 
+function assertPreflightMatchesSelectedRoute(input: RuntimeModelExecutionReportInput): void {
+  if (
+    input.preflight.routeRef !== input.selectedRoute.route.routeRef ||
+    input.preflight.providerRef !== input.selectedRoute.route.providerRef ||
+    input.preflight.modelLabel !== input.selectedRoute.route.modelLabel
+  ) {
+    throw new Error("preflight route identity must match selected route");
+  }
+  if (
+    input.preflight.routeEvidenceExpiresAt !== input.selectedRoute.routeEvidenceExpiresAt ||
+    input.preflight.routeEvidenceExpiresAt !== input.selectedRoute.route.evidenceExpiresAt
+  ) {
+    throw new Error("preflight route evidence expiry must match selected route");
+  }
+}
+
+function assertStatusMatchesPreflight(input: RuntimeModelExecutionReportInput): void {
+  if (input.status === "preflight-pass-no-call" && input.preflight.ok !== true) {
+    throw new Error("preflight-pass-no-call requires passing preflight");
+  }
+  if (input.status === "preflight-blocked" && input.preflight.ok !== false) {
+    throw new Error("preflight-blocked requires blocked preflight");
+  }
+  if (input.status === "executed-sanitized" && input.preflight.ok !== true) {
+    throw new Error("executed-sanitized requires passing preflight");
+  }
+}
+
+function validationAgeDaysAtObservedTime(input: RuntimeModelExecutionReportInput): number {
+  const observedMs = parseIso(input.observedAt, "observedAt");
+  const validatedMs = parseIso(input.selectedRoute.route.validatedAt, "route.validatedAt");
+  if (observedMs < validatedMs) throw new Error("observedAt must not precede route validation");
+  return Math.floor((observedMs - validatedMs) / (24 * 60 * 60 * 1000));
+}
+
 export function createRuntimeModelExecutionReport(input: RuntimeModelExecutionReportInput): RuntimeModelExecutionReport {
   assertInputRecord(input);
+  assertPreflightMatchesSelectedRoute(input);
+  assertStatusMatchesPreflight(input);
   assertSafeRef(input.ledgerRef, "ledgerRef");
   assertIso(input.observedAt, "observedAt");
+  const validationAgeDays = validationAgeDaysAtObservedTime(input);
   assertNonNegativeInteger(input.usage.inputTokens, "usage.inputTokens");
   assertNonNegativeInteger(input.usage.outputTokens, "usage.outputTokens");
   assertNonNegativeInteger(input.usage.totalTokens, "usage.totalTokens");
@@ -129,11 +176,11 @@ export function createRuntimeModelExecutionReport(input: RuntimeModelExecutionRe
       model_label: input.selectedRoute.route.modelLabel,
       route_kind: input.selectedRoute.route.routeKind,
       validation_refs: Object.freeze([...input.selectedRoute.route.validationRefs]),
-      validation_age_days: input.selectedRoute.validationAgeDays,
-      evidence_expires_at: input.selectedRoute.routeEvidenceExpiresAt,
-      evidence_status: input.selectedRoute.routeEvidenceStatus,
-      requires_fresh_approval_before_use: input.selectedRoute.routeRequiresFreshApprovalBeforeUse,
-      usable_without_revalidation: input.selectedRoute.routeUsableWithoutRevalidation,
+      validation_age_days: validationAgeDays,
+      evidence_expires_at: input.preflight.routeEvidenceExpiresAt,
+      evidence_status: input.preflight.routeEvidenceStatus,
+      requires_fresh_approval_before_use: input.preflight.routeRequiresFreshApprovalBeforeUse,
+      usable_without_revalidation: input.preflight.routeUsableWithoutRevalidation,
       approval_ref: input.selectedRoute.approvalRef,
     }),
     preflight: Object.freeze({

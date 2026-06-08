@@ -2,6 +2,8 @@
 
 Status: completed.
 
+Follow-up assessment: `runtime-route-fresh-lab-proof-usefulness-assessment.md` is a no-spend interpretation and decision record. It preserves the consumed approval state and current effective authorization of none.
+
 This status records the separate execution/status step authorized by `runtime-route-fresh-lab-proof-approval-packet.md`. The approval permitted exactly one tiny synthetic fresh-route lab runtime/model-mode proof attempt, executed through the merged lab/test runtime harness (`executeLabRuntimeModelProof`) after the merged route-recency gate was present. That one approved attempt has now been consumed and completed.
 
 This is a bounded historical lab runtime/model-mode contract signal only. It records that the approved fresh-route attempt ran, the route was fresh at execution preflight, and the harness boundary held. It is not evidence of product, production, or launch readiness; not a provider quality conclusion; not a default model selection; not provider lock-in; not a provider comparison; not graph ingestion; not production use; not product-preview expansion; not corpus expansion; and not any tools, web search, plugins, retrieval, or MCP change. It does not authorize a retry or any further provider call.

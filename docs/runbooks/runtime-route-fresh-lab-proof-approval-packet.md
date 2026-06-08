@@ -2,9 +2,9 @@
 
 Status: pre-run docs-only approval packet. This PR does not execute a provider call.
 
-This packet authorizes only one future fresh-route tiny synthetic lab runtime/model-mode proof attempt, executed through the merged lab/test runtime harness and the merged route-recency enforcement gate, in a separate later execution/status PR after this packet is merged. It does not execute a provider call, add provider transport, run a model, revalidate stale evidence, or change production/runtime defaults.
+This packet historically authorized only one future fresh-route tiny synthetic lab runtime/model-mode proof attempt, executed through the merged lab/test runtime harness and the merged route-recency enforcement gate, in a separate later execution/status PR after this packet was merged. That later execution/status step is now recorded in `runtime-route-fresh-lab-proof-status.md`; the approval is consumed and the current effective authorization is none. This approval-packet PR did not execute a provider call, add provider transport, run a model, revalidate stale evidence, or change production/runtime defaults.
 
-This approval-packet PR keeps `provider_call_executed_in_this_pr: false` and `adds_runtime_provider_call_source: false`.
+This approval-packet PR kept `provider_call_executed_in_this_pr: false` and `adds_runtime_provider_call_source: false`.
 
 ## Source and prerequisites
 
@@ -20,7 +20,7 @@ This approval-packet PR keeps `provider_call_executed_in_this_pr: false` and `ad
 
 The selected route evidence must still be fresh at execution preflight time. Stale, expired, nearing-expiry, or candidate-label-only route evidence blocks before provider access. If route evidence is stale at execution time, record a blocked status with provider_calls_executed: 0 and provider_spend: false.
 
-## Approved future attempt scope
+## Historical approved future attempt scope
 
 - approval_id: runtime-route-fresh-lab-proof-20260607a
 - approved_future_attempts: 1
@@ -43,7 +43,18 @@ The selected route evidence must still be fresh at execution preflight time. Sta
 - stop_on_exception: true
 - retry_requires_new_approval: true
 
-The route candidate above is explicit and replaceable. A different route, provider, model, environment, operation, corpus, transport, cost cap, attempt count, or stale-route revalidation requires a fresh approval packet, not an in-place edit of this packet and not reuse after consumption.
+The route candidate above is explicit and replaceable. A different route, provider, model, environment, operation, corpus, transport, cost cap, attempt count, or stale-route revalidation required a fresh approval packet, not an in-place edit of this packet and not reuse after consumption.
+
+## Consumption status after execution
+
+- status_ref: docs/runbooks/runtime-route-fresh-lab-proof-status.md
+- approval_consumed: true
+- current_effective_authorization: none
+- remaining_approved_future_attempts: 0
+- attempts_executed: 1
+- provider_calls_executed: 1
+- provider_call_requires_new_approval: true
+- retry_requires_new_approval: true
 
 ## Required pre-run checks
 
@@ -121,14 +132,18 @@ The later status follow-up must be sanitized and separate from this packet. It m
 
 The later status must not commit prompt text, model text, source excerpts, account refs, provider payloads, headers, operator filesystem locations, logs, credential-bearing values, client handles, request identifiers, preview HTML, screenshots, or raw/private evidence. If the route has become non-fresh, nearing-expiry, expired, or label-only by execution time, the later status must be blocked before provider access and must not execute a revalidation attempt under this approval.
 
-## Approval-time authorization state
+## Historical approval-time authorization state
 
 - provider_call_executed_in_this_pr: false
 - adds_runtime_provider_call_source: false
 - authorizes_one_future_fresh_lab_runtime_model_mode_attempt: true
 - approved_future_attempts: 1
-- remaining_approved_future_attempts: 1
+- historical_remaining_approved_future_attempts_at_approval_time: 1
+- remaining_approved_future_attempts: 0
 - runtime_model_mode_execution_authorized_for_one_future_attempt: true
+- current_effective_authorization: none
+- authorizes_provider_call: false
+- authorizes_future_runtime_model_mode_execution: false
 - authorizes_retry: false
 - authorizes_revalidation_run: false
 - authorizes_provider_comparison: false
@@ -151,4 +166,4 @@ The later status must not commit prompt text, model text, source excerpts, accou
 - launch_readiness_claim: false
 - provider_lock_in: false
 
-A successful future attempt under this packet would prove only the exact fresh-route tiny synthetic lab runtime/model-mode path under this bounded scope. This packet proves no provider comparison, corpus expansion, product-preview expansion, graph ingestion, production use, deployment, tool/search/plugin/retrieval/MCP changes, launch, retry, revalidation run, stale-route use, default model selection, or any second provider request. Any retry, revalidation, stale-route use, or scope change requires a fresh approval packet.
+The completed attempt under this packet proved only the exact fresh-route tiny synthetic lab runtime/model-mode path under this bounded scope. This packet and its status prove no provider comparison, corpus expansion, product-preview expansion, graph ingestion, production use, deployment, tool/search/plugin/retrieval/MCP changes, launch, retry, revalidation run, stale-route use, default model selection, or any second provider request. Any retry, revalidation, stale-route use, or scope change requires a fresh approval packet.

@@ -25,6 +25,7 @@
     "workshop:shell": "tsx src/cli/workshop-shell.ts write",
     "workshop:runtime-preview": "tsx src/cli/runtime-workshop-preview.ts report",
     "workshop:runtime-preview:html": "tsx src/cli/runtime-workshop-preview.ts html",
+    "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
     "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
     "s3:compatibility:check-aws-cli": "tsx src/cli/s3-compatibility.ts check-aws-cli",
     "s3:compatibility:aws-cli": "tsx src/cli/s3-compatibility.ts validate-aws-cli",

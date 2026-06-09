@@ -47,6 +47,12 @@ The status also records that the one-call limit held, provider spend was false w
 
 This is enough to justify no-spend follow-up work that hardens the route chain around the already-proven shape. It is not enough to justify another provider call or broader runtime adoption without a separate approval packet.
 
+## Route-proofing frontier enough criteria
+
+Route proofing is enough for the current frontier when one exact-route lab runtime proof exists, no-call route-chain hardening is tested, fresh-only execution preflight enforcement exists, the approval/status docs keep current effective authorization at none, and future live attempts require separate approval. At that point the recommended project direction is to return to product/Gate 3-4 work with fake, sanitized, or no-spend fixtures instead of continuing live/provider expansion by default.
+
+This criterion does not claim product readiness, production readiness, launch readiness, model quality superiority, provider comparison, provider lock-in, graph-ingestion safety, or default model selection. It is a stop rule for the route-proofing frontier, not an execution clearance.
+
 ## What the proof does not establish
 
 This assessment makes no claim about other routes, providers, models, transports, operations, corpora, account roles, product-preview slices, production runtime paths, graph-ingestion behavior, or default model choice. It also makes no provider quality conclusion and no product, production, or launch readiness claim.

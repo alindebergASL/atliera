@@ -507,6 +507,7 @@ export async function executeLabRuntimeModelProof(input: LabRuntimeModelExecutio
     credentialReady: input.credentialReady,
     now: input.now,
     requestMetadata: input.request.metadata,
+    requiredRouteEvidenceStatus: "fresh",
   });
   if (!preflight.ok) {
     return Object.freeze({

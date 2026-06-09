@@ -84,6 +84,7 @@ export async function createRuntimeModelOnlyActivationPreflightProof(
     credentialReady: credentialReadiness.status === "present",
     now: input.now,
     requestMetadata: input.request.metadata,
+    requiredRouteEvidenceStatus: "fresh",
   });
 
   if (!preflight.ok) throw new Error("runtime model-only activation preflight refused");

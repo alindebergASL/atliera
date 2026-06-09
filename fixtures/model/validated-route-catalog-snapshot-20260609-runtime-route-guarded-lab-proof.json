@@ -1,0 +1,30 @@
+{
+  "schema_version": "atliera.validated_model_route_catalog.snapshot.v1",
+  "generated_at": "2026-06-09T00:00:00.000Z",
+  "provider_calls_executed": 0,
+  "provider_spend": false,
+  "runtime_model_mode_integration": false,
+  "default_model_selection_claim": false,
+  "provider_lock_in": false,
+  "validated_routes": [
+    {
+      "route_ref": "gpt-5.5-openai-codex-repeatability-20260604h",
+      "provider_ref": "openai-codex",
+      "model_label": "gpt-5.5",
+      "route_kind": "candidate",
+      "validated_at": "2026-06-05T00:00:00.000Z",
+      "evidence_expires_at": "2026-07-05T00:00:00.000Z",
+      "validation_refs": [
+        "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-status.md",
+        "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-assessment.md",
+        "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-approval-packet.md"
+      ]
+    }
+  ],
+  "candidate_label_examples_not_validated": ["opus-4.8", "gpt-5.6"],
+  "notes": [
+    "This snapshot pins the selected route for the guarded lab proof approval packet without provider calls.",
+    "The route remains a replaceable candidate route and does not authorize default model selection.",
+    "Generated from sanitized committed route-chain tests/docs only; private evidence and provider payloads are not included."
+  ]
+}

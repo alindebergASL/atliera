@@ -35,6 +35,7 @@ Rationale: PR #241 proved no-call route-chain plumbing for the lab runtime proof
 - provider_calls_executed_by_plan: 0
 - provider_calls_executed: 0
 - provider_spend: false
+- current_effective_authorization: none
 - authorizes_provider_call: false
 - authorizes_runtime_use: false
 - authorizes_revalidation_run: false
@@ -58,6 +59,12 @@ Rationale: PR #241 proved no-call route-chain plumbing for the lab runtime proof
 - launch_readiness_claim: false
 - stale_or_candidate_requires_fresh_approval: true
 - revalidation_requires_new_approval: true
+
+## Expiry handling contract
+
+Nearing-expiry evidence may warn but must not become a provider call, retry, revalidation run, comparison, graph ingestion, production use, or default model selection. A fresh-only approval packet may require `route_recency_status_required: fresh`; in that case `nearing-expiry` is blocked before provider access even though ordinary no-spend observability can still report it as warning metadata.
+
+Expired-needs-revalidation evidence must block before provider access. A revalidation run requires a separate approval packet with its own route scope, call cap, budget cap, stop rules, sanitized evidence handling, and explicit operator instruction. Revalidation status must be sanitized: it can record public-safe route refs, timestamps, counters, status, and boundary markers, but not unsanitized prompt text, request or response bodies, adapter bodies, request identifiers, credential-bearing values, or private storage locators.
 
 ## Follow-on options after this PR
 

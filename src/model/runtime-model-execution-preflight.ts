@@ -16,6 +16,7 @@ export interface RuntimeModelExecutionPreflightInput {
   readonly credentialReady: boolean;
   readonly now: string;
   readonly requestMetadata: Record<string, string>;
+  readonly requiredRouteEvidenceStatus?: "fresh";
 }
 
 export interface RuntimeModelExecutionPreflightDecision {
@@ -99,13 +100,22 @@ export function preflightRuntimeModelExecution(
   const metadata = snapshotMetadata(input.requestMetadata);
   const localRefusals: string[] = [];
   const routeEvidenceStatusAtPreflight = computeRouteEvidenceStatusAtPreflight(input.selectedRoute, input.now);
+  const requiredRouteEvidenceStatus = input.requiredRouteEvidenceStatus;
+  const invalidRequiredRouteEvidenceStatus = requiredRouteEvidenceStatus !== undefined && requiredRouteEvidenceStatus !== "fresh";
+  const freshRouteEvidenceRequirementFailed = requiredRouteEvidenceStatus === "fresh" && routeEvidenceStatusAtPreflight !== "fresh";
   if (typeof metadata === "string") localRefusals.push(metadata);
+  if (invalidRequiredRouteEvidenceStatus) {
+    localRefusals.push("required route evidence status must be fresh when provided");
+  }
   if (!input.credentialReady) localRefusals.push("credential readiness is required before runtime model execution");
   if (routeEvidenceStatusAtPreflight === "invalid-route-evidence-timestamp") {
     localRefusals.push("route evidence timestamp invalid before runtime model execution");
   }
   if (routeEvidenceStatusAtPreflight === "expired-needs-revalidation" || input.selectedRoute.routeRequiresFreshApprovalBeforeUse || !input.selectedRoute.routeUsableWithoutRevalidation) {
     localRefusals.push("route evidence expired requires revalidation before runtime model execution");
+  }
+  if (freshRouteEvidenceRequirementFailed) {
+    localRefusals.push("route evidence must be fresh before runtime model execution");
   }
   if (input.selectedRoute.runtimeModelModeIntegration !== false) localRefusals.push("selected route cannot authorize runtime integration");
   if (input.selectedRoute.defaultModelSelectionClaim !== false) localRefusals.push("selected route cannot claim default model selection");
@@ -137,8 +147,8 @@ export function preflightRuntimeModelExecution(
     credentialReady: input.credentialReady,
     routeEvidenceStatus: routeEvidenceStatusAtPreflight === "invalid-route-evidence-timestamp" ? input.selectedRoute.routeEvidenceStatus : routeEvidenceStatusAtPreflight,
     routeEvidenceExpiresAt: input.selectedRoute.routeEvidenceExpiresAt,
-    routeRequiresFreshApprovalBeforeUse: routeEvidenceStatusAtPreflight === "expired-needs-revalidation" ? true : input.selectedRoute.routeRequiresFreshApprovalBeforeUse,
-    routeUsableWithoutRevalidation: routeEvidenceStatusAtPreflight === "expired-needs-revalidation" ? false : input.selectedRoute.routeUsableWithoutRevalidation,
+    routeRequiresFreshApprovalBeforeUse: routeEvidenceStatusAtPreflight === "expired-needs-revalidation" || freshRouteEvidenceRequirementFailed ? true : input.selectedRoute.routeRequiresFreshApprovalBeforeUse,
+    routeUsableWithoutRevalidation: routeEvidenceStatusAtPreflight === "expired-needs-revalidation" || freshRouteEvidenceRequirementFailed ? false : input.selectedRoute.routeUsableWithoutRevalidation,
     providerCallsExecuted: 0,
     providerSpend: false,
     authorizesProviderCall: false,

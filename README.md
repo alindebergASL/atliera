@@ -13,18 +13,22 @@ Core architecture vocabulary:
 
 See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/durable-adapter-contracts.md`, `docs/strategy/substrate-to-validation-transition.md`, `docs/safety/untrusted-input-snapshot-contract.md`, and `docs/adr/0001-atliera-fresh-system.md` for the initial architecture plan, current substrate-to-validation transition decision, and load-bearing snapshot-boundary safety contract.
 
-## Phase 1 graph foundation
+## Current implementation surface
 
-The current codebase contains the Phase 1 Atliera Graph foundation:
+The current codebase now extends beyond the original Phase 1 graph foundation while still preserving a no-spend/default-closed posture:
 
 - graph primitive types in `src/graph/types.ts`
 - strict structural parsing in `src/graph/schema.ts`
 - deterministic hard-invariant validation in `src/graph/validate.ts`
 - no-spend fixture validation CLI in `src/cli/validate.ts`
+- Workshop HTML rendering through the graph-derived Signals / Maps / Plays view model
+- runtime composition seams for explicit adapter wiring rather than hidden infrastructure defaults
+- database-backed queue and graph store seams behind injected clients and sanitized adapter contracts
+- model route catalog, activation gates, and no-call/guarded proof harnesses that remain explicit, bounded, and inactive by default
 - adversarial graph tests in `tests/graph/`
 - safety tests in `tests/safety/`
 
-Phase 1 intentionally does not include UI, database persistence, live source fetching, provider/model integration, deployment, or legacy data migration.
+The repository still does not claim launch readiness. The next recommended foundation-first product work is a fake-mode product/Gate 3 slice: boot/healthcheck plus Workshop rendering over fake, local, or sanitized fixtures without provider/model calls or production writes.
 
 ## Local verification
 

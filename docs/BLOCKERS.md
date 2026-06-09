@@ -2,6 +2,18 @@
 
 This file tracks gates that must be satisfied before Atliera moves from architecture to implementation, lab, and launch.
 
+## Current gate status
+
+| Gate | Status | Current interpretation |
+| --- | --- | --- |
+| Gate 0 | complete | Architecture, ADR, product vocabulary, provenance, and fresh-system separation docs exist. |
+| Gate 1 | complete | Graph schemas, validators, fixtures, adversarial tests, and no-provider fixture/fake-mode guards exist. |
+| Gate 2 | validated-boundary | Model/provider activation has explicit approval, budget, route catalog, preflight, and no-call/guarded proof machinery, but current effective authorization is none. |
+| Gate 3 | underbuilt | Lab deployment groundwork still needs an empty-DB boot path, healthcheck route, deployment plan, and backup path before meaningful lab data exists. |
+| Gate 4 | fixture-only | Launch-quality machinery exists for deterministic fixtures and gate corpus assessment only; no launch-ready claim is made. |
+
+Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The next recommended work: fake-mode product/Gate 3 slice, followed by human review of whether the Workshop output is useful enough to justify any further bounded external validation.
+
 ## Gate 0: Architecture docs land
 
 Required before implementation:

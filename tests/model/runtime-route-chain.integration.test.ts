@@ -116,4 +116,88 @@ describe("runtime route chain no-call integration", () => {
     assert.equal(report.default_model_selection_claim, false);
     assert.equal(report.provider_lock_in, false);
   });
+
+  test("blocks when a selected fresh route expires before preflight and reports sanitized no-call status", () => {
+    let providerCalls = 0;
+    const catalog = validateRouteCatalog([
+      route({ evidenceExpiresAt: "2026-06-04T00:00:00.000Z" }),
+    ], { now: "2026-06-03T00:00:00.000Z", maxValidationAgeDays: 30 });
+
+    const selectedRoute = selectRouteFromCatalog(catalog, {
+      routeRef: "gpt-5.5-openai-codex-20260602a",
+      environment: "staging",
+      approvalRef: "approvals/runtime-route-chain-pr160",
+      now: "2026-06-03T00:00:00.000Z",
+      maxValidationAgeDays: 30,
+    });
+    assert.equal(selectedRoute.routeEvidenceStatus, "fresh");
+    assert.equal(selectedRoute.routeRequiresFreshApprovalBeforeUse, false);
+
+    const runtime = createAtlieraRuntime({
+      config: parseAtlieraRuntimeConfig({ ATL_ENV: "staging", MODEL_PROVIDER: "external" }),
+      graphStore: new InMemoryGraphStore(),
+      artifactStore: new InMemoryArtifactStore(),
+      jobQueue: new InMemoryJobQueue(),
+      modelAdapter: new FakeModelAdapter(),
+      modelProvider: {
+        name: "throwing-provider",
+        async generate() {
+          providerCalls += 1;
+          throw new Error("provider must not be called after route evidence expiry");
+        },
+      },
+      selectedModelRoute: selectedRoute,
+    });
+    assert.equal(runtime.selectedModelRoute?.routeRef, "gpt-5.5-openai-codex-20260602a");
+
+    const approval = createModelActivationApproval({
+      approvalId: "approval-pr160-stale-preflight",
+      approvedBy: "operator",
+      approvedAt: "2026-06-02T00:00:00.000Z",
+      provider: "openai-codex",
+      model: "gpt-5.5",
+      maxCostUsd: 1,
+      corpusRef: "external-corpus/runtime-route-chain.json",
+      cleanupCommitment: "no provider call when selected route expires before preflight",
+      approvalRef: "approvals/runtime-route-chain-pr160",
+      budgetLedgerRef: "ledgers/runtime-route-chain-pr160",
+      runEvidenceRef: "evidence/runtime-route-chain-pr160",
+      cleanupOutcomeRef: "cleanup/runtime-route-chain-pr160",
+    });
+
+    const preflight = preflightRuntimeModelExecution({
+      selectedRoute,
+      mode: "model",
+      corpusRef: "external-corpus/runtime-route-chain.json",
+      approval,
+      costLedgerEntries: [],
+      nextEstimatedCostUsd: 0.01,
+      credentialReady: true,
+      now: "2026-06-05T00:00:00.000Z",
+      requestMetadata: { prompt_contract_ref: "prompt-contracts/runtime-route-chain-pr160" },
+    });
+
+    const report = createRuntimeModelExecutionReport({
+      selectedRoute,
+      preflight,
+      ledgerRef: "ledgers/runtime-route-chain-pr160",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      cost: { currency: "USD", amount: 0 },
+      status: "preflight-blocked",
+      observedAt: "2026-06-05T00:00:00.000Z",
+    });
+
+    assert.equal(preflight.ok, false);
+    assert.equal(preflight.routeEvidenceStatus, "expired-needs-revalidation");
+    assert.equal(preflight.routeRequiresFreshApprovalBeforeUse, true);
+    assert.equal(preflight.routeUsableWithoutRevalidation, false);
+    assert.equal(providerCalls, 0);
+    assert.equal(report.route.evidence_status, "expired-needs-revalidation");
+    assert.equal(report.route.requires_fresh_approval_before_use, true);
+    assert.equal(report.route.usable_without_revalidation, false);
+    assert.equal(report.provider_calls_executed, 0);
+    assert.equal(report.provider_spend, false);
+    assert.equal(report.authorizes_provider_call, false);
+    assert.equal(report.runtime_model_mode_integration, false);
+  });
 });

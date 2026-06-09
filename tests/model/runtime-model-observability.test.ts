@@ -138,6 +138,101 @@ describe("runtime model observability", () => {
     assert.throws(() => createRuntimeModelExecutionReport(hostile as never), /accessor field rejected/i);
   });
 
+  test("rejects inconsistent selected-route and preflight identity before reporting", () => {
+    assert.throws(
+      () => createRuntimeModelExecutionReport({
+        selectedRoute: selectedRoute(),
+        preflight: { ...preflight(), routeRef: "some-other-route" },
+        ledgerRef: "ledgers/runtime-model-observability-pr159",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        cost: { currency: "USD", amount: 0 },
+        status: "preflight-pass-no-call",
+        observedAt: "2026-06-03T00:00:00.000Z",
+      }),
+      /preflight route identity must match selected route/i,
+    );
+
+    assert.throws(
+      () => createRuntimeModelExecutionReport({
+        selectedRoute: selectedRoute(),
+        preflight: { ...preflight(), routeEvidenceExpiresAt: "2026-08-02T00:00:00.000Z" },
+        ledgerRef: "ledgers/runtime-model-observability-pr159",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        cost: { currency: "USD", amount: 0 },
+        status: "preflight-pass-no-call",
+        observedAt: "2026-06-03T00:00:00.000Z",
+      }),
+      /preflight route evidence expiry must match selected route/i,
+    );
+  });
+
+  test("rejects status and preflight outcome inconsistencies", () => {
+    assert.throws(
+      () => createRuntimeModelExecutionReport({
+        selectedRoute: selectedRoute(),
+        preflight: { ...preflight(), ok: false, refusalReasons: ["credential readiness is required before runtime model execution"] },
+        ledgerRef: "ledgers/runtime-model-observability-pr159",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        cost: { currency: "USD", amount: 0 },
+        status: "preflight-pass-no-call",
+        observedAt: "2026-06-03T00:00:00.000Z",
+      }),
+      /preflight-pass-no-call requires passing preflight/i,
+    );
+
+    assert.throws(
+      () => createRuntimeModelExecutionReport({
+        selectedRoute: selectedRoute(),
+        preflight: preflight(),
+        ledgerRef: "ledgers/runtime-model-observability-pr159",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        cost: { currency: "USD", amount: 0 },
+        status: "preflight-blocked",
+        observedAt: "2026-06-03T00:00:00.000Z",
+      }),
+      /preflight-blocked requires blocked preflight/i,
+    );
+  });
+
+  test("reports preflight-recomputed route recency instead of stale selected-route snapshot", () => {
+    const staleAtPreflightRoute: SelectedModelRoute = {
+      ...selectedRoute(),
+      routeEvidenceStatus: "fresh",
+      routeEvidenceExpiresAt: "2026-06-04T00:00:00.000Z",
+      routeRequiresFreshApprovalBeforeUse: false,
+      routeUsableWithoutRevalidation: true,
+      route: { ...selectedRoute().route, evidenceExpiresAt: "2026-06-04T00:00:00.000Z" },
+    };
+    const blockedPreflight: RuntimeModelExecutionPreflightDecision = {
+      ...preflight(),
+      ok: false,
+      refusalReasons: ["route evidence expired requires revalidation before runtime model execution"],
+      routeEvidenceStatus: "expired-needs-revalidation",
+      routeEvidenceExpiresAt: "2026-06-04T00:00:00.000Z",
+      routeRequiresFreshApprovalBeforeUse: true,
+      routeUsableWithoutRevalidation: false,
+      authorizesProviderCall: false,
+    };
+
+    const report = createRuntimeModelExecutionReport({
+      selectedRoute: staleAtPreflightRoute,
+      preflight: blockedPreflight,
+      ledgerRef: "ledgers/runtime-model-observability-pr159",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      cost: { currency: "USD", amount: 0 },
+      status: "preflight-blocked",
+      observedAt: "2026-06-05T00:00:00.000Z",
+    });
+
+    assert.equal(report.route.validation_age_days, 3);
+    assert.equal(report.route.evidence_status, "expired-needs-revalidation");
+    assert.equal(report.route.requires_fresh_approval_before_use, true);
+    assert.equal(report.route.usable_without_revalidation, false);
+    assert.equal(report.provider_calls_executed, 0);
+    assert.equal(report.authorizes_provider_call, false);
+    assert.deepEqual(report.preflight.refusal_reasons, ["route_evidence_expired_requires_revalidation"]);
+  });
+
   test("redacts unsafe preflight refusal reason details", () => {
     const report = createRuntimeModelExecutionReport({
       selectedRoute: selectedRoute(),

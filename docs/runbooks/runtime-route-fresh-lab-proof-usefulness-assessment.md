@@ -2,6 +2,8 @@
 
 Status: no-spend interpretation and decision record.
 
+Follow-up hardening: `runtime-route-chain-no-call-hardening-status.md` records the later no-call route-chain hardening status. It preserves current effective authorization of none and does not authorize execution.
+
 Source status: `runtime-route-fresh-lab-proof-status.md`.
 
 This document interprets only the already-committed sanitized fresh-route lab proof status. It does not execute a provider call, retry the lab proof, revalidate a route, compare providers or models, ingest output into the graph, expand the corpus or product-preview surface, write to production, select a default model, or change tools, web search, plugins, retrieval, or MCP settings.

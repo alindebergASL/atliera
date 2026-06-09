@@ -6,6 +6,11 @@ import test from "node:test";
 const ROOT = join(import.meta.dirname, "..", "..");
 const APPROVAL = join(ROOT, "docs/runbooks/runtime-route-guarded-lab-proof-approval-packet.md");
 const HARDENING = join(ROOT, "docs/runbooks/runtime-route-chain-no-call-hardening-status.md");
+const ROUTE_CATALOG = join(ROOT, "fixtures/model/validated-route-catalog-snapshot-20260609-runtime-route-guarded-lab-proof.json");
+const REVALIDATION_PLAN = join(ROOT, "docs/plans/2026-06-06-runtime-route-recency-revalidation.md");
+const USEFULNESS_ASSESSMENT = join(ROOT, "docs/runbooks/runtime-route-fresh-lab-proof-usefulness-assessment.md");
+const RUNTIME_MODEL_ONLY_PREFLIGHT = join(ROOT, "src/model/runtime-model-only-proof-preflight.ts");
+const LAB_RUNTIME_PROOF_VERIFIER = join(ROOT, "src/validation/live-provider-moderate-proof-verifier.ts");
 
 function read(path: string): string {
   return readFileSync(path, "utf8");
@@ -83,6 +88,14 @@ function assertNoForbiddenBroadening(label: string, text: string): void {
   }
 }
 
+function assertEveryPreflightCallRequiresFresh(label: string, text: string): void {
+  const calls = text.match(/preflightRuntimeModelExecution\(\{[\s\S]*?\n\s*\}\);/g) ?? [];
+  assert.ok(calls.length > 0, `${label} must call preflightRuntimeModelExecution`);
+  for (const call of calls) {
+    assert.match(call, /requiredRouteEvidenceStatus: "fresh"/, `${label} preflight call must require fresh route evidence`);
+  }
+}
+
 test("guarded lab proof approval packet is docs-only and depends on route-chain hardening", () => {
   const approval = read(APPROVAL);
   const hardening = read(HARDENING);
@@ -142,6 +155,116 @@ test("guarded lab proof approval names exact one-attempt fresh-route scope", () 
   assertExactMarker("guarded lab proof scope", approval, "max_transport_calls", "1");
   assertExactMarker("guarded lab proof scope", approval, "max_cost_usd", "1");
   assertNoForbiddenBroadening("guarded lab proof scope", approval);
+});
+
+test("guarded lab proof approval pins selected route provenance to a committed catalog snapshot", () => {
+  const approval = read(APPROVAL);
+  const catalog = JSON.parse(read(ROUTE_CATALOG)) as {
+    schema_version: string;
+    provider_calls_executed: number;
+    provider_spend: boolean;
+    default_model_selection_claim: boolean;
+    provider_lock_in: boolean;
+    validated_routes: Array<{
+      route_ref: string;
+      provider_ref: string;
+      model_label: string;
+      route_kind: string;
+      validated_at: string;
+      evidence_expires_at: string;
+      validation_refs: string[];
+    }>;
+  };
+
+  assertContainsAll("guarded lab proof route provenance", approval, [
+    /route_catalog_snapshot: fixtures\/model\/validated-route-catalog-snapshot-20260609-runtime-route-guarded-lab-proof\.json/i,
+    /route_validated_at: 2026-06-05T00:00:00\.000Z/i,
+    /route_evidence_expires_at: 2026-07-05T00:00:00\.000Z/i,
+    /route_validation_ref: docs\/runbooks\/runtime-model-only-tiny-live-runtime-proof-remediated-status\.md/i,
+    /route_validation_ref: docs\/runbooks\/runtime-model-only-tiny-live-runtime-proof-remediated-assessment\.md/i,
+    /route_validation_ref: docs\/runbooks\/runtime-model-only-tiny-live-runtime-proof-remediated-approval-packet\.md/i,
+  ]);
+
+  assert.equal(catalog.schema_version, "atliera.validated_model_route_catalog.snapshot.v1");
+  assert.equal(catalog.provider_calls_executed, 0);
+  assert.equal(catalog.provider_spend, false);
+  assert.equal(catalog.default_model_selection_claim, false);
+  assert.equal(catalog.provider_lock_in, false);
+
+  const selectedRoute = catalog.validated_routes.find(
+    (route) => route.route_ref === "gpt-5.5-openai-codex-repeatability-20260604h",
+  );
+  assert.ok(selectedRoute, "committed route catalog snapshot must contain selected route_ref");
+  assert.equal(selectedRoute.provider_ref, "openai-codex");
+  assert.equal(selectedRoute.model_label, "gpt-5.5");
+  assert.equal(selectedRoute.route_kind, "candidate");
+  assert.equal(selectedRoute.validated_at, "2026-06-05T00:00:00.000Z");
+  assert.equal(selectedRoute.evidence_expires_at, "2026-07-05T00:00:00.000Z");
+  assert.deepEqual(selectedRoute.validation_refs, [
+    "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-status.md",
+    "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-assessment.md",
+    "docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-approval-packet.md",
+  ]);
+  assertNoLeakage("guarded lab proof route provenance", approval);
+  assertNoForbiddenBroadening("guarded lab proof route provenance", approval);
+});
+
+test("guarded lab proof approval requires future status to bind explicit instruction, approval id, and ledger cap", () => {
+  const approval = read(APPROVAL);
+
+  assertContainsAll("guarded lab proof future status", approval, [
+    /operator_execution_instruction_ref_required: true/i,
+    /status_must_quote_or_reference_explicit_operator_instruction: true/i,
+    /status_must_record_approval_id: runtime-route-guarded-lab-proof-20260609a/i,
+    /status_must_record_runtime_approval_id_matches_packet: true/i,
+    /status_must_record_budget_cap_usd: 1/i,
+    /status_must_record_cost_ledger_headroom_before_call: true/i,
+    /status_must_record_provider_calls_with_same_approval_id: true/i,
+  ]);
+
+  assertNoLeakage("guarded lab proof future status", approval);
+  assertNoForbiddenBroadening("guarded lab proof future status", approval);
+});
+
+test("guarded lab proof runtime entrypoints require fresh route evidence at preflight", () => {
+  const runtimeModelOnlyPreflight = read(RUNTIME_MODEL_ONLY_PREFLIGHT);
+  const labRuntimeProofVerifier = read(LAB_RUNTIME_PROOF_VERIFIER);
+
+  assertEveryPreflightCallRequiresFresh("runtime model-only proof preflight", runtimeModelOnlyPreflight);
+  assertEveryPreflightCallRequiresFresh("lab runtime proof verifier", labRuntimeProofVerifier);
+});
+
+test("route recency revalidation plan defines expiry handling without authorizing revalidation", () => {
+  const plan = read(REVALIDATION_PLAN);
+
+  assertContainsAll("route recency revalidation plan", plan, [
+    /expiry handling contract/i,
+    /nearing-expiry evidence may warn but must not become a provider call, retry, revalidation run, comparison, graph ingestion, production use, or default model selection/i,
+    /expired-needs-revalidation evidence must block before provider access/i,
+    /a revalidation run requires a separate approval packet/i,
+    /revalidation status must be sanitized/i,
+    /authorizes_revalidation_run: false/i,
+    /current_effective_authorization: none/i,
+  ]);
+
+  assertNoLeakage("route recency revalidation plan", plan);
+  assertNoForbiddenBroadening("route recency revalidation plan", plan);
+});
+
+test("fresh route usefulness assessment defines when route proofing is enough before returning to product work", () => {
+  const assessment = read(USEFULNESS_ASSESSMENT);
+
+  assertContainsAll("route proofing enough criteria", assessment, [
+    /route-proofing frontier enough criteria/i,
+    /one exact-route lab runtime proof exists/i,
+    /no-call route-chain hardening is tested/i,
+    /fresh-only execution preflight enforcement exists/i,
+    /future live attempts require separate approval/i,
+    /return to product\/Gate 3-4 work with fake, sanitized, or no-spend fixtures/i,
+  ]);
+
+  assertNoLeakage("route proofing enough criteria", assessment);
+  assertNoForbiddenBroadening("route proofing enough criteria", assessment);
 });
 
 test("guarded lab proof approval preserves closed boundaries and separate sanitized status", () => {

@@ -38,6 +38,12 @@ This packet adds no provider transport, no wrapper, no runtime provider call sou
 - corpus_ref: external-corpus/lab-runtime-model-proof.json
 - corpus_scope: synthetic-only
 - route_kind: candidate
+- route_catalog_snapshot: fixtures/model/validated-route-catalog-snapshot-20260609-runtime-route-guarded-lab-proof.json
+- route_validated_at: 2026-06-05T00:00:00.000Z
+- route_evidence_expires_at: 2026-07-05T00:00:00.000Z
+- route_validation_ref: docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-status.md
+- route_validation_ref: docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-assessment.md
+- route_validation_ref: docs/runbooks/runtime-model-only-tiny-live-runtime-proof-remediated-approval-packet.md
 - route_recency_status_required: fresh
 - fresh_route_required_at_execution_time: true
 
@@ -48,10 +54,11 @@ The later execution path must use the exact route_ref above through the validate
 ## Required preflight checks before any future execution
 
 - current route catalog still contains the exact route_ref
+- route catalog entry must match the pinned route_catalog_snapshot, route_validated_at, route_evidence_expires_at, and route_validation_ref markers above
 - route selection uses route_ref only, not model label shortcuts
 - selected route and preflight route identity must match
 - selected route and preflight evidence expiry must match
-- preflightRuntimeModelExecution must pass
+- preflightRuntimeModelExecution must pass with requiredRouteEvidenceStatus: fresh
 - status must match preflight outcome
 - route recency metadata must report fresh
 - requires_fresh_approval_before_use must be false
@@ -106,5 +113,15 @@ This packet does not create ongoing execution clearance. It records one bounded 
 ## Later sanitized status requirements
 
 The later status follow-up must be sanitized and separate from this packet. It must record status: completed, exception, or blocked; provider_calls_executed; transport_calls_observed; provider_spend; observed_cost_usd; route_recency_status_observed_at_preflight; whether accepted output satisfied the exact output contract; aggregate public-safe output counts if completed; and non-authorizing boundary markers.
+
+Additional status binding markers:
+
+- operator_execution_instruction_ref_required: true
+- status_must_quote_or_reference_explicit_operator_instruction: true
+- status_must_record_approval_id: runtime-route-guarded-lab-proof-20260609a
+- status_must_record_runtime_approval_id_matches_packet: true
+- status_must_record_budget_cap_usd: 1
+- status_must_record_cost_ledger_headroom_before_call: true
+- status_must_record_provider_calls_with_same_approval_id: true
 
 The later status must not commit raw prompt text, raw request, raw response, or provider payload bodies, model output text, request identifiers, credential-bearing values or auth headers, private evidence paths or local evidence locations, wrapper logs, source account identifiers, screenshots, client handles, or production runtime details.

@@ -220,6 +220,38 @@ describe("runtime model execution preflight", () => {
     assert.equal(decision.authorizesProviderCall, false);
   });
 
+  test("refuses near-expiry route evidence when the execution approval requires fresh evidence", () => {
+    const nearingExpiryRoute: SelectedModelRoute = {
+      ...selectedRoute(),
+      routeEvidenceStatus: "nearing-expiry",
+      routeRequiresFreshApprovalBeforeUse: false,
+      routeUsableWithoutRevalidation: true,
+      routeEvidenceExpiresAt: "2026-06-05T00:00:00.000Z",
+      route: { ...selectedRoute().route, evidenceExpiresAt: "2026-06-05T00:00:00.000Z" },
+    };
+
+    const decision = preflightRuntimeModelExecution({
+      selectedRoute: nearingExpiryRoute,
+      requiredRouteEvidenceStatus: "fresh",
+      mode: "model",
+      corpusRef: "external-corpus/runtime-model-preflight.json",
+      approval: approval(),
+      costLedgerEntries: [ledger()],
+      nextEstimatedCostUsd: 0.05,
+      credentialReady: true,
+      now: "2026-06-03T00:00:00.000Z",
+      requestMetadata: { prompt_contract_ref: "prompt-contracts/graph-propose-v1" },
+    });
+
+    assert.equal(decision.ok, false);
+    assert.match(decision.refusalReasons.join(" "), /route evidence must be fresh before runtime model execution/i);
+    assert.equal(decision.routeEvidenceStatus, "nearing-expiry");
+    assert.equal(decision.routeRequiresFreshApprovalBeforeUse, true);
+    assert.equal(decision.routeUsableWithoutRevalidation, false);
+    assert.equal(decision.providerCallsExecuted, 0);
+    assert.equal(decision.authorizesProviderCall, false);
+  });
+
   test("refuses missing credentials and forbidden tool/search/plugin metadata before provider access", () => {
     const missingCredential = preflightRuntimeModelExecution({
       selectedRoute: selectedRoute(),

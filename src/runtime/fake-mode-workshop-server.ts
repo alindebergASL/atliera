@@ -1,4 +1,5 @@
 import type { AtlieraRuntime } from "./composition.ts";
+import { inspectLocalDurableDb, type LocalDurableDbReport } from "../db/local-durable-db.ts";
 import { runRuntimePreflight, type RuntimePreflightReport } from "./preflight.ts";
 import { prepareRuntimeWorkshopHtmlPreview } from "./workshop-preview.ts";
 
@@ -31,6 +32,10 @@ export interface FakeModeWorkshopServeReadiness {
 export interface FakeModeWorkshopServeRequest {
   readonly method: string | undefined;
   readonly path: string | undefined;
+}
+
+export interface FakeModeWorkshopServeOptions {
+  readonly localDurableDbRoot?: string;
 }
 
 export interface FakeModeWorkshopServeResponse {
@@ -149,6 +154,7 @@ function htmlResponse(statusCode: number, body: string): FakeModeWorkshopServeRe
 function readinessBody(
   readiness: FakeModeWorkshopServeReadiness,
   kind: "fake-mode-workshop-healthcheck" | "fake-mode-workshop-serve-blocked",
+  localDurableDb: LocalDurableDbReport | undefined,
 ): Record<string, unknown> {
   return {
     ok: readiness.ok,
@@ -157,21 +163,31 @@ function readinessBody(
     failureCodes: readiness.failures.map((failure) => failure.code),
     runtimePreflightOk: readiness.runtimePreflight.ok,
     runtimePreflightFailureCodes: readiness.runtimePreflight.failures.map((failure) => failure.code),
+    localDurableDbConfigured: localDurableDb !== undefined,
+    localDurableDbOk: localDurableDb?.ok ?? false,
+    localDurableDbStatus: localDurableDb?.databaseStatus ?? "not_configured",
+    localDurableDbFailureCodes: localDurableDb?.failureCodes ?? [],
     graphSnapshotRead: readiness.graphSnapshotRead,
     clientsConstructed: readiness.clientsConstructed,
     modelProviderClientConstructed: readiness.modelProviderClientConstructed,
     providerCallsMade: readiness.providerCallsMade,
     productionWrites: readiness.productionWrites,
+    deploymentReadinessClaim: false,
+    productionReadinessClaim: false,
   };
 }
 
 export async function handleFakeModeWorkshopRequest(
   runtime: AtlieraRuntime,
   request: FakeModeWorkshopServeRequest,
+  options: FakeModeWorkshopServeOptions = {},
 ): Promise<FakeModeWorkshopServeResponse> {
   const method = request.method?.toUpperCase() ?? "GET";
   const route = routeOf(request.path);
   const readiness = assessFakeModeWorkshopServeReadiness(runtime);
+  const localDurableDb = route === "/healthz" && options.localDurableDbRoot !== undefined
+    ? await inspectLocalDurableDb({ rootDir: options.localDurableDbRoot })
+    : undefined;
 
   if (method !== "GET") {
     return jsonResponse(405, {
@@ -187,7 +203,7 @@ export async function handleFakeModeWorkshopRequest(
   if (route === "/healthz") {
     return jsonResponse(
       readiness.ok ? 200 : 503,
-      readinessBody(readiness, "fake-mode-workshop-healthcheck"),
+      readinessBody(readiness, "fake-mode-workshop-healthcheck", localDurableDb),
     );
   }
 
@@ -203,7 +219,7 @@ export async function handleFakeModeWorkshopRequest(
   }
 
   if (!readiness.ok) {
-    return jsonResponse(503, readinessBody(readiness, "fake-mode-workshop-serve-blocked"));
+    return jsonResponse(503, readinessBody(readiness, "fake-mode-workshop-serve-blocked", undefined));
   }
 
   const report = prepareRuntimeWorkshopHtmlPreview(runtime);

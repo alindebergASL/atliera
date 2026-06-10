@@ -26,6 +26,8 @@
     "workshop:runtime-preview": "tsx src/cli/runtime-workshop-preview.ts report",
     "workshop:runtime-preview:html": "tsx src/cli/runtime-workshop-preview.ts html",
     "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
+    "db:local:init": "tsx src/cli/local-durable-db.ts init",
+    "db:local:inspect": "tsx src/cli/local-durable-db.ts inspect",
     "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
     "s3:compatibility:check-aws-cli": "tsx src/cli/s3-compatibility.ts check-aws-cli",
     "s3:compatibility:aws-cli": "tsx src/cli/s3-compatibility.ts validate-aws-cli",

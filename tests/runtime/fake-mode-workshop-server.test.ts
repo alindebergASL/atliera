@@ -1,5 +1,8 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, test } from "node:test";
 
 import { InMemoryArtifactStore } from "../../src/artifacts/store.ts";
@@ -13,6 +16,7 @@ import {
   handleFakeModeWorkshopRequest,
   type FakeModeWorkshopServeResponse,
 } from "../../src/runtime/fake-mode-workshop-server.ts";
+import { initializeLocalDurableDb } from "../../src/db/local-durable-db.ts";
 import { makeValidBundle } from "../fixtures/valid-graph.ts";
 
 const EMPTY_BUNDLE: GraphBundle = {
@@ -69,6 +73,15 @@ function parseJsonResponse(response: { body: string }): Record<string, unknown> 
   return JSON.parse(response.body) as Record<string, unknown>;
 }
 
+async function withTempDir(fn: (dir: string) => Promise<void>): Promise<void> {
+  const dir = await mkdtemp(join(tmpdir(), "atliera-fake-server-db-test-"));
+  try {
+    await fn(dir);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 function writeNodeResponse(target: ServerResponse, response: FakeModeWorkshopServeResponse): void {
   target.writeHead(response.statusCode, response.headers);
   target.end(response.body);
@@ -114,6 +127,49 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     assert.equal(body.modelProviderClientConstructed, false);
     assert.equal(graphStore.snapshotReads, 0);
     assert.equal(graphStore.commitCalls, 0);
+  });
+
+  test("healthcheck reports optional local durable DB readiness without turning it into deployment readiness", async () => {
+    await withTempDir(async (rootDir) => {
+      await initializeLocalDurableDb({ rootDir, now: "2026-06-09T00:00:00.000Z" });
+      const graphStore = new CountingGraphStore(EMPTY_BUNDLE);
+      const response = await handleFakeModeWorkshopRequest(
+        makeRuntime(graphStore),
+        { method: "GET", path: "/healthz" },
+        { localDurableDbRoot: rootDir },
+      );
+      const body = parseJsonResponse(response);
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(body.ok, true);
+      assert.equal(body.localDurableDbStatus, "initialized");
+      assert.equal(body.localDurableDbOk, true);
+      assert.equal(body.deploymentReadinessClaim, false);
+      assert.equal(body.productionReadinessClaim, false);
+      assert.equal(body.providerCallsMade, 0);
+      assert.equal(body.productionWrites, false);
+      assert.equal(graphStore.snapshotReads, 0);
+      assert.equal(graphStore.commitCalls, 0);
+    });
+  });
+
+  test("healthcheck ignores request URL attempts to supply a local DB root", async () => {
+    await withTempDir(async (rootDir) => {
+      await initializeLocalDurableDb({ rootDir, now: "2026-06-09T00:00:00.000Z" });
+      const graphStore = new CountingGraphStore(EMPTY_BUNDLE);
+      const response = await handleFakeModeWorkshopRequest(makeRuntime(graphStore), {
+        method: "GET",
+        path: `/healthz?localDurableDbRoot=${encodeURIComponent(rootDir)}`,
+      });
+      const body = parseJsonResponse(response);
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(body.localDurableDbConfigured, false);
+      assert.equal(body.localDurableDbStatus, "not_configured");
+      assert.equal(body.localDurableDbOk, false);
+      assert.equal(graphStore.snapshotReads, 0);
+      assert.equal(graphStore.commitCalls, 0);
+    });
   });
 
   test("serves Workshop HTML with Signals, Maps, Plays, and evidence from the shared graph bundle", async () => {

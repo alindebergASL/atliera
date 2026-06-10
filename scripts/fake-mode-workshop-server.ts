@@ -3,6 +3,7 @@ import { createServer, type ServerResponse } from "node:http";
 import { argv, env, exit, stderr, stdout } from "node:process";
 
 import type { ModelAdapter } from "../src/agent/model-adapter.ts";
+import { parseLocalBearerAuthConfig } from "../src/auth/bearer-token-auth.ts";
 import type { ArtifactPutTextOptions, ArtifactStore, TextArtifact } from "../src/artifacts/store.ts";
 import { parseAtlieraRuntimeConfig } from "../src/config/runtime.ts";
 import { GraphFileParseError, GraphFileSchemaError, loadGraphBundleFile } from "../src/graph/file-store.ts";
@@ -100,6 +101,9 @@ function usage(): string {
     "optional env:",
     "  HOST=<bind host>",
     "  PORT=<port>; omit PORT for an ephemeral local port",
+    "auth env:",
+    "  ATLIERA_LOCAL_BEARER_TOKEN=<token>; required unless explicitly disabled",
+    "  ATLIERA_LOCAL_AUTH_MODE=disabled-local-dev; local development only",
   ].join("\n");
 }
 
@@ -133,9 +137,12 @@ function writeNodeResponse(target: ServerResponse, response: FakeModeWorkshopSer
   target.end(response.body);
 }
 
-function createFakeModeWorkshopHttpServer(runtime: AtlieraRuntime) {
+function createFakeModeWorkshopHttpServer(
+  runtime: AtlieraRuntime,
+  auth: ReturnType<typeof parseLocalBearerAuthConfig>,
+) {
   return createServer((request, response) => {
-    handleFakeModeWorkshopRequest(runtime, { method: request.method, path: request.url })
+    handleFakeModeWorkshopRequest(runtime, { method: request.method, path: request.url, headers: request.headers }, { auth })
       .then((handled) => writeNodeResponse(response, handled))
       .catch(() =>
         writeNodeResponse(response, {
@@ -172,6 +179,7 @@ function printError(e: unknown): void {
 async function run(): Promise<number> {
   const { bundlePath } = parseArgs(argv.slice(2));
   const config = parseAtlieraRuntimeConfig(env);
+  const auth = parseLocalBearerAuthConfig(env);
   const bundle = await loadBundle(bundlePath);
   const runtime = createAtlieraRuntime({
     config,
@@ -194,7 +202,7 @@ async function run(): Promise<number> {
     return 1;
   }
 
-  const server = createFakeModeWorkshopHttpServer(runtime);
+  const server = createFakeModeWorkshopHttpServer(runtime, auth);
   const host = config.bindHost ?? "localhost";
   const port = config.port ?? 0;
   server.listen(port, host);

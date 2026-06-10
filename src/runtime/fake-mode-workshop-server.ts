@@ -1,4 +1,10 @@
 import type { AtlieraRuntime } from "./composition.ts";
+import {
+  authorizeBearerTokenRequest,
+  type BearerAuthResult,
+  type HttpHeadersLike,
+  type LocalBearerAuthConfig,
+} from "../auth/bearer-token-auth.ts";
 import { inspectLocalDurableDb, type LocalDurableDbReport } from "../db/local-durable-db.ts";
 import { runRuntimePreflight, type RuntimePreflightReport } from "./preflight.ts";
 import { prepareRuntimeWorkshopHtmlPreview } from "./workshop-preview.ts";
@@ -32,10 +38,12 @@ export interface FakeModeWorkshopServeReadiness {
 export interface FakeModeWorkshopServeRequest {
   readonly method: string | undefined;
   readonly path: string | undefined;
+  readonly headers?: HttpHeadersLike;
 }
 
 export interface FakeModeWorkshopServeOptions {
   readonly localDurableDbRoot?: string;
+  readonly auth?: LocalBearerAuthConfig;
 }
 
 export interface FakeModeWorkshopServeResponse {
@@ -155,7 +163,9 @@ function readinessBody(
   readiness: FakeModeWorkshopServeReadiness,
   kind: "fake-mode-workshop-healthcheck" | "fake-mode-workshop-serve-blocked",
   localDurableDb: LocalDurableDbReport | undefined,
+  auth: BearerAuthResult | undefined,
 ): Record<string, unknown> {
+  const dbDetailsRedacted = auth !== undefined && !auth.ok && localDurableDb === undefined;
   return {
     ok: readiness.ok,
     kind,
@@ -163,10 +173,12 @@ function readinessBody(
     failureCodes: readiness.failures.map((failure) => failure.code),
     runtimePreflightOk: readiness.runtimePreflight.ok,
     runtimePreflightFailureCodes: readiness.runtimePreflight.failures.map((failure) => failure.code),
-    localDurableDbConfigured: localDurableDb !== undefined,
-    localDurableDbOk: localDurableDb?.ok ?? false,
-    localDurableDbStatus: localDurableDb?.databaseStatus ?? "not_configured",
-    localDurableDbFailureCodes: localDurableDb?.failureCodes ?? [],
+    authRequiredForDetails: auth !== undefined && !auth.ok,
+    authStatus: auth?.status ?? "not_configured",
+    localDurableDbConfigured: dbDetailsRedacted ? false : localDurableDb !== undefined,
+    localDurableDbOk: dbDetailsRedacted ? false : (localDurableDb?.ok ?? false),
+    localDurableDbStatus: dbDetailsRedacted ? "redacted_without_auth" : (localDurableDb?.databaseStatus ?? "not_configured"),
+    localDurableDbFailureCodes: dbDetailsRedacted ? [] : (localDurableDb?.failureCodes ?? []),
     graphSnapshotRead: readiness.graphSnapshotRead,
     clientsConstructed: readiness.clientsConstructed,
     modelProviderClientConstructed: readiness.modelProviderClientConstructed,
@@ -174,6 +186,28 @@ function readinessBody(
     productionWrites: readiness.productionWrites,
     deploymentReadinessClaim: false,
     productionReadinessClaim: false,
+  };
+}
+
+function authRequiredResponse(auth: BearerAuthResult): FakeModeWorkshopServeResponse {
+  return {
+    statusCode: 401,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "www-authenticate": "Bearer",
+    },
+    body: `${JSON.stringify({
+      ok: false,
+      kind: "fake-mode-workshop-auth-required",
+      authStatus: auth.status,
+      failureCode: auth.failureCode,
+      graphSnapshotRead: false,
+      providerCallsMade: 0,
+      productionWrites: false,
+      deploymentReadinessClaim: false,
+      productionReadinessClaim: false,
+    }, null, 2)}\n`,
   };
 }
 
@@ -185,7 +219,11 @@ export async function handleFakeModeWorkshopRequest(
   const method = request.method?.toUpperCase() ?? "GET";
   const route = routeOf(request.path);
   const readiness = assessFakeModeWorkshopServeReadiness(runtime);
-  const localDurableDb = route === "/healthz" && options.localDurableDbRoot !== undefined
+  const auth = options.auth === undefined
+    ? undefined
+    : authorizeBearerTokenRequest(request.headers ?? {}, options.auth);
+  const mayReadDetailedHealth = route === "/healthz" && (auth === undefined || auth.ok);
+  const localDurableDb = mayReadDetailedHealth && options.localDurableDbRoot !== undefined
     ? await inspectLocalDurableDb({ rootDir: options.localDurableDbRoot })
     : undefined;
 
@@ -203,7 +241,7 @@ export async function handleFakeModeWorkshopRequest(
   if (route === "/healthz") {
     return jsonResponse(
       readiness.ok ? 200 : 503,
-      readinessBody(readiness, "fake-mode-workshop-healthcheck", localDurableDb),
+      readinessBody(readiness, "fake-mode-workshop-healthcheck", localDurableDb, auth),
     );
   }
 
@@ -218,8 +256,12 @@ export async function handleFakeModeWorkshopRequest(
     });
   }
 
+  if (auth !== undefined && !auth.ok) {
+    return authRequiredResponse(auth);
+  }
+
   if (!readiness.ok) {
-    return jsonResponse(503, readinessBody(readiness, "fake-mode-workshop-serve-blocked", undefined));
+    return jsonResponse(503, readinessBody(readiness, "fake-mode-workshop-serve-blocked", undefined, auth));
   }
 
   const report = prepareRuntimeWorkshopHtmlPreview(runtime);

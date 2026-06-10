@@ -44,9 +44,9 @@ Because the contract is explicit and schema-stamped, later lab/deployment slices
 
 ## Remaining Gate 3 work
 
-Gate 3 remains underbuilt after this slice. The local fake HTTP seam, local DB boot, and local backup/restore round-trip now exist. Remaining work includes authentication, deployment wiring, deployment-target healthcheck integration, lab host supervision, and a deliberate lab backup policy before meaningful lab data exists.
+Gate 3 remains underbuilt after this slice. The local fake HTTP seam, local DB boot, local backup/restore round-trip, local auth seam, plan-only deployment descriptor, plan-only deployment-target healthcheck, plan-only host supervision, and plan-only lab backup policy now exist. Remaining work includes separately approved deployment wiring, remote lab probing, scheduler installation, deployment-target restore proof, and any concrete backup backend/storage wiring before meaningful lab data exists.
 
-The next recommended scoped work is auth and deployment/lab supervision planning, with any AWS service use kept behind portable adapter/config seams.
+The next recommended scoped work is a lab deployment wiring/execution decision, with any AWS service use kept behind portable adapter/config seams and requiring fresh operator approval before deployment, probing, or backup execution.
 
 ## Non-authorizations
 

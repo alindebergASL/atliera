@@ -4,7 +4,7 @@ Status: plan-only Gate 3 deployment descriptor reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
+This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
 
 ## Goals
 
@@ -43,9 +43,11 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
    - current status: contract exists in `docs/runbooks/lab-host-supervision-contract-status.md`
 
 3. Lab backup policy validation:
-   - consume the frozen descriptor snapshot
-   - validate retention/schedule fields against the local DB backup/restore contract
-   - do not install cron/timers or write remote backups
+   - consumes the frozen descriptor snapshot
+   - validates retention/schedule fields against the local DB backup/restore contract
+   - carries source/artifact/restore-proof refs as config-reference names only
+   - does not install cron/timers or write remote backups
+   - current status: contract exists in `docs/runbooks/lab-backup-policy-contract-status.md`
 
 4. Separately approved lab deployment:
    - only after the plan, local healthcheck harness, supervision dry-run, and backup-policy validation are merged and green

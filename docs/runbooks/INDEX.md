@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: fake-mode product/Gate 3 slice
+- next recommended work: local DB backup/restore round-trip
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -30,6 +30,7 @@ Status vocabulary:
 | `controlled-2b-live-provider-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
+| `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `hermes-gpt55-model-only-live-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-model-only-transport-direction.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-provider-validation-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

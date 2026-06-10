@@ -32,6 +32,7 @@ export * from "./gate/quality-gate.ts";
 export * from "./gate/launch-assessment.ts";
 export * from "./modes/index.ts";
 export * from "./config/runtime.ts";
+export * from "./db/local-durable-db.ts";
 export * from "./artifacts/store.ts";
 export * from "./artifacts/s3-store.ts";
 export * from "./artifacts/s3-compatibility.ts";

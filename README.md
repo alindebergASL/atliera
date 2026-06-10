@@ -223,6 +223,19 @@ Atliera background work should target a logical queue interface before any produ
 
 Queue names are logical identifiers, not URLs, paths, IP addresses, host:port strings, or broker addresses. Unsafe queue names are rejected before enqueue/dequeue.
 
+## Local durable DB boot
+
+`initializeLocalDurableDb` and `inspectLocalDurableDb` define the first local durable DB boot/migration contract. The default implementation is a deterministic local file-backed schema manifest with logical table files for graph snapshots, job queue rows, and schema migrations. It is intentionally local-only, no-network, and provider-neutral: it does not choose a database service, import a DB SDK, read deployment config, or claim lab/production readiness.
+
+CLI smoke commands:
+
+```bash
+npm run --silent db:local:init -- --root <local-db-dir> --now 2026-06-09T00:00:00.000Z
+npm run --silent db:local:inspect -- --root <local-db-dir>
+```
+
+AWS infrastructure such as EC2-attached storage, RDS-compatible databases, or managed backup services may be useful in later lab/deployment slices, but they must be selected through deployment config/adapters. Product logic should continue to depend on the portable boot/migration and adapter contracts rather than AWS-specific assumptions.
+
 ## Artifact store seam
 
 Atliera artifacts should be addressable through implementation-neutral keys before product logic depends on any deployment-specific storage location. `ArtifactStore` defines a minimal text-artifact interface and `InMemoryArtifactStore` provides deterministic test/dev behavior without binding product logic to a local filesystem, bucket, queue, or server.

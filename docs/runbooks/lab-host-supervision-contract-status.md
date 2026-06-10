@@ -54,4 +54,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The no-spend Gate 3 foundation now has descriptor, healthcheck, supervision, and backup-policy contracts. The next step is a separately approved lab deployment wiring/execution decision: either continue with another no-deploy wiring contract, or explicitly authorize a bounded lab deployment/probe slice with fresh operator approval.
+The no-spend Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, and execution-preflight contracts. The next step is a separate explicit operator decision about whether to authorize a bounded lab deployment/probe execution slice; without that fresh approval, current effective authorization remains none.

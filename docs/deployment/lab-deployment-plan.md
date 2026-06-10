@@ -1,10 +1,10 @@
 # Lab Deployment Plan
 
-Status: plan-only Gate 3 deployment descriptor reference.
+Status: Gate 3 lab deployment descriptor and slice status reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. The approval packet does not authorize deployment, probing, service start, backup/restore execution, or readiness claims.
+This document defines the first lab deployment plan shape for Atliera. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, the bounded lab deployment slice A execution status in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. Slice A executed only the approved fake-mode package/start/`/healthz`/optional `/workshop` smoke and stopped afterward; slice B backup/restore proof remains unapproved.
 
 ## Goals
 
@@ -63,14 +63,21 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
    - does not authorize deployment, probing, service start, backup/restore execution, or readiness claims
    - current status: packet exists in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`
 
-6. Separately approved lab deployment/probe go/no-go decision:
-   - only after the approval packet is merged and reviewed
-   - requires explicit operator authorization at execution time against an exact commit and named config refs
+6. Bounded lab deployment slice A execution:
+   - approved only decision items 1 and 2 from the approval packet
+   - packaged the exact approved commit, prepared it on the single lab target, started fake-mode Workshop service, ran `/healthz`, ran the optional `/workshop` shallow smoke, and stopped afterward
+   - recorded sanitized evidence only; no resolved host/IP/URL/credential/private path values are committed
+   - current status: execution status exists in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`
 
-## Explicit non-goals in this slice
+7. Slice B backup/restore proof decision:
+   - remains unapproved
+   - should happen before meaningful lab data exists if the operator wants remote backup/restore proof
+   - requires a separate explicit operator decision
 
-- No lab or production deployment.
-- No service start.
+## Current unapproved non-goals
+
+- No production deployment; no additional lab deployment beyond completed slice A.
+- No additional service start beyond completed slice A.
 - No AWS API/CLI calls or cloud provisioning.
 - No provider/model calls or spend.
 - No graph ingestion.

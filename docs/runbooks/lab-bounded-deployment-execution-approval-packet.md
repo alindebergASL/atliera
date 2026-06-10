@@ -170,6 +170,6 @@ Only sanitized evidence may be committed in a later status PR:
 - No production writes.
 - No readiness claim.
 
-## Next recommended work
+## Current follow-up status
 
-The next step after this packet is merged is an explicit operator go/no-go decision against this bounded lab deployment execution approval packet. Without that fresh decision, current effective authorization remains none.
+After this packet merged, the operator approved decision items 1 and 2 only. Slice A execution is recorded in `lab-bounded-deployment-slice-a-execution-status.md`. Slice B backup/restore proof still requires a separate explicit operator decision. Without that fresh decision, current effective authorization remains none.

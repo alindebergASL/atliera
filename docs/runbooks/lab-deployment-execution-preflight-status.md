@@ -66,4 +66,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The no-spend Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, and inert bounded execution approval-packet artifacts. The next step is a separate explicit operator go/no-go decision against `lab-bounded-deployment-execution-approval-packet.md`; without that fresh approval, current effective authorization remains none.
+The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, and a sanitized slice A execution status. The next Gate 3 decision is whether to authorize slice B backup/restore proof before meaningful lab data exists; without a fresh approval, current effective authorization remains none.

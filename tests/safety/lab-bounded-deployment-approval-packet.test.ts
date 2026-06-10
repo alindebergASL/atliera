@@ -95,11 +95,11 @@ test("authority docs point to the approval packet without turning it into effect
 
   assert.match(index, /`lab-bounded-deployment-execution-approval-packet\.md`\s*\|\s*inert-approval/i);
   assert.match(index, /current_effective_authorization: none/i);
-  assert.match(index, /next recommended work: explicit operator go\/no-go decision against the bounded lab deployment execution approval packet/i);
+  assert.match(index, /next recommended work: explicit operator decision for slice B backup\/restore proof or Gate 3 status reconciliation/i);
   assert.match(blockers, /bounded lab deployment execution approval packet/i);
-  assert.match(blockers, /next recommended work: explicit operator go\/no-go decision against the bounded lab deployment execution approval packet/i);
+  assert.match(blockers, /next recommended work: explicit operator decision for slice B backup\/restore proof or Gate 3 status reconciliation/i);
   assert.match(deploymentPlan, /bounded lab deployment execution approval packet/i);
-  assert.match(deploymentPlan, /does not authorize deployment, probing, service start, backup\/restore execution, or readiness claims/i);
+  assert.match(deploymentPlan, /slice B backup\/restore proof remains unapproved/i);
 
   assertBoundaryMarkers("approval packet", read(APPROVAL_PACKET));
 });

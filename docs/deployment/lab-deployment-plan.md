@@ -4,7 +4,7 @@ Status: Gate 3 lab deployment descriptor and slice status reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, the bounded lab deployment slice A execution status in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`, the bounded lab deployment slice B backup/restore status in `docs/runbooks/lab-bounded-deployment-slice-b-backup-restore-status.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. Slice A executed only the approved fake-mode package/start/`/healthz`/optional `/workshop` smoke and stopped afterward. Slice B executed only the approved disposable local durable DB backup/restore proof and removed restore scratch. No further lab expansion is approved.
+This document defines the first lab deployment plan shape for Atliera. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, the bounded lab deployment slice A execution status in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`, the bounded lab deployment slice B backup/restore status in `docs/runbooks/lab-bounded-deployment-slice-b-backup-restore-status.md`, the Gate 3 status reconciliation in `docs/runbooks/lab-gate3-status-reconciliation.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. Slice A executed only the approved fake-mode package/start/`/healthz`/optional `/workshop` smoke and stopped afterward. Slice B executed only the approved disposable local durable DB backup/restore proof and removed restore scratch. Gate 3 reconciliation completed without side effects. No further lab expansion is approved.
 
 ## Goals
 
@@ -77,7 +77,14 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
 
 8. Gate 3 status reconciliation:
    - no-side-effect documentation/test reconciliation after slice A and slice B single-use approvals were consumed
-   - should clarify what remains before any persistent deployment wiring, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim
+   - clarified what remains before any persistent deployment wiring, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim
+   - does not choose, approve, or execute a next implementation slice
+   - current status: reconciliation exists in `docs/runbooks/lab-gate3-status-reconciliation.md`
+
+9. Next scoped Gate 3 slice:
+   - requires an explicit operator decision before any further lab expansion or implementation work
+   - candidate scopes may include persistent deployment wiring plan, deployment-target empty-DB boot proof plan, process-manager/nginx/TLS/DNS readiness plan, or Gate 3 to Gate 4 sequencing review
+   - current status: unapproved
 
 ## Current unapproved non-goals
 

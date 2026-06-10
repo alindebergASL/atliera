@@ -118,4 +118,4 @@ It does not prove persistent deployment, nginx/TLS/domain readiness, scheduler r
 
 ## Next recommended work
 
-The next Gate 3 decision is whether to authorize slice B backup/restore proof against disposable lab data before meaningful lab data exists. If slice B is deferred, the next no-side-effect alternative is a Gate 3 status reconciliation PR that records slice A as executed while keeping backup/restore execution, scheduler install, nginx/TLS/domain work, provider calls, graph ingestion, production writes, and readiness claims out of scope.
+The next Gate 3 decision now requires explicit operator selection of the next scoped slice after slice B and Gate 3 status reconciliation. Any further lab expansion, scheduler/backend wiring, nginx/TLS/domain work, provider calls, graph ingestion, production writes, or readiness claims remain out of scope until separately approved.

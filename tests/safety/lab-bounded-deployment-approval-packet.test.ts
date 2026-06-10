@@ -95,12 +95,13 @@ test("authority docs point to the approval packet without turning it into effect
 
   assert.match(index, /`lab-bounded-deployment-execution-approval-packet\.md`\s*\|\s*inert-approval/i);
   assert.match(index, /current_effective_authorization: none/i);
-  assert.match(index, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(index, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);
   assert.match(blockers, /bounded lab deployment execution approval packet/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
-  assert.match(blockers, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(deploymentPlan, /bounded lab deployment execution approval packet/i);
   assert.match(deploymentPlan, /bounded lab deployment slice B backup\/restore status/i);
+  assert.match(deploymentPlan, /Gate 3 reconciliation completed without side effects/i);
 
   assertBoundaryMarkers("approval packet", read(APPROVAL_PACKET));
 });

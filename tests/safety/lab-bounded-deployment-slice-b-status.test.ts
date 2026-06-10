@@ -90,7 +90,7 @@ test("slice B status records approved disposable backup/restore proof without pr
   assert.match(status, /No scheduled backup exists/i);
   assert.match(status, /No remote backup backend, object store, retention, encryption, lifecycle, IAM, or disaster-recovery policy is configured or validated by this slice/i);
   assert.match(status, /Current effective authorization is none/i);
-  assert.match(status, /next recommended work is no-side-effect Gate 3 status reconciliation/i);
+  assert.match(status, /next recommended work is an explicit operator decision for the next scoped Gate 3 slice/i);
   assertNoPrivateLiterals("slice B status", status);
 });
 
@@ -102,10 +102,11 @@ test("authority docs advance to Gate 3 reconciliation without standing authoriza
 
   assert.match(index, /`lab-bounded-deployment-slice-b-backup-restore-status\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
-  assert.match(index, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(index, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
-  assert.match(blockers, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(plan, /bounded lab deployment slice B backup\/restore status/i);
+  assert.match(plan, /Gate 3 reconciliation completed without side effects/i);
   assert.match(plan, /no further lab expansion is approved/i);
   assert.match(packet, /Slice B backup\/restore proof is recorded in `lab-bounded-deployment-slice-b-backup-restore-status\.md`/i);
   assert.match(packet, /Current effective authorization remains none/i);

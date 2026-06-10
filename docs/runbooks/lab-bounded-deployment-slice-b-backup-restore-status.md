@@ -102,6 +102,6 @@ Committed evidence must not include:
 
 ## Current follow-up status
 
-Slice A deployment/probe and slice B backup/restore proof have both been consumed as single-use approvals. Current effective authorization is none.
+Slice A deployment/probe and slice B backup/restore proof have both been consumed as single-use approvals. Gate 3 status reconciliation is recorded in `lab-gate3-status-reconciliation.md`. Current effective authorization is none.
 
-The next recommended work is no-side-effect Gate 3 status reconciliation before any further lab expansion, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim.
+The next recommended work is an explicit operator decision for the next scoped Gate 3 slice. This status does not choose, approve, or execute that slice.

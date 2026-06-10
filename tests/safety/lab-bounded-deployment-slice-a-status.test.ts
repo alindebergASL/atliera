@@ -87,19 +87,21 @@ test("slice A execution status records approved bounded execution without leakin
   assertNoPrivateLiterals("slice A status", status);
 });
 
-test("authority docs advance to slice B decision without implying current authorization", () => {
+test("authority docs preserve no-standing-authorization after slice B and reconciliation", () => {
   const index = read(INDEX);
   const blockers = read(BLOCKERS);
   const plan = read(PLAN);
 
   assert.match(index, /`lab-bounded-deployment-slice-a-execution-status\.md`\s*\|\s*active/i);
+  assert.match(index, /`lab-gate3-status-reconciliation\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
-  assert.match(index, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(index, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);
   assert.match(blockers, /bounded lab deployment slice A executed/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
-  assert.match(blockers, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
+  assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(plan, /bounded lab deployment slice A execution status/i);
   assert.match(plan, /bounded lab deployment slice B backup\/restore status/i);
+  assert.match(plan, /Gate 3 reconciliation completed without side effects/i);
   assert.match(plan, /No further lab expansion is approved/i);
 
   assertNoPrivateLiterals("approval packet", read(join(ROOT, "docs", "runbooks", "lab-bounded-deployment-execution-approval-packet.md")));

@@ -63,4 +63,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The no-spend Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, and execution-preflight contracts. The next step is a separate explicit operator decision about whether to authorize a bounded lab deployment/probe execution slice; without that fresh approval, current effective authorization remains none.
+The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, slice A execution status, and slice B backup/restore proof status. The next step is no-side-effect Gate 3 status reconciliation before any further lab expansion, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim. Current effective authorization remains none.

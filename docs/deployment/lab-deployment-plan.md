@@ -4,7 +4,7 @@ Status: Gate 3 lab deployment descriptor and slice status reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, the bounded lab deployment slice A execution status in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. Slice A executed only the approved fake-mode package/start/`/healthz`/optional `/workshop` smoke and stopped afterward; slice B backup/restore proof remains unapproved.
+This document defines the first lab deployment plan shape for Atliera. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, the bounded lab deployment slice A execution status in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`, the bounded lab deployment slice B backup/restore status in `docs/runbooks/lab-bounded-deployment-slice-b-backup-restore-status.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. Slice A executed only the approved fake-mode package/start/`/healthz`/optional `/workshop` smoke and stopped afterward. Slice B executed only the approved disposable local durable DB backup/restore proof and removed restore scratch. No further lab expansion is approved.
 
 ## Goals
 
@@ -69,14 +69,19 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
    - recorded sanitized evidence only; no resolved host/IP/URL/credential/private path values are committed
    - current status: execution status exists in `docs/runbooks/lab-bounded-deployment-slice-a-execution-status.md`
 
-7. Slice B backup/restore proof decision:
-   - remains unapproved
-   - should happen before meaningful lab data exists if the operator wants remote backup/restore proof
-   - requires a separate explicit operator decision
+7. Bounded lab deployment slice B backup/restore proof:
+   - approved only decision item 3 from the approval packet after slice A completed
+   - created a lab-local backup artifact from disposable local durable DB data, restored it into scratch, inspected the restored DB, verified round-trip integrity markers, and removed restore scratch
+   - recorded sanitized evidence only; no resolved host/IP/URL/credential/private path values are committed
+   - current status: backup/restore status exists in `docs/runbooks/lab-bounded-deployment-slice-b-backup-restore-status.md`
+
+8. Gate 3 status reconciliation:
+   - no-side-effect documentation/test reconciliation after slice A and slice B single-use approvals were consumed
+   - should clarify what remains before any persistent deployment wiring, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim
 
 ## Current unapproved non-goals
 
-- No production deployment; no additional lab deployment beyond completed slice A.
+- No production deployment; no additional lab deployment beyond completed slice A and slice B proof.
 - No additional service start beyond completed slice A.
 - No AWS API/CLI calls or cloud provisioning.
 - No provider/model calls or spend.

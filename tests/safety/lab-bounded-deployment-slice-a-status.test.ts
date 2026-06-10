@@ -94,11 +94,13 @@ test("authority docs advance to slice B decision without implying current author
 
   assert.match(index, /`lab-bounded-deployment-slice-a-execution-status\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
-  assert.match(index, /next recommended work: explicit operator decision for slice B backup\/restore proof or Gate 3 status reconciliation/i);
+  assert.match(index, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
   assert.match(blockers, /bounded lab deployment slice A executed/i);
-  assert.match(blockers, /next recommended work: explicit operator decision for slice B backup\/restore proof or Gate 3 status reconciliation/i);
+  assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
+  assert.match(blockers, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
   assert.match(plan, /bounded lab deployment slice A execution status/i);
-  assert.match(plan, /slice B backup\/restore proof remains unapproved/i);
+  assert.match(plan, /bounded lab deployment slice B backup\/restore status/i);
+  assert.match(plan, /No further lab expansion is approved/i);
 
   assertNoPrivateLiterals("approval packet", read(join(ROOT, "docs", "runbooks", "lab-bounded-deployment-execution-approval-packet.md")));
   assertNoPrivateLiterals("deployment plan", plan);

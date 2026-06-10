@@ -28,7 +28,7 @@ The current codebase now extends beyond the original Phase 1 graph foundation wh
 - adversarial graph tests in `tests/graph/`
 - safety tests in `tests/safety/`
 
-The repository still does not claim launch readiness. The next recommended foundation-first product work is a fake-mode product/Gate 3 slice: boot/healthcheck plus Workshop rendering over fake, local, or sanitized fixtures without provider/model calls or production writes.
+The repository still does not claim launch readiness. The current no-spend Gate 3 foundation includes fake/local Workshop serving, local health, local durable DB boot/migration, local backup/restore, and a local bearer auth seam. The next recommended foundation-first product work is deployment planning and lab-supervision preflight, with any AWS service use kept behind portable adapter/config seams.
 
 ## Local verification
 
@@ -239,6 +239,21 @@ npm run --silent db:local:restore -- --backup <backup.json> --target-root <resto
 ```
 
 AWS infrastructure such as EC2-attached storage, RDS-compatible databases, or managed backup services may be useful in later lab/deployment slices, but they must be selected through deployment config/adapters. Product logic should continue to depend on the portable boot/migration, backup/restore, and adapter contracts rather than AWS-specific assumptions.
+
+## Local bearer auth seam
+
+`parseLocalBearerAuthConfig` and `authorizeBearerTokenRequest` define the first local auth seam for the fake-mode Workshop server. The seam is intentionally small: a configured local bearer token protects `/workshop`, and `/healthz` remains a shallow liveness route while DB-aware health details are redacted unless a valid bearer token is supplied.
+
+The fake-mode Workshop server CLI now requires `ATLIERA_LOCAL_BEARER_TOKEN` unless an operator explicitly sets `ATLIERA_LOCAL_AUTH_MODE=disabled-local-dev` for local development. The auth helper accepts an injected env-record parameter, does not read `process.env`, does not construct provider clients, does not call external identity services, and does not claim lab or production readiness.
+
+CLI smoke examples:
+
+```bash
+ATLIERA_LOCAL_BEARER_TOKEN=<token> npm run --silent workshop:serve:fake
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:<port>/workshop
+```
+
+Later lab/deployment work may use AWS services such as SSM Parameter Store, Secrets Manager, Cognito, IAM, or ingress-level auth pragmatically, but those choices must stay behind deployment config/adapters. Product logic should continue to depend on the portable auth seam rather than AWS-specific identity assumptions.
 
 ## Artifact store seam
 

@@ -9,10 +9,10 @@ This file tracks gates that must be satisfied before Atliera moves from architec
 | Gate 0 | complete | Architecture, ADR, product vocabulary, provenance, and fresh-system separation docs exist. |
 | Gate 1 | complete | Graph schemas, validators, fixtures, adversarial tests, and no-provider fixture/fake-mode guards exist. |
 | Gate 2 | validated-boundary | Model/provider activation has explicit approval, budget, route catalog, preflight, and no-call/guarded proof machinery, but current effective authorization is none. |
-| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, local durable DB boot/migration, and local backup/restore round-trip now exist; Gate 3 still needs auth, deployment plan, deployment-target healthcheck integration, lab host supervision, and lab backup policy before meaningful lab data exists. |
+| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, local durable DB boot/migration, local backup/restore round-trip, and a local bearer auth seam now exist; Gate 3 still needs deployment plan, deployment-target healthcheck integration, lab host supervision, and lab backup policy before meaningful lab data exists. |
 | Gate 4 | fixture-only | Launch-quality machinery exists for deterministic fixtures and gate corpus assessment only; no launch-ready claim is made. |
 
-Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, and local backup/restore round-trip are now in place as no-spend Gate 3 foundations. The next recommended work: auth and deployment/lab supervision planning, with any AWS service use kept behind portable adapter/config seams.
+Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, local backup/restore round-trip, and local bearer auth seam are now in place as no-spend Gate 3 foundations. The next recommended work: deployment plan, deployment-target healthcheck integration, lab host supervision, and lab backup policy, with any AWS service use kept behind portable adapter/config seams.
 
 ## Gate 0: Architecture docs land
 

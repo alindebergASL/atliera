@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { describe, test } from "node:test";
 
 import { InMemoryArtifactStore } from "../../src/artifacts/store.ts";
+import { parseLocalBearerAuthConfig } from "../../src/auth/bearer-token-auth.ts";
 import { parseAtlieraRuntimeConfig } from "../../src/config/runtime.ts";
 import type { GraphStore } from "../../src/graph/store.ts";
 import type { GraphBundle } from "../../src/graph/types.ts";
@@ -189,6 +190,75 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     assert.match(response.body, /Evidence packet/i);
     assert.equal(graphStore.snapshotReads, 1);
     assert.equal(graphStore.commitCalls, 0);
+  });
+
+  test("requires bearer auth for Workshop when the local auth seam is enabled", async () => {
+    const auth = parseLocalBearerAuthConfig({ ATLIERA_LOCAL_BEARER_TOKEN: "fixture-auth-token" });
+    const graphStore = new CountingGraphStore(makeValidBundle());
+
+    const missing = await handleFakeModeWorkshopRequest(
+      makeRuntime(graphStore),
+      { method: "GET", path: "/workshop" },
+      { auth },
+    );
+    const missingBody = parseJsonResponse(missing);
+    assert.equal(missing.statusCode, 401);
+    assert.equal(missingBody.ok, false);
+    assert.equal(missingBody.kind, "fake-mode-workshop-auth-required");
+    assert.equal(missingBody.authStatus, "missing");
+    assert.doesNotMatch(missing.body, /fixture-auth-token/i);
+    assert.equal(graphStore.snapshotReads, 0);
+
+    const invalid = await handleFakeModeWorkshopRequest(
+      makeRuntime(graphStore),
+      { method: "GET", path: "/workshop", headers: { authorization: "Bearer wrong-token" } },
+      { auth },
+    );
+    assert.equal(invalid.statusCode, 401);
+    assert.doesNotMatch(invalid.body, /fixture-auth-token|wrong-token/i);
+    assert.equal(graphStore.snapshotReads, 0);
+
+    const valid = await handleFakeModeWorkshopRequest(
+      makeRuntime(graphStore),
+      { method: "GET", path: "/workshop", headers: { authorization: "Bearer fixture-auth-token" } },
+      { auth },
+    );
+    assert.equal(valid.statusCode, 200);
+    assert.match(valid.body, /Atliera Workshop/);
+    assert.equal(graphStore.snapshotReads, 1);
+  });
+
+  test("keeps liveness health public but requires auth before exposing DB-aware health details", async () => {
+    await withTempDir(async (rootDir) => {
+      await initializeLocalDurableDb({ rootDir, now: "2026-06-09T00:00:00.000Z" });
+      const auth = parseLocalBearerAuthConfig({ ATLIERA_LOCAL_BEARER_TOKEN: "fixture-auth-token" });
+      const graphStore = new CountingGraphStore(EMPTY_BUNDLE);
+
+      const publicHealth = await handleFakeModeWorkshopRequest(
+        makeRuntime(graphStore),
+        { method: "GET", path: "/healthz" },
+        { localDurableDbRoot: rootDir, auth },
+      );
+      const publicBody = parseJsonResponse(publicHealth);
+      assert.equal(publicHealth.statusCode, 200);
+      assert.equal(publicBody.authRequiredForDetails, true);
+      assert.equal(publicBody.localDurableDbConfigured, false);
+      assert.equal(publicBody.localDurableDbStatus, "redacted_without_auth");
+      assert.equal(graphStore.snapshotReads, 0);
+
+      const detailedHealth = await handleFakeModeWorkshopRequest(
+        makeRuntime(graphStore),
+        { method: "GET", path: "/healthz", headers: { authorization: "Bearer fixture-auth-token" } },
+        { localDurableDbRoot: rootDir, auth },
+      );
+      const detailedBody = parseJsonResponse(detailedHealth);
+      assert.equal(detailedHealth.statusCode, 200);
+      assert.equal(detailedBody.authStatus, "authorized");
+      assert.equal(detailedBody.localDurableDbConfigured, true);
+      assert.equal(detailedBody.localDurableDbStatus, "initialized");
+      assert.equal(detailedBody.deploymentReadinessClaim, false);
+      assert.equal(graphStore.snapshotReads, 0);
+    });
   });
 
   test("fails closed before graph reads outside fake/local mode", async () => {

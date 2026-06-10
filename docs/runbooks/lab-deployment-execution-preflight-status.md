@@ -66,4 +66,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, and a sanitized slice A execution status. The next Gate 3 decision is whether to authorize slice B backup/restore proof before meaningful lab data exists; without a fresh approval, current effective authorization remains none.
+The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, sanitized slice A execution status, and sanitized slice B backup/restore proof status. The next Gate 3 step is no-side-effect status reconciliation before any further lab expansion; current effective authorization remains none.

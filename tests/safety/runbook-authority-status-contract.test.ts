@@ -61,6 +61,7 @@ test("runbook authority index covers every runbook and preserves the active boun
   assert.match(index, /`lab-deployment-execution-preflight-status\.md`\s*\|\s*active/i);
   assert.match(index, /`lab-bounded-deployment-execution-approval-packet\.md`\s*\|\s*inert-approval/i);
   assert.match(index, /`lab-bounded-deployment-slice-a-execution-status\.md`\s*\|\s*active/i);
+  assert.match(index, /`lab-bounded-deployment-slice-b-backup-restore-status\.md`\s*\|\s*active/i);
   assert.match(index, /`runtime-model-only-tiny-live-runtime-proof-remediated-status\.md`\s*\|\s*consumed/i);
 
   const authorityRows = index
@@ -100,6 +101,6 @@ test("BLOCKERS exposes per-gate status and the Gate 3/Gate 4 imbalance", () => {
   assert.match(blockers, /Gate 3\s*\|\s*underbuilt/i);
   assert.match(blockers, /Gate 4\s*\|\s*fixture-only/i);
   assert.match(blockers, /no launch-ready claim/i);
-  assert.match(blockers, /next recommended work: explicit operator decision for slice B backup\/restore proof or Gate 3 status reconciliation/i);
+  assert.match(blockers, /next recommended work: no-side-effect Gate 3 status reconciliation/i);
   assertNoBroadening("BLOCKERS", blockers);
 });

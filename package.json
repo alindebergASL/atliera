@@ -28,6 +28,8 @@
     "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
     "db:local:init": "tsx src/cli/local-durable-db.ts init",
     "db:local:inspect": "tsx src/cli/local-durable-db.ts inspect",
+    "db:local:backup": "tsx src/cli/local-durable-db.ts backup",
+    "db:local:restore": "tsx src/cli/local-durable-db.ts restore",
     "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
     "s3:compatibility:check-aws-cli": "tsx src/cli/s3-compatibility.ts check-aws-cli",
     "s3:compatibility:aws-cli": "tsx src/cli/s3-compatibility.ts validate-aws-cli",

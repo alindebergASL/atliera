@@ -9,10 +9,10 @@ This file tracks gates that must be satisfied before Atliera moves from architec
 | Gate 0 | complete | Architecture, ADR, product vocabulary, provenance, and fresh-system separation docs exist. |
 | Gate 1 | complete | Graph schemas, validators, fixtures, adversarial tests, and no-provider fixture/fake-mode guards exist. |
 | Gate 2 | validated-boundary | Model/provider activation has explicit approval, budget, route catalog, preflight, and no-call/guarded proof machinery, but current effective authorization is none. |
-| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, and a local durable DB boot/migration contract now exist; Gate 3 still needs backup/restore, auth, deployment plan, deployment-target healthcheck integration, and lab host supervision before meaningful lab data exists. |
+| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, local durable DB boot/migration, and local backup/restore round-trip now exist; Gate 3 still needs auth, deployment plan, deployment-target healthcheck integration, lab host supervision, and lab backup policy before meaningful lab data exists. |
 | Gate 4 | fixture-only | Launch-quality machinery exists for deterministic fixtures and gate corpus assessment only; no launch-ready claim is made. |
 
-Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam and local durable DB boot contract are now in place as no-spend Gate 3 foundations. The next recommended work: local DB backup/restore round-trip, followed by authentication and deployment/lab supervision planning.
+Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, and local backup/restore round-trip are now in place as no-spend Gate 3 foundations. The next recommended work: auth and deployment/lab supervision planning, with any AWS service use kept behind portable adapter/config seams.
 
 ## Gate 0: Architecture docs land
 
@@ -56,7 +56,7 @@ Required before deploying to `lab.atliera.com`:
 - No legacy report JSON runtime dependency.
 - nginx/PM2/Certbot deployment plan exists.
 - Healthcheck route exists locally; deployment-target integration remains future work.
-- Backup path/script exists before meaningful data is created.
+- Backup path/script exists locally before meaningful data is created; lab backup policy and deployment-target restore proof remain future work.
 
 ## Gate 4: Launch quality
 

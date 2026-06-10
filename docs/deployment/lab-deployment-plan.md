@@ -4,7 +4,7 @@ Status: plan-only Gate 3 deployment descriptor reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts` and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
+This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
 
 ## Goals
 
@@ -37,9 +37,10 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
    - does not probe a remote lab host
 
 2. Lab host supervision dry-run:
-   - consume the frozen descriptor snapshot
-   - validate/generate a systemd-style unit expectation locally
-   - do not install or start services
+   - consumes the frozen descriptor snapshot and frozen healthcheck plan
+   - derives portable service/process/healthcheck/restart/graceful-stop expectations locally
+   - does not install or start services
+   - current status: contract exists in `docs/runbooks/lab-host-supervision-contract-status.md`
 
 3. Lab backup policy validation:
    - consume the frozen descriptor snapshot

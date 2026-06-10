@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1",
+  "targetId": "lab-fake-workshop",
+  "environment": "lab",
+  "runtimeMode": "fake",
+  "infrastructure": {
+    "provider": "configurable-vm",
+    "regionRef": "ATL_LAB_REGION",
+    "hostRef": "ATL_LAB_HOST"
+  },
+  "http": {
+    "bindHostRef": "ATL_LAB_BIND_HOST",
+    "port": 3000,
+    "publicBaseUrlRef": "ATL_LAB_BASE_URL",
+    "healthcheckPath": "/healthz",
+    "workshopPath": "/workshop"
+  },
+  "supervision": {
+    "mode": "systemd-plan",
+    "serviceName": "atliera-workshop"
+  },
+  "backupPolicy": {
+    "mode": "local-scheduled",
+    "retentionDays": 7,
+    "scheduleRef": "ATL_LAB_BACKUP_SCHEDULE",
+    "restoreProofRequiredBeforeMeaningfulData": true
+  },
+  "boundary": {
+    "deploymentExecuted": false,
+    "providerCallsAllowed": false,
+    "productionWritesAllowed": false,
+    "readinessClaim": false
+  },
+  "capabilities": ["serve"],
+  "notes": "Plan-only placeholder descriptor. Values are config references only; this file does not authorize deployment."
+}

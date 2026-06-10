@@ -54,6 +54,7 @@ test("runbook authority index covers every runbook and preserves the active boun
   assert.match(index, /`local-durable-db-boot-status\.md`\s*\|\s*active/i);
   assert.match(index, /`local-durable-db-backup-restore-status\.md`\s*\|\s*active/i);
   assert.match(index, /`local-bearer-auth-seam-status\.md`\s*\|\s*active/i);
+  assert.match(index, /`lab-deployment-target-descriptor-status\.md`\s*\|\s*active/i);
   assert.match(index, /`runtime-model-only-tiny-live-runtime-proof-remediated-status\.md`\s*\|\s*consumed/i);
 
   const authorityRows = index
@@ -93,6 +94,6 @@ test("BLOCKERS exposes per-gate status and the Gate 3/Gate 4 imbalance", () => {
   assert.match(blockers, /Gate 3\s*\|\s*underbuilt/i);
   assert.match(blockers, /Gate 4\s*\|\s*fixture-only/i);
   assert.match(blockers, /no launch-ready claim/i);
-  assert.match(blockers, /next recommended work: deployment plan, deployment-target healthcheck integration, lab host supervision, and lab backup policy/i);
+  assert.match(blockers, /next recommended work: deployment-target healthcheck integration, lab host supervision, and lab backup policy/i);
   assertNoBroadening("BLOCKERS", blockers);
 });

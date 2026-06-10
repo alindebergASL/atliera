@@ -1,0 +1,67 @@
+# Lab Deployment Plan
+
+Status: plan-only Gate 3 deployment descriptor reference.
+
+Current effective authorization: none.
+
+This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts` and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
+
+## Goals
+
+- Keep lab/deployment choices explicit and reviewable before any host changes.
+- Provide one descriptor shape that later local healthcheck, supervision, and backup-policy slices can consume.
+- Preserve provider portability: AWS infrastructure may be used pragmatically later, but only as config/adapter values behind this seam.
+- Preserve the current no-spend/no-deploy boundary.
+
+## Current target shape
+
+The current descriptor is limited to:
+
+- `schemaVersion: "1"` exact-match descriptor version; unknown versions reject until a deliberate migration is added
+- `environment: "lab"`
+- `runtimeMode: "fake"`
+- local bind host reference (for example `ATL_LAB_BIND_HOST`), not a checked-in host/IP literal
+- `/healthz` for liveness and `/workshop` for the product surface
+- plan-only `systemd-plan` supervision marker
+- local scheduled backup policy parameters
+- boundary flags that must remain false for deployment execution, provider calls, production writes, and readiness claims
+
+Concrete hostnames, ports, regions, and base URLs are represented as config references such as `ATL_LAB_HOST` and `ATL_LAB_BASE_URL`. The checked-in example deliberately contains no private host/IP/credential values.
+
+## Intended follow-up sequence
+
+1. Deployment-target healthcheck integration:
+   - consume the frozen descriptor snapshot
+   - launch or target an explicitly local fake-mode server
+   - prove `/healthz` contract behavior locally
+   - do not probe a remote lab host
+
+2. Lab host supervision dry-run:
+   - consume the frozen descriptor snapshot
+   - validate/generate a systemd-style unit expectation locally
+   - do not install or start services
+
+3. Lab backup policy validation:
+   - consume the frozen descriptor snapshot
+   - validate retention/schedule fields against the local DB backup/restore contract
+   - do not install cron/timers or write remote backups
+
+4. Separately approved lab deployment:
+   - only after the plan, local healthcheck harness, supervision dry-run, and backup-policy validation are merged and green
+   - requires explicit operator authorization at execution time
+
+## Explicit non-goals in this slice
+
+- No lab or production deployment.
+- No AWS API/CLI calls or cloud provisioning.
+- No provider/model calls or spend.
+- No graph ingestion.
+- No production writes.
+- No remote host healthcheck probing.
+- No nginx, PM2, Certbot, or systemd install.
+- No backup schedule install.
+- No readiness claim.
+
+## Portability guidance
+
+The descriptor may carry provider-flavored config references later, but product code must not branch on AWS-specific assumptions. Values such as provider name, region reference, host reference, and public base URL reference are opaque config fields. Any cloud-specific implementation belongs in a deployment adapter or operator runbook, not in core product logic.

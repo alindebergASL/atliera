@@ -54,7 +54,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The remaining no-spend Gate 3 foundation work is:
-
-1. lab backup policy validation contract
-2. separately approved lab deployment only after the plan, healthcheck, supervision, and backup-policy validation are merged and green
+The no-spend Gate 3 foundation now has descriptor, healthcheck, supervision, and backup-policy contracts. The next step is a separately approved lab deployment wiring/execution decision: either continue with another no-deploy wiring contract, or explicitly authorize a bounded lab deployment/probe slice with fresh operator approval.

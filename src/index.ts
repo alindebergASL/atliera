@@ -35,6 +35,7 @@ export * from "./auth/bearer-token-auth.ts";
 export * from "./deployment/lab-deployment-target.ts";
 export * from "./deployment/lab-healthcheck-contract.ts";
 export * from "./deployment/lab-supervision-contract.ts";
+export * from "./deployment/lab-backup-policy-contract.ts";
 export * from "./config/runtime.ts";
 export * from "./db/local-durable-db.ts";
 export * from "./artifacts/store.ts";

@@ -9,10 +9,10 @@ This file tracks gates that must be satisfied before Atliera moves from architec
 | Gate 0 | complete | Architecture, ADR, product vocabulary, provenance, and fresh-system separation docs exist. |
 | Gate 1 | complete | Graph schemas, validators, fixtures, adversarial tests, and no-provider fixture/fake-mode guards exist. |
 | Gate 2 | validated-boundary | Model/provider activation has explicit approval, budget, route catalog, preflight, and no-call/guarded proof machinery, but current effective authorization is none. |
-| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, local durable DB boot/migration, local backup/restore round-trip, a local bearer auth seam, a plan-only lab deployment descriptor, a plan-only deployment-target healthcheck contract, and a plan-only lab host supervision contract now exist; Gate 3 still needs lab backup policy before meaningful lab data exists. |
+| Gate 3 | underbuilt | Local fake HTTP serving, local `/healthz`, local durable DB boot/migration, local backup/restore round-trip, a local bearer auth seam, a plan-only lab deployment descriptor, a plan-only deployment-target healthcheck contract, a plan-only lab host supervision contract, and a plan-only lab backup policy contract now exist; Gate 3 still needs separately approved lab deployment wiring/execution before meaningful lab data exists. |
 | Gate 4 | fixture-only | Launch-quality machinery exists for deterministic fixtures and gate corpus assessment only; no launch-ready claim is made. |
 
-Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, local backup/restore round-trip, local bearer auth seam, plan-only lab deployment descriptor, plan-only deployment-target healthcheck contract, and plan-only lab host supervision contract are now in place as no-spend Gate 3 foundations. The next recommended work: lab backup policy, with any AWS service use kept behind portable adapter/config seams.
+Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, local backup/restore round-trip, local bearer auth seam, plan-only lab deployment descriptor, plan-only deployment-target healthcheck contract, plan-only lab host supervision contract, and plan-only lab backup policy contract are now in place as no-spend Gate 3 foundations. The next recommended work: separately approved lab deployment wiring/execution decision, with any AWS service use kept behind portable adapter/config seams.
 
 ## Gate 0: Architecture docs land
 
@@ -57,7 +57,7 @@ Required before deploying to `lab.atliera.com`:
 - nginx/PM2/Certbot deployment plan has a plan-only descriptor contract; concrete deployment wiring remains future work.
 - Healthcheck route exists locally; plan-only deployment-target healthcheck contract exists; remote lab probing and concrete deployment wiring remain future work.
 - Lab host supervision contract exists as portable plan-only data; service install/start and concrete process-manager wiring remain future work.
-- Backup path/script exists locally before meaningful data is created; lab backup policy and deployment-target restore proof remain future work.
+- Backup path/script exists locally before meaningful data is created; plan-only lab backup policy contract exists; executing backups/restores, installing schedules, writing remote backup artifacts, and deployment-target restore proof remain future work.
 
 ## Gate 4: Launch quality
 

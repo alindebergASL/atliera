@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: lab backup policy
+- next recommended work: separately approved lab deployment wiring/execution decision
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -36,6 +36,7 @@ Status vocabulary:
 | `lab-deployment-target-descriptor-status.md` | active | Current plan-only lab deployment descriptor contract; it is no-spend and does not claim deployment readiness. |
 | `lab-deployment-healthcheck-contract-status.md` | active | Current plan-only deployment-target healthcheck contract; it is local/in-process only and does not claim deployment readiness. |
 | `lab-host-supervision-contract-status.md` | active | Current plan-only lab host supervision contract; it is portable data only and does not claim deployment readiness. |
+| `lab-backup-policy-contract-status.md` | active | Current plan-only lab backup policy contract; it is portable data only and does not execute backups or claim deployment readiness. |
 | `hermes-gpt55-model-only-live-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-model-only-transport-direction.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-provider-validation-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

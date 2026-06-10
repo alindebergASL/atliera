@@ -61,6 +61,5 @@ Boundary markers:
 
 The remaining no-spend Gate 3 foundation work is:
 
-1. lab host supervision dry-run contract
-2. lab backup policy validation contract
-3. separately approved lab deployment only after the plan, healthcheck, supervision dry-run, and backup-policy validation are merged and green
+1. lab backup policy validation contract
+2. separately approved lab deployment only after the plan, healthcheck, supervision dry-run, and backup-policy validation are merged and green

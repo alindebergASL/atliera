@@ -66,4 +66,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The no-spend Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, and execution-preflight contracts. The next step is a separate explicit operator decision about whether to authorize a bounded lab deployment/probe execution slice; without that fresh approval, current effective authorization remains none.
+The no-spend Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, and inert bounded execution approval-packet artifacts. The next step is a separate explicit operator go/no-go decision against `lab-bounded-deployment-execution-approval-packet.md`; without that fresh approval, current effective authorization remains none.

@@ -4,7 +4,7 @@ Status: plan-only Gate 3 deployment descriptor reference.
 
 Current effective authorization: none.
 
-This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`.
+This document defines the first lab deployment plan shape for Atliera without deploying it. It is paired with the validated descriptor contract in `src/deployment/lab-deployment-target.ts`, the deployment-target healthcheck contract in `src/deployment/lab-healthcheck-contract.ts`, the lab host supervision contract in `src/deployment/lab-supervision-contract.ts`, the lab backup policy contract in `src/deployment/lab-backup-policy-contract.ts`, the lab deployment execution preflight contract in `src/deployment/lab-deployment-execution-preflight.ts`, the inert bounded lab deployment execution approval packet in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`, and the placeholder fixture at `fixtures/deployment/lab-target.example.json`. The approval packet does not authorize deployment, probing, service start, backup/restore execution, or readiness claims.
 
 ## Goals
 
@@ -56,9 +56,16 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
    - does not deploy, probe, start services, execute backups/restores, or claim readiness
    - current status: contract exists in `docs/runbooks/lab-deployment-execution-preflight-status.md`
 
-5. Separately approved lab deployment:
-   - only after the plan, local healthcheck harness, supervision dry-run, backup-policy validation, and execution preflight are merged and green
-   - requires explicit operator authorization at execution time
+5. Bounded lab deployment execution approval packet:
+   - names the concrete future bounded execution scope using config refs and placeholders only
+   - records single lab target, exact approved commit, fake runtime mode, supervised service start, `/healthz` probe, optional `/workshop` shallow smoke, rollback/teardown, stop conditions, and sanitized evidence requirements
+   - keeps current effective authorization as none
+   - does not authorize deployment, probing, service start, backup/restore execution, or readiness claims
+   - current status: packet exists in `docs/runbooks/lab-bounded-deployment-execution-approval-packet.md`
+
+6. Separately approved lab deployment/probe go/no-go decision:
+   - only after the approval packet is merged and reviewed
+   - requires explicit operator authorization at execution time against an exact commit and named config refs
 
 ## Explicit non-goals in this slice
 

@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: separate explicit operator decision for bounded lab deployment/probe execution
+- next recommended work: explicit operator go/no-go decision against the bounded lab deployment execution approval packet
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -38,6 +38,7 @@ Status vocabulary:
 | `lab-host-supervision-contract-status.md` | active | Current plan-only lab host supervision contract; it is portable data only and does not claim deployment readiness. |
 | `lab-backup-policy-contract-status.md` | active | Current plan-only lab backup policy contract; it is portable data only and does not execute backups or claim deployment readiness. |
 | `lab-deployment-execution-preflight-status.md` | active | Current plan-only lab deployment execution preflight contract; it records no authorization and does not execute deployment or probing. |
+| `lab-bounded-deployment-execution-approval-packet.md` | inert-approval | Concrete bounded lab deployment/probe execution approval packet; inert until a separate explicit operator go/no-go decision names the scope and commit. |
 | `hermes-gpt55-model-only-live-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-model-only-transport-direction.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-provider-validation-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

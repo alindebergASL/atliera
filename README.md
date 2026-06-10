@@ -28,7 +28,7 @@ The current codebase now extends beyond the original Phase 1 graph foundation wh
 - adversarial graph tests in `tests/graph/`
 - safety tests in `tests/safety/`
 
-The repository still does not claim launch readiness. The current no-spend Gate 3 foundation includes fake/local Workshop serving, local health, local durable DB boot/migration, local backup/restore, a local bearer auth seam, a plan-only lab deployment descriptor contract, a plan-only deployment-target healthcheck contract, a plan-only lab host supervision contract, a plan-only lab backup policy contract, and a plan-only lab deployment execution preflight contract. The next foundation-first decision is whether to separately authorize a bounded lab deployment/probe slice, with any AWS service use kept behind portable adapter/config seams.
+The repository still does not claim launch readiness. The current no-spend Gate 3 foundation includes fake/local Workshop serving, local health, local durable DB boot/migration, local backup/restore, a local bearer auth seam, a plan-only lab deployment descriptor contract, a plan-only deployment-target healthcheck contract, a plan-only lab host supervision contract, a plan-only lab backup policy contract, a plan-only lab deployment execution preflight contract, and an inert bounded lab deployment execution approval packet. The next foundation-first decision is whether to separately authorize the bounded lab deployment/probe slice described by that packet, with any AWS service use kept behind portable adapter/config seams.
 
 ## Local verification
 

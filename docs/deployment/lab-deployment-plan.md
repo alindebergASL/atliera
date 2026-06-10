@@ -31,10 +31,10 @@ Concrete hostnames, ports, regions, and base URLs are represented as config refe
 ## Intended follow-up sequence
 
 1. Deployment-target healthcheck integration:
-   - consume the frozen descriptor snapshot
-   - launch or target an explicitly local fake-mode server
-   - prove `/healthz` contract behavior locally
-   - do not probe a remote lab host
+   - consumes the frozen descriptor snapshot
+   - derives a plan-only `/healthz` expectation contract
+   - evaluates in-process/local fake-mode responses only
+   - does not probe a remote lab host
 
 2. Lab host supervision dry-run:
    - consume the frozen descriptor snapshot

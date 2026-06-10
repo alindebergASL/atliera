@@ -63,4 +63,4 @@ Boundary markers:
 
 ## Next recommended work
 
-The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, slice A execution status, and slice B backup/restore proof status. The next step is no-side-effect Gate 3 status reconciliation before any further lab expansion, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim. Current effective authorization remains none.
+The Gate 3 deployment foundation now has descriptor, healthcheck, supervision, backup-policy, execution-preflight, inert bounded execution approval-packet artifacts, slice A execution status, slice B backup/restore proof status, and no-side-effect Gate 3 reconciliation. The next step requires an explicit operator decision for the next scoped Gate 3 slice before any further lab expansion, scheduler/backend wiring, process-manager installation, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim. Current effective authorization remains none.

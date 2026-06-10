@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: no-side-effect Gate 3 status reconciliation
+- next recommended work: explicit operator decision for the next scoped Gate 3 slice
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -41,6 +41,7 @@ Status vocabulary:
 | `lab-bounded-deployment-execution-approval-packet.md` | inert-approval | Concrete bounded lab deployment/probe execution approval packet; slice A and slice B approvals were consumed by their execution-status runbooks. |
 | `lab-bounded-deployment-slice-a-execution-status.md` | active | Current sanitized status for approved bounded lab slice A execution; service was stopped after `/healthz` and `/workshop` probes and no readiness is claimed. |
 | `lab-bounded-deployment-slice-b-backup-restore-status.md` | active | Current sanitized status for approved bounded lab slice B backup/restore proof; disposable data round-tripped and no readiness is claimed. |
+| `lab-gate3-status-reconciliation.md` | active | Current no-side-effect Gate 3 reconciliation after slice A and slice B approvals were consumed; it does not authorize further lab expansion or readiness claims. |
 | `hermes-gpt55-model-only-live-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-model-only-transport-direction.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `hermes-gpt55-provider-validation-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

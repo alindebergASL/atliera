@@ -223,18 +223,22 @@ Atliera background work should target a logical queue interface before any produ
 
 Queue names are logical identifiers, not URLs, paths, IP addresses, host:port strings, or broker addresses. Unsafe queue names are rejected before enqueue/dequeue.
 
-## Local durable DB boot
+## Local durable DB boot and backup
 
 `initializeLocalDurableDb` and `inspectLocalDurableDb` define the first local durable DB boot/migration contract. The default implementation is a deterministic local file-backed schema manifest with logical table files for graph snapshots, job queue rows, and schema migrations. It is intentionally local-only, no-network, and provider-neutral: it does not choose a database service, import a DB SDK, read deployment config, or claim lab/production readiness.
+
+`backupLocalDurableDb` and `restoreLocalDurableDbBackup` add a local backup/restore round-trip for that contract. Backups are versioned, schema-stamped JSON artifacts with per-table SHA-256 checksums. Restore writes into an empty target by default and refuses non-empty targets unless `--allow-overwrite` is explicit.
 
 CLI smoke commands:
 
 ```bash
 npm run --silent db:local:init -- --root <local-db-dir> --now 2026-06-09T00:00:00.000Z
 npm run --silent db:local:inspect -- --root <local-db-dir>
+npm run --silent db:local:backup -- --root <local-db-dir> --out <backup.json> --now 2026-06-09T00:02:00.000Z
+npm run --silent db:local:restore -- --backup <backup.json> --target-root <restored-db-dir>
 ```
 
-AWS infrastructure such as EC2-attached storage, RDS-compatible databases, or managed backup services may be useful in later lab/deployment slices, but they must be selected through deployment config/adapters. Product logic should continue to depend on the portable boot/migration and adapter contracts rather than AWS-specific assumptions.
+AWS infrastructure such as EC2-attached storage, RDS-compatible databases, or managed backup services may be useful in later lab/deployment slices, but they must be selected through deployment config/adapters. Product logic should continue to depend on the portable boot/migration, backup/restore, and adapter contracts rather than AWS-specific assumptions.
 
 ## Artifact store seam
 

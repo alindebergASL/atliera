@@ -1,4 +1,9 @@
-import type { WorkshopLens, WorkshopLensItemViewModel, WorkshopViewModel } from "./view-model.ts";
+import {
+  WORKSHOP_REVIEW_STATE_MODEL_PROPOSED,
+  type WorkshopLens,
+  type WorkshopLensItemViewModel,
+  type WorkshopViewModel,
+} from "./view-model.ts";
 
 const LENS_TITLES: Record<WorkshopLens, string> = {
   signals: "Signals",
@@ -20,6 +25,14 @@ export interface RenderWorkshopHtmlOptions {
   /** Defaults to "fake" to preserve the existing fake-mode preview label. */
   previewMode?: WorkshopPreviewMode;
 }
+
+/**
+ * Visible copy for the model-proposed/pending-human-review decoration. It
+ * decorates the existing `unverified` trust pill on affected cards; it is not
+ * a new truth-status tier and never replaces the trust label.
+ */
+export const WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT =
+  "Model-proposed · pending human review" as const;
 
 const PREVIEW_MODE_LABELS: Record<WorkshopPreviewMode, string> = {
   fake: "Fake-mode preview",
@@ -59,31 +72,41 @@ function renderEvidencePackets(item: WorkshopLensItemViewModel): string {
   if (item.evidence_packets.length === 0) {
     const emptyEvidenceMessage = item.trust.provenance_status === "unsupported"
       ? "No accepted supporting evidence packets for this unsupported object. Do not treat it as verified."
-      : "No accepted supporting evidence packets for this object.";
+      : "No accepted or proposed supporting evidence packets for this object.";
     return `<p class="empty-evidence">${emptyEvidenceMessage}</p>`;
   }
   return item.evidence_packets
-    .map(
-      (packet) => `<section class="evidence-packet">
+    .map((packet) => {
+      const excerptLabel = packet.excerpt.validation_status === "accepted"
+        ? "Accepted excerpt"
+        : "Proposed excerpt (pending human review)";
+      return `<section class="evidence-packet" data-excerpt-validation-status="${escapeHtml(packet.excerpt.validation_status)}">
         <h4>Evidence packet</h4>
         <dl>
           <dt>Claim</dt><dd>${escapeHtml(packet.claim.text)}</dd>
-          <dt>Accepted excerpt</dt><dd><blockquote>${escapeHtml(packet.excerpt.text)}</blockquote></dd>
+          <dt>${escapeHtml(excerptLabel)}</dt><dd><blockquote>${escapeHtml(packet.excerpt.text)}</blockquote></dd>
           <dt>Source</dt><dd>${renderSourceReference(packet.source)}</dd>
         </dl>
-      </section>`,
-    )
+      </section>`;
+    })
     .join("\n");
 }
 
 function renderLensItem(item: WorkshopLensItemViewModel): string {
   const evidence = item.trust.evidence;
-  return `<article class="workshop-card" data-lens="${item.lens}" data-object-id="${escapeHtml(item.id)}">
+  const reviewDecorated = item.review_state === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED;
+  const reviewAttribute = reviewDecorated
+    ? ` data-review-state="${WORKSHOP_REVIEW_STATE_MODEL_PROPOSED}"`
+    : "";
+  const reviewBadge = reviewDecorated
+    ? `\n      <span class="review-pill">${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</span>`
+    : "";
+  return `<article class="workshop-card" data-lens="${item.lens}" data-object-id="${escapeHtml(item.id)}"${reviewAttribute}>
     <div class="card-kicker">${escapeHtml(item.object_type)} · ${escapeHtml(item.status)}</div>
     <h3>${escapeHtml(item.title)}</h3>
     <p>${escapeHtml(item.summary)}</p>
     <div class="trust-row">
-      <span class="trust-pill trust-${escapeHtml(item.trust.provenance_status)}">${escapeHtml(item.trust.label)}</span>
+      <span class="trust-pill trust-${escapeHtml(item.trust.provenance_status)}">${escapeHtml(item.trust.label)}</span>${reviewBadge}
       <span>${escapeHtml(item.trust.confidence)} confidence</span>
       <span>${plural(evidence.accepted_excerpt_count, "accepted excerpt")}</span>
       <span>${plural(evidence.source_document_count, "source document")}</span>
@@ -117,7 +140,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
     throw new Error(`unknown workshop preview mode: ${String(previewMode)}`);
   }
   const emptyState = vm.empty_state
-    ? `<section class="empty-state"><h2>No graph-backed intelligence yet</h2><p>Add sources and validated graph records before treating account intelligence as verified.</p></section>`
+    ? `    <section class="empty-state"><h2>No graph-backed intelligence yet</h2><p>Add sources and validated graph records before treating account intelligence as verified.</p></section>\n`
     : "";
   const accountLabel = vm.account_id
     ? `<span>Account ${escapeHtml(vm.account_id)}</span>`
@@ -144,7 +167,8 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
     .lens-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
     .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
     .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-    .trust-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
+    .trust-pill, .review-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
+    .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
     .trust-verified { background: #0f5132; color: #d1fae5; }
     .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
     .trust-unverified { background: #4a3415; color: #fde68a; }
@@ -181,8 +205,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
         <span>No production writes</span>
       </div>
     </section>
-    ${emptyState}
-    <section class="lens-grid" aria-label="Workshop lenses">
+${emptyState}    <section class="lens-grid" aria-label="Workshop lenses">
       ${renderLens("signals", vm.lenses.signals)}
       ${renderLens("maps", vm.lenses.maps)}
       ${renderLens("plays", vm.lenses.plays)}

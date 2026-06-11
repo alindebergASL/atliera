@@ -1,0 +1,44 @@
+{
+  "schema_version": "atliera.workshop_public_curated_proposal_preview.v1",
+  "artifact_name": "workshop-public-curated-proposal-preview",
+  "generated_from": "proposal_materialization_public_curated_fixture",
+  "current_effective_authorization": "none",
+  "input_origin": "hand-curated-public",
+  "proposal_set_id": "public-curated-20260611a",
+  "account_id": "acc_acme_robotics",
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "authorizes_provider_call": false,
+    "authorizes_private_evidence_read": false,
+    "authorizes_graph_ingestion": false,
+    "graph_ingestion_performed": false,
+    "provider_calls_executed": 0,
+    "private_evidence_read": false,
+    "durable_writes_performed": false,
+    "production_writes": false,
+    "readiness_claim": false
+  },
+  "trust_language": {
+    "provenance_status": "unverified",
+    "excerpt_validation_status": "proposed",
+    "review_state": "model_proposed_pending_human_review",
+    "adds_new_truth_status_tier": false,
+    "confidence_cap": "medium"
+  },
+  "preview_mode": "validation",
+  "html_rendered": true,
+  "html_length": 6123,
+  "lens_item_counts": {
+    "signals": 1,
+    "maps": 0,
+    "plays": 0
+  },
+  "review_decorated_item_count": 1,
+  "verified_object_count": 0,
+  "provider_calls_made": 0,
+  "private_evidence_read": false,
+  "graph_ingestion_performed": false,
+  "durable_writes_performed": false,
+  "production_writes": false,
+  "readiness_claim": false
+}

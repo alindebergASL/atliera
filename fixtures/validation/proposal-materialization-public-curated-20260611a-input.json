@@ -1,0 +1,66 @@
+{
+  "context": {
+    "origin": "hand-curated-public",
+    "team_id": "team_atliera_lab",
+    "account_id": "acc_acme_robotics",
+    "materialized_at": "2026-06-11T00:00:00Z",
+    "proposal_set_id": "public-curated-20260611a"
+  },
+  "public_sources": [
+    {
+      "id": "src_acme_press_public_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_acme_robotics",
+      "url": "https://example.invalid/acme/press/public-001",
+      "canonical_url": "https://example.invalid/acme/press/public-001",
+      "title": "Acme Robotics opens European distribution hub",
+      "publisher": "Acme Robotics",
+      "source_type": "press_release",
+      "fetched_at": "2026-06-01T09:00:00Z",
+      "accessed_at": "2026-06-01T09:00:00Z",
+      "content_hash": "sha256:fixture-public-curated",
+      "raw_text": "Acme Robotics opened a European distribution hub in May 2026. The hub supports same-week delivery for enterprise warehouse customers and is staffed by an existing regional operations team.",
+      "reliability": "high",
+      "status": "active"
+    }
+  ],
+  "proposed_excerpts": [
+    {
+      "proposal_id": "acme-hub-open",
+      "source_document_id": "src_acme_press_public_001",
+      "quote": "Acme Robotics opened a European distribution hub in May 2026."
+    },
+    {
+      "proposal_id": "acme-hub-delivery",
+      "source_document_id": "src_acme_press_public_001",
+      "quote": "The hub supports same-week delivery for enterprise warehouse customers"
+    }
+  ],
+  "proposed_claims": [
+    {
+      "proposal_id": "acme-hub-expansion",
+      "claim_type": "expansion",
+      "text": "Acme Robotics opened a European distribution hub in May 2026.",
+      "normalized_subject": "acme_robotics:european_distribution_hub",
+      "confidence": "high",
+      "supporting_excerpt_proposal_ids": ["acme-hub-open"]
+    },
+    {
+      "proposal_id": "acme-hub-logistics",
+      "claim_type": "capability",
+      "text": "Acme Robotics supports same-week delivery for enterprise warehouse customers from its European hub.",
+      "normalized_subject": "acme_robotics:same_week_delivery",
+      "confidence": "medium",
+      "supporting_excerpt_proposal_ids": ["acme-hub-delivery"]
+    }
+  ],
+  "proposed_account_objects": [
+    {
+      "proposal_id": "acme-hub-signal",
+      "object_type": "signal",
+      "title": "European distribution hub opened",
+      "summary": "Acme Robotics opened a European distribution hub supporting same-week enterprise delivery.",
+      "supporting_claim_proposal_ids": ["acme-hub-expansion", "acme-hub-logistics"]
+    }
+  ]
+}

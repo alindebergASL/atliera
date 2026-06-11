@@ -16,7 +16,8 @@
 // deterministic launch-gate corpus assessment helpers, controlled corpus
 // usefulness assessment helpers, live product preview usefulness gates,
 // remediation planning helpers and lens diagnostics, controlled corpus weakness diagnosis helpers,
-// and controlled corpus remediation planning helpers.
+// controlled corpus remediation planning helpers, and the no-call public
+// hand-curated proposal-materialization validation-artifact contract.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -73,6 +74,7 @@ export * from "./validation/live-product-preview-usefulness.ts";
 export * from "./validation/live-product-preview-remediation-plan.ts";
 export * from "./validation/live-product-preview-lens-diagnostic.ts";
 export * from "./validation/gpt55-operator-smoke-verifier.ts";
+export * from "./validation/proposal-materialization.ts";
 export * from "./workshop/lens-usefulness.ts";
 export * from "./workshop/lens-richness.ts";
 export * from "./workshop/fixture-smoke.ts";

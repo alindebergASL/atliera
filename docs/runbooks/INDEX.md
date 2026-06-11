@@ -76,6 +76,7 @@ Status vocabulary:
 | `model-only-codex-auth-live-transport-proof.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `model-only-harness-design.md` | active | Current model boundary/harness design reference. |
 | `owl-alpha-validation-framing.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
+| `proposal-materialization-contract-status.md` | active | Current no-call, no-private-evidence-read, no-durable-write proposal-materialization contract targeting the public hand-curated Workshop artifact path; it names `workshop-public-curated-proposal-preview` as the next visible Workshop artifact and authorizes nothing. |
 | `runtime-model-gpt55-smoke-approval.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `runtime-model-gpt55-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `runtime-model-only-controlled-corpus-approval-packet.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

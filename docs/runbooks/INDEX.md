@@ -77,6 +77,8 @@ Status vocabulary:
 | `model-only-harness-design.md` | active | Current model boundary/harness design reference. |
 | `owl-alpha-validation-framing.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `proposal-materialization-contract-status.md` | active | Current no-call, no-private-evidence-read, no-durable-write proposal-materialization contract targeting the public hand-curated Workshop artifact path; it names `workshop-public-curated-proposal-preview` as the next visible Workshop artifact and authorizes nothing. |
+| `workshop-public-curated-proposal-preview-approval-packet.md` | consumed | Historical approval for the committed public-fixture validation-preview Workshop artifact only; it authorized no provider calls, private evidence reads, graph ingestion, durable writes, production writes, deployment, or readiness claim. |
+| `workshop-public-curated-proposal-preview-status.md` | active | Current status for the committed public-curated proposal Workshop preview artifact; it preserves current_effective_authorization: none and records no provider/private/durable/ingestion/production/readiness authorization. |
 | `runtime-model-gpt55-smoke-approval.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `runtime-model-gpt55-smoke-status.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `runtime-model-only-controlled-corpus-approval-packet.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |

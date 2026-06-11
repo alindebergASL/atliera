@@ -9,6 +9,14 @@ import type {
 
 export type WorkshopLens = "signals" | "maps" | "plays";
 
+// Visible review-state decoration for model-proposed content awaiting human
+// review. This decorates the existing `unverified` provenance status; it is
+// not a new truth-status tier and never upgrades trust.
+export const WORKSHOP_REVIEW_STATE_MODEL_PROPOSED =
+  "model_proposed_pending_human_review" as const;
+
+export type WorkshopReviewState = typeof WORKSHOP_REVIEW_STATE_MODEL_PROPOSED;
+
 export interface WorkshopEvidenceSummary {
   accepted_excerpt_count: number;
   source_document_count: number;
@@ -36,6 +44,13 @@ export interface WorkshopLensItemViewModel {
   object_type: AccountObject["object_type"];
   status: AccountObject["status"];
   trust: WorkshopTrustSummary;
+  /**
+   * Optional review-state decoration. Set only when the underlying account
+   * object carries the model-proposed/pending-human-review payload marker AND
+   * its provenance status is `unverified`; verified/source-backed objects
+   * never receive this decoration, and the decoration never upgrades trust.
+   */
+  review_state?: WorkshopReviewState | null;
   claim_ids: string[];
   source_ids: string[];
   excerpt_ids: string[];
@@ -130,13 +145,25 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
     const acceptedExcerptCount = excerptIds.filter(
       (excerptId) => excerptById.get(excerptId)?.validation_status === "accepted",
     ).length;
+    const lens = LENS_BY_OBJECT_TYPE[obj.object_type];
+    // Review-state decoration is read from the materializer-assigned payload
+    // marker and applied only on top of `unverified` provenance, so a bundle
+    // can never combine a Verified label with a pending-review badge.
+    const reviewState =
+      obj.provenance_status === "unverified" &&
+      obj.payload_json["review_state"] === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED
+        ? WORKSHOP_REVIEW_STATE_MODEL_PROPOSED
+        : null;
     const evidencePackets: WorkshopEvidencePacket[] = obj.provenance_status === "unsupported"
       ? []
       : supportingClaimEvidence.flatMap((ce) => {
           const claim = claimById.get(ce.claim_id);
           const excerpt = excerptById.get(ce.evidence_excerpt_id);
           const source = excerpt ? sourceById.get(excerpt.source_document_id) : undefined;
-          if (!claim || !excerpt || !source || excerpt.validation_status !== "accepted" || claim.provenance_status === "unsupported") {
+          const excerptVisibleForReview =
+            excerpt?.validation_status === "accepted" ||
+            (reviewState === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED && excerpt?.validation_status === "proposed");
+          if (!claim || !excerpt || !source || !excerptVisibleForReview || claim.provenance_status === "unsupported") {
             return [];
           }
           return [
@@ -165,7 +192,6 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
             },
           ];
         });
-    const lens = LENS_BY_OBJECT_TYPE[obj.object_type];
 
     lenses[lens].push({
       id: obj.id,
@@ -184,6 +210,7 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
         },
         label: trustLabel(obj.provenance_status),
       },
+      review_state: reviewState,
       claim_ids: claimIds,
       source_ids: sourceIds,
       excerpt_ids: excerptIds,

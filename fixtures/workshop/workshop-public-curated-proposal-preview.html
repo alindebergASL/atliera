@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atliera Workshop</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #090b12; color: #edf2ff; }
+    body { margin: 0; }
+    main { max-width: 1180px; margin: 0 auto; padding: 40px 24px; }
+    .hero { border: 1px solid #283044; border-radius: 24px; padding: 28px; background: linear-gradient(135deg, #121827, #0c1020); }
+    .eyebrow { color: #99a7c7; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
+    h1 { margin: 8px 0; font-size: 42px; }
+    .totals, .trust-row, .boundary-row { display: flex; gap: 12px; flex-wrap: wrap; color: #aab6d3; }
+    .boundary-row { margin-top: 14px; }
+    .boundary-row span { border: 1px solid #39476a; border-radius: 999px; padding: 5px 10px; background: #111a2d; }
+    .lens-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .lens-panel, .empty-state { border: 1px solid #283044; border-radius: 20px; padding: 18px; background: #0f1424; }
+    .lens-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
+    .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
+    .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .trust-pill, .review-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
+    .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
+    .trust-verified { background: #0f5132; color: #d1fae5; }
+    .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
+    .trust-unverified { background: #4a3415; color: #fde68a; }
+    .trust-stale { background: #43335f; color: #e9d5ff; }
+    .trust-unsupported { background: #5c1d1d; color: #fee2e2; }
+    .evidence-drawer { margin-top: 10px; color: #cbd5e1; }
+    .evidence-packet { border-top: 1px solid #283044; margin-top: 12px; padding-top: 10px; }
+    .evidence-packet h4 { margin: 0 0 8px; color: #edf2ff; }
+    .evidence-packet blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #54658d; color: #e5edff; }
+    .evidence-packet a { color: #93c5fd; }
+    .unsafe-url { color: #fca5a5; }
+    .empty-evidence { color: #93a4c8; }
+    dt { color: #93a4c8; }
+    dd { margin: 0 0 8px; word-break: break-word; }
+    @media (max-width: 900px) { .lens-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Atliera · Workshop</div>
+      <h1>Atliera Workshop</h1>
+      <p>Evidence-backed account intelligence rendered from the Atliera Graph.</p>
+      <div class="totals">
+        <span>1 source</span>
+        <span>2 claims</span>
+        <span>1 graph object</span>
+        <span>0 verified objects</span>
+      </div>
+      <div class="boundary-row" aria-label="Preview boundaries">
+        <span>Validation preview (non-production)</span>
+        <span>Account acc_acme_robotics</span>
+        <span>No provider calls</span>
+        <span>No production writes</span>
+      </div>
+    </section>
+    <section class="lens-grid" aria-label="Workshop lenses">
+      <section class="lens-panel" data-lens="signals">
+    <header><h2>Signals</h2><span>1 item</span></header>
+    <article class="workshop-card" data-lens="signals" data-object-id="obj_acme-hub-signal" data-review-state="model_proposed_pending_human_review">
+    <div class="card-kicker">signal · active</div>
+    <h3>European distribution hub opened</h3>
+    <p>Acme Robotics opened a European distribution hub supporting same-week enterprise delivery.</p>
+    <div class="trust-row">
+      <span class="trust-pill trust-unverified">Unverified</span>
+      <span class="review-pill">Model-proposed · pending human review</span>
+      <span>medium confidence</span>
+      <span>0 accepted excerpts</span>
+      <span>1 source document</span>
+    </div>
+    <details class="evidence-drawer">
+      <summary>Evidence</summary>
+      <dl>
+        <dt>Claims</dt><dd>clm_acme-hub-expansion, clm_acme-hub-logistics</dd>
+        <dt>Excerpts</dt><dd>exc_acme-hub-delivery, exc_acme-hub-open</dd>
+        <dt>Sources</dt><dd>src_acme_press_public_001</dd>
+      </dl>
+      <section class="evidence-packet" data-excerpt-validation-status="proposed">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>Acme Robotics opened a European distribution hub in May 2026.</dd>
+          <dt>Proposed excerpt (pending human review)</dt><dd><blockquote>Acme Robotics opened a European distribution hub in May 2026.</blockquote></dd>
+          <dt>Source</dt><dd><a href="https://example.invalid/acme/press/public-001">Acme Robotics opens European distribution hub</a> · Acme Robotics · high reliability</dd>
+        </dl>
+      </section>
+<section class="evidence-packet" data-excerpt-validation-status="proposed">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>Acme Robotics supports same-week delivery for enterprise warehouse customers from its European hub.</dd>
+          <dt>Proposed excerpt (pending human review)</dt><dd><blockquote>The hub supports same-week delivery for enterprise warehouse customers</blockquote></dd>
+          <dt>Source</dt><dd><a href="https://example.invalid/acme/press/public-001">Acme Robotics opens European distribution hub</a> · Acme Robotics · high reliability</dd>
+        </dl>
+      </section>
+    </details>
+  </article>
+  </section>
+      <section class="lens-panel" data-lens="maps">
+    <header><h2>Maps</h2><span>0 items</span></header>
+    <p class="empty-lens">No graph-backed Maps yet.</p>
+  </section>
+      <section class="lens-panel" data-lens="plays">
+    <header><h2>Plays</h2><span>0 items</span></header>
+    <p class="empty-lens">No graph-backed Plays yet.</p>
+  </section>
+    </section>
+  </main>
+</body>
+</html>

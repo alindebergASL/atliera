@@ -1,0 +1,96 @@
+{
+  "kind": "workshop-public-proposal-durable-graph-write-contract",
+  "schema_version": "atliera.workshop_public_proposal_durable_graph_write_contract.v1",
+  "disposable": true,
+  "generated_from": "workshop-public-proposal-reviewed-candidate-ratification-plan",
+  "current_effective_authorization": "none",
+  "contract_artifact_id": "durable-write-contract:public-curated-20260611a:2026-06-12T23:30:00Z",
+  "proposal_set_id": "public-curated-20260611a",
+  "account_id": "acc_acme_robotics",
+  "reviewed_at": "2026-06-11T12:00:00Z",
+  "planned_at": "2026-06-11T12:05:00Z",
+  "contracted_at": "2026-06-12T23:30:00Z",
+  "source_plan_artifact_name": "workshop-public-proposal-reviewed-candidate-ratification-plan",
+  "next_required_contract": "reviewed-candidate-durable-graph-write-approval-packet",
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "authorizes_provider_call": false,
+    "authorizes_private_evidence_read": false,
+    "authorizes_graph_ingestion": false,
+    "graph_ingestion_performed": false,
+    "provider_calls_executed": 0,
+    "private_evidence_read": false,
+    "durable_writes_performed": false,
+    "production_writes": false,
+    "readiness_claim": false,
+    "defines_durable_write_contract": true,
+    "authorizes_durable_write_execution": false,
+    "durable_write_execution_performed": false,
+    "requires_separate_durable_write_approval_packet": true,
+    "ratification_performed": false,
+    "plan_only": true,
+    "requires_separate_ratification_approval": true
+  },
+  "write_operations": [
+    {
+      "candidate_item_id": "obj_acme-hub-signal",
+      "lens": "signals",
+      "account_object_id": "obj_acme-hub-signal",
+      "claim_ids": [
+        "clm_acme-hub-expansion",
+        "clm_acme-hub-logistics"
+      ],
+      "excerpt_ids": [
+        "exc_acme-hub-delivery",
+        "exc_acme-hub-open"
+      ],
+      "source_ids": [
+        "src_acme_press_public_001"
+      ],
+      "target_store": "local-durable-db",
+      "target_record_counts": {
+        "account_object": 1,
+        "claim_count": 2,
+        "excerpt_count": 2,
+        "source_count": 1,
+        "ratification_audit_event": 1
+      },
+      "trust_label_on_durable_write": "model-proposed-human-ratified-evidence-pending",
+      "mediation_gate_level": "L0",
+      "idempotency_key_shape": "acc_acme_robotics:obj_acme-hub-signal:ratified-durable-write-v1",
+      "retry_budget": 0,
+      "rollback_semantics": "single-transaction-or-noop",
+      "authorizes_durable_write": false,
+      "durable_write_performed": false
+    }
+  ],
+  "approval_packet_shape": {
+    "required_kind": "workshop-public-proposal-durable-graph-write-approval-packet",
+    "must_reference_contract_artifact_id": "durable-write-contract:public-curated-20260611a:2026-06-12T23:30:00Z",
+    "must_reference_ratification_plan_proposal_set_id": "public-curated-20260611a",
+    "must_pin_candidate_item_ids": [
+      "obj_acme-hub-signal"
+    ],
+    "max_durable_writes": 1,
+    "max_attempts": 1,
+    "retry_budget": 0,
+    "retry_requires_new_approval": true,
+    "expiry_required": true,
+    "operator_arming_required": true,
+    "mediation_gate_level": "L0",
+    "target_store": "local-durable-db"
+  },
+  "counts": {
+    "accepted_candidate_count": 1,
+    "planned_candidate_count": 1,
+    "contracted_candidate_count": 1,
+    "ratified_candidate_count": 0,
+    "durable_write_count": 0
+  },
+  "provider_calls_made": 0,
+  "private_evidence_read": false,
+  "graph_ingestion_performed": false,
+  "durable_writes_performed": false,
+  "production_writes": false,
+  "readiness_claim": false
+}

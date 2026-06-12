@@ -83,3 +83,4 @@ export * from "./workshop/fixture-smoke.ts";
 export * from "./workshop/proposal-preview.ts";
 export * from "./workshop/proposal-review-decision.ts";
 export * from "./workshop/proposal-ratification-plan.ts";
+export * from "./workshop/proposal-durable-graph-write-contract.ts";

@@ -76,3 +76,5 @@ Verification coverage:
 Recommended next decision:
 
 If this contract looks right, the next separate slice can make a ratification-gated graph write plan over accepted candidate refs. That later slice must still be no-call by default and must explicitly preserve that candidate refs are not durable graph ingestion until a separate write contract says so.
+
+Follow-up status: `docs/runbooks/workshop-public-proposal-ratification-plan-status.md` records the no-call reviewed-candidate ratification plan slice. It remains plan-only and does not perform ratification, graph ingestion, or durable graph writes.

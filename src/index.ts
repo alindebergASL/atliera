@@ -17,8 +17,9 @@
 // usefulness assessment helpers, live product preview usefulness gates,
 // remediation planning helpers and lens diagnostics, controlled corpus weakness diagnosis helpers,
 // controlled corpus remediation planning helpers, the no-call public
-// hand-curated proposal-materialization validation-artifact contract, and
-// disposable public-proposal human-review decision artifacts.
+// hand-curated proposal-materialization validation-artifact contract,
+// disposable public-proposal human-review decision artifacts, and no-call
+// public-proposal reviewed-candidate ratification plan artifacts.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -81,3 +82,4 @@ export * from "./workshop/lens-richness.ts";
 export * from "./workshop/fixture-smoke.ts";
 export * from "./workshop/proposal-preview.ts";
 export * from "./workshop/proposal-review-decision.ts";
+export * from "./workshop/proposal-ratification-plan.ts";

@@ -1,0 +1,71 @@
+{
+  "kind": "workshop-public-proposal-reviewed-candidate-ratification-plan",
+  "schema_version": "atliera.workshop_public_proposal_reviewed_candidate_ratification_plan.v1",
+  "disposable": true,
+  "generated_from": "workshop-public-proposal-human-review-decision",
+  "current_effective_authorization": "none",
+  "proposal_set_id": "public-curated-20260611a",
+  "account_id": "acc_acme_robotics",
+  "reviewed_at": "2026-06-11T12:00:00Z",
+  "planned_at": "2026-06-11T12:05:00Z",
+  "source_decision_artifact_name": "workshop-public-proposal-human-review-decision",
+  "next_required_contract": "reviewed-candidate-durable-graph-write",
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "authorizes_provider_call": false,
+    "authorizes_private_evidence_read": false,
+    "authorizes_graph_ingestion": false,
+    "graph_ingestion_performed": false,
+    "provider_calls_executed": 0,
+    "private_evidence_read": false,
+    "durable_writes_performed": false,
+    "production_writes": false,
+    "readiness_claim": false,
+    "authorizes_reviewed_candidate_durable_write": false,
+    "reviewed_candidate_durable_write_performed": false,
+    "ratification_performed": false,
+    "plan_only": true,
+    "requires_separate_ratification_approval": true
+  },
+  "candidates": [
+    {
+      "item_id": "obj_acme-hub-signal",
+      "lens": "signals",
+      "source_decision": "accept_for_graph_candidate",
+      "reviewer_id": "reviewer_demo",
+      "reviewed_at": "2026-06-11T12:00:00Z",
+      "account_object_id": "obj_acme-hub-signal",
+      "claim_ids": [
+        "clm_acme-hub-expansion",
+        "clm_acme-hub-logistics"
+      ],
+      "excerpt_ids": [
+        "exc_acme-hub-delivery",
+        "exc_acme-hub-open"
+      ],
+      "source_ids": [
+        "src_acme_press_public_001"
+      ],
+      "ratification_status": "awaiting_separate_ratification",
+      "planned_write_operation": "none",
+      "candidate_only": true,
+      "requires_separate_ratification_approval": true,
+      "authorizes_graph_ingestion": false,
+      "graph_ingestion_performed": false,
+      "authorizes_durable_write": false,
+      "durable_write_performed": false
+    }
+  ],
+  "counts": {
+    "accepted_candidate_count": 1,
+    "planned_candidate_count": 1,
+    "ratified_candidate_count": 0,
+    "durable_write_count": 0
+  },
+  "provider_calls_made": 0,
+  "private_evidence_read": false,
+  "graph_ingestion_performed": false,
+  "durable_writes_performed": false,
+  "production_writes": false,
+  "readiness_claim": false
+}

@@ -57,4 +57,4 @@ Verification coverage:
 
 Recommended next decision:
 
-Use the committed preview HTML for human/product review. If the trust language is understandable, the next candidate slice can draft a separate fresh private-evidence-handling approval for materializing private fresh-route proof output. If the trust language is confusing, iterate on the public fixture/Workshop decoration first; do not move to private evidence until the visible review state works on public data.
+Use the committed preview HTML for human/product review. The immediate follow-up is now recorded in `docs/runbooks/workshop-public-proposal-human-review-decision-status.md`: a disposable human-review decision artifact over visible public-preview items. If the trust language is confusing, iterate on the public fixture/Workshop decoration first; do not move to private evidence until the visible review state works on public data.

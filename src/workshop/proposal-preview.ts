@@ -58,6 +58,14 @@ function reviewDecoratedItemCount(viewModel: WorkshopViewModel): number {
   return count;
 }
 
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return value;
+  for (const key of Object.getOwnPropertyNames(value)) {
+    deepFreeze((value as Record<string, unknown>)[key]);
+  }
+  return Object.freeze(value);
+}
+
 export function buildWorkshopPublicCuratedProposalPreview(
   input: MaterializeProposalForValidationInput,
 ): WorkshopPublicCuratedProposalPreview {
@@ -75,6 +83,8 @@ export function buildWorkshopPublicCuratedProposalPreview(
   if (decorated !== materialized.accepted_counts.account_objects) {
     throw new Error("public curated proposal preview must decorate every accepted proposal-derived account object");
   }
+
+  const frozenViewModel = deepFreeze(viewModel);
 
   return Object.freeze({
     kind: WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME,
@@ -101,7 +111,7 @@ export function buildWorkshopPublicCuratedProposalPreview(
       production_writes: false,
       readiness_claim: false,
     }),
-    view_model: viewModel,
+    view_model: frozenViewModel,
     html,
   });
 }

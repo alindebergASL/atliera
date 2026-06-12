@@ -1,0 +1,72 @@
+{
+  "kind": "workshop-public-proposal-human-review-decision",
+  "schema_version": "atliera.workshop_public_proposal_human_review_decision.v1",
+  "disposable": true,
+  "generated_from": "workshop-public-curated-proposal-preview",
+  "current_effective_authorization": "none",
+  "preview_artifact_name": "workshop-public-curated-proposal-preview",
+  "proposal_set_id": "public-curated-20260611a",
+  "account_id": "acc_acme_robotics",
+  "reviewed_at": "2026-06-11T12:00:00Z",
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "authorizes_provider_call": false,
+    "authorizes_private_evidence_read": false,
+    "authorizes_graph_ingestion": false,
+    "graph_ingestion_performed": false,
+    "provider_calls_executed": 0,
+    "private_evidence_read": false,
+    "durable_writes_performed": false,
+    "production_writes": false,
+    "readiness_claim": false,
+    "authorizes_reviewed_candidate_durable_write": false,
+    "reviewed_candidate_durable_write_performed": false,
+    "ratification_performed": false
+  },
+  "decisions": [
+    {
+      "item_id": "obj_acme-hub-signal",
+      "lens": "signals",
+      "decision": "accept_for_graph_candidate",
+      "rationale": "Visible preview is understandable and the cited public excerpts support this candidate for later ratification review.",
+      "reviewer_id": "reviewer_demo",
+      "reviewed_at": "2026-06-11T12:00:00Z",
+      "visible_review_state": "model_proposed_pending_human_review",
+      "source_trust": {
+        "provenance_status": "unverified",
+        "label": "Unverified",
+        "accepted_excerpt_count": 0
+      },
+      "graph_candidate_ref": {
+        "account_object_id": "obj_acme-hub-signal",
+        "claim_ids": [
+          "clm_acme-hub-expansion",
+          "clm_acme-hub-logistics"
+        ],
+        "excerpt_ids": [
+          "exc_acme-hub-delivery",
+          "exc_acme-hub-open"
+        ],
+        "source_ids": [
+          "src_acme_press_public_001"
+        ],
+        "candidate_only": true,
+        "graph_ingestion_performed": false,
+        "durable_graph_write_performed": false
+      },
+      "promotion_performed": false
+    }
+  ],
+  "counts": {
+    "accepted_for_graph_candidate": 1,
+    "rejected": 0,
+    "needs_more_evidence": 0,
+    "deferred": 0
+  },
+  "provider_calls_made": 0,
+  "private_evidence_read": false,
+  "graph_ingestion_performed": false,
+  "durable_writes_performed": false,
+  "production_writes": false,
+  "readiness_claim": false
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atliera Workshop · Durable State</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #090b12; color: #edf2ff; }
+    body { margin: 0; }
+    main { max-width: 1180px; margin: 0 auto; padding: 40px 24px; }
+    .hero { border: 1px solid #283044; border-radius: 24px; padding: 28px; background: linear-gradient(135deg, #121827, #0c1020); }
+    .eyebrow { color: #99a7c7; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
+    h1 { margin: 8px 0; font-size: 42px; }
+    .boundary-row, .totals, .trust-row { display: flex; gap: 12px; flex-wrap: wrap; color: #aab6d3; }
+    .boundary-row { margin-top: 14px; }
+    .boundary-row span { border: 1px solid #39476a; border-radius: 999px; padding: 5px 10px; background: #111a2d; }
+    .durable-graph-records, .review-decisions { border-radius: 20px; padding: 22px; margin-top: 22px; }
+    .durable-graph-records { border: 1px solid #2c4d3c; background: #0e1a14; }
+    .durable-graph-records > header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #1f3a2b; margin-bottom: 14px; }
+    .review-decisions { border: 1px dashed #5c3a3a; background: #1a0e0e; }
+    .review-decisions > header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed #5c3a3a; margin-bottom: 14px; }
+    .durable-graph-record-card { border: 1px solid #2f4d3c; border-radius: 16px; padding: 14px; background: #102018; margin-bottom: 12px; }
+    .review-decision-rejection-card { border: 1px dashed #6e4040; border-radius: 0; padding: 14px; background: #1a0e0e; margin-bottom: 12px; }
+    .card-kicker { color: #93c8a6; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .rejection-kicker { color: #f4a4a4; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .trust-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
+    .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
+    .trust-unverified { background: #4a3415; color: #fde68a; }
+    .trust-stale { background: #43335f; color: #e9d5ff; }
+    .trust-unsupported { background: #5c1d1d; color: #fee2e2; }
+    .trust-label-decoration { color: #d4e9c1; font-size: 12px; border: 1px solid #2c4d3c; padding: 3px 9px; border-radius: 999px; background: #122418; }
+    .not-in-graph-notice { color: #fda4af; font-weight: 600; border-left: 3px solid #fda4af; padding-left: 10px; margin: 10px 0; }
+    .rejection-rationale { color: #fed7aa; }
+    dl { margin: 8px 0 0; }
+    dt { color: #93a4c8; font-size: 12px; }
+    dd { margin: 0 0 6px; word-break: break-word; color: #edf2ff; }
+    .empty-durable, .empty-rejections { color: #93a4c8; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Atliera · Workshop · Durable state</div>
+      <h1>Atliera Workshop · Durable State</h1>
+      <p>Read from the durable graph of record. M3 admission tier: model-proposed, human-ratified, evidence pending. Verification (per-record provenance flip) is reserved for M4 / M5b.</p>
+      <div class="totals">
+        <span>1 durable row</span>
+        <span>1 graph record</span>
+        <span>1 rejection</span>
+      </div>
+      <div class="boundary-row" aria-label="Render boundaries">
+        <span>Static HTML render</span>
+        <span>Account acc_acme_robotics</span>
+        <span>No provider calls</span>
+        <span>No production writes</span>
+        <span>Read-only from durable store</span>
+      </div>
+    </section>
+
+    <section class="durable-graph-records" aria-label="Ratified records in the durable graph">
+      <header>
+        <h2>Durable graph records</h2>
+        <span>Ratified · in graph of record</span>
+      </header>
+      <article class="durable-graph-record-card" data-durable-record-id="ratified-write:public-curated-20260611a:obj_acme-hub-signal:2026-06-15T18:00:00Z" data-object-id="obj_acme-hub-signal">
+        <div class="card-kicker">signal · durable record</div>
+        <h3>European distribution hub opened</h3>
+        <p>Acme Robotics opened a European distribution hub supporting same-week enterprise delivery.</p>
+        <div class="trust-row">
+          <span class="trust-pill trust-source_document_only">Source-backed</span>
+          <span class="trust-label-decoration">Model-proposed · human-ratified · evidence pending</span>
+        </div>
+        <dl class="durable-record-attribution">
+          <dt>Durable record</dt><dd>ratified-write:public-curated-20260611a:obj_acme-hub-signal:2026-06-15T18:00:00Z</dd>
+          <dt>Account</dt><dd>acc_acme_robotics</dd>
+          <dt>Candidate</dt><dd>obj_acme-hub-signal</dd>
+          <dt>Ratifier</dt><dd>reviewer_demo</dd>
+          <dt>Mediation gate</dt><dd>L0</dd>
+          <dt>Written at</dt><dd>2026-06-15T18:00:00Z</dd>
+        </dl>
+      </article>
+    </section>
+
+    <section class="review-decisions" aria-label="Review decisions that did not enter the durable graph">
+      <header>
+        <h2>Review decisions · not in graph</h2>
+        <span>Rejected at review · not promoted</span>
+      </header>
+      <article class="review-decision-rejection-card" data-review-decision-item-id="obj_acme-rumored-acquisition" data-not-in-durable-graph="true">
+        <div class="rejection-kicker">Review decision · signals lens</div>
+        <h3>Rejected: obj_acme-rumored-acquisition</h3>
+        <p class="rejection-rationale">Unsourced market rumor without supporting public excerpt. Not promotable to graph candidate.</p>
+        <p class="not-in-graph-notice">Not in graph. This decision was recorded by the reviewer and the candidate was not promoted to the durable graph of record.</p>
+        <dl class="review-decision-attribution">
+          <dt>Reviewer</dt><dd>reviewer_demo</dd>
+          <dt>Reviewed at</dt><dd>2026-06-11T12:00:00Z</dd>
+        </dl>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -85,3 +85,5 @@ export * from "./workshop/proposal-review-decision.ts";
 export * from "./workshop/proposal-ratification-plan.ts";
 export * from "./workshop/proposal-durable-graph-write-contract.ts";
 export * from "./workshop/proposal-durable-graph-write-approval-packet.ts";
+export * from "./workshop/proposal-durable-graph-write-operator-arming.ts";
+export * from "./workshop/proposal-durable-graph-write-execution.ts";

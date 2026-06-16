@@ -220,6 +220,19 @@ describe("M3 step 3b durable state read safety", () => {
     );
   });
 
+  test("refuses durable rows whose M3 trust label is not the pending-review label", async () => {
+    const row = await validDurableRow();
+    const tampered = {
+      ...row,
+      trust_label: "unexpected-safe-trust-label",
+    };
+
+    assert.throws(
+      () => buildWorkshopViewModelFromDurableState([tampered]),
+      /trust_label must be the M3 pending-review trust label/,
+    );
+  });
+
   test("refuses accessor-backed review artifacts without invoking getters", async () => {
     const row = await validDurableRow();
     const artifact = await reviewArtifactWithOneRejected();

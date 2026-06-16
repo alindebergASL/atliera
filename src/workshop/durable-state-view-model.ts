@@ -13,11 +13,15 @@ import {
   type WorkshopProposalHumanReviewDecisionArtifact,
   type WorkshopProposalHumanReviewDecisionRecord,
 } from "./proposal-review-decision.ts";
-import { snapshotDurableGraphSnapshotRow, snapshotPlainJsonValue } from "./durable-graph-snapshots-reader.ts";
+import {
+  ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL,
+  snapshotDurableGraphSnapshotRow,
+  snapshotPlainJsonValue,
+} from "./durable-graph-snapshots-reader.ts";
 import { buildWorkshopViewModel } from "./view-model.ts";
 
 export const WORKSHOP_DURABLE_PENDING_REVIEW_TRUST_LABEL =
-  "model-proposed-human-ratified-evidence-pending" as const;
+  ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL;
 
 export interface BuildWorkshopViewModelFromDurableStateOptions {
   readonly reviewDecisionArtifact?: WorkshopProposalHumanReviewDecisionArtifact | null;

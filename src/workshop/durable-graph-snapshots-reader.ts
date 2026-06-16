@@ -12,6 +12,8 @@ import {
 } from "./proposal-durable-graph-write-execution.ts";
 
 export const GRAPH_SNAPSHOTS_RELATIVE_PATH = "tables/graph_snapshots.jsonl" as const;
+export const ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL =
+  "model-proposed-human-ratified-evidence-pending" as const;
 
 const SAFE_ROW_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,160}$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
@@ -162,6 +164,16 @@ function requireIsoString(value: unknown, label: string): string {
   return value;
 }
 
+function requirePendingReviewTrustLabel(
+  value: unknown,
+  label: string,
+): typeof ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL {
+  if (value !== ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL) {
+    throw new Error(`${label} must be the M3 pending-review trust label`);
+  }
+  return ATLIERA_GRAPH_SNAPSHOT_PENDING_REVIEW_TRUST_LABEL;
+}
+
 function validatedBundle(value: unknown, label: string): GraphBundle {
   const bundleSnapshot = snapshotPlainJsonValue(value, label);
   const parsed = parseGraphBundle(bundleSnapshot);
@@ -213,7 +225,7 @@ export function snapshotDurableGraphSnapshotRow(
     candidate_item_id: requireSafeString(row.candidate_item_id, `${label}.candidate_item_id`),
     operator_identity: requireSafeString(row.operator_identity, `${label}.operator_identity`),
     mediation_gate_level: "L0" as const,
-    trust_label: requireSafeString(row.trust_label, `${label}.trust_label`),
+    trust_label: requirePendingReviewTrustLabel(row.trust_label, `${label}.trust_label`),
     written_at: requireIsoString(row.written_at, `${label}.written_at`),
     bundle: validatedBundle(row.bundle, `${label}.bundle`),
   });

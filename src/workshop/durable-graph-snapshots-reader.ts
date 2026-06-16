@@ -31,10 +31,7 @@ import {
 } from "./proposal-durable-graph-write-execution.ts";
 import { parseGraphBundle } from "../graph/schema.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
-import {
-  PINNED_MEDIATION_GATE_LEVEL,
-  PINNED_TARGET_STORE,
-} from "./proposal-durable-graph-write-contract.ts";
+import { PINNED_MEDIATION_GATE_LEVEL } from "./proposal-durable-graph-write-contract.ts";
 
 export const WORKSHOP_PUBLIC_PROPOSAL_DURABLE_GRAPH_SNAPSHOTS_READER_NAME =
   "workshop-public-proposal-durable-graph-snapshots-reader" as const;
@@ -51,7 +48,6 @@ export type WorkshopProposalDurableSnapshotsReaderRefusalCode =
   | "row_schema_version_invalid"
   | "row_field_missing_or_malformed"
   | "row_mediation_gate_level_invalid"
-  | "row_target_store_invalid"
   | "row_trust_label_invalid"
   | "row_bundle_invalid"
   | "row_bundle_marks_record_verified";
@@ -118,6 +114,18 @@ function snapshotPlainRecord(value: unknown, label: string): Readonly<Record<str
   return Object.freeze(out);
 }
 
+// deepFreeze: recursively freeze a plain validated value so the snapshot
+// the reader vouched for cannot be mutated after it crosses the read
+// boundary. Operates only on the already-parsed, already-validated
+// GraphBundle (plain objects and arrays); it does not invoke getters.
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    deepFreeze((value as Record<string, unknown>)[key]);
+  }
+  return Object.freeze(value);
+}
+
 function requireString(record: Readonly<Record<string, unknown>>, key: string, label: string): string {
   const v = record[key];
   if (typeof v !== "string" || v.length === 0) {
@@ -151,16 +159,13 @@ function validateRow(value: unknown, index: number): DurableGraphSnapshotRow {
   if (snap.mediation_gate_level !== PINNED_MEDIATION_GATE_LEVEL) {
     throw new RowRefusal("row_mediation_gate_level_invalid", `row[${index}].mediation_gate_level not L0`);
   }
-  // local-durable-db is the only target the reader recognises; rows from
-  // other stores would be a category error here.
-  const _targetCheck: unknown = (() => {
-    // The current 3a write does not stamp target_store on the row
-    // itself (it lives on the executor outcome). We do not require it
-    // here; the row kind is the sufficient discriminator.
-    return undefined;
-  })();
-  void _targetCheck;
-  void PINNED_TARGET_STORE;
+  // NOTE on target_store: the current 3a write does not stamp
+  // target_store on the row itself (it lives on the executor outcome,
+  // pinned to local-durable-db). The row `kind` is the sufficient
+  // discriminator here, so the reader does not enforce a row-level
+  // target_store and carries no `row_target_store_invalid` refusal
+  // code. If a future row-shape slice stamps target_store on the row,
+  // that enforcement (and its refusal code) lands there, not here.
 
   if (snap.trust_label !== TRUST_LABEL) {
     throw new RowRefusal("row_trust_label_invalid", `row[${index}].trust_label not the M3 admission label`);
@@ -201,6 +206,16 @@ function validateRow(value: unknown, index: number): DurableGraphSnapshotRow {
     throw new RowRefusal("row_bundle_invalid", `row[${index}].bundle does not validate: ${report.hard_failures[0]?.code ?? "unknown"}`);
   }
 
+  // Deep-freeze the validated bundle before returning. A top-level
+  // Object.freeze on the row is shallow: it leaves the nested bundle,
+  // its arrays, and its records mutable, so a caller could flip a
+  // per-record provenance_status to "verified" AFTER the read boundary
+  // validated it — defeating the trust-tier guarantee at exactly the
+  // point the render layer reads it. Deep-freezing seals the validated
+  // value so the snapshot the reader vouched for is the snapshot the
+  // renderer sees.
+  const frozenBundle = deepFreeze(parsed.value);
+
   return Object.freeze({
     kind: ATLIERA_GRAPH_SNAPSHOT_ROW_KIND,
     schema_version: ATLIERA_GRAPH_SNAPSHOT_ROW_SCHEMA_VERSION,
@@ -214,7 +229,7 @@ function validateRow(value: unknown, index: number): DurableGraphSnapshotRow {
     mediation_gate_level: PINNED_MEDIATION_GATE_LEVEL,
     trust_label: TRUST_LABEL,
     written_at: writtenAt,
-    bundle: parsed.value,
+    bundle: frozenBundle,
   });
 }
 

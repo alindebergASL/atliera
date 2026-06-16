@@ -34,6 +34,7 @@ import {
 import {
   composeDurableStateView,
   renderDurableStateHtml,
+  DurableStateRenderRefusal,
 } from "../../src/workshop/durable-state-render.ts";
 import type { WorkshopProposalHumanReviewDecisionArtifact } from "../../src/workshop/proposal-review-decision.ts";
 
@@ -272,31 +273,31 @@ describe("M3 step 3b safety — reader REFUSES Proxy-backed values BEFORE reflec
       "isProxy guard must precede descriptor reflection in source order");
   });
 
-  test("the reader's snapshot guard catches a Proxy-shaped value in the row position even before any field is read", async () => {
-    // We exercise the guard via the reader's public entry, by writing a
-    // file whose contents include one valid row plus a placeholder line
-    // for a bad row. The reader's JSON parse on the bad line produces a
-    // plain object (Proxy cannot survive JSON), so to exercise the
-    // Proxy refusal end-to-end is necessarily limited to in-process
-    // callers. We document that boundary above and verify here that the
-    // file path always produces plain rows.
-    const rootDir = await mkdtemp(join(tmpdir(), "atliera-m3-3b-proxy-"));
+  test("a compose-time Proxy-backed row is refused before its fields are read", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
     try {
-      await mkdir(join(rootDir, "tables"), { recursive: true });
-      const { row, cleanup } = await setupDbAndWriteOneRow();
-      try {
-        await writeFile(join(rootDir, "tables/graph_snapshots.jsonl"), JSON.stringify(row) + "\n");
-        const result = await readWorkshopPublicProposalDurableGraphSnapshots({
-          dbRootDir: rootDir,
-          now: NOW,
-        });
-        assert.equal(result.rows.length, 1);
-        assert.equal(result.refusals.length, 0);
-      } finally {
-        await cleanup();
-      }
+      // A forged reader result whose row is a Proxy. The compose boundary
+      // must refuse it before reading any field — the traps must not fire
+      // on a field access.
+      const trapsObserved: string[] = [];
+      const proxyRow = new Proxy(row as unknown as Record<string, unknown>, {
+        get(target, p, recv) {
+          trapsObserved.push(`get:${String(p)}`);
+          return Reflect.get(target, p, recv);
+        },
+      });
+      const forged = {
+        ...readerResultWithRow(row),
+        rows: [proxyRow as unknown as DurableGraphSnapshotRow],
+      };
+      assert.throws(
+        () => composeDurableStateView({ readerResult: forged, decisionArtifact: null }),
+        DurableStateRenderRefusal,
+      );
+      // The Proxy guard fires on isProxy, not on a field read.
+      assert.ok(!trapsObserved.includes("get:bundle"), "row.bundle must not be read before the Proxy refusal");
     } finally {
-      await rm(rootDir, { recursive: true, force: true });
+      await cleanup();
     }
   });
 });
@@ -360,6 +361,175 @@ describe("M3 step 3b safety — reader REFUSES rows whose row-level invariants a
     } finally {
       await cleanup();
     }
+  });
+});
+
+describe("M3 step 3b safety — deep-freeze seals the validated bundle against post-read mutation", () => {
+  test("a per-record provenance_status flip after the read cannot succeed and cannot render as upgraded trust", async () => {
+    const { rootDir, cleanup } = await (async () => {
+      const r = await setupDbAndWriteOneRow();
+      return r;
+    })();
+    try {
+      const reader = await readWorkshopPublicProposalDurableGraphSnapshots({ dbRootDir: rootDir, now: NOW });
+      const row = reader.rows[0]!;
+      // Every level of the validated bundle is frozen.
+      assert.ok(Object.isFrozen(row.bundle));
+      assert.ok(Object.isFrozen(row.bundle.account_objects));
+      assert.ok(Object.isFrozen(row.bundle.account_objects[0]));
+      const before = row.bundle.account_objects[0]!.provenance_status;
+      // Attempt the post-read flip the reviewer demonstrated.
+      try {
+        (row.bundle.account_objects[0] as { provenance_status: string }).provenance_status = "verified";
+      } catch {
+        /* strict-mode throw is acceptable; non-strict silent no-op is also fine */
+      }
+      assert.equal(row.bundle.account_objects[0]!.provenance_status, before, "deep-freeze must prevent the flip");
+      const html = renderDurableStateHtml(composeDurableStateView({ readerResult: reader, decisionArtifact: null }));
+      assert.ok(!html.includes("trust-verified"), "render must not emit trust-verified after an attempted post-read flip");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("a FORGED reader result carrying a verified durable record is refused at compose, not rendered", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
+    try {
+      // A forged result that never went through the reader's deep-freeze:
+      // a plain, mutable row with a verified account object.
+      const forgedRow = {
+        ...row,
+        bundle: {
+          ...row.bundle,
+          account_objects: row.bundle.account_objects.map((o) => ({ ...o, provenance_status: "verified" as const })),
+        },
+      } as unknown as DurableGraphSnapshotRow;
+      const forged = { ...readerResultWithRow(row), rows: [forgedRow] };
+      assert.throws(
+        () => composeDurableStateView({ readerResult: forged, decisionArtifact: null }),
+        DurableStateRenderRefusal,
+        "compose must refuse a durable record marked verified",
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe("M3 step 3b safety — render-side decision-artifact validator refuses hostile/broadened input", () => {
+  function emptyReader(): WorkshopProposalDurableSnapshotsReaderResult {
+    return {
+      source_path: "/tmp/x", checked_at: NOW, rows: [], refusals: [],
+      provider_calls_made: 0, private_evidence_read: false, graph_ingestion_performed: false,
+      durable_writes_performed: false, production_writes: false, readiness_claim: false,
+    };
+  }
+
+  test("a getter/Proxy-backed decision record is refused BEFORE its fields are read; no rejection is rendered", () => {
+    let getterFired = false;
+    const hostile = {
+      kind: "workshop-public-proposal-human-review-decision",
+      schema_version: "atliera.workshop_public_proposal_human_review_decision.v1",
+      decisions: [
+        new Proxy({}, {
+          get(_t, p) {
+            getterFired = true;
+            if (p === "decision") return "reject";
+            return "obj_injected";
+          },
+        }),
+      ],
+      account_id: "acc_x",
+    } as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: hostile });
+    // The artifact-level validation refuses before the decisions array is
+    // even reached (broadened/missing boundary markers), so the getter
+    // never fires and nothing is rendered.
+    const html = renderDurableStateHtml(view);
+    assert.equal(getterFired, false, "decision-record getter must not fire");
+    assert.equal(view.totals.rejected_decisions, 0);
+    assert.ok(view.review_decision_refusals.length >= 1);
+    assert.ok(!html.includes("obj_injected"));
+  });
+
+  test("a Proxy-backed decision ARTIFACT is refused before any field is read", () => {
+    let getterFired = false;
+    const proxyArtifact = new Proxy({}, {
+      get() { getterFired = true; return undefined; },
+    }) as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: proxyArtifact });
+    assert.equal(getterFired, false);
+    assert.equal(view.totals.rejected_decisions, 0);
+    assert.ok(view.review_decision_refusals.length >= 1);
+  });
+
+  test("a Proxy-backed decisions ARRAY is refused", () => {
+    const base = decisionArtifactWithReject();
+    let arrayTrapFired = false;
+    const proxyDecisions = new Proxy(base.decisions, {
+      get(target, p, recv) {
+        if (p === "length" || typeof p === "symbol" || !Number.isNaN(Number(p))) arrayTrapFired = true;
+        return Reflect.get(target, p, recv);
+      },
+    });
+    const hostile = { ...base, decisions: proxyDecisions } as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: hostile });
+    assert.equal(view.totals.rejected_decisions, 0);
+    assert.ok(view.review_decision_refusals.some((r) => r.includes("decisions is Proxy-backed")));
+    assert.equal(arrayTrapFired, false, "decisions array elements must not be indexed after the Proxy refusal");
+  });
+
+  test("a broadened decision artifact (a closed boundary marker flipped true) renders ZERO rejections", () => {
+    const base = decisionArtifactWithReject();
+    const broadened = {
+      ...base,
+      boundaries: { ...base.boundaries, graph_ingestion_performed: true },
+    } as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: broadened });
+    assert.equal(view.totals.rejected_decisions, 0);
+    assert.ok(view.review_decision_refusals.length >= 1);
+  });
+
+  test("a wrong-kind / wrong-schema decision artifact renders ZERO rejections", () => {
+    const base = decisionArtifactWithReject();
+    for (const mutated of [
+      { ...base, kind: "not-the-decision-kind" },
+      { ...base, schema_version: "atliera.some_other.v9" },
+    ] as unknown as WorkshopProposalHumanReviewDecisionArtifact[]) {
+      const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: mutated });
+      assert.equal(view.totals.rejected_decisions, 0);
+      assert.ok(view.review_decision_refusals.length >= 1);
+    }
+  });
+
+  test("a reject decision that carries a non-null graph_candidate_ref or promotion_performed:true is omitted", () => {
+    const base = decisionArtifactWithReject();
+    const contradictory = {
+      ...base,
+      decisions: base.decisions.map((d) => ({
+        ...d,
+        graph_candidate_ref: {
+          account_object_id: "obj_x",
+          claim_ids: [],
+          excerpt_ids: [],
+          source_ids: [],
+          candidate_only: true,
+          graph_ingestion_performed: false,
+          durable_graph_write_performed: false,
+        },
+      })),
+    } as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: contradictory });
+    assert.equal(view.totals.rejected_decisions, 0, "a rejection claiming a graph candidate is a contradiction and must be omitted");
+    assert.ok(view.review_decision_refusals.some((r) => r.includes("graph_candidate_ref")));
+  });
+
+  test("a well-formed reject decision still renders normally after the validator", () => {
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: decisionArtifactWithReject() });
+    assert.equal(view.totals.rejected_decisions, 1);
+    assert.equal(view.review_decision_refusals.length, 0);
+    const html = renderDurableStateHtml(view);
+    assert.ok(html.includes("Not in graph"));
   });
 });
 

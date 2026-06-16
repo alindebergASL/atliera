@@ -29,12 +29,61 @@
 // store; the renderer is a pure function over the typed reader result
 // and the decision artifact.
 
+import { types as nodeUtilTypes } from "node:util";
+
 import type { GraphBundle } from "../graph/types.ts";
-import type { WorkshopProposalHumanReviewDecisionArtifact } from "./proposal-review-decision.ts";
+import {
+  WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_NAME,
+  WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_SCHEMA_VERSION,
+  type WorkshopProposalHumanReviewDecisionArtifact,
+} from "./proposal-review-decision.ts";
 import type { WorkshopProposalDurableSnapshotsReaderResult } from "./durable-graph-snapshots-reader.ts";
 
 export const WORKSHOP_PUBLIC_PROPOSAL_DURABLE_STATE_RENDER_NAME =
   "workshop-public-proposal-durable-state-render" as const;
+
+// Sentinel thrown by the composer when a durable record would render under
+// a trust tier the M3 contract forbids. This is a fail-closed guard for
+// forged or post-read-mutated reader results that bypass the reader's
+// own verified-refusal + deep-freeze; the render layer must never emit a
+// Verified-tier durable card.
+export class DurableStateRenderRefusal extends Error {
+  constructor(public readonly reason: string) {
+    super(`durable-state render refused: ${reason}`);
+    this.name = "DurableStateRenderRefusal";
+  }
+}
+
+// snapshotPlainOwnData: the same descriptor-snapshot + util.types.isProxy
+// discipline the reader and the 3a executor use, applied here to the
+// human-review decision artifact — an external/untrusted input that the
+// render layer would otherwise read field-by-field with no validation.
+// This is the THIRD call site for the discipline (executor, reader, and
+// now the render-side decision validator); the consolidated H3 primitive
+// will absorb all three when the H-track freeze lifts.
+function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>> {
+  if (nodeUtilTypes.isProxy(value)) {
+    throw new DurableStateRenderRefusal(`${label} is Proxy-backed`);
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new DurableStateRenderRefusal(`${label} must be a plain own-data object`);
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new DurableStateRenderRefusal(`${label} must not carry symbol keys`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const out: Record<string, unknown> = {};
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new DurableStateRenderRefusal(`${label} contains unsafe key ${key}`);
+    }
+    if (!descriptor.enumerable || !("value" in descriptor)) {
+      throw new DurableStateRenderRefusal(`${label}.${key} must be a plain own-data value (no accessors)`);
+    }
+    out[key] = descriptor.value;
+  }
+  return Object.freeze(out);
+}
 
 // Visible decoration text for the row-level admission path. This is the
 // trust_label decoration, not the per-record provenance pill.
@@ -85,6 +134,10 @@ export interface DurableStateRenderView {
   readonly durable_graph_records: readonly DurableGraphRecordCardView[];
   readonly review_decision_rejections: readonly ReviewDecisionRejectionCardView[];
   readonly refusal_count: number;
+  // Human-review decision artifact inputs that the render-side validator
+  // refused (Proxy/accessor-backed, broadened boundary markers, malformed
+  // reject-record invariants). Refused inputs render NO rejection card.
+  readonly review_decision_refusals: readonly string[];
   readonly totals: {
     readonly durable_rows: number;
     readonly durable_records: number;
@@ -109,6 +162,17 @@ function objectCardsFromBundle(
 ): DurableGraphRecordCardView[] {
   return bundle.account_objects.map((obj) => {
     const provenance = obj.provenance_status;
+    // Fail-closed re-assertion of the trust-tier invariant at the render
+    // boundary. The reader already refuses verified per-record provenance
+    // and deep-freezes the bundle, but a forged reader result (one that
+    // never went through the reader) could still carry a verified record.
+    // The render layer must never emit a Verified-tier durable card, so
+    // we refuse here rather than render the upgraded trust.
+    if (provenance === "verified") {
+      throw new DurableStateRenderRefusal(
+        `durable record ${obj.id} carries per-record provenance_status "verified" under the M3 admission trust label`,
+      );
+    }
     const provenanceLabel = PROVENANCE_LABEL[provenance] ?? provenance;
     return {
       durable_record_id: row.durable_record_id,
@@ -128,6 +192,163 @@ function objectCardsFromBundle(
   });
 }
 
+function requireNonEmptyString(record: Readonly<Record<string, unknown>>, key: string, label: string): string {
+  const v = record[key];
+  if (typeof v !== "string" || v.length === 0) {
+    throw new DurableStateRenderRefusal(`${label}.${key} must be a non-empty string`);
+  }
+  return v;
+}
+
+function requireClosedFalse(record: Readonly<Record<string, unknown>>, key: string, label: string): void {
+  if (record[key] !== false) {
+    throw new DurableStateRenderRefusal(`${label}.${key} must be closed (false)`);
+  }
+}
+
+// validateDecisionArtifactForRender: snapshot + revalidate the decision
+// artifact at the render trust boundary before any field is rendered.
+// Returns the rejection cards that passed validation plus a list of
+// refusal reasons for inputs that did not. The artifact is external/
+// untrusted; the render layer must not read it field-by-field without
+// first proving it is plain own-data and carries closed boundary markers.
+function validateDecisionArtifactForRender(
+  artifact: WorkshopProposalHumanReviewDecisionArtifact | null,
+): { rejections: ReviewDecisionRejectionCardView[]; refusals: string[]; accountId: string | null } {
+  if (artifact === null) {
+    return { rejections: [], refusals: [], accountId: null };
+  }
+
+  const refusals: string[] = [];
+  let snap: Readonly<Record<string, unknown>>;
+  try {
+    snap = snapshotPlainOwnData(artifact, "decision_artifact");
+  } catch (e) {
+    return {
+      rejections: [],
+      refusals: [e instanceof DurableStateRenderRefusal ? e.reason : String(e)],
+      accountId: null,
+    };
+  }
+
+  // Artifact-level validation. A failure here refuses the WHOLE artifact:
+  // a broadened or wrong-kind artifact renders zero rejections.
+  try {
+    if (snap.kind !== WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_NAME) {
+      throw new DurableStateRenderRefusal("decision_artifact.kind is not the human-review decision kind");
+    }
+    if (snap.schema_version !== WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_SCHEMA_VERSION) {
+      throw new DurableStateRenderRefusal("decision_artifact.schema_version is unexpected");
+    }
+    if (snap.current_effective_authorization !== "none") {
+      throw new DurableStateRenderRefusal("decision_artifact.current_effective_authorization must be none");
+    }
+    // Top-level closed boundary markers — a review decision authorizes
+    // nothing and performs nothing; any broadening refuses the artifact.
+    for (const key of [
+      "private_evidence_read",
+      "graph_ingestion_performed",
+      "durable_writes_performed",
+      "production_writes",
+      "readiness_claim",
+    ]) {
+      requireClosedFalse(snap, key, "decision_artifact");
+    }
+    if (snap.provider_calls_made !== 0) {
+      throw new DurableStateRenderRefusal("decision_artifact.provider_calls_made must be 0");
+    }
+    // Boundaries object closed markers.
+    const boundaries = snapshotPlainOwnData(snap.boundaries, "decision_artifact.boundaries");
+    if (boundaries.current_effective_authorization !== "none") {
+      throw new DurableStateRenderRefusal("decision_artifact.boundaries.current_effective_authorization must be none");
+    }
+    for (const key of [
+      "authorizes_provider_call",
+      "authorizes_private_evidence_read",
+      "authorizes_graph_ingestion",
+      "graph_ingestion_performed",
+      "private_evidence_read",
+      "durable_writes_performed",
+      "production_writes",
+      "readiness_claim",
+      "authorizes_reviewed_candidate_durable_write",
+      "reviewed_candidate_durable_write_performed",
+      "ratification_performed",
+    ]) {
+      requireClosedFalse(boundaries, key, "decision_artifact.boundaries");
+    }
+    if (boundaries.provider_calls_executed !== 0) {
+      throw new DurableStateRenderRefusal("decision_artifact.boundaries.provider_calls_executed must be 0");
+    }
+  } catch (e) {
+    return {
+      rejections: [],
+      refusals: [e instanceof DurableStateRenderRefusal ? e.reason : String(e)],
+      accountId: null,
+    };
+  }
+
+  const accountId = typeof snap.account_id === "string" && snap.account_id.length > 0 ? snap.account_id : null;
+
+  // Decisions array. Must be a plain (non-Proxy) array.
+  const decisionsRaw = snap.decisions;
+  if (nodeUtilTypes.isProxy(decisionsRaw)) {
+    return { rejections: [], refusals: ["decision_artifact.decisions is Proxy-backed"], accountId };
+  }
+  if (!Array.isArray(decisionsRaw)) {
+    return { rejections: [], refusals: ["decision_artifact.decisions must be an array"], accountId };
+  }
+
+  const rejections: ReviewDecisionRejectionCardView[] = [];
+  for (let i = 0; i < decisionsRaw.length; i += 1) {
+    let decision: Readonly<Record<string, unknown>>;
+    try {
+      decision = snapshotPlainOwnData(decisionsRaw[i], `decision_artifact.decisions[${i}]`);
+    } catch (e) {
+      refusals.push(e instanceof DurableStateRenderRefusal ? e.reason : String(e));
+      continue;
+    }
+
+    // Only reject decisions render a card. Non-reject decisions are not
+    // rendered at all and need no further validation.
+    if (decision.decision !== "reject") continue;
+
+    try {
+      // Reject-record invariants: a rejection must NOT carry graph
+      // candidate state and must not be promoted. Its source trust must
+      // be the pending/unverified tier — a rejection that claimed a
+      // graph candidate or a verified source would be a contradiction.
+      if (decision.graph_candidate_ref !== null) {
+        throw new DurableStateRenderRefusal(`decision_artifact.decisions[${i}] is a reject but carries a non-null graph_candidate_ref`);
+      }
+      if (decision.promotion_performed !== false) {
+        throw new DurableStateRenderRefusal(`decision_artifact.decisions[${i}] is a reject but promotion_performed is not false`);
+      }
+      const sourceTrust = snapshotPlainOwnData(decision.source_trust, `decision_artifact.decisions[${i}].source_trust`);
+      if (sourceTrust.provenance_status === "verified") {
+        throw new DurableStateRenderRefusal(`decision_artifact.decisions[${i}].source_trust is verified, which a rejection may not claim`);
+      }
+      const itemId = requireNonEmptyString(decision, "item_id", `decision_artifact.decisions[${i}]`);
+      const lens = requireNonEmptyString(decision, "lens", `decision_artifact.decisions[${i}]`);
+      const rationale = requireNonEmptyString(decision, "rationale", `decision_artifact.decisions[${i}]`);
+      const reviewerId = requireNonEmptyString(decision, "reviewer_id", `decision_artifact.decisions[${i}]`);
+      const reviewedAt = requireNonEmptyString(decision, "reviewed_at", `decision_artifact.decisions[${i}]`);
+      rejections.push({
+        item_id: itemId,
+        lens,
+        rationale,
+        reviewer_id: reviewerId,
+        reviewed_at: reviewedAt,
+        is_not_durable_graph_state: true,
+      });
+    } catch (e) {
+      refusals.push(e instanceof DurableStateRenderRefusal ? e.reason : String(e));
+    }
+  }
+
+  return { rejections, refusals, accountId };
+}
+
 export function composeDurableStateView(
   inputs: ComposeDurableStateViewInputs,
 ): DurableStateRenderView {
@@ -135,26 +356,20 @@ export function composeDurableStateView(
 
   const durableCards: DurableGraphRecordCardView[] = [];
   for (const row of readerResult.rows) {
+    // Re-assert plain own-data at the render boundary. A legitimate row
+    // is deep-frozen plain own-data from the reader; a forged result
+    // could be Proxy-backed. Snapshot the row and its bundle before use.
+    if (nodeUtilTypes.isProxy(row) || nodeUtilTypes.isProxy(row.bundle)) {
+      throw new DurableStateRenderRefusal("durable row or its bundle is Proxy-backed");
+    }
     durableCards.push(...objectCardsFromBundle(row.bundle, row));
   }
 
-  const rejectionCards: ReviewDecisionRejectionCardView[] = [];
-  if (decisionArtifact !== null) {
-    for (const decision of decisionArtifact.decisions) {
-      if (decision.decision !== "reject") continue;
-      rejectionCards.push({
-        item_id: decision.item_id,
-        lens: decision.lens,
-        rationale: decision.rationale,
-        reviewer_id: decision.reviewer_id,
-        reviewed_at: decision.reviewed_at,
-        is_not_durable_graph_state: true,
-      });
-    }
-  }
+  const decisionValidation = validateDecisionArtifactForRender(decisionArtifact);
+  const rejectionCards = decisionValidation.rejections;
 
   const accountId =
-    readerResult.rows[0]?.account_id ?? decisionArtifact?.account_id ?? null;
+    readerResult.rows[0]?.account_id ?? decisionValidation.accountId ?? null;
 
   return Object.freeze({
     account_id: accountId,
@@ -163,6 +378,7 @@ export function composeDurableStateView(
     durable_graph_records: Object.freeze(durableCards) as readonly DurableGraphRecordCardView[],
     review_decision_rejections: Object.freeze(rejectionCards) as readonly ReviewDecisionRejectionCardView[],
     refusal_count: readerResult.refusals.length,
+    review_decision_refusals: Object.freeze(decisionValidation.refusals) as readonly string[],
     totals: Object.freeze({
       durable_rows: readerResult.rows.length,
       durable_records: durableCards.length,
@@ -229,6 +445,10 @@ export function renderDurableStateHtml(view: DurableStateRenderView): string {
     ? view.review_decision_rejections.map(renderRejectionCard).join("\n      ")
     : `<p class="empty-rejections">No recorded rejections in the latest review.</p>`;
 
+  const refusalNotice = view.review_decision_refusals.length > 0
+    ? `<p class="decision-refusal-notice">${view.review_decision_refusals.length} review-decision input${view.review_decision_refusals.length === 1 ? " was" : "s were"} refused by the render-side validator and not displayed.</p>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -266,6 +486,7 @@ export function renderDurableStateHtml(view: DurableStateRenderView): string {
     dt { color: #93a4c8; font-size: 12px; }
     dd { margin: 0 0 6px; word-break: break-word; color: #edf2ff; }
     .empty-durable, .empty-rejections { color: #93a4c8; }
+    .decision-refusal-notice { color: #fca5a5; font-style: italic; margin: 0 0 12px; }
   </style>
 </head>
 <body>
@@ -301,7 +522,7 @@ export function renderDurableStateHtml(view: DurableStateRenderView): string {
         <h2>Review decisions · not in graph</h2>
         <span>Rejected at review · not promoted</span>
       </header>
-      ${rejectionSection}
+      ${refusalNotice}${rejectionSection}
     </section>
   </main>
 </body>

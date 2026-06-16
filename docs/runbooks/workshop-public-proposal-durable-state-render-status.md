@@ -57,7 +57,10 @@ What exists:
 - `readWorkshopPublicProposalDurableGraphSnapshots` reads `tables/graph_snapshots.jsonl` from a given local-durable-db rootDir and yields a frozen result carrying `rows: readonly DurableGraphSnapshotRow[]`, `refusals: readonly WorkshopProposalDurableSnapshotsReaderRefusal[]`, and the closed read-only doctrine markers (`provider_calls_made: 0`, `private_evidence_read: false`, `graph_ingestion_performed: false`, `durable_writes_performed: false`, `production_writes: false`, `readiness_claim: false`).
 - Every row is descriptor-snapshotted with a `util.types.isProxy` guard fired BEFORE any descriptor reflection. The guard precedes reflection in source order; a regression test locks the ordering.
 - The reader refuses any row whose `kind`, `schema_version`, attribution fields, `mediation_gate_level`, or `trust_label` does not match the M3 contract; whose bundle does not parse or validate; or — critically — whose `bundle.claims[].provenance_status` or `bundle.account_objects[].provenance_status` is `verified`. The trust-tier check fires before the full graph validator so the row-level invariant gets its own surfaced refusal code (`row_bundle_marks_record_verified`) in the audit trail.
+- The reader DEEP-freezes the validated bundle before returning it. A top-level `Object.freeze` on the row is shallow and leaves the nested bundle, its arrays, and its records mutable — a caller could flip a per-record `provenance_status` to `verified` AFTER the read boundary validated it, defeating the trust-tier guarantee at exactly the point the render layer reads it. Deep-freezing seals the snapshot the reader vouched for so it is the snapshot the renderer sees.
 - `composeDurableStateView` consumes the reader result + a `WorkshopProposalHumanReviewDecisionArtifact` (nullable) and produces a typed `DurableStateRenderView` with two top-level fields: `durable_graph_records` (one card per `bundle.account_objects[]` per row, carrying the row-level trust label decoration and the per-record provenance pill) and `review_decision_rejections` (one card per decision whose kind is `reject`, carrying `is_not_durable_graph_state: true`).
+- `composeDurableStateView` re-asserts the trust-tier invariant at the render boundary as a fail-closed defense: it `util.types.isProxy`-refuses any row or bundle that is Proxy-backed, and throws `DurableStateRenderRefusal` if any durable record carries per-record `provenance_status: "verified"`. This is belt-and-suspenders for a FORGED reader result that never went through the reader's verified-refusal and deep-freeze; the render layer never emits a Verified-tier durable card.
+- `composeDurableStateView` runs the human-review decision artifact through a render-side validator (`snapshotPlainOwnData`, the third call site of the executor/reader Proxy + descriptor-snapshot discipline) BEFORE rendering any rejection. It refuses a Proxy/accessor-backed artifact, decisions array, or decision record; a wrong `kind` / `schema_version`; a non-`none` effective authorization; any broadened top-level or boundaries closed marker; and any `reject` decision carrying a non-null `graph_candidate_ref`, a non-false `promotion_performed`, or a verified `source_trust`. A refused input renders NO rejection card and is counted in `review_decision_refusals`; the HTML surfaces a refused-input notice.
 - `renderDurableStateHtml` renders the view to a self-contained static HTML page with `<section class="durable-graph-records">` and `<section class="review-decisions">` styled as visibly different surfaces (solid green-tinted border vs dashed red-tinted border). Rejection cards never receive a `trust-pill`, never receive a `durable-record-id` attribute, and never use the durable-graph-record-card class.
 
 Refusal codes (the reader's enumerated reject-paths):
@@ -71,10 +74,13 @@ Refusal codes (the reader's enumerated reject-paths):
 - row_schema_version_invalid
 - row_field_missing_or_malformed
 - row_mediation_gate_level_invalid
-- row_target_store_invalid
 - row_trust_label_invalid
 - row_bundle_invalid
 - row_bundle_marks_record_verified
+
+The reader does not enforce a row-level `target_store` and carries no such refusal code: the 3a row does not stamp `target_store` (it lives on the executor outcome, pinned to local-durable-db) and the row `kind` is the sufficient discriminator. If a future row-shape slice stamps `target_store` on the row, that enforcement and its refusal code land there.
+
+The render-side decision-artifact validator (`composeDurableStateView`) refuses, on its own paths: a Proxy- or accessor-backed decision artifact, decisions array, or decision record; a wrong `kind` / `schema_version`; any broadened top-level or boundaries closed marker; a non-`none` effective authorization; and any `reject` decision that carries a non-null `graph_candidate_ref`, a non-false `promotion_performed`, or a verified `source_trust`. A refused decision input renders NO rejection card; the render surfaces a count of refused inputs.
 
 Non-goals:
 
@@ -104,6 +110,9 @@ Verification coverage:
 - the reader refuses rows whose `kind`, `mediation_gate_level`, or `trust_label` are not the M3 contract values
 - the reader and render modules do not import provider SDKs, do not read `process.env`, do not import network modules; the render module performs no I/O at all
 - the reader result carries the closed doctrine markers `provider_calls_made: 0`, `private_evidence_read: false`, `graph_ingestion_performed: false`, `durable_writes_performed: false`, `production_writes: false`, `readiness_claim: false`
+- the reader DEEP-freezes the validated bundle: a post-read attempt to flip a per-record `provenance_status` to `verified` does not succeed, and the render still emits no `trust-verified`
+- a FORGED reader result carrying a verified durable record, or a Proxy-backed row, is refused at `composeDurableStateView` with `DurableStateRenderRefusal` and never rendered
+- the render-side decision-artifact validator refuses, dynamically (not by source-text inspection): a Proxy/accessor-backed decision artifact, decisions array, and decision record (the hostile getter never fires); a wrong `kind`/`schema_version`; a broadened closed boundary marker; and a `reject` decision carrying a non-null `graph_candidate_ref`. A well-formed reject still renders normally.
 
 Trust-tier discipline boundary statement (carried from M3 step 3a retro §1):
 

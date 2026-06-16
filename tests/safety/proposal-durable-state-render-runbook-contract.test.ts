@@ -44,13 +44,22 @@ test("3b status runbook records the read-only, visible-distinction, and trust-ti
     "row_schema_version_invalid",
     "row_field_missing_or_malformed",
     "row_mediation_gate_level_invalid",
-    "row_target_store_invalid",
     "row_trust_label_invalid",
     "row_bundle_invalid",
     "row_bundle_marks_record_verified",
   ]) {
     assert.ok(status.includes(code), `status must enumerate refusal_code ${code}`);
   }
+  // The honesty fix: target_store is documented as NOT enforced at the row
+  // level, and the doc must not list it as a reachable refusal code.
+  assert.match(status, /does not enforce a row-level `target_store`/);
+  assert.ok(
+    !status.includes("- row_target_store_invalid"),
+    "status must not list row_target_store_invalid as a reachable refusal code",
+  );
+  // The render-side decision-artifact validator is documented.
+  assert.match(status, /render-side decision-artifact validator/);
+  assert.match(status, /broadened top-level or boundaries closed marker/);
 });
 
 test("runbook index classifies the 3b status once and frames it as the M3-closing read-only slice", () => {
@@ -85,7 +94,6 @@ test("reader module imports are bounded and the refusal-code enumeration matches
     "row_schema_version_invalid",
     "row_field_missing_or_malformed",
     "row_mediation_gate_level_invalid",
-    "row_target_store_invalid",
     "row_trust_label_invalid",
     "row_bundle_invalid",
     "row_bundle_marks_record_verified",
@@ -93,6 +101,11 @@ test("reader module imports are bounded and the refusal-code enumeration matches
   for (const code of codes) {
     assert.ok(moduleText.includes(`"${code}"`), `reader module must define refusal_code ${code}`);
   }
+  // Honesty fix: the unreachable refusal code is gone from the type union.
+  assert.ok(
+    !moduleText.includes('"row_target_store_invalid"'),
+    "reader module must not declare the unreachable row_target_store_invalid refusal code",
+  );
 });
 
 test("render module performs no I/O and imports no provider/network/env reads", () => {

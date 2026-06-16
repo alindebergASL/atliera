@@ -87,3 +87,5 @@ export * from "./workshop/proposal-durable-graph-write-contract.ts";
 export * from "./workshop/proposal-durable-graph-write-approval-packet.ts";
 export * from "./workshop/proposal-durable-graph-write-operator-arming.ts";
 export * from "./workshop/proposal-durable-graph-write-execution.ts";
+export * from "./workshop/durable-graph-snapshots-reader.ts";
+export * from "./workshop/durable-state-render.ts";

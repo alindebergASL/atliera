@@ -133,6 +133,36 @@ function renderLens(lens: WorkshopLens, items: WorkshopLensItemViewModel[]): str
   </section>`;
 }
 
+function renderRejectedProposalStyles(vm: WorkshopViewModel): string {
+  const rejected = vm.rejected_proposals ?? [];
+  if (rejected.length === 0) return "";
+  return `    .lens-panel, .empty-state, .rejected-proposals-panel { border: 1px solid #283044; border-radius: 20px; padding: 18px; background: #0f1424; }
+    .lens-panel header, .rejected-proposals-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
+    .rejected-proposals-panel { margin-top: 22px; border-color: #7f1d1d; background: #1a0f17; }
+    .rejected-proposal { border: 1px solid #7f1d1d; border-radius: 16px; padding: 14px; background: #241016; margin-bottom: 12px; }
+    .audit-copy { color: #fecaca; }\n`;
+}
+
+function renderRejectedProposalAuditPanel(vm: WorkshopViewModel): string {
+  const rejected = vm.rejected_proposals ?? [];
+  if (rejected.length === 0) return "";
+  const cards = rejected.map((proposal) => `<article class="rejected-proposal" data-rejected-item-id="${escapeHtml(proposal.item_id)}" data-graph-state="${escapeHtml(proposal.graph_state)}">
+      <div class="card-kicker">Rejected proposal · ${escapeHtml(proposal.lens)}</div>
+      <h3>${escapeHtml(proposal.item_id)}</h3>
+      <p><strong>Rejected proposal — not written to durable graph.</strong></p>
+      <dl>
+        <dt>Reason</dt><dd>${escapeHtml(proposal.rationale)}</dd>
+        <dt>Reviewer</dt><dd>${escapeHtml(proposal.reviewer_id)}</dd>
+        <dt>Reviewed at</dt><dd>${escapeHtml(proposal.reviewed_at)}</dd>
+      </dl>
+    </article>`).join("\n");
+  return `    <section class="rejected-proposals-panel" aria-label="Rejected proposals audit context">
+      <header><h2>Rejected proposals</h2><span>${plural(rejected.length, "proposal")}</span></header>
+      <p class="audit-copy">Review/audit context only. These proposals were not written to durable graph state.</p>
+      ${cards}
+    </section>\n`;
+}
+
 export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorkshopHtmlOptions = {}): string {
   const previewMode = options.previewMode ?? "fake";
   const previewLabel = PREVIEW_MODE_LABELS[previewMode];
@@ -165,7 +195,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
     .lens-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
     .lens-panel, .empty-state { border: 1px solid #283044; border-radius: 20px; padding: 18px; background: #0f1424; }
     .lens-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
-    .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
+${renderRejectedProposalStyles(vm)}    .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
     .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
     .trust-pill, .review-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
     .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
@@ -205,7 +235,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
         <span>No production writes</span>
       </div>
     </section>
-${emptyState}    <section class="lens-grid" aria-label="Workshop lenses">
+${emptyState}${renderRejectedProposalAuditPanel(vm)}    <section class="lens-grid" aria-label="Workshop lenses">
       ${renderLens("signals", vm.lenses.signals)}
       ${renderLens("maps", vm.lenses.maps)}
       ${renderLens("plays", vm.lenses.plays)}

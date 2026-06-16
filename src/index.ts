@@ -19,7 +19,8 @@
 // controlled corpus remediation planning helpers, the no-call public
 // hand-curated proposal-materialization validation-artifact contract,
 // disposable public-proposal human-review decision artifacts, and no-call
-// public-proposal reviewed-candidate ratification plan artifacts.
+// public-proposal reviewed-candidate ratification plan artifacts, M3 durable
+// graph-write execution, and read-only durable-state Workshop rendering.
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
@@ -87,3 +88,5 @@ export * from "./workshop/proposal-durable-graph-write-contract.ts";
 export * from "./workshop/proposal-durable-graph-write-approval-packet.ts";
 export * from "./workshop/proposal-durable-graph-write-operator-arming.ts";
 export * from "./workshop/proposal-durable-graph-write-execution.ts";
+export * from "./workshop/durable-graph-snapshots-reader.ts";
+export * from "./workshop/durable-state-view-model.ts";

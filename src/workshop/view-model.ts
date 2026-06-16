@@ -57,12 +57,27 @@ export interface WorkshopLensItemViewModel {
   evidence_packets: WorkshopEvidencePacket[];
 }
 
+export interface WorkshopRejectedProposalViewModel {
+  item_id: string;
+  lens: WorkshopLens;
+  decision: "reject";
+  rationale: string;
+  reviewer_id: string;
+  reviewed_at: string;
+  graph_state: "not_written_to_durable_graph";
+}
+
 export interface WorkshopViewModel {
   product_name: "Atliera";
   surface: "Workshop";
   account_id: string | null;
   generated_from: "graph_bundle";
   lenses: Record<WorkshopLens, WorkshopLensItemViewModel[]>;
+  /**
+   * Optional review/audit context. These are explicitly not graph state and
+   * are rendered separately from durable graph rows.
+   */
+  rejected_proposals?: readonly WorkshopRejectedProposalViewModel[];
   totals: {
     sources: number;
     excerpts: number;

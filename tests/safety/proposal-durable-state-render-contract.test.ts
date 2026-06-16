@@ -687,6 +687,54 @@ describe("M3 step 3b safety — durable rows are descriptor-snapshotted at compo
       await cleanup();
     }
   });
+
+  test("a getter installed on the TOP-LEVEL readerResult.rows is refused without firing", () => {
+    // The root-object boundary. The reader returns a frozen plain-own-
+    // data result, but compose now defends against a forged readerResult
+    // that installs a getter directly on `rows` (or on `checked_at`,
+    // `source_path`, `refusals`). The compose-entry snapshot must
+    // refuse it before the getter is read.
+    let rowsGetterFired = false;
+    const hostile: Record<string, unknown> = {
+      source_path: "x",
+      checked_at: "y",
+      refusals: [],
+      provider_calls_made: 0,
+      private_evidence_read: false,
+      graph_ingestion_performed: false,
+      durable_writes_performed: false,
+      production_writes: false,
+      readiness_claim: false,
+    };
+    Object.defineProperty(hostile, "rows", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        rowsGetterFired = true;
+        return [];
+      },
+    });
+    assert.throws(
+      () => composeDurableStateView({ readerResult: hostile as never, decisionArtifact: null }),
+      DurableStateRenderRefusal,
+    );
+    assert.equal(rowsGetterFired, false, "top-level rows getter must not fire");
+  });
+
+  test("a Proxy-backed readerResult is refused without invoking any get trap", () => {
+    let trapFired = false;
+    const proxy = new Proxy({}, {
+      get(_t, p, r) {
+        trapFired = true;
+        return Reflect.get(_t, p, r);
+      },
+    });
+    assert.throws(
+      () => composeDurableStateView({ readerResult: proxy as never, decisionArtifact: null }),
+      DurableStateRenderRefusal,
+    );
+    assert.equal(trapFired, false);
+  });
 });
 
 describe("M3 step 3b safety — module purity and doctrine markers", () => {

@@ -407,10 +407,21 @@ export function composeDurableStateView(
 ): DurableStateRenderView {
   const { readerResult, decisionArtifact } = inputs;
 
+  // Snapshot the root readerResult object first. The reader returns a
+  // frozen plain-own-data result on the legitimate path; a FORGED reader
+  // result could install a getter on `rows`, `checked_at`, `source_path`,
+  // or `refusals` and fire it on first read. The render boundary reads
+  // every field from the snapshot, never from the input.
+  const readerSnap = snapshotPlainOwnData(readerResult, "readerResult");
+
   // Snapshot the rows array (refuse a Proxy-backed or accessor-backed
   // rows array) before iterating, then descriptor-snapshot each row +
   // its bundle + its account_objects inside the per-row helper.
-  const rows = snapshotPlainArray(readerResult.rows, "readerResult.rows");
+  const rows = snapshotPlainArray(readerSnap.rows, "readerResult.rows");
+  const refusals = snapshotPlainArray(readerSnap.refusals, "readerResult.refusals");
+  const checkedAt = typeof readerSnap.checked_at === "string" ? readerSnap.checked_at : "";
+  const sourcePath = typeof readerSnap.source_path === "string" ? readerSnap.source_path : "";
+
   const durableCards: DurableGraphRecordCardView[] = [];
   for (let i = 0; i < rows.length; i += 1) {
     durableCards.push(...durableCardsFromSnapshottedRow(i, rows[i]));
@@ -419,19 +430,25 @@ export function composeDurableStateView(
   const decisionValidation = validateDecisionArtifactForRender(decisionArtifact);
   const rejectionCards = decisionValidation.rejections;
 
+  const firstRowAccountId =
+    rows.length > 0 && rows[0] !== null && typeof rows[0] === "object"
+      ? (rows[0] as { account_id?: unknown }).account_id
+      : undefined;
   const accountId =
-    readerResult.rows[0]?.account_id ?? decisionValidation.accountId ?? null;
+    (typeof firstRowAccountId === "string" && firstRowAccountId.length > 0 ? firstRowAccountId : null)
+    ?? decisionValidation.accountId
+    ?? null;
 
   return Object.freeze({
     account_id: accountId,
-    checked_at: readerResult.checked_at,
-    source_path: readerResult.source_path,
+    checked_at: checkedAt,
+    source_path: sourcePath,
     durable_graph_records: Object.freeze(durableCards) as readonly DurableGraphRecordCardView[],
     review_decision_rejections: Object.freeze(rejectionCards) as readonly ReviewDecisionRejectionCardView[],
-    refusal_count: readerResult.refusals.length,
+    refusal_count: refusals.length,
     review_decision_refusals: Object.freeze(decisionValidation.refusals) as readonly string[],
     totals: Object.freeze({
-      durable_rows: readerResult.rows.length,
+      durable_rows: rows.length,
       durable_records: durableCards.length,
       rejected_decisions: rejectionCards.length,
     }),

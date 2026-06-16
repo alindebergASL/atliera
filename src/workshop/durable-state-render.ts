@@ -31,7 +31,6 @@
 
 import { types as nodeUtilTypes } from "node:util";
 
-import type { GraphBundle } from "../graph/types.ts";
 import {
   WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_NAME,
   WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_SCHEMA_VERSION,
@@ -81,6 +80,41 @@ function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<st
       throw new DurableStateRenderRefusal(`${label}.${key} must be a plain own-data value (no accessors)`);
     }
     out[key] = descriptor.value;
+  }
+  return Object.freeze(out);
+}
+
+// snapshotPlainArray: descriptor-snapshot an array so accessor-backed
+// indices (a non-Proxy array with a getter installed on "0", "1", etc.)
+// are refused without firing. Array.isArray + isProxy is not enough —
+// a plain array literal can still have getter-backed indices.
+function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
+  if (nodeUtilTypes.isProxy(value)) {
+    throw new DurableStateRenderRefusal(`${label} is Proxy-backed`);
+  }
+  if (!Array.isArray(value)) {
+    throw new DurableStateRenderRefusal(`${label} must be an array`);
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new DurableStateRenderRefusal(`${label} must not carry symbol keys`);
+  }
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  const length = lengthDescriptor !== undefined && "value" in lengthDescriptor
+    ? (lengthDescriptor.value as unknown)
+    : undefined;
+  if (typeof length !== "number" || !Number.isInteger(length) || length < 0) {
+    throw new DurableStateRenderRefusal(`${label}.length must be a non-negative integer`);
+  }
+  const out: unknown[] = new Array(length);
+  for (let i = 0; i < length; i += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, i);
+    if (descriptor === undefined) {
+      throw new DurableStateRenderRefusal(`${label}[${i}] is missing`);
+    }
+    if (!descriptor.enumerable || !("value" in descriptor)) {
+      throw new DurableStateRenderRefusal(`${label}[${i}] must be a plain own-data value (no accessors)`);
+    }
+    out[i] = descriptor.value;
   }
   return Object.freeze(out);
 }
@@ -150,46 +184,60 @@ export interface ComposeDurableStateViewInputs {
   readonly decisionArtifact: WorkshopProposalHumanReviewDecisionArtifact | null;
 }
 
-function objectCardsFromBundle(
-  bundle: GraphBundle,
-  row: {
-    readonly durable_record_id: string;
-    readonly account_id: string;
-    readonly candidate_item_id: string;
-    readonly operator_identity: string;
-    readonly written_at: string;
-  },
-): DurableGraphRecordCardView[] {
-  return bundle.account_objects.map((obj) => {
+function durableCardsFromSnapshottedRow(rowIndex: number, rawRow: unknown): DurableGraphRecordCardView[] {
+  // Descriptor-snapshot the row at the compose boundary so a getter
+  // installed on any control-flow or attribution field cannot fire when
+  // we read it. The reader's deep-freeze on the legitimate path makes
+  // this redundant, but a FORGED reader result can carry getter-backed
+  // fields the reader never saw; the render layer must not trust the
+  // shape it received.
+  const row = snapshotPlainOwnData(rawRow, `readerResult.rows[${rowIndex}]`);
+  const durableRecordId = row.durable_record_id as string;
+  const accountId = row.account_id as string;
+  const candidateItemId = row.candidate_item_id as string;
+  const operatorIdentity = row.operator_identity as string;
+  const writtenAt = row.written_at as string;
+
+  const bundle = snapshotPlainOwnData(row.bundle, `readerResult.rows[${rowIndex}].bundle`);
+  const accountObjects = snapshotPlainArray(bundle.account_objects, `readerResult.rows[${rowIndex}].bundle.account_objects`);
+
+  const cards: DurableGraphRecordCardView[] = [];
+  for (let i = 0; i < accountObjects.length; i += 1) {
+    const obj = snapshotPlainOwnData(accountObjects[i], `readerResult.rows[${rowIndex}].bundle.account_objects[${i}]`);
     const provenance = obj.provenance_status;
+    if (typeof provenance !== "string") {
+      throw new DurableStateRenderRefusal(
+        `readerResult.rows[${rowIndex}].bundle.account_objects[${i}].provenance_status must be a string`,
+      );
+    }
     // Fail-closed re-assertion of the trust-tier invariant at the render
     // boundary. The reader already refuses verified per-record provenance
     // and deep-freezes the bundle, but a forged reader result (one that
     // never went through the reader) could still carry a verified record.
-    // The render layer must never emit a Verified-tier durable card, so
-    // we refuse here rather than render the upgraded trust.
+    // The render layer must never emit a Verified-tier durable card.
     if (provenance === "verified") {
       throw new DurableStateRenderRefusal(
-        `durable record ${obj.id} carries per-record provenance_status "verified" under the M3 admission trust label`,
+        `durable record ${String(obj.id)} carries per-record provenance_status "verified" under the M3 admission trust label`,
       );
     }
     const provenanceLabel = PROVENANCE_LABEL[provenance] ?? provenance;
-    return {
-      durable_record_id: row.durable_record_id,
-      account_id: row.account_id,
-      candidate_item_id: row.candidate_item_id,
-      operator_identity: row.operator_identity,
+    cards.push({
+      durable_record_id: durableRecordId,
+      account_id: accountId,
+      candidate_item_id: candidateItemId,
+      operator_identity: operatorIdentity,
       mediation_gate_level: "L0" as const,
-      written_at: row.written_at,
+      written_at: writtenAt,
       trust_label_decoration: TRUST_LABEL_DECORATION,
-      object_id: obj.id,
-      object_type: obj.object_type,
-      title: obj.title,
-      summary: obj.summary,
+      object_id: String(obj.id ?? ""),
+      object_type: String(obj.object_type ?? ""),
+      title: String(obj.title ?? ""),
+      summary: String(obj.summary ?? ""),
       provenance_status: provenance,
       provenance_label: provenanceLabel,
-    };
-  });
+    });
+  }
+  return cards;
 }
 
 function requireNonEmptyString(record: Readonly<Record<string, unknown>>, key: string, label: string): string {
@@ -290,20 +338,25 @@ function validateDecisionArtifactForRender(
 
   const accountId = typeof snap.account_id === "string" && snap.account_id.length > 0 ? snap.account_id : null;
 
-  // Decisions array. Must be a plain (non-Proxy) array.
-  const decisionsRaw = snap.decisions;
-  if (nodeUtilTypes.isProxy(decisionsRaw)) {
-    return { rejections: [], refusals: ["decision_artifact.decisions is Proxy-backed"], accountId };
-  }
-  if (!Array.isArray(decisionsRaw)) {
-    return { rejections: [], refusals: ["decision_artifact.decisions must be an array"], accountId };
+  // Decisions array. Snapshot the array itself so an accessor-backed
+  // index (a non-Proxy array with a getter installed on "0") cannot fire
+  // when we index it.
+  let decisions: readonly unknown[];
+  try {
+    decisions = snapshotPlainArray(snap.decisions, "decision_artifact.decisions");
+  } catch (e) {
+    return {
+      rejections: [],
+      refusals: [e instanceof DurableStateRenderRefusal ? e.reason : String(e)],
+      accountId,
+    };
   }
 
   const rejections: ReviewDecisionRejectionCardView[] = [];
-  for (let i = 0; i < decisionsRaw.length; i += 1) {
+  for (let i = 0; i < decisions.length; i += 1) {
     let decision: Readonly<Record<string, unknown>>;
     try {
-      decision = snapshotPlainOwnData(decisionsRaw[i], `decision_artifact.decisions[${i}]`);
+      decision = snapshotPlainOwnData(decisions[i], `decision_artifact.decisions[${i}]`);
     } catch (e) {
       refusals.push(e instanceof DurableStateRenderRefusal ? e.reason : String(e));
       continue;
@@ -354,15 +407,13 @@ export function composeDurableStateView(
 ): DurableStateRenderView {
   const { readerResult, decisionArtifact } = inputs;
 
+  // Snapshot the rows array (refuse a Proxy-backed or accessor-backed
+  // rows array) before iterating, then descriptor-snapshot each row +
+  // its bundle + its account_objects inside the per-row helper.
+  const rows = snapshotPlainArray(readerResult.rows, "readerResult.rows");
   const durableCards: DurableGraphRecordCardView[] = [];
-  for (const row of readerResult.rows) {
-    // Re-assert plain own-data at the render boundary. A legitimate row
-    // is deep-frozen plain own-data from the reader; a forged result
-    // could be Proxy-backed. Snapshot the row and its bundle before use.
-    if (nodeUtilTypes.isProxy(row) || nodeUtilTypes.isProxy(row.bundle)) {
-      throw new DurableStateRenderRefusal("durable row or its bundle is Proxy-backed");
-    }
-    durableCards.push(...objectCardsFromBundle(row.bundle, row));
+  for (let i = 0; i < rows.length; i += 1) {
+    durableCards.push(...durableCardsFromSnapshottedRow(i, rows[i]));
   }
 
   const decisionValidation = validateDecisionArtifactForRender(decisionArtifact);

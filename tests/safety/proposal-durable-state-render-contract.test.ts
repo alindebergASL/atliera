@@ -531,6 +531,162 @@ describe("M3 step 3b safety — render-side decision-artifact validator refuses 
     const html = renderDurableStateHtml(view);
     assert.ok(html.includes("Not in graph"));
   });
+
+  test("an accessor-backed INDEX on the decisions array (Array.isArray=true, not Proxy) is refused without firing the getter", () => {
+    // This is the residual gap from the second review pass: a plain
+    // (non-Proxy) array with an accessor-backed index "0" would have
+    // passed the previous Array.isArray + isProxy gate and fired its
+    // getter at `decisionsRaw[i]`. The descriptor-snapshot of the array
+    // must refuse it without indexing.
+    const validReject = decisionArtifactWithReject().decisions[0]!;
+    let indexGetterFired = false;
+    const arr: unknown[] = [null];
+    Object.defineProperty(arr, "0", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        indexGetterFired = true;
+        return validReject;
+      },
+    });
+    const hostile = {
+      ...decisionArtifactWithReject(),
+      decisions: arr,
+    } as unknown as WorkshopProposalHumanReviewDecisionArtifact;
+    const view = composeDurableStateView({ readerResult: emptyReader(), decisionArtifact: hostile });
+    assert.equal(indexGetterFired, false, "decisions[0] getter must not fire");
+    assert.equal(view.totals.rejected_decisions, 0, "no rejection may render from an accessor-backed index");
+    assert.ok(
+      view.review_decision_refusals.some((r) => r.includes("decisions[0]") && r.includes("accessors")),
+      "the refusal must name the accessor-backed index",
+    );
+  });
+});
+
+describe("M3 step 3b safety — durable rows are descriptor-snapshotted at compose entry; nested getters never fire", () => {
+  test("a forged reader result with a getter-backed nested account_object provenance_status is refused without invoking the getter", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
+    try {
+      // Reconstruct an account_object without the provenance_status field
+      // and reinstall it as an accessor; the field is the one the render
+      // layer reads to decide trust, so its getter is the canary.
+      let provenanceGetterFired = false;
+      const badObj: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row.bundle.account_objects[0]!)) {
+        if (k !== "provenance_status") badObj[k] = v;
+      }
+      Object.defineProperty(badObj, "provenance_status", {
+        enumerable: true,
+        configurable: true,
+        get() {
+          provenanceGetterFired = true;
+          return "verified";
+        },
+      });
+      const forged = {
+        ...readerResultWithRow(row),
+        rows: [
+          {
+            ...row,
+            bundle: {
+              ...row.bundle,
+              account_objects: [badObj] as never,
+            },
+          } as DurableGraphSnapshotRow,
+        ],
+      };
+      assert.throws(
+        () => composeDurableStateView({ readerResult: forged, decisionArtifact: null }),
+        DurableStateRenderRefusal,
+        "compose must refuse a getter-backed account_object before its provenance is read",
+      );
+      assert.equal(
+        provenanceGetterFired,
+        false,
+        "the hostile provenance_status getter must not have fired",
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("a forged reader result with a getter-backed inner ROW field (operator_identity) is refused without firing", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
+    try {
+      let opGetterFired = false;
+      const badRow: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row)) {
+        if (k !== "operator_identity") badRow[k] = v;
+      }
+      Object.defineProperty(badRow, "operator_identity", {
+        enumerable: true,
+        configurable: true,
+        get() {
+          opGetterFired = true;
+          return "attacker";
+        },
+      });
+      const forged = {
+        ...readerResultWithRow(row),
+        rows: [badRow as unknown as DurableGraphSnapshotRow],
+      };
+      assert.throws(
+        () => composeDurableStateView({ readerResult: forged, decisionArtifact: null }),
+        DurableStateRenderRefusal,
+      );
+      assert.equal(opGetterFired, false);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("a forged reader result with an accessor-backed INDEX on bundle.account_objects is refused without firing", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
+    try {
+      const real = row.bundle.account_objects[0]!;
+      let arrayIndexGetterFired = false;
+      const accountObjects: unknown[] = [null];
+      Object.defineProperty(accountObjects, "0", {
+        enumerable: true,
+        configurable: true,
+        get() {
+          arrayIndexGetterFired = true;
+          return real;
+        },
+      });
+      const forged = {
+        ...readerResultWithRow(row),
+        rows: [
+          {
+            ...row,
+            bundle: {
+              ...row.bundle,
+              account_objects: accountObjects as never,
+            },
+          } as DurableGraphSnapshotRow,
+        ],
+      };
+      assert.throws(
+        () => composeDurableStateView({ readerResult: forged, decisionArtifact: null }),
+        DurableStateRenderRefusal,
+      );
+      assert.equal(arrayIndexGetterFired, false);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("the legitimate reader path still composes a row cleanly after the new snapshot pass", async () => {
+    const { row, cleanup } = await setupDbAndWriteOneRow();
+    try {
+      const reader = readerResultWithRow(row);
+      const view = composeDurableStateView({ readerResult: reader, decisionArtifact: null });
+      assert.equal(view.totals.durable_rows, 1);
+      assert.ok(view.totals.durable_records >= 1);
+    } finally {
+      await cleanup();
+    }
+  });
 });
 
 describe("M3 step 3b safety — module purity and doctrine markers", () => {

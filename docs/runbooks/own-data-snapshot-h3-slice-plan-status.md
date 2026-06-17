@@ -117,11 +117,15 @@ For each item: **(C)** = current behavior at each site; **(P)** = plan's recomme
 - **(P)** Descriptor read (the render approach). Rationale: **consistency**, not closing a non-Proxy exploit. Proxy length traps are already closed at the `isProxy` gate (§Q1-adjacent: every entry to a snapshot helper passes `nodeUtilTypes.isProxy` first). For a real (non-Proxy) `Array`, `length` is a non-configurable own data property — there is no reachable scenario in which a non-Proxy Array fires a getter on `.length`. The recommendation to descriptor-read is for keeping all property reads inside one reflection style and matching the rest of the snapshot discipline, not because it closes a behavioral gap on legitimate Array inputs. Functionally equivalent on every input the snapshot path accepts.
 - **(R)** Operator ratifies descriptor-read OR direct-read. The choice is style/consistency, not safety-critical.
 
-### Q4. Symbol-key check on arrays
+### Q4. Symbol-key check on arrays — **observable behavior change at the executor's array boundary**
 
 - **(C)** Render refuses symbol-keyed arrays. Executor does not check. Reader has no array helper.
-- **(P)** Refuse symbol-keyed arrays in the consolidated primitive. Union rule. No legitimate array carries symbol keys.
-- **(R)** Operator ratifies extending the check to all sites OR keeping executor's array helper without this check (the latter is the intersection branch and contradicts §2's union rule).
+- **(P)** Refuse symbol-keyed arrays in the consolidated primitive. Union rule.
+- **(R)** This Q is the one item in §3 where union-rule application produces an **observable behavior change at a call site** — specifically, the executor's array boundary will refuse a symbol-keyed array post-migration when it does not today. Every other Q in §3 is behavior-preserving on legitimate inputs (Q1, Q7, Q8, Q9 change only refusal-code identity or message text; Q2/Q3/Q5 are no-ops on legitimate inputs given Proxy-closed-at-isProxy + ECMAScript Array semantics; Q6 is opt-in; Q10/Q11/Q12 are API-shape choices the call sites translate around). Q4 is therefore not refactor-only; it is an explicit, operator-ratifiable behavior broadening at the executor, justified by the union rule's cost asymmetry (a symbol-keyed array passing the executor's array boundary today is silently accepted; under Q4 it would refuse loudly). The operator may ratify either branch:
+  - **Branch A — broaden the executor (recommended).** The implementation-slice PR description explicitly carries "the executor's array boundary now refuses symbol-keyed arrays, broadening one of its existing acceptances" as a per-site behavior-change statement, and the per-site equivalence statement for the executor (§5) is updated to read "behavior on the eleven enumerated reject paths is unchanged; the additional symbol-keyed-array refusal is a ratified broadening under Q4."
+  - **Branch B — preserve per-site behavior.** The consolidated primitive offers two variants: `snapshotPlainArray` (refuses symbol keys) and `snapshotPlainArrayPermissiveSymbols` (does not). The executor adopts the permissive variant, preserving its current behavior; render keeps the strict one. The union rule still holds at the primitive layer (the strict variant is offered); the call sites pick.
+
+Branch A is recommended because (i) the symbol-keyed-array case is not a behavior the executor's call sites depend on or test for, (ii) maintaining two array variants in the primitive doubles its surface and adds an attractive-nuisance choice at future call sites, and (iii) the union rule's cost asymmetry (loud false rejection vs silent dropped refusal) applies. But Branch B is a coherent operator choice if the priority is strict refactor-only at this slice.
 
 ### Q5. Length integer-validation: `Number.isSafeInteger` vs `Number.isInteger`
 
@@ -249,15 +253,15 @@ The implementation slice PR is done when:
 4. Each call site has a per-site equivalence statement in the implementation slice PR description, attesting that its behavior on its existing per-site refusal codes is unchanged.
 5. The four seed fixtures from §6 are present under a shared safety-fixtures path.
 6. The four seed fixtures plus the eleven enumerated reject paths fail-closed at EACH of the three call sites through the consolidated primitive (per-site regression suites continue to exercise the boundary; not relocated).
-7. The full test suite baseline (1,253 at this plan PR head; whatever the count is at the implementation-slice PR head) does not regress.
+7. The full test suite at the implementation-slice PR head does not regress against the count at the implementation-slice PR's base commit. (The plan PR's own head count is 1,267; the implementation slice will branch off a later main and is measured against whatever the count is at that branch point, not against this plan PR's head.)
 8. Forbidden-phrases lint clean. Typecheck clean. No new provider SDK / network / env / I/O imports in the consolidated module.
 
 ## 9. Non-goals — the "while I'm here" guard
 
-The implementation slice is refactor-only. Explicitly NOT in scope at any point in the H3 implementation:
+The implementation slice is **behavior-preserving by default**, with any behavior change at a call site explicitly ratified in §3. Q4 is the one item that, under the recommended branch, does broaden a call site's behavior (the executor's array boundary); every other Q in §3 is behavior-preserving on legitimate inputs. Explicitly NOT in scope at any point in the H3 implementation:
 
-- No widening of any call site's surfaced refusal-code set beyond what its current per-site regression suite already exercises (Adjustment 1: union is the primitive's surface; call sites preserve their existing codes).
-- No new validation at any call site that the call site does not currently perform.
+- No widening of any call site's surfaced refusal-code set beyond what its current per-site regression suite already exercises, **except as ratified in §3** (currently: Q4 only, if the operator picks Branch A; if Branch B, this clause has no exception).
+- No new validation at any call site that the call site does not currently perform, **except as ratified in §3** (same scope: Q4-Branch-A only).
 - No new application-level helper (`requireString`, `requireClosedFalse`, idempotency-key shape check, etc.) lifted into the consolidated module.
 - No `snapshotDeep` recursive helper (Q12).
 - No reader array helper (the reader does not currently have one; adding one is a behavior change).

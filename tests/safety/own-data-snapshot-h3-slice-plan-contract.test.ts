@@ -4,7 +4,7 @@
 // the doctrine the implementation slice will be measured against.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -130,7 +130,58 @@ test("the implementation-slice done-criterion includes per-site equivalence stat
   const status = read(STATUS);
   assert.match(status, /per-site equivalence statement/);
   assert.match(status, /fail-closed at EACH of the three call sites through the consolidated primitive/);
-  assert.match(status, /1,253/); // baseline must be named
+  // The done-criterion is framed relatively (against the implementation
+  // slice's base commit), with the plan PR's own head count named as
+  // 1,267. Older drafts hard-coded 1,253 incorrectly; the test pins the
+  // corrected number so a future stale-count regression is caught.
+  assert.match(status, /1,267/);
+  assert.ok(!status.includes("1,253"), "stale 1,253 baseline number must not appear in the runbook");
+});
+
+test("Q4 is labeled as the one item in §3 that observably broadens a call site's behavior, with both branches explicit", () => {
+  const status = read(STATUS);
+  assert.match(status, /Q4\. Symbol-key check on arrays — \*\*observable behavior change at the executor's array boundary\*\*/);
+  assert.match(status, /Branch A — broaden the executor \(recommended\)/);
+  assert.match(status, /Branch B — preserve per-site behavior/);
+  // The non-goal language must acknowledge the §3 exception and not
+  // contradict the union rule.
+  assert.match(status, /behavior-preserving by default/);
+  assert.match(status, /\*\*except as ratified in §3\*\*/);
+});
+
+test("plan-only filesystem invariant: the consolidated primitive's source module does not yet exist", () => {
+  // The runbook claims this is plan-only. While that claim is true, the
+  // file the implementation slice will create must not be present. The
+  // moment src/safety/own-data-snapshot.ts materializes (in this PR or
+  // any future PR while this runbook still says "plan-only"), this
+  // assertion fails — forcing the runbook to be updated or removed in
+  // the same change that creates the file.
+  assert.ok(
+    !existsSync(join(ROOT, "src/safety/own-data-snapshot.ts")),
+    "src/safety/own-data-snapshot.ts must not exist while the H3 plan runbook is plan-only",
+  );
+  // Same enforcement on the implementation-slice's expected primitive-
+  // level test file. If a future PR adds a primitive-level test file
+  // without also flipping the runbook out of plan-only, this fails.
+  assert.ok(
+    !existsSync(join(ROOT, "tests/safety/own-data-snapshot.test.ts")),
+    "tests/safety/own-data-snapshot.test.ts must not exist while the H3 plan runbook is plan-only",
+  );
+  // None of the three call sites currently import from the consolidated
+  // module (because it does not exist). If a future edit lands an
+  // import while the runbook is still plan-only, the migration would
+  // have begun without ratification.
+  for (const callSite of [
+    "src/workshop/proposal-durable-graph-write-execution.ts",
+    "src/workshop/durable-graph-snapshots-reader.ts",
+    "src/workshop/durable-state-render.ts",
+  ]) {
+    const text = readFileSync(join(ROOT, callSite), "utf8");
+    assert.ok(
+      !text.includes("own-data-snapshot"),
+      `${callSite} must not import from src/safety/own-data-snapshot.ts while the H3 plan runbook is plan-only`,
+    );
+  }
 });
 
 test("the boundary markers are present and strict (no provider/private/graph/durable/production/readiness)", () => {
@@ -154,11 +205,14 @@ test("the boundary markers are present and strict (no provider/private/graph/dur
   }
 });
 
-test("the non-goals list includes the 'while I'm here' guard and names refactor-only as the implementation-slice scope", () => {
+test("the non-goals list includes the 'while I'm here' guard and names behavior-preserving-by-default scope", () => {
   const status = read(STATUS);
   assert.match(status, /while I'm here/);
-  assert.match(status, /implementation slice is refactor-only/);
-  assert.match(status, /No widening of any call site's surfaced refusal-code set/);
+  // The non-goal scope language is now behavior-preserving-by-default
+  // (with the Q4 §3 exception), NOT a blanket "refactor-only" claim
+  // that would contradict the union rule's broadening at the executor.
+  assert.match(status, /implementation slice is \*\*behavior-preserving by default\*\*/);
+  assert.match(status, /No widening of any call site's surfaced refusal-code set beyond what its current per-site regression suite already exercises, \*\*except as ratified in §3\*\*/);
   assert.match(status, /No `snapshotDeep` recursive helper/);
   assert.match(status, /No reader array helper/);
 });

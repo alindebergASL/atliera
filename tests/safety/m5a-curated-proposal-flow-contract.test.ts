@@ -20,6 +20,7 @@ import {
   M5A_PINNED_PER_RECORD_PROVENANCE_STATUS,
   M5A_PINNED_ROW_TRUST_LABEL,
   M5A_PINNED_TARGET_STORE,
+  M5aContractBuilderRefusal,
 } from "../../src/workshop/m5a-curated-proposal-flow-contract.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
@@ -281,6 +282,269 @@ describe("M5a contract — builder refuses every enumerated reject path", () => 
       () =>
         buildM5aCuratedProposalFlowContract(baseInput(), { flowId: FLOW_ID, now: "tomorrow" }),
       /now/,
+    );
+  });
+});
+
+describe("M5a contract — approval_packet_shape carries POSITIVE trust-tier pins (not only the negative prohibition)", () => {
+  test("approval_packet_shape requires the row trust label as a POSITIVE pin", () => {
+    const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+    const p = contract.approval_packet_shape;
+    assert.equal(p.required_row_trust_label, M5A_PINNED_ROW_TRUST_LABEL);
+    assert.equal(p.required_row_trust_label, "model-proposed-human-ratified-evidence-pending");
+  });
+
+  test("approval_packet_shape requires the per-record provenance status as a POSITIVE pin", () => {
+    const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+    const p = contract.approval_packet_shape;
+    assert.equal(p.required_per_record_provenance_status, M5A_PINNED_PER_RECORD_PROVENANCE_STATUS);
+    assert.equal(p.required_per_record_provenance_status, "source_document_only");
+  });
+
+  test("approval_packet_shape ALSO carries the negative prohibition (verified is forbidden), but the positive pins are what step 2 must conform to", () => {
+    const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+    const p = contract.approval_packet_shape;
+    assert.deepEqual(p.forbidden_per_record_provenance_statuses, ["verified"]);
+    // The gap closed by the 2026-06-17 hardening pass: "not verified"
+    // is NOT the same claim as "is this specific pending label." Both
+    // appear on the packet shape; step 2 must conform to both.
+  });
+});
+
+describe("M5a contract — hostile-input regression suite (Hermes probes 2026-06-17)", () => {
+  // Each probe below is one of the false-claim cases the green CI
+  // suite missed and the independent review caught. The regression
+  // suite is the actual deliverable of this hardening pass: the green
+  // happy-path tests above prove the builder works on legitimate
+  // inputs; these prove it fails closed on hostile ones.
+
+  function baseInput(): Record<string, unknown> {
+    return JSON.parse(JSON.stringify(loadCommittedMaterializationInput())) as Record<string, unknown>;
+  }
+
+  test("Probe 1 — accessor-backed `context` on the root: getter does NOT fire and the builder refuses", () => {
+    const bad: Record<string, unknown> = baseInput();
+    let getterFired = false;
+    delete bad.context;
+    Object.defineProperty(bad, "context", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        throw new Error("LEAK_ROOT_CONTEXT_GETTER");
+      },
+    });
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(getterFired, false, "root accessor getter must not fire");
+  });
+
+  test("Probe 2 — accessor-backed `origin` nested in `context`: getter does NOT fire and the builder refuses", () => {
+    const bad: Record<string, unknown> = baseInput();
+    let getterFired = false;
+    delete (bad.context as Record<string, unknown>).origin;
+    Object.defineProperty(bad.context as object, "origin", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        throw new Error("LEAK_ORIGIN_GETTER");
+      },
+    });
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(getterFired, false, "nested accessor getter must not fire");
+  });
+
+  test("Probe 3 — Proxy-backed root materialization input: get trap does NOT fire and the builder refuses", () => {
+    let trapFired = false;
+    const proxy = new Proxy(baseInput(), {
+      get(t, p, r) {
+        trapFired = true;
+        return Reflect.get(t, p, r);
+      },
+    });
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(proxy, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(trapFired, false, "Proxy get trap must not fire");
+  });
+
+  test("Probe 4 — impossible-component timestamps are refused (regex-shape passes; Date.parse + canonical round-trip rejects)", () => {
+    // The exact reviewer-reproduced impossible date: shape-clean but
+    // semantically impossible.
+    const badCtx: Record<string, unknown> = baseInput();
+    (badCtx.context as Record<string, unknown>).materialized_at = "2026-99-99T99:99:99Z";
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(badCtx, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () =>
+        buildM5aCuratedProposalFlowContract(baseInput(), {
+          flowId: FLOW_ID,
+          now: "2026-99-99T99:99:99Z",
+        }),
+      M5aContractBuilderRefusal,
+    );
+    // Sanity: a real impossible-but-shape-legal February 30 also refused.
+    const badFeb: Record<string, unknown> = baseInput();
+    (badFeb.context as Record<string, unknown>).materialized_at = "2026-02-30T00:00:00Z";
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(badFeb, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+  });
+
+  test("Probe 5 — symbol-keyed root and context are refused", () => {
+    const symRoot: Record<string | symbol, unknown> = baseInput();
+    symRoot[Symbol("hostile")] = "leak";
+    assert.throws(
+      () =>
+        buildM5aCuratedProposalFlowContract(symRoot as unknown, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    const symCtx: Record<string, unknown> = baseInput();
+    (symCtx.context as Record<string | symbol, unknown>)[Symbol("hostile")] = "leak";
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(symCtx, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+  });
+
+  test("Probe 6 — accessor-backed array index on `public_sources[0]`: getter does NOT fire and the builder refuses", () => {
+    const bad: Record<string, unknown> = baseInput();
+    let getterFired = false;
+    const arr: unknown[] = [null];
+    Object.defineProperty(arr, "0", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        return null;
+      },
+    });
+    bad.public_sources = arr;
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(getterFired, false, "array-index accessor getter must not fire");
+  });
+
+  test("Probe 7 — non-array `proposed_account_objects` is refused (string cannot smuggle a non-number count)", () => {
+    const bad: Record<string, unknown> = baseInput();
+    bad.proposed_account_objects = "not-an-array";
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    // The fixture has no proposed_account_objects; absence is fine.
+    const ok = baseInput();
+    delete ok.proposed_account_objects;
+    const contract = buildM5aCuratedProposalFlowContract(ok, { flowId: FLOW_ID, now: NOW });
+    assert.equal(typeof contract.counts.proposed_account_object_count, "number");
+  });
+
+  test("Probe 8 — TOCTOU (validate-then-reread) cannot smuggle unsafe ids/timestamps into the rendered artifact", () => {
+    // Synthesize the validate-then-reread divergence: a context whose
+    // account_id is accessor-backed and switches between reads. After
+    // the snapshot-once-render-from-locals fix, the field is read
+    // ONCE into a frozen local and the artifact carries that local —
+    // the second-read value cannot reach the artifact. With the
+    // hardened builder, the getter is refused outright by snapshot
+    // discipline (no accessor descriptors), but the assertion below
+    // ALSO confirms the artifact does not carry the second-read
+    // value even in adversarial scenarios where validation could be
+    // construed to have passed.
+    const bad: Record<string, unknown> = baseInput();
+    let reads = 0;
+    delete (bad.context as Record<string, unknown>).account_id;
+    Object.defineProperty(bad.context as object, "account_id", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads += 1;
+        // First read: safe. Subsequent reads: hostile. The snapshot
+        // discipline refuses the getter before any read, so reads
+        // stays 0 throughout.
+        return reads === 1 ? "acc_acme_robotics" : "../etc/passwd";
+      },
+    });
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(reads, 0, "account_id getter must not be read at all");
+  });
+
+  test("Probe 9 — accessor-backed `flowId` or `now` on the options object is refused", () => {
+    let optsGetterFired = false;
+    const hostileOpts: Record<string, unknown> = {};
+    Object.defineProperty(hostileOpts, "flowId", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        optsGetterFired = true;
+        return "hostile-flow-id";
+      },
+    });
+    hostileOpts.now = NOW;
+    assert.throws(
+      () =>
+        buildM5aCuratedProposalFlowContract(
+          baseInput(),
+          hostileOpts as unknown as { flowId: string; now: string },
+        ),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(optsGetterFired, false, "options.flowId getter must not fire");
+  });
+
+  test("Probe 10 — Proxy-backed options object is refused before any get trap fires", () => {
+    let trapFired = false;
+    const proxyOpts = new Proxy(
+      { flowId: FLOW_ID, now: NOW },
+      {
+        get(t, p, r) {
+          trapFired = true;
+          return Reflect.get(t, p, r);
+        },
+      },
+    );
+    assert.throws(
+      () =>
+        buildM5aCuratedProposalFlowContract(baseInput(), proxyOpts as { flowId: string; now: string }),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(trapFired, false, "options Proxy get trap must not fire");
+  });
+
+  test("Probe 11 — unsafe-key own property on the root or context is refused", () => {
+    const bad: Record<string, unknown> = baseInput();
+    Object.defineProperty(bad, "constructor", {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: "leak",
+    });
+    assert.throws(
+      () => buildM5aCuratedProposalFlowContract(bad, { flowId: FLOW_ID, now: NOW }),
+      M5aContractBuilderRefusal,
     );
   });
 });

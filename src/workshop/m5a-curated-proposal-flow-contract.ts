@@ -46,6 +46,8 @@
 // arming surface would belong. M5a's contract is marker-closed against
 // that path.
 
+import { types as nodeUtilTypes } from "node:util";
+
 import type { GraphBundle } from "../graph/types.ts";
 
 export const M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME =
@@ -223,9 +225,20 @@ export interface M5aApprovalPacketShape {
   readonly expiry_required: true;
   readonly operator_arming_required_for_flow_execution: true;
   // The packet inherits the contract's Path-1 marker and trust-tier
-  // pins so step 2 cannot quietly relax them.
+  // pins so step 2 cannot quietly relax them. The trust-tier pins are
+  // positive REQUIREMENTS (the row label and per-record provenance
+  // values the eventual durable write MUST stamp), not merely the
+  // negative prohibition. The M3 step 3a retro §1 trust-tier
+  // discipline names this distinction explicitly: "not verified" is
+  // not the same claim as "is this specific pending label," and the
+  // gap between them is exactly where a future step could land a
+  // record in some third unlabeled state. The packet must carry the
+  // positive pin.
   readonly inherits_forbids_fresh_provider_call_on_flow_path: true;
   readonly inherits_forbids_system_side_acquisition: true;
+  readonly required_row_trust_label: typeof M5A_PINNED_ROW_TRUST_LABEL;
+  readonly required_per_record_provenance_status: typeof M5A_PINNED_PER_RECORD_PROVENANCE_STATUS;
+  readonly forbidden_per_record_provenance_statuses: readonly ["verified"];
   readonly mediation_gate_level: typeof M5A_PINNED_MEDIATION_GATE_LEVEL;
   readonly target_store: typeof M5A_PINNED_TARGET_STORE;
 }
@@ -276,29 +289,155 @@ export interface M5aCuratedProposalFlowContractArtifact {
   readonly readiness_claim: false;
 }
 
-// The shape of the materialization input fixture the contract reads
-// from. Matches the existing committed shape of
-// `fixtures/validation/proposal-materialization-public-curated-20260611a-input.json`
-// — the artifact M3 step 3a's executor already consumes. The contract
-// does NOT redefine the materialization input's full graph shape; it
-// snapshots only the fields needed to (a) verify curated provenance,
-// (b) count proposed records, and (c) bind the flow to its
-// proposal_set_id and account_id.
-interface MaterializationInputCuratedShape {
-  readonly context: {
-    readonly origin: string;
-    readonly account_id: string;
-    readonly materialized_at: string;
-    readonly proposal_set_id: string;
-  };
-  readonly public_sources: readonly { readonly id: string }[];
-  readonly proposed_excerpts: readonly { readonly proposal_id: string }[];
-  readonly proposed_claims: readonly { readonly proposal_id: string }[];
-  readonly proposed_account_objects?: readonly { readonly proposal_id: string }[];
-}
+// The committed materialization input shape (the artifact M3 step 3a's
+// executor already consumes) is read positionally via descriptor
+// snapshots below; the M5a contract module does NOT re-declare the
+// full graph shape. The snapshot pass extracts only what the contract
+// surfaces: curated provenance, bound ids, and array lengths for the
+// counts. Element shape is a downstream-slice concern (the validate
+// stage of the eventual flow runs the full graph validator).
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const ISO_TIMESTAMP_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
+// Typed refusal class — local to the M5a contract module while the
+// fourth call site for snapshot discipline (H3 retro input 2026-06-17:
+// the cost of hand-rolling is now real, not hypothetical) hand-rolls
+// the pattern. The eventual H3 consolidation will replace this with a
+// translation against the shared OwnDataSnapshotRefusal codes.
+export class M5aContractBuilderRefusal extends Error {
+  constructor(public readonly detail: string) {
+    super(`M5a contract builder refused: ${detail}`);
+    this.name = "M5aContractBuilderRefusal";
+  }
+}
+
+// snapshotPlainOwnData: descriptor-snapshot at every trust boundary
+// (M3 step 3a retro §3). util.types.isProxy FIRST, then own-data
+// descriptor enumeration, refusing accessor descriptors, non-
+// enumerable own-data, symbol keys, unsafe keys. The output is a
+// frozen plain-data object; the builder reads only from this snapshot,
+// never from the input.
+//
+// Hand-rolled rather than imported — none of the three shipped
+// snapshot helpers is exported, and pre-implementing H3 is out of
+// scope. The fourth site needing this pattern is recorded as an H3
+// retro input in the slice runbook (`docs/runbooks/m5a-curated-
+// proposal-flow-contract-status.md`, "H3 retro input" section).
+function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>> {
+  if (nodeUtilTypes.isProxy(value)) {
+    throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new M5aContractBuilderRefusal(`${label} must be a plain own-data object`);
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new M5aContractBuilderRefusal(`${label} must not carry symbol keys`);
+  }
+  let descriptors: PropertyDescriptorMap;
+  try {
+    descriptors = Object.getOwnPropertyDescriptors(value);
+  } catch {
+    throw new M5aContractBuilderRefusal(`${label} descriptors unavailable`);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new M5aContractBuilderRefusal(`${label} contains unsafe key ${key}`);
+    }
+    if (!("value" in descriptor)) {
+      throw new M5aContractBuilderRefusal(`${label}.${key} must be a plain own-data value (no accessors)`);
+    }
+    if (!descriptor.enumerable) {
+      throw new M5aContractBuilderRefusal(`${label}.${key} must be enumerable`);
+    }
+    out[key] = descriptor.value;
+  }
+  return Object.freeze(out);
+}
+
+// snapshotPlainArray: descriptor-snapshot an array. Reads length via
+// descriptor (not value.length — consistency with the snapshot
+// discipline; on a real Array this is style not safety, but the
+// pattern is the discipline H3 will consolidate). Refuses Proxy
+// arrays, symbol-keyed arrays, accessor-backed indices, missing
+// indices, non-enumerable indices.
+function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
+  if (nodeUtilTypes.isProxy(value)) {
+    throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
+  }
+  if (!Array.isArray(value)) {
+    throw new M5aContractBuilderRefusal(`${label} must be an array`);
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new M5aContractBuilderRefusal(`${label} must not carry symbol keys`);
+  }
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  const length = lengthDescriptor !== undefined && "value" in lengthDescriptor
+    ? (lengthDescriptor.value as unknown)
+    : undefined;
+  if (typeof length !== "number" || !Number.isSafeInteger(length) || length < 0) {
+    throw new M5aContractBuilderRefusal(`${label}.length must be a non-negative safe integer`);
+  }
+  const out: unknown[] = new Array(length);
+  for (let i = 0; i < length; i += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, i);
+    if (descriptor === undefined) {
+      throw new M5aContractBuilderRefusal(`${label}[${i}] is missing`);
+    }
+    if (!("value" in descriptor)) {
+      throw new M5aContractBuilderRefusal(`${label}[${i}] must be a plain own-data value (no accessors)`);
+    }
+    if (!descriptor.enumerable) {
+      throw new M5aContractBuilderRefusal(`${label}[${i}] must be enumerable`);
+    }
+    out[i] = descriptor.value;
+  }
+  return Object.freeze(out);
+}
+
+// isCanonicalIsoTimestamp: regex pre-filter + Date.parse round-trip.
+// Mirrors the M3 step 3a executor's lesson (the NaN-expiry hardening
+// pass), now applied here: a regex-only check accepts impossible
+// dates like "2026-99-99T99:99:99Z" because the regex constrains
+// shape but not component ranges. Date.parse rejects impossible
+// components, and the round-trip canonical form check rejects any
+// surprises Date might silently coerce away.
+function isCanonicalIsoTimestamp(s: string): boolean {
+  if (typeof s !== "string") return false;
+  if (!ISO_TIMESTAMP_SHAPE.test(s)) return false;
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return false;
+  // Canonical round-trip. Date.toISOString() always produces three-
+  // digit fractional seconds. If the input has no fractional part,
+  // synthesize ".000" for the comparison so a legitimate "no-ms"
+  // input round-trips equal to the parsed form. If the input HAS a
+  // fractional part with fewer than 3 digits, normalize that side
+  // too — the regex allows 1-3 digits but Date emits exactly 3.
+  const canonical = new Date(t).toISOString();
+  let normalized = s;
+  if (!normalized.includes(".")) {
+    normalized = normalized.replace(/Z$/, ".000Z");
+  } else {
+    // Pad fractional to exactly three digits.
+    normalized = normalized.replace(/\.(\d+)Z$/, (_m, frac: string) => `.${frac.padEnd(3, "0")}Z`);
+  }
+  return canonical === normalized;
+}
+
+function requireSafeId(value: unknown, label: string): string {
+  if (typeof value !== "string" || !SAFE_ID.test(value)) {
+    throw new M5aContractBuilderRefusal(`${label} must be a safe id`);
+  }
+  return value;
+}
+
+function requireCanonicalIsoTimestamp(value: unknown, label: string): string {
+  if (typeof value !== "string" || !isCanonicalIsoTimestamp(value)) {
+    throw new M5aContractBuilderRefusal(`${label} must be a canonical ISO timestamp`);
+  }
+  return value;
+}
 
 const FLOW_STAGES: readonly M5aFlowStageShape[] = Object.freeze([
   Object.freeze({
@@ -367,71 +506,102 @@ export function buildM5aCuratedProposalFlowContract(
   materializationInput: unknown,
   options: BuildM5aCuratedProposalFlowContractInput,
 ): M5aCuratedProposalFlowContractArtifact {
-  // The builder snapshots only the fields it needs (no full graph
-  // validation here — the validate stage in the eventual flow runs
-  // the full graph validator). Refuses any input that does not match
-  // the curated materialization shape.
-  if (
-    materializationInput === null ||
-    typeof materializationInput !== "object" ||
-    Array.isArray(materializationInput)
-  ) {
-    throw new Error("materializationInput must be a plain own-data object");
-  }
-  const snap = materializationInput as MaterializationInputCuratedShape;
-  if (
-    snap.context === null ||
-    typeof snap.context !== "object" ||
-    Array.isArray(snap.context)
-  ) {
-    throw new Error("materializationInput.context must be a plain own-data object");
-  }
-  if (snap.context.origin !== M5A_PINNED_CURATION_ORIGIN) {
-    // Structural enforcement of the operator shape requirement: the
-    // curated-provenance marker MUST be present on the materialization
-    // input; the contract cannot be built without it.
-    throw new Error(
+  // Snapshot-once-render-from-locals discipline (M3 step 3a retro §3,
+  // M5a step 1 hardening pass 2026-06-17). Every value is descriptor-
+  // snapshotted into a frozen local before being read; the artifact is
+  // rendered exclusively from these locals. A hostile getter that
+  // returns a safe value during validation and an unsafe value during
+  // render (the TOCTOU shape) cannot smuggle anything: the validated
+  // value IS the rendered value, taken from the same snapshot.
+
+  // (1) Snapshot the options object first. The caller may pass a
+  // hostile options object (Proxy, accessor-backed `flowId`/`now`).
+  const optsSnap = snapshotPlainOwnData(options as unknown, "options");
+  const flowId = requireSafeId(optsSnap.flowId, "options.flowId");
+  const now = requireCanonicalIsoTimestamp(optsSnap.now, "options.now");
+
+  // (2) Snapshot the root materialization input.
+  const rootSnap = snapshotPlainOwnData(materializationInput, "materializationInput");
+
+  // (3) Snapshot the context sub-object. The materialization input's
+  // context carries the curated-provenance marker and the bound ids;
+  // it is the most hostile-input surface in the contract slice.
+  const contextSnap = snapshotPlainOwnData(rootSnap.context, "materializationInput.context");
+
+  // (4) Validate the curated-provenance marker against the pinned
+  // value. STRUCTURAL ENFORCEMENT — the contract refuses every
+  // non-`hand-curated-public` origin, including accessor-backed
+  // origins that pass first-read and switch under second-read (the
+  // snapshot above already prevents that by reading from a frozen
+  // local).
+  const origin = contextSnap.origin;
+  if (origin !== M5A_PINNED_CURATION_ORIGIN) {
+    throw new M5aContractBuilderRefusal(
       `materializationInput.context.origin must be "${M5A_PINNED_CURATION_ORIGIN}"; M5a is curated-source only`,
     );
   }
-  if (typeof snap.context.account_id !== "string" || !SAFE_ID.test(snap.context.account_id)) {
-    throw new Error("materializationInput.context.account_id must be a safe id");
+
+  // (5) Copy validated scalars into locals. Each requireSafeId /
+  // requireCanonicalIsoTimestamp returns the exact validated value;
+  // the artifact below uses ONLY these locals.
+  const accountId = requireSafeId(contextSnap.account_id, "materializationInput.context.account_id");
+  const proposalSetId = requireSafeId(contextSnap.proposal_set_id, "materializationInput.context.proposal_set_id");
+  const materializedAt = requireCanonicalIsoTimestamp(
+    contextSnap.materialized_at,
+    "materializationInput.context.materialized_at",
+  );
+
+  // (6) Snapshot the required arrays. snapshotPlainArray refuses
+  // Proxy arrays, accessor-backed indices, symbol keys, etc., before
+  // any element is read. We only need the lengths from these for
+  // counts; we do NOT read individual elements (the element shape is
+  // a downstream-slice concern: the validate stage of the eventual
+  // flow runs the full graph validator). The snapshot still walks
+  // every index to refuse hostile descriptors.
+  const publicSources = snapshotPlainArray(rootSnap.public_sources, "materializationInput.public_sources");
+  if (publicSources.length === 0) {
+    throw new M5aContractBuilderRefusal("materializationInput.public_sources must be a non-empty array");
   }
-  if (typeof snap.context.proposal_set_id !== "string" || !SAFE_ID.test(snap.context.proposal_set_id)) {
-    throw new Error("materializationInput.context.proposal_set_id must be a safe id");
+  const proposedExcerpts = snapshotPlainArray(rootSnap.proposed_excerpts, "materializationInput.proposed_excerpts");
+  if (proposedExcerpts.length === 0) {
+    throw new M5aContractBuilderRefusal("materializationInput.proposed_excerpts must be a non-empty array");
   }
-  if (typeof snap.context.materialized_at !== "string" || !ISO_TIMESTAMP.test(snap.context.materialized_at)) {
-    throw new Error("materializationInput.context.materialized_at must be a canonical ISO timestamp");
+  const proposedClaims = snapshotPlainArray(rootSnap.proposed_claims, "materializationInput.proposed_claims");
+  if (proposedClaims.length === 0) {
+    throw new M5aContractBuilderRefusal("materializationInput.proposed_claims must be a non-empty array");
   }
-  if (!Array.isArray(snap.public_sources) || snap.public_sources.length === 0) {
-    throw new Error("materializationInput.public_sources must be a non-empty array");
-  }
-  if (!Array.isArray(snap.proposed_excerpts) || snap.proposed_excerpts.length === 0) {
-    throw new Error("materializationInput.proposed_excerpts must be a non-empty array");
-  }
-  if (!Array.isArray(snap.proposed_claims) || snap.proposed_claims.length === 0) {
-    throw new Error("materializationInput.proposed_claims must be a non-empty array");
-  }
-  if (!SAFE_ID.test(options.flowId)) {
-    throw new Error("flowId must be a safe id");
-  }
-  if (!ISO_TIMESTAMP.test(options.now)) {
-    throw new Error("options.now must be a canonical ISO timestamp");
+  // Optional. If present, MUST be an array (snapshotPlainArray
+  // refuses non-array). A hostile caller previously could smuggle a
+  // string in here, making `proposed_account_object_count` a string
+  // at runtime; the snapshot fix prevents this.
+  let proposedAccountObjectsLength = 0;
+  if (rootSnap.proposed_account_objects !== undefined) {
+    const proposedAccountObjects = snapshotPlainArray(
+      rootSnap.proposed_account_objects,
+      "materializationInput.proposed_account_objects",
+    );
+    proposedAccountObjectsLength = proposedAccountObjects.length;
   }
 
-  const contractArtifactId = `m5a-flow-contract:${snap.context.proposal_set_id}:${options.flowId}`;
+  const contractArtifactId = `m5a-flow-contract:${proposalSetId}:${flowId}`;
 
+  // Render the artifact EXCLUSIVELY from validated locals. No snap.*
+  // or options.* read survives past this point — that is the
+  // load-bearing invariant of the snapshot-once-render-from-locals
+  // discipline. A hostile getter that switched between validation
+  // and render passes (the TOCTOU shape) cannot smuggle anything,
+  // because every value below is the validated value.
   return Object.freeze({
     kind: M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME,
     schema_version: M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
     disposable: true as const,
     current_effective_authorization: "none" as const,
     contract_artifact_id: contractArtifactId,
-    flow_id: options.flowId,
-    proposal_set_id: snap.context.proposal_set_id,
-    account_id: snap.context.account_id,
-    materialized_at: snap.context.materialized_at,
-    contracted_at: options.now,
+    flow_id: flowId,
+    proposal_set_id: proposalSetId,
+    account_id: accountId,
+    materialized_at: materializedAt,
+    contracted_at: now,
     source_materialization_input_origin: M5A_PINNED_CURATION_ORIGIN,
     next_required_artifact: M5A_NEXT_REQUIRED_ARTIFACT,
     boundaries: Object.freeze({
@@ -475,8 +645,8 @@ export function buildM5aCuratedProposalFlowContract(
     approval_packet_shape: Object.freeze({
       required_kind: "m5a-curated-proposal-flow-approval-packet" as const,
       must_reference_contract_artifact_id: contractArtifactId,
-      must_reference_materialization_input_proposal_set_id: snap.context.proposal_set_id,
-      must_reference_account_id: snap.context.account_id,
+      must_reference_materialization_input_proposal_set_id: proposalSetId,
+      must_reference_account_id: accountId,
       drafted_and_unarmed_by_default: true as const,
       max_flow_executions: 1 as const,
       retry_budget: 0 as const,
@@ -485,14 +655,25 @@ export function buildM5aCuratedProposalFlowContract(
       operator_arming_required_for_flow_execution: true as const,
       inherits_forbids_fresh_provider_call_on_flow_path: true as const,
       inherits_forbids_system_side_acquisition: true as const,
+      // Positive trust-tier pins — operator hardening 2026-06-17. The
+      // packet is required to carry the row trust label and the per-
+      // record provenance status as POSITIVE values, not merely the
+      // negative "not verified" prohibition. The M3 step 3a retro §1
+      // discipline made these positive structural properties of the
+      // durable store; the contract slice carries them forward as
+      // positive requirements on step 2 so the inheritance is a
+      // constraint, not a promise.
+      required_row_trust_label: M5A_PINNED_ROW_TRUST_LABEL,
+      required_per_record_provenance_status: M5A_PINNED_PER_RECORD_PROVENANCE_STATUS,
+      forbidden_per_record_provenance_statuses: Object.freeze(["verified"] as const),
       mediation_gate_level: M5A_PINNED_MEDIATION_GATE_LEVEL,
       target_store: M5A_PINNED_TARGET_STORE,
     }),
     counts: Object.freeze({
-      curated_source_count: snap.public_sources.length,
-      proposed_excerpt_count: snap.proposed_excerpts.length,
-      proposed_claim_count: snap.proposed_claims.length,
-      proposed_account_object_count: snap.proposed_account_objects?.length ?? 0,
+      curated_source_count: publicSources.length,
+      proposed_excerpt_count: proposedExcerpts.length,
+      proposed_claim_count: proposedClaims.length,
+      proposed_account_object_count: proposedAccountObjectsLength,
       described_flow_executions: 1 as const,
       flows_executed: 0 as const,
       durable_writes_executed: 0 as const,

@@ -59,7 +59,7 @@ Target file (when the implementation slice eventually lands): `src/safety/own-da
 
 Proposed exports:
 
-- `snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>>` — descriptor-snapshot a single plain own-data object. Refuses Proxy-backed input, non-object/null/Array input, symbol-keyed input, unsafe-key input (`__proto__`/`constructor`/`prototype`), and accessor-backed properties. Returns a frozen plain object built from descriptor `value` fields. Wraps `Object.getOwnPropertyDescriptors` in try/catch (the reader's belt-and-suspenders for hostile descriptor traps).
+- `snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>>` — descriptor-snapshot a single plain own-data object. Refuses Proxy-backed input, non-object/null/Array input, symbol-keyed input, unsafe-key input (`__proto__`/`constructor`/`prototype`), accessor-backed properties (descriptor lacks `value`), and non-enumerable properties (descriptor has `value` but `enumerable === false`). Returns a frozen plain object built from descriptor `value` fields. Wraps `Object.getOwnPropertyDescriptors` in try/catch as conservative failure shaping (parity with the reader; Proxy traps are already closed at the `isProxy` gate).
 - `snapshotPlainArray(value: unknown, label: string, options?: { maxLength?: number }): readonly unknown[]` — descriptor-snapshot an array so accessor-backed indices are refused without firing. Refuses Proxy-backed input, non-array input, symbol-keyed input on the array itself, length read via descriptor (never `value.length` directly — see §3 Q3), accessor-backed indices, missing indices. Optional `maxLength` (call-site choice). Returns a frozen array.
 - `deepFreeze<T>(value: T): T` — recursively freeze a plain own-data value. Operates only on objects and arrays already vouched-for as plain own-data (does not invoke getters; does not snapshot). Used by call sites that return a validated value and want it sealed against post-validation mutation (current sole user: reader).
 - `OwnDataSnapshotRefusal extends Error` — typed refusal class. Carries `code: OwnDataSnapshotRefusalCode` and `detail: string`. Call sites catch this and translate to their own existing typed refusals (executor → `WorkshopProposalDurableWriteRefusalCode`; reader → `WorkshopProposalDurableSnapshotsReaderRefusalCode`; render → `DurableStateRenderRefusal`). The consolidated primitive does NOT impose its codes on the call sites; the call sites preserve their existing surfaced refusal codes for audit-trail compatibility.
@@ -84,11 +84,14 @@ Proposed `OwnDataSnapshotRefusalCode` enumeration (the union of what executor/re
 - `descriptors_unavailable` — `Object.getOwnPropertyDescriptors` threw on the input (currently only the reader catches this; union rule keeps it).
 - `symbol_keyed` — input carries symbol-keyed own properties (all three sites refuse on objects; only render refuses on arrays — union rule extends array refusal to consolidated primitive).
 - `unsafe_key` — input carries `__proto__`, `constructor`, or `prototype` as own keys (all three sites refuse).
-- `accessor_backed` — a key (or array index) has a descriptor with no `value` (accessor get/set or non-enumerable) (all three sites refuse).
+- `accessor_backed` — a key's descriptor lacks a `value` field because it is an accessor descriptor (a getter/setter pair). All three sites refuse this; the consolidated primitive surfaces it as its own code so the failure mode is greppable in audit trails. Do not collapse with `non_enumerable` below; they are distinct shapes of bad input.
+- `non_enumerable` — a key's descriptor has a `value` field but `enumerable === false`. All three sites currently refuse this on the same branch as `accessor_backed` (because they only accept descriptors that are both enumerable and own-data); the consolidated primitive splits the two codes so non-enumerable own-data properties surface as their own refusal in the audit trail.
 - `not_array` — `snapshotPlainArray` invoked on a non-array (all three sites that have an array helper refuse; reader has no array helper, so this is new for the reader's call sites if any).
 - `array_length_invalid` — length is not a non-negative integer when read via descriptor (executor uses `Number.isSafeInteger`; render uses `Number.isInteger` — see §3 Q5; consolidated primitive uses the stricter `Number.isSafeInteger`).
 - `array_length_exceeds_max` — when `maxLength` is provided and length exceeds it (only executor checks this currently; union rule keeps it as an opt-in).
-- `array_index_missing` — `getOwnPropertyDescriptor(arr, i)` returned undefined for `0 ≤ i < length` (only render currently checks this as a distinct condition; executor merges it with accessor-backed; union rule keeps the granular separation — see §3 Q9).
+- `array_index_missing` — `getOwnPropertyDescriptor(arr, i)` returned undefined for `0 ≤ i < length` (only render currently checks this as a distinct condition; executor merges all three array-index failure modes into one diagnostic bucket; union rule splits them — see Q7).
+- `array_index_accessor_backed` — array index `i`'s descriptor lacks `value` (accessor on an index).
+- `array_index_non_enumerable` — array index `i`'s descriptor has `value` but `enumerable === false`. Same do-not-collapse rule as above: keep this distinct from `array_index_accessor_backed` so the audit trail names the actual shape of bad input.
 
 ## 3. Per-site equivalence questions — the ratification surface
 
@@ -105,14 +108,14 @@ For each item: **(C)** = current behavior at each site; **(P)** = plan's recomme
 ### Q2. `Object.getOwnPropertyDescriptors` try/catch wrapping
 
 - **(C)** Reader wraps in try/catch, refuses `row_not_plain_own_data` with detail "descriptors unavailable". Executor and render call directly (uncaught throw propagates).
-- **(P)** Wrap in try/catch in the consolidated primitive; refuse as `descriptors_unavailable`. Rationale: union rule. A sufficiently hostile descriptor trap (on a non-Proxy object with strange prototype chain manipulation) could in principle throw; the reader's belt-and-suspenders is the union-safe choice. The executor and render are not harmed by adopting this (a normal input never throws here).
-- **(R)** Operator ratifies wrap OR direct.
+- **(P)** Wrap in try/catch in the consolidated primitive; refuse as `descriptors_unavailable`. Rationale: **parity with the reader and conservative failure shaping**, not closing a Proxy descriptor-trap exploit. Proxy descriptor traps are already closed at the `isProxy` gate, which runs before reflection. For ordinary (non-Proxy) inputs, `Object.getOwnPropertyDescriptors` should not throw; wrapping is belt-and-suspenders so that if reflection unexpectedly throws (a runtime bug, a host-platform anomaly), the consolidated primitive surfaces a typed refusal rather than an uncaught propagation. Do not attribute Proxy mechanics to ordinary objects.
+- **(R)** Operator ratifies wrap OR direct. The choice is parity / failure shaping, not safety-critical.
 
 ### Q3. Array length read: `value.length` vs descriptor
 
 - **(C)** Executor: reads `value.length` directly. Render: reads length via `Object.getOwnPropertyDescriptor(value, "length")` and checks `"value" in descriptor`.
-- **(P)** Descriptor read (the render approach). Rationale: `value.length` on a non-Proxy array with a getter installed on `"length"` will fire the getter — exactly the kind of accessor-backed-index gap the render's Round-2 hardening sealed for `"0"`. The executor's current approach has this subtle gap; it has not been exploited because the executor's arming/contract inputs are never arrays at the top level, but the consolidated primitive must not paper over the difference. Functionally equivalent on legitimate arrays.
-- **(R)** Operator ratifies descriptor-read OR direct-read. Recommendation is strong: descriptor-read closes a real gap.
+- **(P)** Descriptor read (the render approach). Rationale: **consistency**, not closing a non-Proxy exploit. Proxy length traps are already closed at the `isProxy` gate (§Q1-adjacent: every entry to a snapshot helper passes `nodeUtilTypes.isProxy` first). For a real (non-Proxy) `Array`, `length` is a non-configurable own data property — there is no reachable scenario in which a non-Proxy Array fires a getter on `.length`. The recommendation to descriptor-read is for keeping all property reads inside one reflection style and matching the rest of the snapshot discipline, not because it closes a behavioral gap on legitimate Array inputs. Functionally equivalent on every input the snapshot path accepts.
+- **(R)** Operator ratifies descriptor-read OR direct-read. The choice is style/consistency, not safety-critical.
 
 ### Q4. Symbol-key check on arrays
 
@@ -122,9 +125,9 @@ For each item: **(C)** = current behavior at each site; **(P)** = plan's recomme
 
 ### Q5. Length integer-validation: `Number.isSafeInteger` vs `Number.isInteger`
 
-- **(C)** Executor uses `Number.isSafeInteger` (refuses lengths above 2^53 − 1). Render uses `Number.isInteger` (accepts integer-valued floats up to `Number.MAX_VALUE`).
-- **(P)** `Number.isSafeInteger` (the stricter check). Rationale: union rule. Above `Number.MAX_SAFE_INTEGER`, integer arithmetic loses precision; an array longer than that is operationally indistinguishable from a corrupted input. Functionally equivalent on legitimate arrays.
-- **(R)** Operator ratifies stricter OR looser.
+- **(C)** Executor uses `Number.isSafeInteger`. Render uses `Number.isInteger`.
+- **(P)** `Number.isSafeInteger`. Rationale: real `Array` length is constrained by ECMAScript semantics (`0 ≤ length ≤ 2^32 − 1`); it cannot be an arbitrary huge integer on a non-Proxy Array, so the divergence between the two checks is not a reachable behavioral gap on legitimate inputs. The recommendation is **consistency + executor parity + defense-in-depth**: `Number.isSafeInteger` is the stricter check, it matches what the executor already does, and it is harmless on legitimate arrays. Not a proven reachable divergence.
+- **(R)** Operator ratifies stricter (`isSafeInteger`) OR looser (`isInteger`). The choice is consistency, not safety-critical.
 
 ### Q6. `maxLength` parameter
 
@@ -132,11 +135,11 @@ For each item: **(C)** = current behavior at each site; **(P)** = plan's recomme
 - **(P)** Consolidated primitive accepts `maxLength` as an optional parameter (`options.maxLength`); default unbounded. Call sites pass their own cap when they need defense-in-depth against memory exhaustion. Equivalent on legitimate inputs at all sites; preserves executor's existing protection at its call sites; gives render the same option without forcing it.
 - **(R)** Operator ratifies optional-cap OR no-cap (force unbounded everywhere).
 
-### Q7. Missing-index vs accessor-backed-index: granular vs merged
+### Q7. Array-index failure modes: granular three-way split vs merged single bucket
 
-- **(C)** Render separates: `[i] is missing` (descriptor is `undefined`) vs `[i] must be a plain own-data value (no accessors)` (descriptor exists but lacks `value`). Executor merges both into one: "must contain only enumerable own data items".
-- **(P)** Keep separate (render's granularity). Rationale: debuggability. Different shapes of bad input deserve different refusal codes; surfaced refusal codes go into the audit trail. Functionally equivalent: both still refuse.
-- **(R)** Operator ratifies granular OR merged.
+- **(C)** Render separates two: `[i] is missing` (descriptor is `undefined`) vs `[i] must be a plain own-data value (no accessors)` (descriptor exists but lacks `value`, OR `enumerable === false`). Executor merges all three into one: "must contain only enumerable own data items".
+- **(P)** Three-way split, matching the §2 refusal-code family: `array_index_missing` (descriptor `undefined`), `array_index_accessor_backed` (descriptor lacks `value` because it is a getter/setter pair), `array_index_non_enumerable` (descriptor has `value` but `enumerable === false`). The render's two-way split is closer than the executor's merged form; the plan goes one finer because accessor-backed and non-enumerable are genuinely different shapes of bad input and the audit trail should say which. Functionally equivalent: all three still refuse.
+- **(R)** Operator ratifies three-way OR two-way (render's current) OR merged (executor's current).
 
 ### Q8. Per-field accessor refusal message: specific vs generic
 
@@ -181,6 +184,8 @@ Already stated in §2 as the load-bearing claim. Repeated here so the safety con
 > **Union, never intersection.** The consolidated own-data-snapshot primitive refuses on the union of everything any of the three call sites currently refuses on. Consolidation never removes a refusal. If site A checks a condition site B does not, the consolidated primitive checks it for both.
 
 The safety contract test for this plan asserts the runbook contains this exact sentence verbatim. The implementation-slice's safety contract test (which lands with `src/safety/own-data-snapshot.ts`) asserts the same sentence is present in the consolidated module's header comment.
+
+**Review responsibility note.** The safety contract test locks the presence of these plan claims in greppable form; it does not prove the JavaScript-semantics rationale behind any individual ratification recommendation. Claim correctness — whether `value.length` on a non-Proxy Array can or cannot fire a getter, whether `Number.isSafeInteger` is reachably distinguishable from `Number.isInteger` on a legitimate Array length, whether a hostile descriptor trap is reachable from an ordinary (non-Proxy) input — remains a review responsibility. CI certifies that the plan claims appear; it does not certify that those claims are true. Operator ratification is the gate on truth.
 
 ## 5. Migration plan per call site
 

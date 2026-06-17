@@ -77,6 +77,47 @@ test("each Q in §3 surfaces a divergence between sites and asks for ratificatio
   assert.ok(ratificationAsks >= 12, `expected at least 12 ratification asks in §3, got ${ratificationAsks}`);
 });
 
+test("the refusal-code family splits accessor_backed from non_enumerable (objects and arrays) per the do-not-collapse rule", () => {
+  const status = read(STATUS);
+  // Object-level: distinct codes for accessor descriptors vs non-
+  // enumerable own-data descriptors.
+  assert.match(status, /`accessor_backed`/);
+  assert.match(status, /`non_enumerable`/);
+  assert.match(status, /Do not collapse with `non_enumerable` below/);
+  // Array-level: the same split, plus the missing-index code.
+  assert.match(status, /`array_index_missing`/);
+  assert.match(status, /`array_index_accessor_backed`/);
+  assert.match(status, /`array_index_non_enumerable`/);
+});
+
+test("the JS-semantics rationale on Q2/Q3/Q5 attributes Proxy mechanics only to Proxies, not to ordinary inputs", () => {
+  const status = read(STATUS);
+  // Q3: the recommendation is consistency, not "closing a real gap"
+  // on legitimate Arrays.
+  assert.match(status, /Q3\./);
+  assert.match(status, /Proxy length traps are already closed at the `isProxy` gate/);
+  assert.match(status, /`length` is a non-configurable own data property/);
+  assert.match(status, /no reachable scenario in which a non-Proxy Array fires a getter on `\.length`/);
+  // Q5: real Array length is constrained; the divergence is not a
+  // reachable behavioral gap on legitimate inputs.
+  assert.match(status, /Q5\./);
+  assert.match(status, /real `Array` length is constrained by ECMAScript semantics/);
+  assert.match(status, /cannot be an arbitrary huge integer on a non-Proxy Array/);
+  assert.match(status, /Not a proven reachable divergence\./);
+  // Q2: parity with the reader / conservative failure shaping, not
+  // attributing Proxy mechanics to ordinary objects.
+  assert.match(status, /Q2\./);
+  assert.match(status, /Proxy descriptor traps are already closed at the `isProxy` gate, which runs before reflection/);
+  assert.match(status, /Do not attribute Proxy mechanics to ordinary objects\./);
+});
+
+test("the review-responsibility note distinguishes what CI certifies from what operator ratification certifies", () => {
+  const status = read(STATUS);
+  assert.match(status, /Review responsibility note/);
+  assert.match(status, /CI certifies that the plan claims appear; it does not certify that those claims are true\./);
+  assert.match(status, /Operator ratification is the gate on truth\./);
+});
+
 test("the four seed fixtures from the 3b hardening cycle are named in §6", () => {
   const status = read(STATUS);
   assert.match(status, /Probe 1 \(Round 1\):\*\* post-read nested mutation/);

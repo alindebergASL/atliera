@@ -23,7 +23,7 @@ The default product-track sequence is:
 
 **M3 → M5a (loop proof, curated public sources) → M4 (acquisition capstone) → M5b (does-its-job-once, system-acquired sources).**
 
-Any reordering carries the burden of proof: the alternative must explicitly justify why the curated loop proof would not suffice as the doctrine-loop capstone, or why the M4 risk class is required before the durable ratification path closes. The earlier open decision (M4-before-M5 vs. curated-source M5) is resolved into this default; the reordering question remains open as *burden of proof on the challenger*. The substantive justification and the M5-wording drift this introduces are recorded in `docs/reviews/phase-0-retro-and-m5-drift.md`.
+Any reordering carries the burden of proof: the alternative must explicitly justify why the curated loop proof would not suffice as the doctrine-loop capstone, or why the M4 risk class is required before the durable ratification path closes. The earlier open decision (M4-before-M5 vs. curated-source M5) is resolved into this default. The M3 retro (`docs/reviews/m3-retro.md`, PR #275 §4) closed the reordering question for the M3-to-M5a step on this burden; it remains reopenable at a future retro under the same *burden of proof on the challenger* framing. The substantive justification and the M5-wording drift this introduces are recorded in `docs/reviews/phase-0-retro-and-m5-drift.md`.
 
 ### H-track freeze
 
@@ -57,9 +57,9 @@ Recurrence/change detection deliberately sits after M7.
 | **H5 — Harness extraction assessment** | ⬜ not started; post-M5b decision point | a decision, not a commitment |
 | **A3 — Outward-facing read-only MCP server over the verified graph** | ⬜ spec-only, deferred until post-M5b | ADR 0003 A3 (not changed by M3 retro freeze lift) |
 
-## Open operator decisions (annotated, not resolved)
+## Operator decisions ledger (annotated; resolved items kept for audit trail)
 
-These are the operator's calls, recorded here so the chart carries them visibly. Per the direction memo §11:
+These are the operator's calls, recorded here so the chart carries them visibly. Items remain on this ledger even after they are resolved, partly closed, or closed-for-the-current-step-and-reopenable-later, so the disposition trail is auditable in one place. Per the direction memo §11:
 
 1. **Fork vs. build** for the M4 fetch server — comparison with audit-cost estimates to be presented at H2 completion. (H-track freeze lifted at M3 retro, PR #275; H3 first, then H1 paired with M5a, then H2 before M4.)
 2. **Fetched-content legal posture** (robots.txt, takedown workflow, retention) — M4 must surface a concrete proposal; the decision is not Claude Code's to make.

@@ -507,7 +507,6 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
 
   // (f) Identification ids — packet must bind to its contract.
   const packetArtifactId = requireSafeIdOrRefuse(p.packet_artifact_id, "packet.packet_artifact_id");
-  void packetArtifactId;
   const referencesContractId = requireSafeIdOrRefuse(
     p.references_contract_artifact_id,
     "packet.references_contract_artifact_id",
@@ -542,9 +541,40 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
     throw new M5aApprovalPacketRefusal("packet.expires_at must be strictly after packet.drafted_at");
   }
 
-  // (i) Operator identity.
+  // (i) Operator identity. Snapshot the value into a local for the
+  // canonical-form check below — the value must come from the same
+  // snapshot the rest of the verifier reads from, NOT a fresh read
+  // of `p.drafted_by` at the comparison site (that would be the
+  // validate-then-reread TOCTOU shape the M5a step 1 hardening
+  // already closed, recurring at this layer).
   if (typeof p.drafted_by !== "string" || !SAFE_OPERATOR_IDENTITY.test(p.drafted_by)) {
     throw new M5aApprovalPacketRefusal("packet.drafted_by must be a safe operator identity string");
+  }
+  const draftedBy: string = p.drafted_by;
+
+  // (i.5) packet_artifact_id canonical form check (Hermes catch
+  // 2026-06-17; the builder-side fix established the canonical form
+  // by construction, but the verifier did not enforce it. A hand-
+  // constructed packet whose ID was forged — including the load-
+  // bearing case of an ID that embeds a different contract reference
+  // while the triple stays correct — passed verification. The
+  // verifier must re-derive the canonical ID from its own validated
+  // locals and refuse on mismatch.)
+  //
+  // The expected ID is computed from the validator's own validated
+  // locals (`referencesContractId`, `draftedBy`, `draftedAt`),
+  // each of which has already been snapshot-backed and validated
+  // above. No fresh read of `p.*` happens at this comparison —
+  // every input to the canonical form is a local string already
+  // proven safe. This re-derivation enforces the builder's by-
+  // construction invariant on the verify path: builder generates
+  // canonical, verifier requires canonical, two claims, both now
+  // structurally true.
+  const expectedPacketArtifactId = `m5a-pkt:${referencesContractId}:${draftedBy}:${draftedAt}`;
+  if (packetArtifactId !== expectedPacketArtifactId) {
+    throw new M5aApprovalPacketRefusal(
+      `packet.packet_artifact_id (${packetArtifactId}) does not match its canonical form derived from references_contract_artifact_id / drafted_by / drafted_at (expected: ${expectedPacketArtifactId})`,
+    );
   }
 
   // (j) eventual_authorization block — Path-1 enforced structurally.

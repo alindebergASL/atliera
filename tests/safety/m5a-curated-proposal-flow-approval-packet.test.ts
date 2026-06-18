@@ -481,6 +481,84 @@ describe("M5a step 2 — packet_artifact_id uniqueness (the SAFE_ID-truncation s
   });
 });
 
+describe("M5a step 2 — packet_artifact_id canonical-form enforcement on the VERIFY path (Hermes catch 2026-06-17)", () => {
+  // Hermes ran tree-side hostile probes on the live verifier and found
+  // that the canonical-form regressions above tested the BUILD path
+  // only — they all started from a built packet and asserted properties
+  // of its ID. The verifier accepted hand-constructed packets whose
+  // packet_artifact_id was safe-shaped but forged.
+  //
+  // The fix re-derives the canonical ID in the verifier from its own
+  // validated locals (references_contract_artifact_id, drafted_by,
+  // drafted_at) and refuses on mismatch. The three regressions below
+  // construct forged packets by hand (NOT from the builder) and feed
+  // them to the verifier — the property under test is the verify-side
+  // enforcement, not the build-side construction.
+
+  test("Hermes H1 — a hand-constructed packet with the LEGACY SHORTENED id is refused (the regressed builder bug, now reachable through forgery)", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const forged = mutate(packet, (p) => {
+      p.packet_artifact_id = "m5a-pkt:public-curated-20260611a:reviewer_demo:2026-06-17T00:00:00Z";
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(forged, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Hermes H2 — a hand-constructed packet with an ARBITRARY SAFE id is refused (safe-shape is not enough)", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const forged = mutate(packet, (p) => {
+      p.packet_artifact_id = "m5a-pkt:other-safe-id";
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(forged, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Hermes H3 — a hand-constructed packet whose ID embeds a DIFFERENT contract reference is refused EVEN WHEN the contract-reference triple is otherwise correct (the load-bearing ID-triple-disagreement case)", () => {
+    // The load-bearing forgery: the triple stays correct (the verifier
+    // would accept it on the triple check alone), but the ID embeds a
+    // different contract reference, signaling intent or downstream
+    // confusion. The canonical-form re-derivation catches this even
+    // though every other field is honest.
+    const { contract, packet } = loadLegitimatePacket();
+    const forged = mutate(packet, (p) => {
+      // ID embeds "other-flow" where the real contract_artifact_id has
+      // "m5a-acme-robotics-20260617a". Triple untouched.
+      p.packet_artifact_id =
+        "m5a-pkt:m5a-flow-contract:public-curated-20260611a:other-flow:reviewer_demo:2026-06-17T00:00:00Z";
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(forged, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Hermes H4 — the canonical-form re-derivation uses the VERIFIER'S OWN validated locals, not fresh reads of the packet object (TOCTOU-safe)", () => {
+    // The re-derivation in the verifier reads from `references_contract_
+    // artifact_id`, `drafted_by`, and `drafted_at` — values already
+    // validated and stored in locals by the time the canonical-form
+    // check runs. To confirm the implementation does not accidentally
+    // re-read `p.*` at the comparison site, we inspect the module
+    // source for the canonical-form line and assert it references the
+    // local names, not field paths.
+    const moduleText = read(MODULE);
+    assert.match(
+      moduleText,
+      /const expectedPacketArtifactId = `m5a-pkt:\$\{referencesContractId\}:\$\{draftedBy\}:\$\{draftedAt\}`;/,
+      "canonical-form expected ID must be derived from validated locals (referencesContractId, draftedBy, draftedAt), not from p.* re-reads",
+    );
+  });
+
+  test("Hermes H5 — the legitimate built packet still verifies under the new canonical-form check (no regression on the honest path)", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    // Should not throw.
+    verifyM5aCuratedProposalFlowApprovalPacket(packet, contract);
+  });
+});
+
 describe("M5a step 2 — input snapshot discipline imported from step 1", () => {
   test("the module imports `snapshotPlainOwnData`, `requireSafeId`, `requireCanonicalIsoTimestamp` and `M5aContractBuilderRefusal` from step 1 (single-site M5a-layer consolidation)", () => {
     const moduleText = read(MODULE);

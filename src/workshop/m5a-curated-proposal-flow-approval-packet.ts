@@ -352,10 +352,18 @@ export function buildM5aCuratedProposalFlowApprovalPacket(
 
   // (5) Construct the packet ID and assemble the artifact from
   // validated locals only.
-  // Packet ID is bound to the contract by `references_contract_artifact_id`
-  // below, not by the packet id itself; the id only needs to be unique-
-  // enough within a draft, so we keep it short (SAFE_ID caps at ~120 chars).
-  const packetArtifactId = `m5a-pkt:${proposalSetId}:${draftedBy}:${now}`;
+  // Packet ID encodes the full contractArtifactId (which itself
+  // encodes proposalSetId + flowId from step 1), the drafter, and the
+  // draft time. The earlier shortening dropped flowId, which would
+  // have collided across two contracts sharing a proposal_set_id but
+  // differing only in flow_id; including contractArtifactId restores
+  // uniqueness without re-extracting flow_id. SAFE_ID caps at ~120
+  // chars; the current form is ~111 chars on the committed fixture.
+  // The contract reference triple (references_contract_artifact_id /
+  // proposal_set_id / account_id) is the load-bearing binding for
+  // verifier integrity; the packet_artifact_id is for downstream
+  // identity-based lookups and must stay uniquely identifying.
+  const packetArtifactId = `m5a-pkt:${contractArtifactId}:${draftedBy}:${now}`;
 
   const packet: M5aCuratedProposalFlowApprovalPacketArtifact = Object.freeze({
     kind: M5A_APPROVAL_PACKET_KIND,

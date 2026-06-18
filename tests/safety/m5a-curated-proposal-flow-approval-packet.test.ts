@@ -418,6 +418,69 @@ describe("M5a step 2 — hostile-probe regression suite (approval-state counterf
   });
 });
 
+describe("M5a step 2 — packet_artifact_id uniqueness (the SAFE_ID-truncation safety check)", () => {
+  // The packet ID was originally shortened to fit SAFE_ID's 121-char
+  // cap. The first shortening dropped flow_id, which would have
+  // collided across two contracts sharing a proposal_set_id but
+  // differing in flow_id. The fix encodes the full contractArtifactId
+  // (which itself encodes proposal_set_id + flow_id from step 1) in
+  // the packet ID. These tests lock the property a downstream slice
+  // depends on: packet_artifact_id is uniquely identifying.
+
+  test("two contracts over the same proposal_set_id but different flow_ids produce distinct packet_artifact_ids", () => {
+    const input = JSON.parse(readFileSync(MATERIALIZATION_INPUT_FIXTURE, "utf8")) as Record<string, unknown>;
+    const contractA = buildM5aCuratedProposalFlowContract(input, {
+      flowId: "m5a-acme-robotics-20260617a",
+      now: CONTRACT_NOW,
+    });
+    const contractB = buildM5aCuratedProposalFlowContract(input, {
+      flowId: "m5a-acme-robotics-20260617b",
+      now: CONTRACT_NOW,
+    });
+    // The two contracts have the same proposal_set_id but different
+    // contract_artifact_ids — exactly the collision-risk shape.
+    assert.equal(contractA.proposal_set_id, contractB.proposal_set_id);
+    assert.notEqual(contractA.contract_artifact_id, contractB.contract_artifact_id);
+
+    const packetA = buildM5aCuratedProposalFlowApprovalPacket(contractA, {
+      now: NOW,
+      expiresAt: EXPIRES,
+      draftedBy: DRAFTED_BY,
+    });
+    const packetB = buildM5aCuratedProposalFlowApprovalPacket(contractB, {
+      now: NOW,
+      expiresAt: EXPIRES,
+      draftedBy: DRAFTED_BY,
+    });
+    assert.notEqual(
+      packetA.packet_artifact_id,
+      packetB.packet_artifact_id,
+      "packets over distinct contracts must not share a packet_artifact_id",
+    );
+    // The triple also differs at the contract_artifact_id slot.
+    assert.notEqual(
+      packetA.references_contract_artifact_id,
+      packetB.references_contract_artifact_id,
+    );
+  });
+
+  test("packet_artifact_id encodes the contract_artifact_id (so the ID and the contract-reference triple cannot point at different contracts)", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    assert.ok(
+      packet.packet_artifact_id.includes(contract.contract_artifact_id),
+      "packet_artifact_id must encode the contract_artifact_id verbatim, not a fragment of it",
+    );
+  });
+
+  test("packet_artifact_id stays within SAFE_ID's 121-char cap on the committed fixture", () => {
+    const { packet } = loadLegitimatePacket();
+    assert.ok(
+      packet.packet_artifact_id.length <= 121,
+      `packet_artifact_id length ${packet.packet_artifact_id.length} exceeds SAFE_ID cap of 121`,
+    );
+  });
+});
+
 describe("M5a step 2 — input snapshot discipline imported from step 1", () => {
   test("the module imports `snapshotPlainOwnData`, `requireSafeId`, `requireCanonicalIsoTimestamp` and `M5aContractBuilderRefusal` from step 1 (single-site M5a-layer consolidation)", () => {
     const moduleText = read(MODULE);

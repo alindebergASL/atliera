@@ -91,3 +91,4 @@ export * from "./workshop/durable-graph-snapshots-reader.ts";
 export * from "./workshop/durable-state-render.ts";
 export * from "./workshop/m5a-curated-proposal-flow-contract.ts";
 export * from "./workshop/m5a-curated-proposal-flow-approval-packet.ts";
+export * from "./workshop/m5a-curated-proposal-flow-operator-arming.ts";

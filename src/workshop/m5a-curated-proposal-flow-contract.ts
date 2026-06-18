@@ -324,7 +324,7 @@ export class M5aContractBuilderRefusal extends Error {
 // scope. The fourth site needing this pattern is recorded as an H3
 // retro input in the slice runbook (`docs/runbooks/m5a-curated-
 // proposal-flow-contract-status.md`, "H3 retro input" section).
-function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>> {
+export function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<string, unknown>> {
   if (nodeUtilTypes.isProxy(value)) {
     throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
   }
@@ -362,7 +362,7 @@ function snapshotPlainOwnData(value: unknown, label: string): Readonly<Record<st
 // pattern is the discipline H3 will consolidate). Refuses Proxy
 // arrays, symbol-keyed arrays, accessor-backed indices, missing
 // indices, non-enumerable indices.
-function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
+export function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
   if (nodeUtilTypes.isProxy(value)) {
     throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
   }
@@ -403,7 +403,7 @@ function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
 // shape but not component ranges. Date.parse rejects impossible
 // components, and the round-trip canonical form check rejects any
 // surprises Date might silently coerce away.
-function isCanonicalIsoTimestamp(s: string): boolean {
+export function isCanonicalIsoTimestamp(s: string): boolean {
   if (typeof s !== "string") return false;
   if (!ISO_TIMESTAMP_SHAPE.test(s)) return false;
   const t = Date.parse(s);
@@ -425,14 +425,14 @@ function isCanonicalIsoTimestamp(s: string): boolean {
   return canonical === normalized;
 }
 
-function requireSafeId(value: unknown, label: string): string {
+export function requireSafeId(value: unknown, label: string): string {
   if (typeof value !== "string" || !SAFE_ID.test(value)) {
     throw new M5aContractBuilderRefusal(`${label} must be a safe id`);
   }
   return value;
 }
 
-function requireCanonicalIsoTimestamp(value: unknown, label: string): string {
+export function requireCanonicalIsoTimestamp(value: unknown, label: string): string {
   if (typeof value !== "string" || !isCanonicalIsoTimestamp(value)) {
     throw new M5aContractBuilderRefusal(`${label} must be a canonical ISO timestamp`);
   }

@@ -95,7 +95,7 @@ test("authority docs point to the approval packet without turning it into effect
 
   assert.match(index, /`lab-bounded-deployment-execution-approval-packet\.md`\s*\|\s*inert-approval/i);
   assert.match(index, /current_effective_authorization: none/i);
-  assert.match(index, /next recommended work: no authority is implied by this index; require an explicit operator decision for any later slice/i);
+  assert.match(index, /next recommended work: this index creates no authority; it records the already-ratified conditional successor below, and every other later slice requires a new explicit operator decision/i);
   assert.match(blockers, /bounded lab deployment execution approval packet/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);

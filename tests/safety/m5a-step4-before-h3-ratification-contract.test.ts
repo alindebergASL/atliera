@@ -41,22 +41,18 @@ function markerValue(block: string, key: string): string {
   return matches[0]!;
 }
 
-test("roadmap records Step 4 implemented while M5a remains in progress for retro and successor approval", () => {
+test("roadmap records M5a shipped with its visible artifact and closeout successor surface", () => {
   const row = tableRow(roadmap, "M5a — Doctrine-loop proof, curated public sources");
 
-  assert.ok(row.includes("🔶 in progress"), "M5a status must be in progress");
+  assert.ok(row.includes("✅ shipped"), "M5a status must be shipped after its closeout");
   assert.ok(row.includes("PRs #278 (`6205c4a`)"), "M5a Step 1 merge must be anchored");
   assert.ok(row.includes("#279 (`d09ac17`)"), "M5a Step 2 merge must be anchored");
   assert.ok(row.includes("#280 (`dc0381f`)"), "M5a Step 3 merge must be anchored");
-  assert.ok(
-    row.includes("the Step-3 baseline is `dc0381fb539df85ed1fa814ad0969d73d6b07d78`"),
-    "the full merged Step-3 baseline must remain pinned",
-  );
-  assert.ok(row.includes("Step 4 implemented through PR #282"), "Step 4 implementation must be recorded");
-  assert.match(row, /capstone retro/i, "M5a must remain open for its capstone retro");
-  assert.match(row, /successor approval surface/i, "M5a must remain open for a successor approval surface");
+  assert.ok(row.includes("Step 4 merged through PR #282 (`9661468`)"), "Step 4 merge must be recorded");
+  assert.ok(row.includes("fixtures/workshop/m5a-curated-proposal-flow-capstone.html"), "visible artifact must be named");
+  assert.ok(row.includes("docs/reviews/m5a-product-closeout-retro.md"), "closeout successor surface must be named");
   assert.doesNotMatch(row, /Step 4 is next/i, "implemented Step 4 must not remain described as next");
-  assert.doesNotMatch(row, /not started/i, "the active M5a row must not retain its stale status");
+  assert.doesNotMatch(row, /not started/i, "the shipped M5a row must not retain its stale status");
 });
 
 test("product-track ordering remains M3 to M5a to M4 to M5b", () => {
@@ -75,9 +71,9 @@ test("product-track ordering remains M3 to M5a to M4 to M5b", () => {
   );
 });
 
-test("operator ratification selected Step 4 before H3 and the living roadmap now closes successor authority", () => {
+test("operator ratification selected Step 4 before H3 and the living roadmap preserves that history", () => {
   const provenance = section(decision, "##", "Decision provenance");
-  const currentSlice = section(roadmap, "###", "M5a Step 4 implementation record and closed successor gate");
+  const currentSlice = section(roadmap, "###", "M5a shipped: visible capstone and bounded successor approval");
 
   assert.ok(provenance.includes("earlier **agent recommendation**"), "agent recommendation must be attributable");
   assert.ok(provenance.includes("was advisory"), "agent recommendation must be explicitly non-authoritative");
@@ -89,31 +85,36 @@ test("operator ratification selected Step 4 before H3 and the living roadmap now
     "the historical ratification must preserve the selected Step 4 sequence",
   );
   assert.ok(
-    currentSlice.includes("before H3 implementation unless a concrete safety blocker emerges"),
+    currentSlice.includes("before H3 implementation unless a concrete safety blocker emerged"),
     "the historical Step 4-before-H3 sequence must remain attributable",
   );
   assert.ok(currentSlice.includes("implemented through PR #282"), "living status must record Step 4 implementation");
-  assert.match(currentSlice, /new explicit operator decision for any later slice/i);
+  assert.match(currentSlice, /compact packet and explicit operator GO/i);
 });
 
 test("H3 plan state and H1/H3 sequencing are reconciled without rewriting history", () => {
   const hTrackNarrative = section(roadmap, "###", "H-track sequencing after the freeze");
   const h1Row = tableRow(roadmap, "H1 — Approvals as typed data");
+  const h2Row = tableRow(roadmap, "H2 — Capability registry + CapabilityExecution records + mediation gate skeleton (L0 only) + audit/accounting extension");
   const h3Row = tableRow(roadmap, "H3 — Snapshot-primitive consolidation + negative-control automation");
 
   assert.ok(hTrackNarrative.includes("H3's plan is complete and merged through PR #277"), "H3 plan must be complete and merged");
   assert.ok(
-    hTrackNarrative.includes("H3 implementation remains unstarted and requires a new explicit operator decision after the M5a capstone retro"),
-    "H3 implementation must remain closed pending the retro and a fresh decision",
+    hTrackNarrative.includes("selects only the separate H2 no-network capability-registry/mediation/echo proof"),
+    "the closeout must select the separate no-network H2 proof",
   );
-  assert.ok(h1Row.includes("Not a prerequisite for or paired with M5a Step 4"), "H1 must not gate or pair with Step 4");
-  assert.doesNotMatch(h1Row, /queued behind H3/i, "H1 must not retain the stale queue status");
-  assert.ok(h3Row.includes("implementation not started; plan complete/merged"), "H3 row must distinguish plan from implementation");
+  assert.ok(h1Row.includes("not next-up"), "H1 must not become a standalone next slice");
+  assert.ok(h2Row.includes("next bounded implementation"), "H2 must be the next bounded implementation");
+  assert.ok(h2Row.includes("Separate no-network slice"), "H2 must remain separate from M4 and network effects");
+  assert.ok(h2Row.includes("inert echo is the first registered capability"), "H2 must require the inert echo proof");
+  assert.ok(h2Row.includes("retry budget is deterministically zero"), "H2 must pin a deterministic no-retry budget");
+  assert.ok(h2Row.includes("No HTTP/network fetch, acquisition, provider/model call, private read, production write or deployment"), "H2 must close network and adjacent effects");
+  assert.ok(h3Row.includes("implementation not started; plan complete/merged; not next-up"), "H3 row must distinguish plan from implementation and stay deferred");
   assert.doesNotMatch(h3Row, /next slice/i, "H3 row must not retain the stale next-slice status");
 });
 
 test("Step 4 positive scope is exactly one arming, proposal, local write, read-back, and Workshop artifact", () => {
-  const roadmapScope = section(roadmap, "###", "M5a Step 4 implementation record and closed successor gate");
+  const roadmapScope = section(roadmap, "###", "M5a shipped: visible capstone and bounded successor approval");
   const decisionScope = section(decision, "##", "Exact Step 4 implementation boundary");
 
   assert.equal(markerValue(roadmapScope, "step_4_valid_armings_consumed"), "1");
@@ -130,7 +131,7 @@ test("Step 4 positive scope is exactly one arming, proposal, local write, read-b
 });
 
 test("Step 4 scope separately closes provider, acquisition, private-read, retry, production, deploy, and readiness paths", () => {
-  const roadmapScope = section(roadmap, "###", "M5a Step 4 implementation record and closed successor gate");
+  const roadmapScope = section(roadmap, "###", "M5a shipped: visible capstone and bounded successor approval");
   const decisionScope = section(decision, "##", "Exact Step 4 implementation boundary");
 
   assert.equal(markerValue(roadmapScope, "step_4_provider_calls"), "0");
@@ -150,8 +151,9 @@ test("Step 4 scope separately closes provider, acquisition, private-read, retry,
   assert.equal(markerValue(decisionScope, "step_4_readiness_claims"), "0");
 });
 
-test("living roadmap and runbook index agree that no implementation or effect authority remains", () => {
-  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "none");
+test("living roadmap authorizes only the separate H2 no-network successor while every effect remains closed", () => {
+  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "H2-capability-registry-mediation-echo-no-network");
+  assert.equal(markerValue(roadmap, "implementation_start_condition"), "after-closeout-merge-and-independent-verification");
   assert.equal(markerValue(roadmap, "current_effective_authorization"), "none");
   assert.equal(markerValue(roadmap, "authorizes_flow_execution"), "false");
   assert.equal(markerValue(roadmap, "authorizes_durable_write_effect"), "false");
@@ -162,8 +164,9 @@ test("living roadmap and runbook index agree that no implementation or effect au
   assert.equal(markerValue(roadmap, "authorizes_deployment"), "false");
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
-  assert.match(roadmap, /new explicit operator decision for any later slice/i);
-  assert.match(index, /require an explicit operator decision for any later slice/i);
+  assert.match(roadmap, /live Atliera fetch still requires the compact packet and explicit operator GO/i);
+  assert.match(index, /every other later slice requires a new explicit operator decision/i);
+  assert.match(index, /live acquisition remains unauthorized/i);
 });
 
 test("the historical decision authorizes Step 4 implementation work but no execution effect", () => {

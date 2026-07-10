@@ -10,8 +10,12 @@ Boundary markers:
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
 - next recommended work: no authority is implied by this index; require an explicit operator decision for any later slice
+- ratified next bounded implementation: minimum H2 plus `public_http_fetch_v1` implementation, only after the M5a closeout merges and is independently verified
+- live acquisition remains unauthorized: one compact URL/budget/retention/legal packet and one explicit operator GO are still required
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
+
+No runbook entry authorizes live system-side acquisition.
 
 Status vocabulary:
 

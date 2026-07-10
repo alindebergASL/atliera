@@ -6,7 +6,7 @@
 // against the actual local-durable-db, not a mock.
 
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -25,6 +25,7 @@ import {
 } from "../../src/workshop/proposal-durable-graph-write-execution.ts";
 import type { WorkshopProposalDurableGraphWriteContractArtifact } from "../../src/workshop/proposal-durable-graph-write-contract.ts";
 import type { WorkshopProposalDurableWriteApprovalPacketArtifact } from "../../src/workshop/proposal-durable-graph-write-approval-packet.ts";
+import { graphSnapshotWriteLockPath } from "../../src/db/graph-snapshot-write-lock.ts";
 
 const repoRoot = join(import.meta.dirname, "..", "..");
 const CONTRACT_FIXTURE = join(repoRoot, "fixtures/workshop/workshop-public-proposal-durable-graph-write-contract.json");
@@ -129,6 +130,68 @@ describe("M3 step 3a — the happy path: one real arming produces one durable ro
       assert.equal(auditEvents[0]!.actor_type, "user");
       assert.equal(auditEvents[0]!.actor_id, OPERATOR_IDENTITY);
       assert.equal(auditEvents[0]!.event_type, "claim.ratified");
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe("M3 step 3a — shared graph-snapshot writer lock", () => {
+  test("the shared M5a/M3 lock refuses an alias-path M3 writer without changing JSONL", async () => {
+    const { rootDir, cleanup } = await setupDb();
+    const graphPath = join(rootDir, "tables/graph_snapshots.jsonl");
+    const aliasRoot = `${rootDir}-alias`;
+    try {
+      await symlink(rootDir, aliasRoot, "dir");
+      await writeFile(await graphSnapshotWriteLockPath(graphPath), "busy");
+      const contract = await loadContract();
+      const packet = await loadPacket();
+      const outcome = await executeWorkshopPublicProposalDurableGraphWrite({
+        arming: await freshArming(),
+        contract,
+        approvalPacket: {
+          approval_id: packet.approval_id,
+          contract_artifact_id: packet.contract_artifact_id,
+        },
+        materializationInput: await loadMaterializationInput(),
+        dbRootDir: aliasRoot,
+        now: NOW,
+      });
+      assert.equal(outcome.outcome, "refused");
+      if (outcome.outcome === "refused") {
+        assert.equal(outcome.refusal_code, "lock_busy");
+        assert.equal(outcome.durable_write_performed, false);
+      }
+      assert.equal(await readFile(graphPath, "utf8"), "");
+    } finally {
+      await rm(aliasRoot, { force: true });
+      await cleanup();
+    }
+  });
+
+  test("the M3 writer refuses a symlinked graph table before locking or writing", async () => {
+    const { rootDir, cleanup } = await setupDb();
+    const graphPath = join(rootDir, "tables/graph_snapshots.jsonl");
+    const realGraphPath = `${graphPath}.real`;
+    try {
+      await rename(graphPath, realGraphPath);
+      await symlink(realGraphPath, graphPath);
+      const contract = await loadContract();
+      const packet = await loadPacket();
+      const outcome = await executeWorkshopPublicProposalDurableGraphWrite({
+        arming: await freshArming(),
+        contract,
+        approvalPacket: {
+          approval_id: packet.approval_id,
+          contract_artifact_id: packet.contract_artifact_id,
+        },
+        materializationInput: await loadMaterializationInput(),
+        dbRootDir: rootDir,
+        now: NOW,
+      });
+      assert.equal(outcome.outcome, "refused");
+      if (outcome.outcome === "refused") assert.equal(outcome.refusal_code, "durable_db_unreachable");
+      assert.equal(await readFile(realGraphPath, "utf8"), "");
     } finally {
       await cleanup();
     }
@@ -515,6 +578,34 @@ describe("M3 step 3a — the full reject-path suite (the operator's six enumerat
     } finally {
       await rm(rootDir, { recursive: true, force: true });
     }
+  });
+
+  test("R-operator-5b: a stale deterministic temp file is removed on transaction failure", async () => {
+    const { rootDir, cleanup } = await setupDb();
+    try {
+      const contract = await loadContract();
+      const packet = await loadPacket();
+      const arming = await freshArming();
+      const graphPath = join(rootDir, "tables/graph_snapshots.jsonl");
+      const tempPath = `${graphPath}.${process.pid}.${NOW.replace(/[:.]/g, "-")}.tmp`;
+      await writeFile(tempPath, "stale prepared snapshot\n");
+      const outcome = await executeWorkshopPublicProposalDurableGraphWrite({
+        arming,
+        contract,
+        approvalPacket: {
+          approval_id: packet.approval_id,
+          contract_artifact_id: packet.contract_artifact_id,
+        },
+        materializationInput: await loadMaterializationInput(),
+        dbRootDir: rootDir,
+        now: NOW,
+      });
+      assert.ok(isRefused(outcome));
+      if (outcome.outcome !== "refused") throw new Error("not refused");
+      assert.equal(outcome.refusal_code, "transaction_aborted_mid_write");
+      await assert.rejects(readFile(tempPath, "utf8"), { code: "ENOENT" });
+      assert.equal(await readFile(graphPath, "utf8"), "");
+    } finally { await cleanup(); }
   });
 
   test("R-operator-6: refusals must NOT stamp a mediation_gate_level — refused outcomes never claim an L0 event", async () => {

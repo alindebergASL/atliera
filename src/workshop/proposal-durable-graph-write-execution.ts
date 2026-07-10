@@ -39,10 +39,11 @@
 // operator_identity from the arming). No roles, no sessions, no
 // permissions are modeled. That scope is M6.
 
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { types as nodeUtilTypes } from "node:util";
 
+import { inspectLocalDurableDb } from "../db/local-durable-db.ts";
 import { parseGraphBundle } from "../graph/schema.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
 import type {
@@ -67,6 +68,11 @@ import {
   WORKSHOP_PUBLIC_PROPOSAL_OPERATOR_ARMING_NAME,
   type WorkshopProposalOperatorArmingArtifact,
 } from "./proposal-durable-graph-write-operator-arming.ts";
+import {
+  acquireGraphSnapshotWriteLock,
+  canonicalGraphSnapshotDbRootPath,
+  releaseGraphSnapshotWriteLockBestEffort,
+} from "../db/graph-snapshot-write-lock.ts";
 
 export const WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_NAME =
   "workshop-public-proposal-durable-graph-write-outcome" as const;
@@ -97,6 +103,8 @@ export type WorkshopProposalDurableWriteRefusalCode =
   | "materialization_input_missing_record"
   | "graph_bundle_validation_failed"
   | "durable_db_unreachable"
+  | "lock_busy"
+  | "lock_unavailable"
   | "transaction_aborted_mid_write";
 
 export interface WorkshopProposalDurableWriteRefusedOutcome {
@@ -791,16 +799,50 @@ export async function executeWorkshopPublicProposalDurableGraphWrite(
       contractArtifactId,
     }, now);
   }
-  const path = join(dbRootDir, GRAPH_SNAPSHOTS_RELATIVE_PATH);
-
-  let rows: readonly DurableGraphSnapshotRow[];
+  let canonicalDbRootDir: string;
+  let path: string;
   try {
-    rows = await readExistingRows(path);
-  } catch (e) {
-    const msg = (e as Error).message;
+    canonicalDbRootDir = await canonicalGraphSnapshotDbRootPath(
+      join(dbRootDir, GRAPH_SNAPSHOTS_RELATIVE_PATH),
+    );
+    path = join(canonicalDbRootDir, GRAPH_SNAPSHOTS_RELATIVE_PATH);
+  } catch {
+    return refused("durable_db_unreachable", "durable DB root could not be canonicalized", {
+      approvalId: arming.approval_id,
+      contractArtifactId: arming.contract_artifact_id,
+    }, now);
+  }
+
+  let dbInspection;
+  try {
+    dbInspection = await inspectLocalDurableDb({ rootDir: canonicalDbRootDir });
+  } catch {
+    return refused("durable_db_unreachable", "durable DB inspection failed", {
+      approvalId: arming.approval_id,
+      contractArtifactId: arming.contract_artifact_id,
+    }, now);
+  }
+  if (!dbInspection.ok || dbInspection.databaseStatus !== "initialized") {
+    return refused("durable_db_unreachable", "durable DB is not an initialized local database", {
+      approvalId: arming.approval_id,
+      contractArtifactId: arming.contract_artifact_id,
+    }, now);
+  }
+
+  // Every writer of graph_snapshots.jsonl shares this one-attempt exclusive
+  // lock. Hold it across the current-state read, replay/idempotency checks,
+  // temp write, and rename so M3 and M5a cannot lose each other's append.
+  const lockAcquisition = await acquireGraphSnapshotWriteLock(path);
+  if (!lockAcquisition.ok) {
+    const refusalCode =
+      lockAcquisition.reason === "busy"
+        ? "lock_busy"
+        : lockAcquisition.reason === "create_failed"
+          ? "durable_db_unreachable"
+          : "lock_unavailable";
     return refused(
-      msg === "durable_db_unreachable" ? "durable_db_unreachable" : "transaction_aborted_mid_write",
-      `read failed: ${msg}`,
+      refusalCode,
+      `shared graph-snapshot write lock unavailable: ${lockAcquisition.reason}`,
       {
         approvalId: arming.approval_id,
         contractArtifactId: arming.contract_artifact_id,
@@ -809,156 +851,193 @@ export async function executeWorkshopPublicProposalDurableGraphWrite(
     );
   }
 
-  // R9: arming already consumed against durable state — if the same
-  // approval_id appears on any prior row, this arming was already used.
-  // The arming is one-shot: a second attempt against an already-
-  // consumed arming is refused.
-  for (const row of rows) {
-    if (row.approval_id === arming.approval_id) {
-      // If it is the exact same candidate + idempotency key, fall
-      // through to idempotent_no_op below. Otherwise: refuse.
-      if (row.idempotency_key === idempotencyKey && row.candidate_item_id === candidateItemId) {
-        break;
-      }
-      return refused("arming_already_consumed_against_durable_state", `approval_id ${arming.approval_id} already consumed by row ${row.durable_record_id}`, {
+  try {
+    let lockedDbInspection;
+    try {
+      lockedDbInspection = await inspectLocalDurableDb({ rootDir: canonicalDbRootDir });
+    } catch {
+      return refused("durable_db_unreachable", "locked durable DB inspection failed", {
         approvalId: arming.approval_id,
         contractArtifactId: arming.contract_artifact_id,
       }, now);
     }
-  }
-
-  // Idempotency check: if the same idempotency_key is already there,
-  // emit a no-op outcome — same approval, same candidate, same key
-  // means the write already happened.
-  const hit = findIdempotencyHit(rows, idempotencyKey);
-  if (hit) {
-    return Object.freeze({
-      outcome: "idempotent_no_op" as const,
-      outcome_artifact_name: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_NAME,
-      schema_version: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_SCHEMA_VERSION,
-      idempotency_key: idempotencyKey,
-      idempotent_referenced_row_id: hit.durable_record_id,
-      idempotent_referenced_row_written_at: hit.written_at,
-      checked_at: now,
-      l0_effect_observed_on_this_call: false as const,
-      durable_write_performed_on_this_call: false as const,
-      graph_ingestion_performed_on_this_call: false as const,
-    });
-  }
-
-  // ---- Derive + validate the bundle ----
-
-  let bundle: GraphBundle;
-  let trustLabel: string;
-  try {
-    const derived = deriveBundle(
-      materializationInput,
-      candidateItemId,
-      contractArtifactId,
-      approvalId,
-      arming.operator_identity,
-      now,
-    );
-    bundle = derived.bundle;
-    trustLabel = derived.trustLabel;
-  } catch (e) {
-    const msg = (e as Error).message;
-    return refused(
-      msg === "materialization_input_missing_record" ? "materialization_input_missing_record" : "transaction_aborted_mid_write",
-      `derive failed: ${msg}`,
-      {
+    if (!lockedDbInspection.ok || lockedDbInspection.databaseStatus !== "initialized") {
+      return refused("durable_db_unreachable", "locked durable DB is not initialized", {
         approvalId: arming.approval_id,
         contractArtifactId: arming.contract_artifact_id,
+      }, now);
+    }
+
+    let rows: readonly DurableGraphSnapshotRow[];
+    try {
+      rows = await readExistingRows(path);
+    } catch (e) {
+      const msg = (e as Error).message;
+      return refused(
+        msg === "durable_db_unreachable" ? "durable_db_unreachable" : "transaction_aborted_mid_write",
+        `read failed: ${msg}`,
+        {
+          approvalId: arming.approval_id,
+          contractArtifactId: arming.contract_artifact_id,
+        },
+        now,
+      );
+    }
+
+    // R9: arming already consumed against durable state — if the same
+    // approval_id appears on any prior row, this arming was already used.
+    // The arming is one-shot: a second attempt against an already-
+    // consumed arming is refused.
+    for (const row of rows) {
+      if (row.approval_id === arming.approval_id) {
+        // If it is the exact same candidate + idempotency key, fall
+        // through to idempotent_no_op below. Otherwise: refuse.
+        if (row.idempotency_key === idempotencyKey && row.candidate_item_id === candidateItemId) {
+          break;
+        }
+        return refused("arming_already_consumed_against_durable_state", `approval_id ${arming.approval_id} already consumed by row ${row.durable_record_id}`, {
+          approvalId: arming.approval_id,
+          contractArtifactId: arming.contract_artifact_id,
+        }, now);
+      }
+    }
+
+    // Idempotency check: if the same idempotency_key is already there,
+    // emit a no-op outcome — same approval, same candidate, same key
+    // means the write already happened.
+    const hit = findIdempotencyHit(rows, idempotencyKey);
+    if (hit) {
+      return Object.freeze({
+        outcome: "idempotent_no_op" as const,
+        outcome_artifact_name: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_NAME,
+        schema_version: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_SCHEMA_VERSION,
+        idempotency_key: idempotencyKey,
+        idempotent_referenced_row_id: hit.durable_record_id,
+        idempotent_referenced_row_written_at: hit.written_at,
+        checked_at: now,
+        l0_effect_observed_on_this_call: false as const,
+        durable_write_performed_on_this_call: false as const,
+        graph_ingestion_performed_on_this_call: false as const,
+      });
+    }
+
+    // ---- Derive + validate the bundle ----
+
+    let bundle: GraphBundle;
+    let trustLabel: string;
+    try {
+      const derived = deriveBundle(
+        materializationInput,
+        candidateItemId,
+        contractArtifactId,
+        approvalId,
+        arming.operator_identity,
+        now,
+      );
+      bundle = derived.bundle;
+      trustLabel = derived.trustLabel;
+    } catch (e) {
+      const msg = (e as Error).message;
+      return refused(
+        msg === "materialization_input_missing_record" ? "materialization_input_missing_record" : "transaction_aborted_mid_write",
+        `derive failed: ${msg}`,
+        {
+          approvalId: arming.approval_id,
+          contractArtifactId: arming.contract_artifact_id,
+        },
+        now,
+      );
+    }
+
+    // Validate the bundle against the Atliera graph validator BEFORE
+    // committing it. A bundle that fails validation must never reach the
+    // durable store.
+    const parsed = parseGraphBundle(bundle);
+    if (!parsed.ok) {
+      return refused("graph_bundle_validation_failed", `parse failed: ${parsed.errors[0]?.message ?? "unknown"}`, {
+        approvalId: arming.approval_id,
+        contractArtifactId: arming.contract_artifact_id,
+      }, now);
+    }
+    const report = validateGraphBundle(parsed.value, { mode: "fixture" });
+    if (!report.ok) {
+      return refused("graph_bundle_validation_failed", `validate failed: ${report.hard_failures[0]?.code ?? "unknown"}`, {
+        approvalId: arming.approval_id,
+        contractArtifactId: arming.contract_artifact_id,
+      }, now);
+    }
+
+    // ---- Single-transaction-or-noop write ----
+
+    const durableRecordId = `ratified-write:${contract.proposal_set_id}:${candidateItemId}:${now}`;
+    const row: DurableGraphSnapshotRow = Object.freeze({
+      kind: ATLIERA_GRAPH_SNAPSHOT_ROW_KIND,
+      schema_version: ATLIERA_GRAPH_SNAPSHOT_ROW_SCHEMA_VERSION,
+      durable_record_id: durableRecordId,
+      idempotency_key: idempotencyKey,
+      approval_id: approvalId,
+      contract_artifact_id: contractArtifactId,
+      account_id: contract.account_id,
+      candidate_item_id: candidateItemId,
+      operator_identity: arming.operator_identity,
+      mediation_gate_level: PINNED_MEDIATION_GATE_LEVEL,
+      trust_label: trustLabel,
+      written_at: now,
+      bundle,
+    });
+
+    // Build the new file content: old rows + this row, all separated by
+    // newlines, with a trailing newline.
+    const existingText = rows.map((r) => JSON.stringify(r)).join("\n");
+    const newRowText = JSON.stringify(row);
+    const newFileText =
+      existingText.length === 0 ? `${newRowText}\n` : `${existingText}\n${newRowText}\n`;
+
+    // Atomic temp + rename. If either step fails, the original file
+    // remains untouched and durable_writes_performed stays false.
+    const tempPath = `${path}.${process.pid}.${now.replace(/[:.]/g, "-")}.tmp`;
+    try {
+      await writeFile(tempPath, newFileText, { encoding: "utf8", flag: "wx" });
+      await rename(tempPath, path);
+    } catch (e) {
+      try { await unlink(tempPath); } catch { /* best effort */ }
+      return refused("transaction_aborted_mid_write", `write failed: ${(e as Error).message}`, {
+        approvalId: arming.approval_id,
+        contractArtifactId: arming.contract_artifact_id,
+      }, now);
+    }
+
+    // ---- Completed outcome — L0 stamp lives here. ----
+    return Object.freeze({
+      outcome: "completed" as const,
+      outcome_artifact_name: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_NAME,
+      schema_version: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_SCHEMA_VERSION,
+      durable_record_id: durableRecordId,
+      idempotency_key: idempotencyKey,
+      written_at: now,
+      approval_id: approvalId,
+      contract_artifact_id: contractArtifactId,
+      account_id: contract.account_id,
+      candidate_item_id: candidateItemId,
+      operator_identity: arming.operator_identity,
+      mediation_gate_level: PINNED_MEDIATION_GATE_LEVEL,
+      l0_effect_observed: true as const,
+      durable_write_performed: true as const,
+      graph_ingestion_performed: true as const,
+      target_store: PINNED_TARGET_STORE,
+      bundle_record_counts: {
+        sources: bundle.sources.length,
+        excerpts: bundle.excerpts.length,
+        claims: bundle.claims.length,
+        claim_evidence: bundle.claim_evidence.length,
+        account_objects: bundle.account_objects.length,
+        account_object_claims: bundle.account_object_claims.length,
+        research_runs: bundle.research_runs.length,
+        run_artifacts: bundle.run_artifacts.length,
+        audit_events: bundle.audit_events.length,
       },
-      now,
-    );
+    });
+  } finally {
+    await releaseGraphSnapshotWriteLockBestEffort(lockAcquisition.lock);
   }
-
-  // Validate the bundle against the Atliera graph validator BEFORE
-  // committing it. A bundle that fails validation must never reach the
-  // durable store.
-  const parsed = parseGraphBundle(bundle);
-  if (!parsed.ok) {
-    return refused("graph_bundle_validation_failed", `parse failed: ${parsed.errors[0]?.message ?? "unknown"}`, {
-      approvalId: arming.approval_id,
-      contractArtifactId: arming.contract_artifact_id,
-    }, now);
-  }
-  const report = validateGraphBundle(parsed.value, { mode: "fixture" });
-  if (!report.ok) {
-    return refused("graph_bundle_validation_failed", `validate failed: ${report.hard_failures[0]?.code ?? "unknown"}`, {
-      approvalId: arming.approval_id,
-      contractArtifactId: arming.contract_artifact_id,
-    }, now);
-  }
-
-  // ---- Single-transaction-or-noop write ----
-
-  const durableRecordId = `ratified-write:${contract.proposal_set_id}:${candidateItemId}:${now}`;
-  const row: DurableGraphSnapshotRow = Object.freeze({
-    kind: ATLIERA_GRAPH_SNAPSHOT_ROW_KIND,
-    schema_version: ATLIERA_GRAPH_SNAPSHOT_ROW_SCHEMA_VERSION,
-    durable_record_id: durableRecordId,
-    idempotency_key: idempotencyKey,
-    approval_id: approvalId,
-    contract_artifact_id: contractArtifactId,
-    account_id: contract.account_id,
-    candidate_item_id: candidateItemId,
-    operator_identity: arming.operator_identity,
-    mediation_gate_level: PINNED_MEDIATION_GATE_LEVEL,
-    trust_label: trustLabel,
-    written_at: now,
-    bundle,
-  });
-
-  // Build the new file content: old rows + this row, all separated by
-  // newlines, with a trailing newline.
-  const existingText = rows.map((r) => JSON.stringify(r)).join("\n");
-  const newRowText = JSON.stringify(row);
-  const newFileText =
-    existingText.length === 0 ? `${newRowText}\n` : `${existingText}\n${newRowText}\n`;
-
-  // Atomic temp + rename. If either step fails, the original file
-  // remains untouched and durable_writes_performed stays false.
-  const tempPath = `${path}.${process.pid}.${now.replace(/[:.]/g, "-")}.tmp`;
-  try {
-    await writeFile(tempPath, newFileText, { encoding: "utf8", flag: "wx" });
-    await rename(tempPath, path);
-  } catch (e) {
-    return refused("transaction_aborted_mid_write", `write failed: ${(e as Error).message}`, {
-      approvalId: arming.approval_id,
-      contractArtifactId: arming.contract_artifact_id,
-    }, now);
-  }
-
-  // ---- Completed outcome — L0 stamp lives here. ----
-  return Object.freeze({
-    outcome: "completed" as const,
-    outcome_artifact_name: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_NAME,
-    schema_version: WORKSHOP_PUBLIC_PROPOSAL_DURABLE_WRITE_OUTCOME_SCHEMA_VERSION,
-    durable_record_id: durableRecordId,
-    idempotency_key: idempotencyKey,
-    written_at: now,
-    approval_id: approvalId,
-    contract_artifact_id: contractArtifactId,
-    account_id: contract.account_id,
-    candidate_item_id: candidateItemId,
-    operator_identity: arming.operator_identity,
-    mediation_gate_level: PINNED_MEDIATION_GATE_LEVEL,
-    l0_effect_observed: true as const,
-    durable_write_performed: true as const,
-    graph_ingestion_performed: true as const,
-    target_store: PINNED_TARGET_STORE,
-    bundle_record_counts: {
-      sources: bundle.sources.length,
-      excerpts: bundle.excerpts.length,
-      claims: bundle.claims.length,
-      claim_evidence: bundle.claim_evidence.length,
-      account_objects: bundle.account_objects.length,
-      account_object_claims: bundle.account_object_claims.length,
-      research_runs: bundle.research_runs.length,
-      run_artifacts: bundle.run_artifacts.length,
-      audit_events: bundle.audit_events.length,
-    },
-  });
 }

@@ -19,7 +19,7 @@ const LENS_TITLES: Record<WorkshopLens, string> = {
  * tell apart the default fake-mode preview from a preview produced for
  * validation review of a candidate GraphBundle.
  */
-export type WorkshopPreviewMode = "fake" | "validation";
+export type WorkshopPreviewMode = "fake" | "validation" | "durable-curated";
 
 export interface RenderWorkshopHtmlOptions {
   /** Defaults to "fake" to preserve the existing fake-mode preview label. */
@@ -37,7 +37,11 @@ export const WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT =
 const PREVIEW_MODE_LABELS: Record<WorkshopPreviewMode, string> = {
   fake: "Fake-mode preview",
   validation: "Validation preview (non-production)",
+  "durable-curated": "Durable curated preview (local only)",
 };
+
+export const WORKSHOP_CURATED_PUBLIC_SOURCE_LABEL = "Curated public source" as const;
+export const WORKSHOP_CURATED_PUBLIC_SOURCE_ORIGIN = "hand-curated-public" as const;
 
 function escapeHtml(value: string): string {
   return value
@@ -92,7 +96,7 @@ function renderEvidencePackets(item: WorkshopLensItemViewModel): string {
     .join("\n");
 }
 
-function renderLensItem(item: WorkshopLensItemViewModel): string {
+function renderLensItem(item: WorkshopLensItemViewModel, previewMode: WorkshopPreviewMode): string {
   const evidence = item.trust.evidence;
   const reviewDecorated = item.review_state === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED;
   const reviewAttribute = reviewDecorated
@@ -101,12 +105,19 @@ function renderLensItem(item: WorkshopLensItemViewModel): string {
   const reviewBadge = reviewDecorated
     ? `\n      <span class="review-pill">${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</span>`
     : "";
-  return `<article class="workshop-card" data-lens="${item.lens}" data-object-id="${escapeHtml(item.id)}"${reviewAttribute}>
+  const curated = previewMode === "durable-curated";
+  const curatedAttribute = curated
+    ? ` data-curated-provenance="${WORKSHOP_CURATED_PUBLIC_SOURCE_ORIGIN}"`
+    : "";
+  const curatedBadge = curated
+    ? `\n      <span class="curated-pill">${WORKSHOP_CURATED_PUBLIC_SOURCE_LABEL}</span>`
+    : "";
+  return `<article class="workshop-card" data-lens="${item.lens}" data-object-id="${escapeHtml(item.id)}"${reviewAttribute}${curatedAttribute}>
     <div class="card-kicker">${escapeHtml(item.object_type)} · ${escapeHtml(item.status)}</div>
     <h3>${escapeHtml(item.title)}</h3>
     <p>${escapeHtml(item.summary)}</p>
     <div class="trust-row">
-      <span class="trust-pill trust-${escapeHtml(item.trust.provenance_status)}">${escapeHtml(item.trust.label)}</span>${reviewBadge}
+      <span class="trust-pill trust-${escapeHtml(item.trust.provenance_status)}">${escapeHtml(item.trust.label)}</span>${reviewBadge}${curatedBadge}
       <span>${escapeHtml(item.trust.confidence)} confidence</span>
       <span>${plural(evidence.accepted_excerpt_count, "accepted excerpt")}</span>
       <span>${plural(evidence.source_document_count, "source document")}</span>
@@ -123,9 +134,13 @@ function renderLensItem(item: WorkshopLensItemViewModel): string {
   </article>`;
 }
 
-function renderLens(lens: WorkshopLens, items: WorkshopLensItemViewModel[]): string {
+function renderLens(
+  lens: WorkshopLens,
+  items: WorkshopLensItemViewModel[],
+  previewMode: WorkshopPreviewMode,
+): string {
   const body = items.length
-    ? items.map(renderLensItem).join("\n")
+    ? items.map((item) => renderLensItem(item, previewMode)).join("\n")
     : `<p class="empty-lens">No graph-backed ${LENS_TITLES[lens]} yet.</p>`;
   return `<section class="lens-panel" data-lens="${lens}">
     <header><h2>${LENS_TITLES[lens]}</h2><span>${plural(items.length, "item")}</span></header>
@@ -145,6 +160,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
   const accountLabel = vm.account_id
     ? `<span>Account ${escapeHtml(vm.account_id)}</span>`
     : `<span>Account not set</span>`;
+  const curatedStyles = previewMode === "durable-curated"
+    ? "    .curated-pill { border: 1px solid #38bdf8; border-radius: 999px; padding: 3px 9px; background: #082f49; color: #bae6fd; }\n"
+    : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -168,7 +186,7 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
     .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
     .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
     .trust-pill, .review-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
-    .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
+${curatedStyles}    .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
     .trust-verified { background: #0f5132; color: #d1fae5; }
     .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
     .trust-unverified { background: #4a3415; color: #fde68a; }
@@ -206,9 +224,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
       </div>
     </section>
 ${emptyState}    <section class="lens-grid" aria-label="Workshop lenses">
-      ${renderLens("signals", vm.lenses.signals)}
-      ${renderLens("maps", vm.lenses.maps)}
-      ${renderLens("plays", vm.lenses.plays)}
+      ${renderLens("signals", vm.lenses.signals, previewMode)}
+      ${renderLens("maps", vm.lenses.maps, previewMode)}
+      ${renderLens("plays", vm.lenses.plays, previewMode)}
     </section>
   </main>
 </body>

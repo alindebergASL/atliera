@@ -1,6 +1,12 @@
 import { lstat, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+import {
+  acquireGraphSnapshotWriteLock,
+  canonicalGraphSnapshotDbRootPath,
+  releaseGraphSnapshotWriteLockBestEffort,
+} from "./graph-snapshot-write-lock.ts";
 
 export const CURRENT_LOCAL_DURABLE_DB_SCHEMA_VERSION = 1;
 export const LOCAL_DURABLE_DB_MANIFEST = "atliera-local-db.json";
@@ -25,7 +31,8 @@ export type LocalDurableDbBackupFailureCode =
   | "local_durable_db_backup_source_not_initialized"
   | "local_durable_db_backup_invalid"
   | "local_durable_db_backup_checksum_mismatch"
-  | "local_durable_db_restore_target_not_empty";
+  | "local_durable_db_restore_target_not_empty"
+  | "local_durable_db_restore_write_lock_unavailable";
 
 export type LocalDurableDbBackupStatus = "created" | "source_not_initialized";
 export type LocalDurableDbRestoreStatus = "restored" | "backup_invalid" | "refused";
@@ -268,32 +275,61 @@ export async function restoreLocalDurableDbBackup(options: LocalDurableDbRestore
     });
   }
 
-  const targetNonEmpty = await isDirectoryNonEmpty(options.targetRootDir);
-  if (targetNonEmpty) {
-    const target = await inspectLocalDurableDb({ rootDir: options.targetRootDir });
-    if (options.allowOverwrite !== true || !target.ok) {
-      return restoreReport({
-        restoreStatus: "refused",
-        restoredSchemaVersion: null,
-        failureCodes: ["local_durable_db_restore_target_not_empty"],
-      });
+  // The sentinel lives beside the DB root, so overwrite restore cannot delete
+  // its own lock while replacing the target. M3 and M5a writers derive this
+  // same path from tables/graph_snapshots.jsonl and never retry acquisition.
+  await mkdir(dirname(options.targetRootDir), { recursive: true });
+  const requestedGraphPath = join(options.targetRootDir, "tables", "graph_snapshots.jsonl");
+  let targetRootDir: string;
+  try {
+    targetRootDir = await canonicalGraphSnapshotDbRootPath(requestedGraphPath);
+  } catch {
+    return restoreReport({
+      restoreStatus: "refused",
+      restoredSchemaVersion: null,
+      failureCodes: ["local_durable_db_restore_write_lock_unavailable"],
+    });
+  }
+  const graphPath = join(targetRootDir, "tables", "graph_snapshots.jsonl");
+  const lockAcquisition = await acquireGraphSnapshotWriteLock(graphPath);
+  if (!lockAcquisition.ok) {
+    return restoreReport({
+      restoreStatus: "refused",
+      restoredSchemaVersion: null,
+      failureCodes: ["local_durable_db_restore_write_lock_unavailable"],
+    });
+  }
+
+  try {
+    const targetNonEmpty = await isDirectoryNonEmpty(targetRootDir);
+    if (targetNonEmpty) {
+      const target = await inspectLocalDurableDb({ rootDir: targetRootDir });
+      if (options.allowOverwrite !== true || !target.ok) {
+        return restoreReport({
+          restoreStatus: "refused",
+          restoredSchemaVersion: null,
+          failureCodes: ["local_durable_db_restore_target_not_empty"],
+        });
+      }
     }
-  }
-  if (options.allowOverwrite === true) {
-    await rm(options.targetRootDir, { recursive: true, force: true });
-  }
+    if (options.allowOverwrite === true) {
+      await rm(targetRootDir, { recursive: true, force: true });
+    }
 
-  await mkdir(join(options.targetRootDir, "tables"), { recursive: true });
-  for (const table of artifact.value.tables) {
-    await writeFile(join(options.targetRootDir, "tables", `${table.name}.jsonl`), table.contents);
-  }
-  await writeManifestReplace(options.targetRootDir, artifact.value.sourceManifest);
+    await mkdir(join(targetRootDir, "tables"), { recursive: true });
+    for (const table of artifact.value.tables) {
+      await writeFile(join(targetRootDir, "tables", `${table.name}.jsonl`), table.contents);
+    }
+    await writeManifestReplace(targetRootDir, artifact.value.sourceManifest);
 
-  return restoreReport({
-    restoreStatus: "restored",
-    restoredSchemaVersion: artifact.value.sourceSchemaVersion,
-    failureCodes: [],
-  });
+    return restoreReport({
+      restoreStatus: "restored",
+      restoredSchemaVersion: artifact.value.sourceSchemaVersion,
+      failureCodes: [],
+    });
+  } finally {
+    await releaseGraphSnapshotWriteLockBestEffort(lockAcquisition.lock);
+  }
 }
 
 function normalizeNow(now: string | undefined): string {
@@ -354,9 +390,15 @@ function isManifest(value: unknown): value is LocalDurableDbManifest {
 }
 
 async function allTablesExist(rootDir: string): Promise<boolean> {
+  try {
+    const tablesDirStat = await lstat(join(rootDir, "tables"));
+    if (!tablesDirStat.isDirectory()) return false;
+  } catch {
+    return false;
+  }
   for (const table of TABLES) {
     try {
-      const tableStat = await stat(join(rootDir, "tables", `${table}.jsonl`));
+      const tableStat = await lstat(join(rootDir, "tables", `${table}.jsonl`));
       if (!tableStat.isFile()) return false;
     } catch {
       return false;

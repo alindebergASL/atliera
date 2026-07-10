@@ -9,9 +9,9 @@
 //
 // This module performs no provider call, no graph mutation, no
 // durable write, and no render. It is the typed surface that the
-// next slice (the M5a approval packet) will be validated against and
-// the slices after that will execute against — same shape M3 step 1
-// opened with for the durable-write surface, scoped one level up.
+// shipped Step 2 approval packet validates against, the shipped Step 3
+// arming artifact binds, and Step 4 will execute against — the same
+// shape M3 Step 1 opened with for durable writes, scoped one level up.
 //
 // Path-1 ratification (operator decision 2026-06-17): M5a's "model
 // proposals" come from recorded proposal artifacts — a hand-curated
@@ -46,6 +46,7 @@
 // arming surface would belong. M5a's contract is marker-closed against
 // that path.
 
+import { createHash } from "node:crypto";
 import { types as nodeUtilTypes } from "node:util";
 
 import type { GraphBundle } from "../graph/types.ts";
@@ -56,9 +57,40 @@ export const M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME =
 export const M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION =
   "atliera.m5a_curated_proposal_flow_contract.v1" as const;
 
-// The next required artifact in the M5a slice arc. The M5a step 2
-// approval packet must conform to the typed shape this contract
-// publishes in `approval_packet_shape`.
+// M5a snapshots are a hostile-input boundary, so an array's declared
+// length must be bounded before snapshotPlainArray allocates an output
+// array proportional to it. 100,000 is deliberately conservative: it
+// is far above every committed M5a fixture while remaining finite.
+export const M5A_MAX_PLAIN_ARRAY_LENGTH = 100_000;
+
+const M5A_CANONICAL_ID_DIGEST_HEX_LENGTH = 40;
+
+function m5aCanonicalTupleDigest(values: readonly string[]): string {
+  return createHash("sha256")
+    .update(JSON.stringify(values), "utf8")
+    .digest("hex")
+    .slice(0, M5A_CANONICAL_ID_DIGEST_HEX_LENGTH);
+}
+
+// JSON tuple encoding is unambiguous for validated strings: position
+// carries field identity and JSON escaping prevents delimiter collisions.
+// The 40-hex-character SHA-256 prefix provides a 160-bit binding while
+// keeping the resulting artifact ID comfortably inside SAFE_ID.
+export function canonicalM5aCuratedProposalFlowContractArtifactId(
+  proposalSetId: string,
+  accountId: string,
+  flowId: string,
+): string {
+  return `m5a-flow-contract:${m5aCanonicalTupleDigest([
+    proposalSetId,
+    accountId,
+    flowId,
+  ])}`;
+}
+
+// The immediate successor artifact encoded by the Step 1 contract.
+// The shipped M5a Step 2 approval packet must conform to the typed
+// shape published in `approval_packet_shape`.
 export const M5A_NEXT_REQUIRED_ARTIFACT =
   "m5a-curated-proposal-flow-approval-packet" as const;
 
@@ -208,16 +240,17 @@ export interface M5aFlowSuccessCriterion {
   readonly forbids_system_side_acquisition_on_any_stage: true;
 }
 
-// The typed shape of the future M5a approval packet (step 2). Like
-// M3 step 1, the contract publishes the shape that step 2 must
-// conform to, so step 2 has a fixed target to validate against.
+// The typed shape consumed by the shipped M5a Step 2 approval packet.
+// Like M3 Step 1, the contract publishes the shape Step 2 must conform
+// to, so packet verification has a fixed target.
 export interface M5aApprovalPacketShape {
   readonly required_kind: "m5a-curated-proposal-flow-approval-packet";
   readonly must_reference_contract_artifact_id: string;
   readonly must_reference_materialization_input_proposal_set_id: string;
   readonly must_reference_account_id: string;
-  // M5a step 2 packet, like M3 step 2, is drafted-and-unarmed by
-  // default. Arming a flow execution is M5a step 3+ work, not step 2.
+  // The M5a Step 2 packet, like M3 Step 2, remains drafted and unarmed.
+  // The shipped Step 3 module creates a separate arming artifact; Step 4
+  // must present both artifacts before execution.
   readonly drafted_and_unarmed_by_default: true;
   readonly max_flow_executions: 1;
   readonly retry_budget: 0;
@@ -334,9 +367,9 @@ export function snapshotPlainOwnData(value: unknown, label: string): Readonly<Re
   if (Object.getOwnPropertySymbols(value).length > 0) {
     throw new M5aContractBuilderRefusal(`${label} must not carry symbol keys`);
   }
-  let descriptors: PropertyDescriptorMap;
+  let descriptors: Record<string, PropertyDescriptor>;
   try {
-    descriptors = Object.getOwnPropertyDescriptors(value);
+    descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
   } catch {
     throw new M5aContractBuilderRefusal(`${label} descriptors unavailable`);
   }
@@ -361,7 +394,8 @@ export function snapshotPlainOwnData(value: unknown, label: string): Readonly<Re
 // discipline; on a real Array this is style not safety, but the
 // pattern is the discipline H3 will consolidate). Refuses Proxy
 // arrays, symbol-keyed arrays, accessor-backed indices, missing
-// indices, non-enumerable indices.
+// indices, non-enumerable indices, and lengths above the M5a-specific
+// finite maximum before allocating an output array from that length.
 export function snapshotPlainArray(value: unknown, label: string): readonly unknown[] {
   if (nodeUtilTypes.isProxy(value)) {
     throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
@@ -369,19 +403,53 @@ export function snapshotPlainArray(value: unknown, label: string): readonly unkn
   if (!Array.isArray(value)) {
     throw new M5aContractBuilderRefusal(`${label} must be an array`);
   }
-  if (Object.getOwnPropertySymbols(value).length > 0) {
-    throw new M5aContractBuilderRefusal(`${label} must not carry symbol keys`);
+  // Read and bound the intrinsic array length before any reflection that
+  // could enumerate dense array keys. A dense oversized array could
+  // otherwise make symbol/descriptor reflection allocate proportionally
+  // to attacker-controlled length before the explicit M5a cap is applied.
+  let lengthDescriptor: PropertyDescriptor | undefined;
+  try {
+    lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  } catch {
+    throw new M5aContractBuilderRefusal(`${label}.length descriptor unavailable`);
   }
-  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
   const length = lengthDescriptor !== undefined && "value" in lengthDescriptor
     ? (lengthDescriptor.value as unknown)
     : undefined;
   if (typeof length !== "number" || !Number.isSafeInteger(length) || length < 0) {
     throw new M5aContractBuilderRefusal(`${label}.length must be a non-negative safe integer`);
   }
+  if (length > M5A_MAX_PLAIN_ARRAY_LENGTH) {
+    throw new M5aContractBuilderRefusal(
+      `${label}.length must not exceed the M5a maximum of ${M5A_MAX_PLAIN_ARRAY_LENGTH}`,
+    );
+  }
+  if (Object.getOwnPropertySymbols(value).length > 0) {
+    throw new M5aContractBuilderRefusal(`${label} must not carry symbol keys`);
+  }
+  let descriptors: Record<string, PropertyDescriptor>;
+  try {
+    descriptors = Object.getOwnPropertyDescriptors(value) as Record<string, PropertyDescriptor>;
+  } catch {
+    throw new M5aContractBuilderRefusal(`${label} descriptors unavailable`);
+  }
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      throw new M5aContractBuilderRefusal(`${label} contains unsafe key ${key}`);
+    }
+    if (!("value" in descriptor)) {
+      throw new M5aContractBuilderRefusal(`${label}.${key} must be a plain own-data value (no accessors)`);
+    }
+    const index = Number(key);
+    const isExpectedIndex =
+      Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === key;
+    if (key !== "length" && !isExpectedIndex) {
+      throw new M5aContractBuilderRefusal(`${label} contains unexpected own key ${key}`);
+    }
+  }
   const out: unknown[] = new Array(length);
   for (let i = 0; i < length; i += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, i);
+    const descriptor = descriptors[String(i)];
     if (descriptor === undefined) {
       throw new M5aContractBuilderRefusal(`${label}[${i}] is missing`);
     }
@@ -497,6 +565,396 @@ const FLOW_STAGES: readonly M5aFlowStageShape[] = Object.freeze([
   }),
 ]) as readonly M5aFlowStageShape[];
 
+type PlainRecord = Readonly<Record<string, unknown>>;
+
+const CONTRACT_ROOT_KEYS = [
+  "kind",
+  "schema_version",
+  "disposable",
+  "current_effective_authorization",
+  "contract_artifact_id",
+  "flow_id",
+  "proposal_set_id",
+  "account_id",
+  "materialized_at",
+  "contracted_at",
+  "source_materialization_input_origin",
+  "next_required_artifact",
+  "boundaries",
+  "flow_stages",
+  "curated_provenance_requirements",
+  "success_criterion",
+  "approval_packet_shape",
+  "counts",
+  "provider_calls_made",
+  "private_evidence_read",
+  "graph_ingestion_performed",
+  "durable_writes_performed",
+  "production_writes",
+  "readiness_claim",
+] as const;
+
+const CONTRACT_BOUNDARY_KEYS = [
+  "current_effective_authorization",
+  "authorizes_provider_call",
+  "authorizes_private_evidence_read",
+  "authorizes_graph_ingestion",
+  "authorizes_durable_write_execution",
+  "graph_ingestion_performed",
+  "durable_write_execution_performed",
+  "durable_writes_performed",
+  "production_writes",
+  "readiness_claim",
+  "provider_calls_executed",
+  "private_evidence_read",
+  "forbids_fresh_provider_call_on_flow_path",
+  "fresh_provider_call_on_flow_path_executed",
+  "defines_curated_proposal_flow_contract",
+  "authorizes_flow_execution",
+  "flow_execution_performed",
+  "requires_separate_flow_approval_packet",
+  "authorizes_system_side_acquisition",
+  "system_side_acquisition_performed",
+] as const;
+
+const FLOW_STAGE_KEYS = ["kind", "consumes", "produces", "flips_marker", "stage_closed_markers"] as const;
+const STAGE_CLOSED_MARKER_KEYS = [
+  "authorizes_provider_call",
+  "authorizes_system_side_acquisition",
+  "readiness_claim",
+] as const;
+const CURATED_PROVENANCE_KEYS = [
+  "required_materialization_origin",
+  "required_render_label_text",
+  "required_per_card_curated_marker_data_attribute",
+  "forbidden_per_record_provenance_statuses",
+] as const;
+const SUCCESS_CRITERION_KEYS = [
+  "all_stages_completed",
+  "minimum_populated_lenses",
+  "minimum_ratified_durable_records",
+  "curated_provenance_must_be_surfaced_per_card",
+  "forbids_verified_per_record_provenance_in_render",
+  "forbids_fresh_provider_call_on_any_stage",
+  "forbids_system_side_acquisition_on_any_stage",
+] as const;
+const APPROVAL_PACKET_SHAPE_KEYS = [
+  "required_kind",
+  "must_reference_contract_artifact_id",
+  "must_reference_materialization_input_proposal_set_id",
+  "must_reference_account_id",
+  "drafted_and_unarmed_by_default",
+  "max_flow_executions",
+  "retry_budget",
+  "retry_requires_new_approval",
+  "expiry_required",
+  "operator_arming_required_for_flow_execution",
+  "inherits_forbids_fresh_provider_call_on_flow_path",
+  "inherits_forbids_system_side_acquisition",
+  "required_row_trust_label",
+  "required_per_record_provenance_status",
+  "forbidden_per_record_provenance_statuses",
+  "mediation_gate_level",
+  "target_store",
+] as const;
+const CONTRACT_COUNT_KEYS = [
+  "curated_source_count",
+  "proposed_excerpt_count",
+  "proposed_claim_count",
+  "proposed_account_object_count",
+  "described_flow_executions",
+  "flows_executed",
+  "durable_writes_executed",
+  "fresh_provider_calls_on_flow_path",
+] as const;
+
+function requireExactOwnKeys(record: PlainRecord, expected: readonly string[], label: string): void {
+  const actual = Object.keys(record).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    throw new M5aContractBuilderRefusal(
+      `${label} must contain exactly the expected own keys; got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+
+function requireExactContractValue(
+  record: PlainRecord,
+  key: string,
+  expected: unknown,
+  label: string,
+): void {
+  if (record[key] !== expected) {
+    throw new M5aContractBuilderRefusal(`${label}.${key} must be ${JSON.stringify(expected)}`);
+  }
+}
+
+function requireCanonicalCount(value: unknown, label: string, minimum = 0): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    Object.is(value, -0) ||
+    value < minimum
+  ) {
+    throw new M5aContractBuilderRefusal(
+      `${label} must be a canonical safe integer greater than or equal to ${minimum}`,
+    );
+  }
+  return value;
+}
+
+// Runtime counterfeit detector for the M5a step-1 artifact. Downstream
+// steps must call this before accepting a contract as authoritative. Every
+// nested record and array is descriptor-snapshotted before any of its values
+// are read, and every load-bearing shape is closed to unknown own keys.
+export function verifyM5aCuratedProposalFlowContract(
+  contract: unknown,
+): asserts contract is M5aCuratedProposalFlowContractArtifact {
+  const root = snapshotPlainOwnData(contract, "contract");
+  requireExactOwnKeys(root, CONTRACT_ROOT_KEYS, "contract");
+
+  requireExactContractValue(root, "kind", M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME, "contract");
+  requireExactContractValue(
+    root,
+    "schema_version",
+    M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
+    "contract",
+  );
+  requireExactContractValue(root, "disposable", true, "contract");
+  requireExactContractValue(root, "current_effective_authorization", "none", "contract");
+
+  const flowId = requireSafeId(root.flow_id, "contract.flow_id");
+  const proposalSetId = requireSafeId(root.proposal_set_id, "contract.proposal_set_id");
+  const accountId = requireSafeId(root.account_id, "contract.account_id");
+  const materializedAt = requireCanonicalIsoTimestamp(
+    root.materialized_at,
+    "contract.materialized_at",
+  );
+  const contractedAt = requireCanonicalIsoTimestamp(
+    root.contracted_at,
+    "contract.contracted_at",
+  );
+  if (Date.parse(contractedAt) < Date.parse(materializedAt)) {
+    throw new M5aContractBuilderRefusal(
+      "contract.contracted_at must be at or after contract.materialized_at",
+    );
+  }
+  const contractArtifactId = requireSafeId(root.contract_artifact_id, "contract.contract_artifact_id");
+  const expectedContractArtifactId = canonicalM5aCuratedProposalFlowContractArtifactId(
+    proposalSetId,
+    accountId,
+    flowId,
+  );
+  if (contractArtifactId !== expectedContractArtifactId) {
+    throw new M5aContractBuilderRefusal(
+      "contract.contract_artifact_id does not match the canonical proposal_set_id / account_id / flow_id form",
+    );
+  }
+  requireExactContractValue(
+    root,
+    "source_materialization_input_origin",
+    M5A_PINNED_CURATION_ORIGIN,
+    "contract",
+  );
+  requireExactContractValue(root, "next_required_artifact", M5A_NEXT_REQUIRED_ARTIFACT, "contract");
+
+  const boundaries = snapshotPlainOwnData(root.boundaries, "contract.boundaries");
+  requireExactOwnKeys(boundaries, CONTRACT_BOUNDARY_KEYS, "contract.boundaries");
+  requireExactContractValue(boundaries, "current_effective_authorization", "none", "contract.boundaries");
+  for (const key of [
+    "authorizes_provider_call",
+    "authorizes_private_evidence_read",
+    "authorizes_graph_ingestion",
+    "authorizes_durable_write_execution",
+    "graph_ingestion_performed",
+    "durable_write_execution_performed",
+    "durable_writes_performed",
+    "production_writes",
+    "readiness_claim",
+    "private_evidence_read",
+    "fresh_provider_call_on_flow_path_executed",
+    "authorizes_flow_execution",
+    "flow_execution_performed",
+    "authorizes_system_side_acquisition",
+    "system_side_acquisition_performed",
+  ]) {
+    requireExactContractValue(boundaries, key, false, "contract.boundaries");
+  }
+  requireExactContractValue(boundaries, "provider_calls_executed", 0, "contract.boundaries");
+  for (const key of [
+    "forbids_fresh_provider_call_on_flow_path",
+    "defines_curated_proposal_flow_contract",
+    "requires_separate_flow_approval_packet",
+  ]) {
+    requireExactContractValue(boundaries, key, true, "contract.boundaries");
+  }
+
+  const stages = snapshotPlainArray(root.flow_stages, "contract.flow_stages");
+  if (stages.length !== FLOW_STAGES.length) {
+    throw new M5aContractBuilderRefusal("contract.flow_stages must contain exactly five stages");
+  }
+  for (let index = 0; index < FLOW_STAGES.length; index += 1) {
+    const label = `contract.flow_stages[${index}]`;
+    const stage = snapshotPlainOwnData(stages[index], label);
+    requireExactOwnKeys(stage, FLOW_STAGE_KEYS, label);
+    const expected = FLOW_STAGES[index]!;
+    requireExactContractValue(stage, "kind", expected.kind, label);
+    requireExactContractValue(stage, "consumes", expected.consumes, label);
+    requireExactContractValue(stage, "produces", expected.produces, label);
+    requireExactContractValue(stage, "flips_marker", expected.flips_marker, label);
+    const markers = snapshotPlainOwnData(stage.stage_closed_markers, `${label}.stage_closed_markers`);
+    requireExactOwnKeys(markers, STAGE_CLOSED_MARKER_KEYS, `${label}.stage_closed_markers`);
+    for (const key of STAGE_CLOSED_MARKER_KEYS) {
+      requireExactContractValue(markers, key, false, `${label}.stage_closed_markers`);
+    }
+  }
+
+  const provenance = snapshotPlainOwnData(
+    root.curated_provenance_requirements,
+    "contract.curated_provenance_requirements",
+  );
+  requireExactOwnKeys(provenance, CURATED_PROVENANCE_KEYS, "contract.curated_provenance_requirements");
+  requireExactContractValue(
+    provenance,
+    "required_materialization_origin",
+    M5A_PINNED_CURATION_ORIGIN,
+    "contract.curated_provenance_requirements",
+  );
+  requireExactContractValue(
+    provenance,
+    "required_render_label_text",
+    "Curated public source",
+    "contract.curated_provenance_requirements",
+  );
+  requireExactContractValue(
+    provenance,
+    "required_per_card_curated_marker_data_attribute",
+    "data-curated-provenance",
+    "contract.curated_provenance_requirements",
+  );
+  const provenanceForbidden = snapshotPlainArray(
+    provenance.forbidden_per_record_provenance_statuses,
+    "contract.curated_provenance_requirements.forbidden_per_record_provenance_statuses",
+  );
+  if (provenanceForbidden.length !== 1 || provenanceForbidden[0] !== "verified") {
+    throw new M5aContractBuilderRefusal(
+      "contract.curated_provenance_requirements.forbidden_per_record_provenance_statuses must be exactly [\"verified\"]",
+    );
+  }
+
+  const success = snapshotPlainOwnData(root.success_criterion, "contract.success_criterion");
+  requireExactOwnKeys(success, SUCCESS_CRITERION_KEYS, "contract.success_criterion");
+  requireExactContractValue(success, "minimum_populated_lenses", 2, "contract.success_criterion");
+  requireExactContractValue(success, "minimum_ratified_durable_records", 2, "contract.success_criterion");
+  for (const key of [
+    "all_stages_completed",
+    "curated_provenance_must_be_surfaced_per_card",
+    "forbids_verified_per_record_provenance_in_render",
+    "forbids_fresh_provider_call_on_any_stage",
+    "forbids_system_side_acquisition_on_any_stage",
+  ]) {
+    requireExactContractValue(success, key, true, "contract.success_criterion");
+  }
+
+  const approval = snapshotPlainOwnData(root.approval_packet_shape, "contract.approval_packet_shape");
+  requireExactOwnKeys(approval, APPROVAL_PACKET_SHAPE_KEYS, "contract.approval_packet_shape");
+  requireExactContractValue(
+    approval,
+    "required_kind",
+    "m5a-curated-proposal-flow-approval-packet",
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(
+    approval,
+    "must_reference_contract_artifact_id",
+    contractArtifactId,
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(
+    approval,
+    "must_reference_materialization_input_proposal_set_id",
+    proposalSetId,
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(
+    approval,
+    "must_reference_account_id",
+    root.account_id,
+    "contract.approval_packet_shape",
+  );
+  for (const key of [
+    "drafted_and_unarmed_by_default",
+    "retry_requires_new_approval",
+    "expiry_required",
+    "operator_arming_required_for_flow_execution",
+    "inherits_forbids_fresh_provider_call_on_flow_path",
+    "inherits_forbids_system_side_acquisition",
+  ]) {
+    requireExactContractValue(approval, key, true, "contract.approval_packet_shape");
+  }
+  requireExactContractValue(approval, "max_flow_executions", 1, "contract.approval_packet_shape");
+  requireExactContractValue(approval, "retry_budget", 0, "contract.approval_packet_shape");
+  requireExactContractValue(
+    approval,
+    "required_row_trust_label",
+    M5A_PINNED_ROW_TRUST_LABEL,
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(
+    approval,
+    "required_per_record_provenance_status",
+    M5A_PINNED_PER_RECORD_PROVENANCE_STATUS,
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(
+    approval,
+    "mediation_gate_level",
+    M5A_PINNED_MEDIATION_GATE_LEVEL,
+    "contract.approval_packet_shape",
+  );
+  requireExactContractValue(approval, "target_store", M5A_PINNED_TARGET_STORE, "contract.approval_packet_shape");
+  const approvalForbidden = snapshotPlainArray(
+    approval.forbidden_per_record_provenance_statuses,
+    "contract.approval_packet_shape.forbidden_per_record_provenance_statuses",
+  );
+  if (approvalForbidden.length !== 1 || approvalForbidden[0] !== "verified") {
+    throw new M5aContractBuilderRefusal(
+      "contract.approval_packet_shape.forbidden_per_record_provenance_statuses must be exactly [\"verified\"]",
+    );
+  }
+
+  const counts = snapshotPlainOwnData(root.counts, "contract.counts");
+  requireExactOwnKeys(counts, CONTRACT_COUNT_KEYS, "contract.counts");
+  for (const key of ["curated_source_count", "proposed_excerpt_count", "proposed_claim_count"]) {
+    requireCanonicalCount(counts[key], `contract.counts.${key}`, 1);
+  }
+  requireCanonicalCount(
+    counts.proposed_account_object_count,
+    "contract.counts.proposed_account_object_count",
+  );
+  requireCanonicalCount(counts.described_flow_executions, "contract.counts.described_flow_executions", 1);
+  requireExactContractValue(counts, "described_flow_executions", 1, "contract.counts");
+  for (const key of [
+    "flows_executed",
+    "durable_writes_executed",
+    "fresh_provider_calls_on_flow_path",
+  ]) {
+    requireCanonicalCount(counts[key], `contract.counts.${key}`);
+    requireExactContractValue(counts, key, 0, "contract.counts");
+  }
+
+  requireExactContractValue(root, "provider_calls_made", 0, "contract");
+  for (const key of [
+    "private_evidence_read",
+    "graph_ingestion_performed",
+    "durable_writes_performed",
+    "production_writes",
+    "readiness_claim",
+  ]) {
+    requireExactContractValue(root, key, false, "contract");
+  }
+}
+
 export interface BuildM5aCuratedProposalFlowContractInput {
   readonly flowId: string;
   readonly now: string;
@@ -583,7 +1041,11 @@ export function buildM5aCuratedProposalFlowContract(
     proposedAccountObjectsLength = proposedAccountObjects.length;
   }
 
-  const contractArtifactId = `m5a-flow-contract:${proposalSetId}:${flowId}`;
+  const contractArtifactId = canonicalM5aCuratedProposalFlowContractArtifactId(
+    proposalSetId,
+    accountId,
+    flowId,
+  );
 
   // Render the artifact EXCLUSIVELY from validated locals. No snap.*
   // or options.* read survives past this point — that is the
@@ -591,7 +1053,7 @@ export function buildM5aCuratedProposalFlowContract(
   // discipline. A hostile getter that switched between validation
   // and render passes (the TOCTOU shape) cannot smuggle anything,
   // because every value below is the validated value.
-  return Object.freeze({
+  const contract: M5aCuratedProposalFlowContractArtifact = Object.freeze({
     kind: M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME,
     schema_version: M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
     disposable: true as const,
@@ -686,6 +1148,8 @@ export function buildM5aCuratedProposalFlowContract(
     production_writes: false as const,
     readiness_claim: false as const,
   });
+  verifyM5aCuratedProposalFlowContract(contract);
+  return contract;
 }
 
 // Type-only re-export to keep the GraphBundle shape importable by

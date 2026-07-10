@@ -12,8 +12,10 @@ import { describe, test } from "node:test";
 
 import {
   buildM5aCuratedProposalFlowContract,
+  canonicalM5aCuratedProposalFlowContractArtifactId,
   M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME,
   M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
+  M5A_MAX_PLAIN_ARRAY_LENGTH,
   M5A_NEXT_REQUIRED_ARTIFACT,
   M5A_PINNED_CURATION_ORIGIN,
   M5A_PINNED_MEDIATION_GATE_LEVEL,
@@ -21,6 +23,8 @@ import {
   M5A_PINNED_ROW_TRUST_LABEL,
   M5A_PINNED_TARGET_STORE,
   M5aContractBuilderRefusal,
+  snapshotPlainArray,
+  verifyM5aCuratedProposalFlowContract,
 } from "../../src/workshop/m5a-curated-proposal-flow-contract.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
@@ -41,6 +45,12 @@ function read(path: string): string {
 
 function loadCommittedMaterializationInput(): Record<string, unknown> {
   return JSON.parse(readFileSync(MATERIALIZATION_INPUT_FIXTURE, "utf8")) as Record<string, unknown>;
+}
+
+function mutate<T>(base: T, fn: (clone: any) => void): T {
+  const clone = JSON.parse(JSON.stringify(base)) as T;
+  fn(clone);
+  return clone;
 }
 
 describe("M5a contract — pinned constants", () => {
@@ -73,7 +83,15 @@ describe("M5a contract — happy path against the committed M3-step-3a materiali
     assert.equal(contract.proposal_set_id, "public-curated-20260611a");
     assert.equal(contract.flow_id, FLOW_ID);
     assert.equal(contract.contracted_at, NOW);
-    assert.ok(contract.contract_artifact_id.startsWith("m5a-flow-contract:public-curated-20260611a:"));
+    assert.equal(
+      contract.contract_artifact_id,
+      canonicalM5aCuratedProposalFlowContractArtifactId(
+        contract.proposal_set_id,
+        contract.account_id,
+        contract.flow_id,
+      ),
+    );
+    assert.match(contract.contract_artifact_id, /^m5a-flow-contract:[a-f0-9]{40}$/);
 
     // All top-level closed boundary markers.
     assert.equal(contract.provider_calls_made, 0);
@@ -286,6 +304,90 @@ describe("M5a contract — builder refuses every enumerated reject path", () => 
   });
 });
 
+describe("M5a contract — canonical account-distinct identity and bounded array snapshots", () => {
+  test("different accounts produce distinct canonical contract IDs", () => {
+    const inputA = loadCommittedMaterializationInput();
+    const inputB = loadCommittedMaterializationInput();
+    (inputB.context as Record<string, unknown>).account_id = "acc_other_honest_account";
+    const contractA = buildM5aCuratedProposalFlowContract(inputA, { flowId: FLOW_ID, now: NOW });
+    const contractB = buildM5aCuratedProposalFlowContract(inputB, { flowId: FLOW_ID, now: NOW });
+
+    assert.equal(contractA.proposal_set_id, contractB.proposal_set_id);
+    assert.equal(contractA.flow_id, contractB.flow_id);
+    assert.notEqual(contractA.account_id, contractB.account_id);
+    assert.notEqual(contractA.contract_artifact_id, contractB.contract_artifact_id);
+  });
+
+  test("longest valid identity inputs still produce a SAFE_ID contract ID", () => {
+    const longestSafeId = `a${"x".repeat(120)}`;
+    const id = canonicalM5aCuratedProposalFlowContractArtifactId(
+      longestSafeId,
+      longestSafeId,
+      longestSafeId,
+    );
+    assert.ok(id.length <= 121);
+    assert.match(id, /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/);
+    assert.match(id, /^m5a-flow-contract:[a-f0-9]{40}$/);
+  });
+
+  test("legacy and arbitrary safe-shaped contract IDs are refused", () => {
+    const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+    for (const forgedId of [
+      `m5a-flow-contract:${contract.proposal_set_id}:${contract.flow_id}`,
+      "m5a-flow-contract:forged-safe-id",
+    ]) {
+      assert.throws(
+        () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+          c.contract_artifact_id = forgedId;
+        })),
+        M5aContractBuilderRefusal,
+      );
+    }
+  });
+
+  test("sparse arrays refuse by type without reading an accessor-backed index", () => {
+    const sparse: unknown[] = [];
+    sparse.length = 4;
+    let indexRead = false;
+    Object.defineProperty(sparse, "3", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        indexRead = true;
+        throw new Error("UNEXPECTED_SPARSE_INDEX_READ");
+      },
+    });
+
+    assert.throws(() => snapshotPlainArray(sparse, "sparse"), M5aContractBuilderRefusal);
+    assert.equal(indexRead, false);
+  });
+
+  test("oversized arrays refuse by type before allocation or index reads", () => {
+    const oversized: unknown[] = [];
+    oversized.length = M5A_MAX_PLAIN_ARRAY_LENGTH + 1;
+    let indexRead = false;
+    Object.defineProperty(oversized, "0", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        indexRead = true;
+        throw new Error("UNEXPECTED_OVERSIZED_INDEX_READ");
+      },
+    });
+
+    assert.throws(
+      () => snapshotPlainArray(oversized, "oversized"),
+      (error: unknown) =>
+        error instanceof M5aContractBuilderRefusal &&
+        error.detail.includes(String(M5A_MAX_PLAIN_ARRAY_LENGTH)),
+    );
+    assert.equal(indexRead, false);
+  });
+});
+
 describe("M5a contract — approval_packet_shape carries POSITIVE trust-tier pins (not only the negative prohibition)", () => {
   test("approval_packet_shape requires the row trust label as a POSITIVE pin", () => {
     const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
@@ -317,6 +419,118 @@ describe("M5a contract — approval_packet_shape carries POSITIVE trust-tier pin
     // The gap closed by the 2026-06-17 hardening pass: "not verified"
     // is NOT the same claim as "is this specific pending label." Both
     // appear on the packet shape; step 2 must conform to both.
+  });
+});
+
+describe("M5a contract — exported runtime verifier closes the full step-1 artifact", () => {
+  function legitimateContract() {
+    return buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+  }
+
+  test("accepts builder output, whose builder verifies it before returning", () => {
+    verifyM5aCuratedProposalFlowContract(legitimateContract());
+    const moduleText = read(MODULE);
+    assert.match(moduleText, /verifyM5aCuratedProposalFlowContract\(contract\);\s*return contract;/);
+  });
+
+  test("refuses broadened root, boundaries, stage, success, and approval shapes", () => {
+    const contract = legitimateContract();
+    const broadenings: Array<(counterfeit: any) => void> = [
+      (counterfeit) => {
+        counterfeit.current_effective_authorization = "flow-execution";
+      },
+      (counterfeit) => {
+        counterfeit.boundaries.authorizes_provider_call = true;
+      },
+      (counterfeit) => {
+        counterfeit.flow_stages[0].stage_closed_markers.authorizes_provider_call = true;
+      },
+      (counterfeit) => {
+        counterfeit.success_criterion.forbids_fresh_provider_call_on_any_stage = false;
+      },
+      (counterfeit) => {
+        counterfeit.approval_packet_shape.max_flow_executions = 2;
+      },
+    ];
+    for (const broaden of broadenings) {
+      assert.throws(
+        () => verifyM5aCuratedProposalFlowContract(mutate(contract, broaden)),
+        M5aContractBuilderRefusal,
+      );
+    }
+  });
+
+  test("refuses noncanonical contract identity, negative counts, and unknown authorization keys", () => {
+    const contract = legitimateContract();
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.contract_artifact_id = "m5a-flow-contract:forged:safe";
+      })),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.counts.proposed_claim_count = -1;
+      })),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.counts.flows_executed = -0;
+      })),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.contracted_at = "2026-06-10T23:59:59Z";
+      })),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.boundaries.additional_authorization_scope = "unbounded";
+      })),
+      M5aContractBuilderRefusal,
+    );
+  });
+
+  test("refuses nested Proxy arrays without firing get traps", () => {
+    const contract = mutate(legitimateContract(), () => undefined) as any;
+    let trapFired = false;
+    contract.flow_stages = new Proxy(contract.flow_stages, {
+      get(_target, prop) {
+        trapFired = true;
+        throw new Error(`UNEXPECTED_STAGE_ARRAY_GET:${String(prop)}`);
+      },
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(contract),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(trapFired, false);
+  });
+
+  test("refuses deeply nested accessors without firing getters", () => {
+    const contract = mutate(legitimateContract(), () => undefined) as any;
+    let getterFired = false;
+    const markers = contract.flow_stages[0].stage_closed_markers;
+    delete markers.authorizes_provider_call;
+    Object.defineProperty(markers, "authorizes_provider_call", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        throw new Error("UNEXPECTED_NESTED_CONTRACT_GETTER");
+      },
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(contract),
+      M5aContractBuilderRefusal,
+    );
+    assert.equal(getterFired, false);
   });
 });
 

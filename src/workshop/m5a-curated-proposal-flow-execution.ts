@@ -7,6 +7,7 @@
 // renders one Workshop artifact from the read-back bundle.
 
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -77,6 +78,8 @@ const GRAPH_SNAPSHOTS_RELATIVE_PATH = "tables/graph_snapshots.jsonl";
 const TEMP_SUFFIX = ".m5a-step4.tmp";
 const MAX_SNAPSHOT_DEPTH = 24;
 const MAX_SNAPSHOT_NODES = 20_000;
+export const M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES = 64 * 1024;
+export const M5A_CURATED_PROPOSAL_FLOW_MAX_TOTAL_STRING_UTF8_BYTES = 1024 * 1024;
 
 const STAGE_ORDER = Object.freeze([
   "materialize",
@@ -88,6 +91,8 @@ const STAGE_ORDER = Object.freeze([
 
 export type M5aCuratedProposalFlowExecutionRefusalCode =
   | "input_invalid"
+  | "input_string_too_large"
+  | "input_string_budget_exceeded"
   | "authorization_invalid"
   | "authorization_expired"
   | "recorded_proposal_digest_mismatch"
@@ -226,12 +231,22 @@ export type M5aCuratedProposalFlowExecutionOutcome =
 
 class ExecutionBoundaryRefusal extends Error {}
 
+class SnapshotStringBudgetRefusal extends ExecutionBoundaryRefusal {
+  constructor(
+    readonly refusalCode: "input_string_too_large" | "input_string_budget_exceeded",
+  ) {
+    super(refusalCode);
+  }
+}
+
 function refused(
   code: M5aCuratedProposalFlowExecutionRefusalCode,
   checkedAt: string | null,
 ): M5aCuratedProposalFlowExecutionRefusedOutcome {
   const details: Record<M5aCuratedProposalFlowExecutionRefusalCode, string> = {
     input_invalid: "execution input failed the bounded own-data snapshot",
+    input_string_too_large: "execution input contains a string above the UTF-8 byte limit",
+    input_string_budget_exceeded: "execution input exceeds the cumulative UTF-8 string-byte budget",
     authorization_invalid: "contract, packet, and arming authorization did not verify",
     authorization_expired: "one-shot authorization is not live at execution time",
     recorded_proposal_digest_mismatch: "materialization input does not match the committed capstone fixture digest",
@@ -312,7 +327,67 @@ function zeroEffectBoundaries() {
   });
 }
 
-interface SnapshotBudget { nodes: number }
+interface SnapshotBudget {
+  nodes: number;
+  stringBytes: number;
+}
+
+function canonicalJsonStringUtf8ByteLength(value: string): number {
+  // Exact UTF-8 byte length of JSON.stringify(value), including surrounding
+  // quotes and JSON escapes, without constructing the escaped string.
+  let bytes = 2;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit === 0x22 || codeUnit === 0x5c) {
+      bytes += 2;
+    } else if (codeUnit <= 0x1f) {
+      bytes += codeUnit === 0x08 || codeUnit === 0x09 || codeUnit === 0x0a ||
+        codeUnit === 0x0c || codeUnit === 0x0d
+        ? 2
+        : 6;
+    } else if (codeUnit <= 0x7f) {
+      bytes += 1;
+    } else if (codeUnit <= 0x7ff) {
+      bytes += 2;
+    } else if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        index += 1;
+      } else {
+        bytes += 6;
+      }
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      bytes += 6;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
+function snapshotStringWithinBudget(value: string, budget: SnapshotBudget): string {
+  // Buffer.byteLength scans the existing string without allocating a Buffer or
+  // creating a proportional encoded copy. The second scan accounts for the
+  // exact escaped bytes canonical JSON will allocate and hash, also without
+  // constructing a proportional escaped copy.
+  const rawUtf8Bytes = Buffer.byteLength(value, "utf8");
+  const canonicalUtf8Bytes = canonicalJsonStringUtf8ByteLength(value);
+  if (
+    rawUtf8Bytes > M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES ||
+    canonicalUtf8Bytes > M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES
+  ) {
+    throw new SnapshotStringBudgetRefusal("input_string_too_large");
+  }
+  if (
+    canonicalUtf8Bytes >
+    M5A_CURATED_PROPOSAL_FLOW_MAX_TOTAL_STRING_UTF8_BYTES - budget.stringBytes
+  ) {
+    throw new SnapshotStringBudgetRefusal("input_string_budget_exceeded");
+  }
+  budget.stringBytes += canonicalUtf8Bytes;
+  return value;
+}
 
 // Reuses the Step-1 hardened snapshot helpers recursively so the shipped
 // verifiers and materializer receive frozen data-only snapshots, never the
@@ -327,7 +402,8 @@ function snapshotBoundedValue(
   if (depth > MAX_SNAPSHOT_DEPTH || budget.nodes >= MAX_SNAPSHOT_NODES) {
     throw new ExecutionBoundaryRefusal(`${label} exceeds snapshot bounds`);
   }
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") return snapshotStringWithinBudget(value, budget);
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "object") {
     throw new ExecutionBoundaryRefusal(`${label} contains a non-data value`);
@@ -350,6 +426,9 @@ function snapshotBoundedValue(
     }
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(raw)) {
+      // Object keys are untrusted strings and canonical JSON emits them too.
+      // Bound them before constructing a child label containing the key.
+      snapshotStringWithinBudget(key, budget);
       Object.defineProperty(out, key, {
         value: snapshotBoundedValue(raw[key], `${label}.${key}`, budget, depth + 1),
         enumerable: true,
@@ -359,6 +438,7 @@ function snapshotBoundedValue(
     }
     return Object.freeze(out);
   } catch (error) {
+    if (error instanceof SnapshotStringBudgetRefusal) throw error;
     if (error instanceof M5aContractBuilderRefusal || error instanceof ExecutionBoundaryRefusal) {
       throw new ExecutionBoundaryRefusal(`${label} failed own-data snapshot`);
     }
@@ -367,7 +447,7 @@ function snapshotBoundedValue(
 }
 
 function snapshotRootOptions(options: unknown): Readonly<Record<string, unknown>> {
-  const snap = snapshotBoundedValue(options, "options", { nodes: 0 });
+  const snap = snapshotBoundedValue(options, "options", { nodes: 0, stringBytes: 0 });
   if (snap === null || typeof snap !== "object" || Array.isArray(snap)) {
     throw new ExecutionBoundaryRefusal("options must be an object");
   }
@@ -751,7 +831,10 @@ export async function executeM5aCuratedProposalFlow(
   try {
     root = snapshotRootOptions(options);
     now = checkedTimestamp(root.now);
-  } catch {
+  } catch (error) {
+    if (error instanceof SnapshotStringBudgetRefusal) {
+      return refused(error.refusalCode, null);
+    }
     return refused("input_invalid", null);
   }
 

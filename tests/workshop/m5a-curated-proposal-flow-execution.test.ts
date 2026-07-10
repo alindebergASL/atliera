@@ -19,6 +19,8 @@ import {
   evaluateM5aCuratedProposalWorkshopBundle,
   executeM5aCuratedProposalFlow,
   M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256,
+  M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES,
+  M5A_CURATED_PROPOSAL_FLOW_MAX_TOTAL_STRING_UTF8_BYTES,
   type M5aCuratedProposalFlowExecutionOptions,
 } from "../../src/workshop/m5a-curated-proposal-flow-execution.ts";
 import { graphSnapshotWriteLockPath } from "../../src/db/graph-snapshot-write-lock.ts";
@@ -110,6 +112,27 @@ async function validOptions(dbRootDir: string): Promise<M5aCuratedProposalFlowEx
 
 function hasOwn(value: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+async function assertPreEffectBudgetRefusal(
+  db: Awaited<ReturnType<typeof setup>>,
+  options: M5aCuratedProposalFlowExecutionOptions,
+  expectedCode: "input_string_too_large" | "input_string_budget_exceeded",
+): Promise<void> {
+  const before = await readFile(db.graphPath, "utf8");
+  const outcome = await executeM5aCuratedProposalFlow(options);
+  assert.equal(outcome.outcome, "refused", JSON.stringify(outcome));
+  if (outcome.outcome !== "refused") return;
+  assert.equal(outcome.refusal_code, expectedCode);
+  assert.equal(outcome.durable_writes_performed, false);
+  assert.equal(outcome.durable_read_backs_performed, false);
+  assert.equal(outcome.rendered_artifacts, 0);
+  assert.equal(hasOwn(outcome, "mediation_gate_level"), false);
+  assert.equal(hasOwn(outcome, "l0_effect_observed"), false);
+  assert.equal(await readFile(db.graphPath, "utf8"), before);
+  await assert.rejects(readFile(await graphSnapshotWriteLockPath(db.graphPath), "utf8"), {
+    code: "ENOENT",
+  });
 }
 
 describe("M5a Step 4 curated-flow capstone", () => {
@@ -313,6 +336,135 @@ describe("M5a Step 4 curated-flow capstone", () => {
         assert.equal(result.durable_writes_performed, false);
       }
       assert.equal(await readFile(db.graphPath, "utf8"), "");
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("one oversized raw_text refuses before canonicalization, preflight, locking, or effects", async () => {
+    const db = await setup();
+    try {
+      const options = await validOptions(db.dbRootDir);
+      const oversized = clone(options.materializationInput as InputFixture);
+      ((oversized.public_sources as Record<string, unknown>[])[0]!).raw_text =
+        "x".repeat(M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES + 1);
+      await assertPreEffectBudgetRefusal(
+        db,
+        { ...options, materializationInput: oversized },
+        "input_string_too_large",
+      );
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("an oversized untrusted object key is covered by the same pre-canonicalization budget", async () => {
+    const db = await setup();
+    try {
+      const options = await validOptions(db.dbRootDir);
+      const oversizedKeyInput = clone(options.materializationInput as InputFixture);
+      const source = (oversizedKeyInput.public_sources as Record<string, unknown>[])[0]!;
+      Object.defineProperty(
+        source,
+        "k".repeat(M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES + 1),
+        { value: "bounded-value", enumerable: true },
+      );
+      await assertPreEffectBudgetRefusal(
+        db,
+        { ...options, materializationInput: oversizedKeyInput },
+        "input_string_too_large",
+      );
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("many individually valid strings exceeding the cumulative UTF-8 budget refuse pre-effect", async () => {
+    const db = await setup();
+    try {
+      const options = await validOptions(db.dbRootDir);
+      const aggregate = clone(options.materializationInput as InputFixture);
+      const source = clone((aggregate.public_sources as Record<string, unknown>[])[0]!);
+      const individualStringLength =
+        Math.floor((M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES - 2) / 2);
+      source.raw_text = "x".repeat(individualStringLength);
+      const sourceCount =
+        Math.floor(
+          M5A_CURATED_PROPOSAL_FLOW_MAX_TOTAL_STRING_UTF8_BYTES /
+            (individualStringLength + 2),
+        ) + 1;
+      aggregate.public_sources = Array.from({ length: sourceCount }, (_, index) => ({
+        ...source,
+        source_id: `curated-source-${index}`,
+      }));
+      await assertPreEffectBudgetRefusal(
+        db,
+        { ...options, materializationInput: aggregate },
+        "input_string_budget_exceeded",
+      );
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("per-string boundary counts UTF-8 bytes rather than JavaScript code units", async () => {
+    const db = await setup();
+    try {
+      assert.equal(M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES % 2, 0);
+      const options = await validOptions(db.dbRootDir);
+      const boundaryCodePoints =
+        Math.floor((M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES - 2) / 2);
+      const atBoundary = clone(options.materializationInput as InputFixture);
+      ((atBoundary.public_sources as Record<string, unknown>[])[0]!).raw_text =
+        "é".repeat(boundaryCodePoints);
+      const acceptedByBudget = await executeM5aCuratedProposalFlow({
+        ...options,
+        materializationInput: atBoundary,
+      });
+      assert.equal(acceptedByBudget.outcome, "refused");
+      if (acceptedByBudget.outcome === "refused") {
+        assert.equal(acceptedByBudget.refusal_code, "recorded_proposal_digest_mismatch");
+      }
+
+      const overBoundary = clone(atBoundary);
+      ((overBoundary.public_sources as Record<string, unknown>[])[0]!).raw_text =
+        "é".repeat(boundaryCodePoints + 1);
+      await assertPreEffectBudgetRefusal(
+        db,
+        { ...options, materializationInput: overBoundary },
+        "input_string_too_large",
+      );
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("JSON escape expansion is included in the pre-canonicalization string budget", async () => {
+    const db = await setup();
+    try {
+      const options = await validOptions(db.dbRootDir);
+      const boundaryCharacters =
+        Math.floor((M5A_CURATED_PROPOSAL_FLOW_MAX_STRING_UTF8_BYTES - 2) / 2);
+      const atBoundary = clone(options.materializationInput as InputFixture);
+      ((atBoundary.public_sources as Record<string, unknown>[])[0]!).raw_text =
+        '"'.repeat(boundaryCharacters);
+      const acceptedByBudget = await executeM5aCuratedProposalFlow({
+        ...options,
+        materializationInput: atBoundary,
+      });
+      assert.equal(acceptedByBudget.outcome, "refused");
+      if (acceptedByBudget.outcome === "refused") {
+        assert.equal(acceptedByBudget.refusal_code, "recorded_proposal_digest_mismatch");
+      }
+
+      const overBoundary = clone(atBoundary);
+      ((overBoundary.public_sources as Record<string, unknown>[])[0]!).raw_text =
+        '"'.repeat(boundaryCharacters + 1);
+      await assertPreEffectBudgetRefusal(
+        db,
+        { ...options, materializationInput: overBoundary },
+        "input_string_too_large",
+      );
     } finally {
       await db.cleanup();
     }

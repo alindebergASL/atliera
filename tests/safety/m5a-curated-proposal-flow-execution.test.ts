@@ -248,6 +248,17 @@ describe("M5a Step 4 hostile-input and purity boundaries", () => {
     ]) {
       assert.doesNotMatch(source, forbidden);
     }
+    assert.match(source, /Buffer\.byteLength\(value, "utf8"\)/);
+    assert.doesNotMatch(source, /Buffer\.from\(value|new TextEncoder\(/);
+    const executeSource = source.slice(source.indexOf("export async function executeM5aCuratedProposalFlow"));
+    const snapshotBoundary = executeSource.indexOf("snapshotRootOptions(options)");
+    const canonicalizationBoundary = executeSource.indexOf("sha256M5aMaterializationInputSnapshot");
+    const preflightBoundary = executeSource.indexOf("evaluateM5aCuratedProposalWorkshopBundle");
+    const lockBoundary = executeSource.indexOf("acquireGraphSnapshotWriteLock");
+    assert.ok(snapshotBoundary >= 0);
+    assert.ok(canonicalizationBoundary > snapshotBoundary);
+    assert.ok(preflightBoundary > canonicalizationBoundary);
+    assert.ok(lockBoundary > preflightBoundary);
   });
 
   test("every named post-rename failure is represented as committed_unrendered, never thrown as a refusal", async () => {

@@ -2,7 +2,7 @@
 
 Status: active
 
-This runbook records the tightly bounded M5a Step 4 curated-flow capstone. It is a fixture-bound execution authority for one committed proposal input, not a generic M5a approval framework. It makes no production, deployment, launch, shipping, or readiness claim.
+This runbook records the implemented, tightly bounded M5a Step 4 curated-flow capstone. It is an implementation record for one committed proposal input, not standing execution authority and not a generic M5a approval framework. It authorizes no repeat or successor slice and makes no production, deployment, launch, shipping, or readiness claim.
 
 The executor consumes one valid Step-3 arming over its matching Step-2 packet and Step-1 contract. Steps 1–3 bind structural identity, counts, and chronology; their current canonical IDs do **not** contain a proposal-content digest, and Step 4 does not pretend otherwise. Step 4 independently binds this capstone to the exact committed input with the exported SHA-256 pin `M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256`, calculated over deterministic key-sorted canonical JSON of the already own-data-snapshotted materialization input. Any different digest refuses before preflight, lock acquisition, or durable effects.
 
@@ -10,7 +10,7 @@ The executor consumes one valid Step-3 arming over its matching Step-2 packet an
 
 The stage order is exactly `materialize` → `validate` → `ratify` → `durable_write` → `render`.
 
-Executor entry recursively snapshots the contract, packet, arming, materialization input, and execution options with the shipped M5a own-data helpers. It independently runs the shipped Step-1, Step-2, and Step-3 verifiers and uses snapshot-backed locals afterward. Proxy, accessor, symbol, unsafe-key, custom-prototype, over-bounds, and unknown-key counterfeits fail closed.
+Executor entry recursively snapshots the contract, packet, arming, materialization input, and execution options with the shipped M5a own-data helpers. It independently runs the shipped Step-1, Step-2, and Step-3 verifiers and uses snapshot-backed locals afterward. Proxy, accessor, symbol, unsafe-key, custom-prototype, over-bounds, and unknown-key counterfeits fail closed. Before canonical JSON construction or hashing, every primitive string value and every object key is measured without constructing a proportional encoded copy: `Buffer.byteLength` checks raw UTF-8, and a direct code-unit scan measures the exact JSON-escaped UTF-8 contribution including surrounding quotes. One string may contribute at most 64 KiB and all strings in the complete snapshot may contribute at most 1 MiB. Either breach returns a deterministic pre-effect refusal before preflight, local-DB inspection, lock acquisition, L0, or any durable effect.
 
 The pinned input is materialized through `materializeProposalForValidation`. Step 4 refuses materialization rejection, invalid graph validation, identity/count/origin mismatch, or trust-boundary broadening. Ratification changes proposed excerpts to `accepted` and proposal-derived claims/account objects to `source_document_only` under `model-proposed-human-ratified-evidence-pending`; it never marks a record `verified`. The full fixture digest is recorded in the ratification run-artifact payload and in every committed Step-4 outcome.
 

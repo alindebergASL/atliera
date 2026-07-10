@@ -89,7 +89,7 @@ test("operator ratification selected Step 4 before H3 and the living roadmap pre
     "the historical Step 4-before-H3 sequence must remain attributable",
   );
   assert.ok(currentSlice.includes("implemented through PR #282"), "living status must record Step 4 implementation");
-  assert.match(currentSlice, /one compact approval packet and one explicit operator GO/i);
+  assert.match(currentSlice, /compact packet and explicit operator GO/i);
 });
 
 test("H3 plan state and H1/H3 sequencing are reconciled without rewriting history", () => {
@@ -100,12 +100,15 @@ test("H3 plan state and H1/H3 sequencing are reconciled without rewriting histor
 
   assert.ok(hTrackNarrative.includes("H3's plan is complete and merged through PR #277"), "H3 plan must be complete and merged");
   assert.ok(
-    hTrackNarrative.includes("selects only the minimum H2 mediation needed by thin M4 `public_http_fetch_v1`"),
-    "the closeout must select minimum H2 for the thin acquisition path",
+    hTrackNarrative.includes("selects only the separate H2 no-network capability-registry/mediation/echo proof"),
+    "the closeout must select the separate no-network H2 proof",
   );
   assert.ok(h1Row.includes("not next-up"), "H1 must not become a standalone next slice");
-  assert.ok(h2Row.includes("next bounded implementation"), "minimum H2 must be the next bounded implementation");
-  assert.ok(h2Row.includes("No live effect is authorized"), "H2 implementation must not authorize live acquisition");
+  assert.ok(h2Row.includes("next bounded implementation"), "H2 must be the next bounded implementation");
+  assert.ok(h2Row.includes("Separate no-network slice"), "H2 must remain separate from M4 and network effects");
+  assert.ok(h2Row.includes("inert echo is the first registered capability"), "H2 must require the inert echo proof");
+  assert.ok(h2Row.includes("retry budget is deterministically zero"), "H2 must pin a deterministic no-retry budget");
+  assert.ok(h2Row.includes("No HTTP/network fetch, acquisition, provider/model call, private read, production write or deployment"), "H2 must close network and adjacent effects");
   assert.ok(h3Row.includes("implementation not started; plan complete/merged; not next-up"), "H3 row must distinguish plan from implementation and stay deferred");
   assert.doesNotMatch(h3Row, /next slice/i, "H3 row must not retain the stale next-slice status");
 });
@@ -148,8 +151,8 @@ test("Step 4 scope separately closes provider, acquisition, private-read, retry,
   assert.equal(markerValue(decisionScope, "step_4_readiness_claims"), "0");
 });
 
-test("living roadmap authorizes only bounded successor implementation while every effect remains closed", () => {
-  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "H2-minimum-mediation-plus-M4-public_http_fetch_v1");
+test("living roadmap authorizes only the separate H2 no-network successor while every effect remains closed", () => {
+  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "H2-capability-registry-mediation-echo-no-network");
   assert.equal(markerValue(roadmap, "implementation_start_condition"), "after-closeout-merge-and-independent-verification");
   assert.equal(markerValue(roadmap, "current_effective_authorization"), "none");
   assert.equal(markerValue(roadmap, "authorizes_flow_execution"), "false");
@@ -161,7 +164,7 @@ test("living roadmap authorizes only bounded successor implementation while ever
   assert.equal(markerValue(roadmap, "authorizes_deployment"), "false");
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
-  assert.match(roadmap, /live Atliera fetch still requires the one compact approval packet and one explicit operator GO/i);
+  assert.match(roadmap, /live Atliera fetch still requires the compact packet and explicit operator GO/i);
   assert.match(index, /every other later slice requires a new explicit operator decision/i);
   assert.match(index, /live acquisition remains unauthorized/i);
 });

@@ -7,7 +7,7 @@ The operator has ended the fixture-hardening cycle and accepted the technical do
 M5a now satisfies the roadmap done-pattern:
 
 1. **Named visible artifact:** `fixtures/workshop/m5a-curated-proposal-flow-capstone.html`.
-2. **Successor approval surface:** after this closeout merges and receives independent verification, implementation may proceed only as minimum H2 mediation immediately used by thin M4 `public_http_fetch_v1`. Live acquisition remains a separate one-GO effect checkpoint.
+2. **Successor approval surface:** after this closeout merges and receives independent verification, implementation may proceed only as the separate no-network H2 capability-registry/mediation/echo slice. M4 implementation remains unauthorized.
 
 M5a is therefore **shipped**, not merely test-complete.
 
@@ -84,9 +84,20 @@ A “no” is a product finding, not a request for another generalized safety fr
 
 The product sequence is now:
 
-**minimum H2 → thin M4 `public_http_fetch_v1` → real-account M5b**.
+**H2 no-network echo proof → fresh operator/roadmap decision → thin M4 `public_http_fetch_v1` → real-account M5b**.
 
-The next substantive implementation should keep the mediation boundary no larger than required for one orchestrator-only HTTPS fetch capability and immediately produce a human-visible acquisition receipt or source preview. If ADR 0003 needs an inert no-op proof, it belongs inside that same PR rather than becoming a milestone.
+H2 is a separate no-network implementation slice. Its mandatory proof is:
+
+- register inert echo as the first capability;
+- keep the MCP client orchestrator-only with topology/import isolation from model-facing code;
+- require a consumed approval or approved schedule before invocation;
+- snapshot the capability descriptor and pin its hash;
+- match the invocation-time descriptor hash to that pin;
+- enforce a deterministic retry budget of zero;
+- perform exactly one L0 echo invocation that produces one `CapabilityExecution`, one `AuditEvent`, and one accounting increment;
+- keep ADR 0003 invariants I-3, I-4, I-5, I-10 and I-11 green.
+
+H2 performs no HTTP/network fetch, system-side acquisition, provider/model call, private read, production write or deployment. Its successor approval surface may draft the future M4 `public_http_fetch_v1` registry entry, descriptor and budget defaults, but must not implement or execute the fetcher.
 
 FedEx is the default real demonstration account. Read-only public reconnaissance may select 3–5 exact public URLs, but it is target selection—not an Atliera acquisition result. Before any live Atliera fetch, one compact packet must state the exact URLs/hosts, redirect policy, time and byte budgets, accepted content types, zero retries, storage/retention behavior, legal/robots observations, and no-login/no-private-data/no-provider-call boundaries. Stop there for one explicit operator GO.
 
@@ -94,7 +105,7 @@ Within the next three substantive PRs after this closeout, Atliera must fetch re
 
 ## Authority boundary
 
-This closeout authorizes implementation only after it merges and is independently verified. It authorizes no live effect:
+This closeout authorizes only the separate H2 no-network implementation after it merges and is independently verified. It authorizes no current or live effect:
 
 - current_effective_authorization: none
 - authorizes_system_side_acquisition: false
@@ -105,4 +116,4 @@ This closeout authorizes implementation only after it merges and is independentl
 - authorizes_m5b_provider_execution: false
 - readiness_claim: false
 
-No standalone H1, H3, H4, H5, outward MCP, provider comparison, deployment, identity or recurrence work is next-up. Live `public_http_fetch_v1` execution remains blocked until the compact approval packet receives one explicit operator GO.
+No standalone H1, H3, H4, H5, outward MCP, provider comparison, deployment, identity or recurrence work is next-up. M4 implementation remains blocked until H2 merges, receives independent review, and a fresh operator/roadmap decision authorizes M4. Any later live `public_http_fetch_v1` execution remains separately blocked until the compact approval packet receives one explicit operator GO.

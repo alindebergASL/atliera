@@ -10,7 +10,8 @@ Boundary markers:
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
 - next recommended work: this index creates no authority; it records the already-ratified conditional successor below, and every other later slice requires a new explicit operator decision
-- ratified next bounded implementation: minimum H2 plus `public_http_fetch_v1` implementation, only after the M5a closeout merges and is independently verified
+- ratified next bounded implementation: separate H2 no-network capability-registry/mediation/echo proof only, after the M5a closeout merges and is independently verified
+- M4 implementation remains unauthorized: H2 may draft the future `public_http_fetch_v1` registry entry, descriptor and budget defaults, but a fresh operator/roadmap decision after H2 merge and independent review is required before implementation
 - live acquisition remains unauthorized: one compact URL/budget/retention/legal packet and one explicit operator GO are still required
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.

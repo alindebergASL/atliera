@@ -36,11 +36,16 @@ test("M5a ships only with its visible capstone and bounded successor approval su
   assert.ok(m5a.includes(HTML_PATH));
   assert.ok(m5a.includes("docs/reviews/m5a-product-closeout-retro.md"));
   assert.ok(h2.includes("next bounded implementation"));
-  assert.ok(h2.includes("public_http_fetch_v1"));
+  assert.ok(h2.includes("Separate no-network slice"));
+  assert.ok(h2.includes("inert echo is the first registered capability"));
+  assert.ok(h2.includes("one `CapabilityExecution`, one `AuditEvent`, and one accounting increment"));
+  assert.ok(h2.includes("I-3, I-4, I-5, I-10 and I-11"));
+  assert.ok(h2.includes("may draft—but not implement or execute—the future M4 `public_http_fetch_v1`"));
   assert.ok(m4.includes("public_http_fetch_v1"));
-  assert.ok(m4.includes("live acquisition remains unauthorized"));
+  assert.ok(m4.includes("implementation unauthorized"));
+  assert.ok(m4.includes("fresh operator/roadmap decision is required for M4 implementation"));
 
-  assert.equal(markerValue(ROADMAP, "implementation_work_authorized"), "H2-minimum-mediation-plus-M4-public_http_fetch_v1");
+  assert.equal(markerValue(ROADMAP, "implementation_work_authorized"), "H2-capability-registry-mediation-echo-no-network");
   assert.equal(markerValue(ROADMAP, "implementation_start_condition"), "after-closeout-merge-and-independent-verification");
   assert.equal(markerValue(ROADMAP, "current_effective_authorization"), "none");
   assert.equal(markerValue(ROADMAP, "authorizes_flow_execution"), "false");
@@ -50,8 +55,26 @@ test("M5a ships only with its visible capstone and bounded successor approval su
   assert.equal(markerValue(ROADMAP, "authorizes_deployment"), "false");
   assert.equal(markerValue(ROADMAP, "readiness_claim"), "false");
   assert.equal(markerValue(INDEX, "current_effective_authorization"), "none");
-  assert.ok(INDEX.includes("minimum H2 plus `public_http_fetch_v1` implementation"));
+  assert.match(INDEX, /separate H2 no-network capability-registry\/mediation\/echo proof only/i);
+  assert.match(INDEX, /M4 implementation remains unauthorized/i);
   assert.match(INDEX, /live acquisition remains unauthorized/i);
+
+  for (const document of [RETRO, ROADMAP, INDEX]) {
+    assert.doesNotMatch(document, /H2-minimum-mediation-plus-M4-public_http_fetch_v1/);
+  }
+
+  for (const requiredH2Proof of [
+    "inert echo as the first capability",
+    "orchestrator-only with topology/import isolation",
+    "consumed approval or approved schedule",
+    "descriptor and pin its hash",
+    "invocation-time descriptor hash",
+    "retry budget of zero",
+    "one `CapabilityExecution`, one `AuditEvent`, and one accounting increment",
+    "I-3, I-4, I-5, I-10 and I-11",
+  ]) {
+    assert.ok(RETRO.includes(requiredH2Proof), `retro missing mandatory H2 proof: ${requiredH2Proof}`);
+  }
 
   assert.equal(markerValue(RETRO, "current_effective_authorization"), "none");
   assert.equal(markerValue(RETRO, "authorizes_system_side_acquisition"), "false");

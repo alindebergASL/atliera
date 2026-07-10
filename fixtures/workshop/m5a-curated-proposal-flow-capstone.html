@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atliera Workshop</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #090b12; color: #edf2ff; }
+    body { margin: 0; }
+    main { max-width: 1180px; margin: 0 auto; padding: 40px 24px; }
+    .hero { border: 1px solid #283044; border-radius: 24px; padding: 28px; background: linear-gradient(135deg, #121827, #0c1020); }
+    .eyebrow { color: #99a7c7; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; }
+    h1 { margin: 8px 0; font-size: 42px; }
+    .totals, .trust-row, .boundary-row { display: flex; gap: 12px; flex-wrap: wrap; color: #aab6d3; }
+    .boundary-row { margin-top: 14px; }
+    .boundary-row span { border: 1px solid #39476a; border-radius: 999px; padding: 5px 10px; background: #111a2d; }
+    .lens-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .lens-panel, .empty-state { border: 1px solid #283044; border-radius: 20px; padding: 18px; background: #0f1424; }
+    .lens-panel header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #283044; margin-bottom: 14px; }
+    .workshop-card { border: 1px solid #33405f; border-radius: 16px; padding: 14px; background: #121a2d; margin-bottom: 12px; }
+    .card-kicker { color: #93a4c8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .trust-pill, .review-pill { border-radius: 999px; padding: 3px 9px; background: #26324e; color: #dbe7ff; }
+    .curated-pill { border: 1px solid #38bdf8; border-radius: 999px; padding: 3px 9px; background: #082f49; color: #bae6fd; }
+    .review-pill { border: 1px solid #f59e0b; background: #422006; color: #fde68a; }
+    .trust-verified { background: #0f5132; color: #d1fae5; }
+    .trust-source_document_only { background: #1e3a5f; color: #dbeafe; }
+    .trust-unverified { background: #4a3415; color: #fde68a; }
+    .trust-stale { background: #43335f; color: #e9d5ff; }
+    .trust-unsupported { background: #5c1d1d; color: #fee2e2; }
+    .evidence-drawer { margin-top: 10px; color: #cbd5e1; }
+    .evidence-packet { border-top: 1px solid #283044; margin-top: 12px; padding-top: 10px; }
+    .evidence-packet h4 { margin: 0 0 8px; color: #edf2ff; }
+    .evidence-packet blockquote { margin: 0; padding-left: 10px; border-left: 3px solid #54658d; color: #e5edff; }
+    .evidence-packet a { color: #93c5fd; }
+    .unsafe-url { color: #fca5a5; }
+    .empty-evidence { color: #93a4c8; }
+    dt { color: #93a4c8; }
+    dd { margin: 0 0 8px; word-break: break-word; }
+    @media (max-width: 900px) { .lens-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Atliera · Workshop</div>
+      <h1>Atliera Workshop</h1>
+      <p>Evidence-backed account intelligence rendered from the Atliera Graph.</p>
+      <div class="totals">
+        <span>2 sources</span>
+        <span>3 claims</span>
+        <span>3 graph objects</span>
+        <span>0 verified objects</span>
+      </div>
+      <div class="boundary-row" aria-label="Preview boundaries">
+        <span>Durable curated preview (local only)</span>
+        <span>Account acc_northstar_logistics</span>
+        <span>No provider calls</span>
+        <span>No production writes</span>
+      </div>
+    </section>
+    <section class="lens-grid" aria-label="Workshop lenses">
+      <section class="lens-panel" data-lens="signals">
+    <header><h2>Signals</h2><span>1 item</span></header>
+    <article class="workshop-card" data-lens="signals" data-object-id="obj_network-expansion-signal" data-curated-provenance="hand-curated-public">
+    <div class="card-kicker">signal · active</div>
+    <h3>Regional fulfillment capacity expanded</h3>
+    <p>Two new regional centers indicate active network expansion and added operating capacity.</p>
+    <div class="trust-row">
+      <span class="trust-pill trust-source_document_only">Source-backed</span>
+      <span class="curated-pill">Curated public source</span>
+      <span>medium confidence</span>
+      <span>1 accepted excerpt</span>
+      <span>1 source document</span>
+    </div>
+    <details class="evidence-drawer">
+      <summary>Evidence</summary>
+      <dl>
+        <dt>Claims</dt><dd>clm_regional-expansion</dd>
+        <dt>Excerpts</dt><dd>exc_network-centers</dd>
+        <dt>Sources</dt><dd>src_northstar_public_001</dd>
+      </dl>
+      <section class="evidence-packet" data-excerpt-validation-status="accepted">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>Northstar Logistics opened two regional fulfillment centers in June 2026.</dd>
+          <dt>Accepted excerpt</dt><dd><blockquote>Northstar Logistics opened two regional fulfillment centers in June 2026.</blockquote></dd>
+          <dt>Source</dt><dd><a href="https://example.invalid/northstar/network-update">Northstar expands its regional fulfillment network</a> · Northstar Logistics · high reliability</dd>
+        </dl>
+      </section>
+    </details>
+  </article>
+  </section>
+      <section class="lens-panel" data-lens="maps">
+    <header><h2>Maps</h2><span>1 item</span></header>
+    <article class="workshop-card" data-lens="maps" data-object-id="obj_network-operations-map" data-curated-provenance="hand-curated-public">
+    <div class="card-kicker">stakeholder · active</div>
+    <h3>Network operations leader identified</h3>
+    <p>Maya Chen is the named executive stakeholder for Northstar&#39;s network operations organization.</p>
+    <div class="trust-row">
+      <span class="trust-pill trust-source_document_only">Source-backed</span>
+      <span class="curated-pill">Curated public source</span>
+      <span>medium confidence</span>
+      <span>1 accepted excerpt</span>
+      <span>1 source document</span>
+    </div>
+    <details class="evidence-drawer">
+      <summary>Evidence</summary>
+      <dl>
+        <dt>Claims</dt><dd>clm_operations-leader</dd>
+        <dt>Excerpts</dt><dd>exc_network-leader</dd>
+        <dt>Sources</dt><dd>src_northstar_public_001</dd>
+      </dl>
+      <section class="evidence-packet" data-excerpt-validation-status="accepted">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>Maya Chen is Northstar&#39;s vice president of network operations.</dd>
+          <dt>Accepted excerpt</dt><dd><blockquote>Northstar also named Maya Chen vice president of network operations.</blockquote></dd>
+          <dt>Source</dt><dd><a href="https://example.invalid/northstar/network-update">Northstar expands its regional fulfillment network</a> · Northstar Logistics · high reliability</dd>
+        </dl>
+      </section>
+    </details>
+  </article>
+  </section>
+      <section class="lens-panel" data-lens="plays">
+    <header><h2>Plays</h2><span>1 item</span></header>
+    <article class="workshop-card" data-lens="plays" data-object-id="obj_healthcare-planning-play" data-curated-provenance="hand-curated-public">
+    <div class="card-kicker">play · active</div>
+    <h3>Prepare for a healthcare lane planning session</h3>
+    <p>Use Northstar&#39;s announced quarterly planning format to frame capacity and exception-trend questions.</p>
+    <div class="trust-row">
+      <span class="trust-pill trust-source_document_only">Source-backed</span>
+      <span class="curated-pill">Curated public source</span>
+      <span>medium confidence</span>
+      <span>1 accepted excerpt</span>
+      <span>1 source document</span>
+    </div>
+    <details class="evidence-drawer">
+      <summary>Evidence</summary>
+      <dl>
+        <dt>Claims</dt><dd>clm_healthcare-planning</dd>
+        <dt>Excerpts</dt><dd>exc_planning-session</dd>
+        <dt>Sources</dt><dd>src_northstar_public_002</dd>
+      </dl>
+      <section class="evidence-packet" data-excerpt-validation-status="accepted">
+        <h4>Evidence packet</h4>
+        <dl>
+          <dt>Claim</dt><dd>Northstar plans quarterly healthcare lane planning sessions beginning in August 2026.</dd>
+          <dt>Accepted excerpt</dt><dd><blockquote>Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026.</blockquote></dd>
+          <dt>Source</dt><dd><a href="https://example.invalid/northstar/customer-program">Northstar introduces healthcare lane planning sessions</a> · Northstar Logistics · high reliability</dd>
+        </dl>
+      </section>
+    </details>
+  </article>
+  </section>
+    </section>
+  </main>
+</body>
+</html>

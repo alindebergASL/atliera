@@ -10,6 +10,7 @@ import {
   inspectLocalDurableDb,
   restoreLocalDurableDbBackup,
 } from "../../src/db/local-durable-db.ts";
+import { graphSnapshotWriteLockPath } from "../../src/db/graph-snapshot-write-lock.ts";
 
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "atliera-local-db-backup-test-"));
@@ -108,6 +109,31 @@ test("local durable DB restore refuses non-empty targets unless overwrite is exp
     assert.equal(overwritten.ok, true);
     assert.equal(overwritten.restoreStatus, "restored");
     assert.equal(await readFile(join(targetRoot, "tables", "graph_snapshots.jsonl"), "utf8"), "new\n");
+  });
+});
+
+test("local durable DB overwrite restore observes the shared graph-snapshot writer lock", async () => {
+  await withTempDir(async (dir) => {
+    const sourceRoot = join(dir, "source-db");
+    const targetRoot = join(dir, "target-db");
+    const backupFile = join(dir, "backup.json");
+    await initializeLocalDurableDb({ rootDir: sourceRoot, now: "2026-06-09T00:00:00.000Z" });
+    await writeFile(join(sourceRoot, "tables", "graph_snapshots.jsonl"), "new\n");
+    await backupLocalDurableDb({ rootDir: sourceRoot, backupFile, now: "2026-06-09T00:02:00.000Z" });
+    await initializeLocalDurableDb({ rootDir: targetRoot, now: "2026-06-09T00:03:00.000Z" });
+    const targetGraphPath = join(targetRoot, "tables", "graph_snapshots.jsonl");
+    await writeFile(targetGraphPath, "existing\n");
+    await writeFile(await graphSnapshotWriteLockPath(targetGraphPath), "busy");
+
+    const refused = await restoreLocalDurableDbBackup({
+      backupFile,
+      targetRootDir: targetRoot,
+      allowOverwrite: true,
+    });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.restoreStatus, "refused");
+    assert.deepEqual(refused.failureCodes, ["local_durable_db_restore_write_lock_unavailable"]);
+    assert.equal(await readFile(targetGraphPath, "utf8"), "existing\n");
   });
 });
 

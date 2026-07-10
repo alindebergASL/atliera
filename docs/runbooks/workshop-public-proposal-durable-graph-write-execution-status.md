@@ -12,7 +12,7 @@ Doctrine alignment (ADR 0003) — the mediation gate level is a property of an e
 - An `idempotent_no_op` outcome carries `l0_effect_observed_on_this_call: false`. The L0 effect was the prior write; this no-op references that row's id and written_at, but does not re-claim L0 on this call.
 - A `refused` outcome carries no `mediation_gate_level` field at all and `l0_effect_observed: false`. A refused write is not an L0 effect; nothing happened.
 
-Single-transaction-or-noop semantics: the executor writes the new graph_snapshots.jsonl content to a sibling temp file and atomically renames it over the original. Any failure during the build/validate/write path leaves the original file unchanged.
+Single-transaction-or-noop semantics: before its current-state read and idempotency checks, the executor canonicalizes and inspects the local DB root, rejecting symlinked table paths, then attempts the same one-shot external lock used by the M5a writer and local DB overwrite-restore. It re-inspects while holding the lock. Filesystem aliases to one physical DB therefore resolve to one sentinel and one canonical I/O path. A busy lock reports `lock_busy`; other pre-transaction lock failures report `lock_unavailable` or `durable_db_unreachable`, never a mid-write abort. It holds that shared lock through temp-file creation and atomic rename, then releases best-effort without retry. Any failure during the build/validate/write path leaves the original file unchanged and removes the prepared temp file best-effort; cleanup failure after a completed rename does not reclassify the commit.
 
 Operator-identity discipline: a single attributable ratifier id is recorded on the bundle's AuditEvent (`actor_type: "user"`, `actor_id` = arming.operator_identity). No roles, no sessions, no permissions are modeled. That scope is M6.
 
@@ -23,6 +23,7 @@ Artifacts:
 - Source approval packet fixture: `fixtures/workshop/workshop-public-proposal-durable-graph-write-approval-packet.json`
 - Source materialization input: `fixtures/validation/proposal-materialization-public-curated-20260611a-input.json`
 - Implementation: `src/workshop/proposal-durable-graph-write-execution.ts`
+- Shared writer lock: `src/db/graph-snapshot-write-lock.ts`
 - Contract tests: `tests/workshop/proposal-durable-graph-write-execution.test.ts`
 - Safety tests: `tests/safety/proposal-durable-graph-write-execution-contract.test.ts`
 
@@ -36,7 +37,7 @@ What exists:
 
 - `executeWorkshopPublicProposalDurableGraphWrite` validates the arming against the approval packet and contract, the contract against its closed boundaries, the materialization input against the candidate, and the derived GraphBundle against the Atliera graph validator before any disk write. Arming/contract/approval-packet artifacts are own-data-snapshotted and Proxy-refused before field reads.
 - Idempotency is keyed by the contract's canonical `accountId:candidateItemId:ratified-durable-write-v1` shape. The executor refuses suffix drift before touching the durable row path, then reads existing graph_snapshots rows and either: returns `idempotent_no_op` if a row with the same key exists; refuses `arming_already_consumed_against_durable_state` if a different row with the same `approval_id` exists; or appends a new row.
-- Writes go through temp-file + atomic rename. A mid-write failure leaves the original file unchanged.
+- M3, M5a, and local DB overwrite-restore serialize graph-snapshot read/check/replace sections through the shared exclusive-create lock beside the DB root. Lock acquisition is attempted once with no waiting or retry; M3 writes then go through temp-file + atomic rename and clean stale prepared temp state best-effort on failure. A pre-rename failure leaves the original graph file unchanged.
 - The persisted graph_snapshots row carries `kind: "atliera-graph-snapshot-row"`, `schema_version: 1`, durable_record_id, idempotency_key, approval_id, contract_artifact_id, account_id, candidate_item_id, operator_identity, mediation_gate_level: L0, trust_label, written_at, and the full GraphBundle.
 - Ratified graph records are not marked `verified`; durable claims and account objects remain `source_document_only` while the row-level trust label records `model-proposed-human-ratified-evidence-pending` until M4 / M5b evidence re-verification.
 - The bundle inside the row contains the Workshop Graph primitives (sources, excerpts, claims, claim_evidence, account_objects, account_object_claims, research_runs, run_artifacts, audit_events) derived from the materialization input. The AuditEvent attributes the ratification to the single operator identity (actor_type: "user", actor_id: arming.operator_identity, event_type: "claim.ratified").
@@ -73,6 +74,7 @@ Verification coverage:
 
 - the happy path: a valid arming + valid contract + valid materialization input produces a completed outcome, exactly one row in graph_snapshots.jsonl, with `mediation_gate_level: "L0"` stamped on BOTH the outcome and the persisted row, and the bundle's AuditEvent attributes to the single operator identity
 - direct-against-DB idempotency: calling the executor twice with the same arming, contract, and inputs yields one completed + one idempotent_no_op; the DB still contains exactly one row; the no-op outcome carries `l0_effect_observed_on_this_call: false`
+- a busy shared M3/M5a writer lock refuses without changing graph_snapshots.jsonl
 - accessor-backed and Proxy-backed hostile arming/contract artifacts are refused before marker flip; Proxy traps are not invoked
 - malformed arming expiry and forged idempotency-key suffixes are refused with no row written
 - arming kind invalid → refused, no row written, no L0 stamp

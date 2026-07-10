@@ -26,6 +26,7 @@
     "workshop:runtime-preview": "tsx src/cli/runtime-workshop-preview.ts report",
     "workshop:runtime-preview:html": "tsx src/cli/runtime-workshop-preview.ts html",
     "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
+    "workshop:m5a-capstone": "tsx scripts/generate-m5a-curated-proposal-flow-capstone.mts",
     "db:local:init": "tsx src/cli/local-durable-db.ts init",
     "db:local:inspect": "tsx src/cli/local-durable-db.ts inspect",
     "db:local:backup": "tsx src/cli/local-durable-db.ts backup",

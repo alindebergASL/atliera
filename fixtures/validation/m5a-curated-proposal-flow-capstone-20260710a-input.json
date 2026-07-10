@@ -1,0 +1,109 @@
+{
+  "context": {
+    "origin": "hand-curated-public",
+    "team_id": "team_atliera_lab",
+    "account_id": "acc_northstar_logistics",
+    "materialized_at": "2026-07-09T12:00:00Z",
+    "proposal_set_id": "m5a-capstone-curated-20260710a"
+  },
+  "public_sources": [
+    {
+      "id": "src_northstar_public_001",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northstar_logistics",
+      "url": "https://example.invalid/northstar/network-update",
+      "canonical_url": "https://example.invalid/northstar/network-update",
+      "title": "Northstar expands its regional fulfillment network",
+      "publisher": "Northstar Logistics",
+      "source_type": "press_release",
+      "fetched_at": "2026-07-09T10:00:00Z",
+      "accessed_at": "2026-07-09T10:00:00Z",
+      "content_hash": "sha256:m5a-capstone-northstar-network",
+      "raw_text": "Northstar Logistics opened two regional fulfillment centers in June 2026. The centers add temperature-controlled capacity for healthcare shipments. Northstar also named Maya Chen vice president of network operations.",
+      "reliability": "high",
+      "status": "active"
+    },
+    {
+      "id": "src_northstar_public_002",
+      "team_id": "team_atliera_lab",
+      "account_id": "acc_northstar_logistics",
+      "url": "https://example.invalid/northstar/customer-program",
+      "canonical_url": "https://example.invalid/northstar/customer-program",
+      "title": "Northstar introduces healthcare lane planning sessions",
+      "publisher": "Northstar Logistics",
+      "source_type": "company_update",
+      "fetched_at": "2026-07-09T11:00:00Z",
+      "accessed_at": "2026-07-09T11:00:00Z",
+      "content_hash": "sha256:m5a-capstone-northstar-program",
+      "raw_text": "Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026. The session will review capacity forecasts and exception trends with customer operations teams.",
+      "reliability": "high",
+      "status": "active"
+    }
+  ],
+  "proposed_excerpts": [
+    {
+      "proposal_id": "network-centers",
+      "source_document_id": "src_northstar_public_001",
+      "quote": "Northstar Logistics opened two regional fulfillment centers in June 2026."
+    },
+    {
+      "proposal_id": "network-leader",
+      "source_document_id": "src_northstar_public_001",
+      "quote": "Northstar also named Maya Chen vice president of network operations."
+    },
+    {
+      "proposal_id": "planning-session",
+      "source_document_id": "src_northstar_public_002",
+      "quote": "Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026."
+    }
+  ],
+  "proposed_claims": [
+    {
+      "proposal_id": "regional-expansion",
+      "claim_type": "expansion",
+      "text": "Northstar Logistics opened two regional fulfillment centers in June 2026.",
+      "normalized_subject": "northstar:regional_fulfillment_expansion",
+      "confidence": "high",
+      "supporting_excerpt_proposal_ids": ["network-centers"]
+    },
+    {
+      "proposal_id": "operations-leader",
+      "claim_type": "leadership",
+      "text": "Maya Chen is Northstar's vice president of network operations.",
+      "normalized_subject": "northstar:maya_chen_network_operations",
+      "confidence": "high",
+      "supporting_excerpt_proposal_ids": ["network-leader"]
+    },
+    {
+      "proposal_id": "healthcare-planning",
+      "claim_type": "customer_program",
+      "text": "Northstar plans quarterly healthcare lane planning sessions beginning in August 2026.",
+      "normalized_subject": "northstar:healthcare_lane_planning",
+      "confidence": "medium",
+      "supporting_excerpt_proposal_ids": ["planning-session"]
+    }
+  ],
+  "proposed_account_objects": [
+    {
+      "proposal_id": "network-expansion-signal",
+      "object_type": "signal",
+      "title": "Regional fulfillment capacity expanded",
+      "summary": "Two new regional centers indicate active network expansion and added operating capacity.",
+      "supporting_claim_proposal_ids": ["regional-expansion"]
+    },
+    {
+      "proposal_id": "network-operations-map",
+      "object_type": "stakeholder",
+      "title": "Network operations leader identified",
+      "summary": "Maya Chen is the named executive stakeholder for Northstar's network operations organization.",
+      "supporting_claim_proposal_ids": ["operations-leader"]
+    },
+    {
+      "proposal_id": "healthcare-planning-play",
+      "object_type": "play",
+      "title": "Prepare for a healthcare lane planning session",
+      "summary": "Use Northstar's announced quarterly planning format to frame capacity and exception-trend questions.",
+      "supporting_claim_proposal_ids": ["healthcare-planning"]
+    }
+  ]
+}

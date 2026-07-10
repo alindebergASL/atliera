@@ -863,10 +863,10 @@ describe("M5a step 3 — module purity and runbook/INDEX claims", () => {
     assert.match(status, /only when an operator explicitly supplies/);
     assert.match(status, /not an execution-time expiry check/);
     assert.match(status, /execution_at >= packet_expires_at/);
-    assert.match(status, /implements no Step 4 execution behavior/);
+    assert.match(status, /Step-3 module remains arming-only and implements no execution behavior/i);
     assert.match(status, /full verified tuple/);
     assert.match(status, /same durable transaction/);
-    assert.match(status, /refuse replay after consumption/);
+    assert.match(status, /refuses? replay after consumption/);
     assert.match(status, /only Step 4 can enforce consumption/i);
   });
 

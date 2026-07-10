@@ -22,6 +22,7 @@ import {
 } from "../../src/workshop/m5a-curated-proposal-flow-contract.ts";
 import {
   buildM5aCuratedProposalFlowApprovalPacket,
+  canonicalM5aCuratedProposalFlowApprovalPacketArtifactId,
   verifyM5aCuratedProposalFlowApprovalPacket,
   M5A_APPROVAL_PACKET_KIND,
   M5A_APPROVAL_PACKET_SCHEMA_VERSION,
@@ -389,6 +390,116 @@ describe("M5a step 2 — hostile-probe regression suite (approval-state counterf
     );
   });
 
+  test("Counterfeit C20 — Proxy-backed nested trust-tier array is refused without firing its get trap", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const c = mutate(packet, () => undefined) as any;
+    let trapFired = false;
+    c.trust_tier_pins.forbidden_per_record_provenance_statuses = new Proxy(["verified"], {
+      get(_target, prop) {
+        trapFired = true;
+        throw new Error(`UNEXPECTED_ARRAY_GET:${String(prop)}`);
+      },
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(c, contract),
+      M5aApprovalPacketRefusal,
+    );
+    assert.equal(trapFired, false);
+  });
+
+  test("Counterfeit C21 — accessor-backed nested trust-tier array index is refused without firing its getter", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const c = mutate(packet, () => undefined) as any;
+    let getterFired = false;
+    const forbidden: unknown[] = ["verified"];
+    Object.defineProperty(forbidden, "0", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        throw new Error("UNEXPECTED_ARRAY_INDEX_GET");
+      },
+    });
+    c.trust_tier_pins.forbidden_per_record_provenance_statuses = forbidden;
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(c, contract),
+      M5aApprovalPacketRefusal,
+    );
+    assert.equal(getterFired, false);
+  });
+
+  test("Counterfeit C22 — drafted packet plus expired:true is refused as an unknown contradictory lifecycle field", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const c = mutate(packet, (p) => {
+      p.expired = true;
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(c, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Counterfeit C23 — unknown nested authorization scope is refused fail-closed", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const c = mutate(packet, (p) => {
+      p.eventual_authorization.additional_authorization_scope = "fresh-model-call";
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(c, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Counterfeit C24 — downstream step-2 verification refuses a broadened step-1 contract", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const counterfeitContract = mutate(contract, (c) => {
+      c.boundaries.authorizes_provider_call = true;
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(packet, counterfeitContract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Counterfeit C25 — packet drafted before its contract is refused on build and verify paths", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    assert.throws(
+      () => buildM5aCuratedProposalFlowApprovalPacket(contract, {
+        now: "2026-06-16T23:59:59Z",
+        expiresAt: "2026-06-18T00:00:00Z",
+        draftedBy: DRAFTED_BY,
+      }),
+      M5aApprovalPacketRefusal,
+    );
+
+    const c = mutate(packet, (p) => {
+      p.drafted_at = "2026-06-16T23:59:59Z";
+      p.packet_artifact_id = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+        p.references_contract_artifact_id,
+        p.proposal_set_id,
+        p.account_id,
+        p.drafted_by,
+        p.drafted_at,
+        p.expires_at,
+      );
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(c, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
+  test("Counterfeit C26 — extending expires_at without rebinding packet identity is refused", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    const counterfeit = mutate(packet, (p) => {
+      p.expires_at = "2026-06-19T00:00:00Z";
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowApprovalPacket(counterfeit, contract),
+      M5aApprovalPacketRefusal,
+    );
+  });
+
   test("Build-side counterfeit — a contract whose approval_packet_shape carries a falsified positive pin is refused at build time", () => {
     const contract = loadContract();
     const counterfeitContract = JSON.parse(JSON.stringify(contract));
@@ -419,13 +530,10 @@ describe("M5a step 2 — hostile-probe regression suite (approval-state counterf
 });
 
 describe("M5a step 2 — packet_artifact_id uniqueness (the SAFE_ID-truncation safety check)", () => {
-  // The packet ID was originally shortened to fit SAFE_ID's 121-char
-  // cap. The first shortening dropped flow_id, which would have
-  // collided across two contracts sharing a proposal_set_id but
-  // differing in flow_id. The fix encodes the full contractArtifactId
-  // (which itself encodes proposal_set_id + flow_id from step 1) in
-  // the packet ID. These tests lock the property a downstream slice
-  // depends on: packet_artifact_id is uniquely identifying.
+  // The canonical digest binds the full contract/proposal/account/
+  // drafter/draft-time/expiry tuple. These tests lock account-, flow-,
+  // and expiry-distinct
+  // identity without relying on delimiter-sensitive verbatim embedding.
 
   test("two contracts over the same proposal_set_id but different flow_ids produce distinct packet_artifact_ids", () => {
     const input = JSON.parse(readFileSync(MATERIALIZATION_INPUT_FIXTURE, "utf8")) as Record<string, unknown>;
@@ -464,20 +572,77 @@ describe("M5a step 2 — packet_artifact_id uniqueness (the SAFE_ID-truncation s
     );
   });
 
-  test("packet_artifact_id encodes the contract_artifact_id (so the ID and the contract-reference triple cannot point at different contracts)", () => {
-    const { contract, packet } = loadLegitimatePacket();
-    assert.ok(
-      packet.packet_artifact_id.includes(contract.contract_artifact_id),
-      "packet_artifact_id must encode the contract_artifact_id verbatim, not a fragment of it",
-    );
+  test("different accounts produce distinct contract AND packet IDs", () => {
+    const inputA = JSON.parse(readFileSync(MATERIALIZATION_INPUT_FIXTURE, "utf8")) as Record<string, unknown>;
+    const inputB = JSON.parse(readFileSync(MATERIALIZATION_INPUT_FIXTURE, "utf8")) as Record<string, unknown>;
+    (inputB.context as Record<string, unknown>).account_id = "acc_other_honest_account";
+    const contractA = buildM5aCuratedProposalFlowContract(inputA, {
+      flowId: FLOW_ID,
+      now: CONTRACT_NOW,
+    });
+    const contractB = buildM5aCuratedProposalFlowContract(inputB, {
+      flowId: FLOW_ID,
+      now: CONTRACT_NOW,
+    });
+    const packetA = buildM5aCuratedProposalFlowApprovalPacket(contractA, {
+      now: NOW,
+      expiresAt: EXPIRES,
+      draftedBy: DRAFTED_BY,
+    });
+    const packetB = buildM5aCuratedProposalFlowApprovalPacket(contractB, {
+      now: NOW,
+      expiresAt: EXPIRES,
+      draftedBy: DRAFTED_BY,
+    });
+
+    assert.notEqual(contractA.contract_artifact_id, contractB.contract_artifact_id);
+    assert.notEqual(packetA.packet_artifact_id, packetB.packet_artifact_id);
   });
 
-  test("packet_artifact_id stays within SAFE_ID's 121-char cap on the committed fixture", () => {
-    const { packet } = loadLegitimatePacket();
-    assert.ok(
-      packet.packet_artifact_id.length <= 121,
-      `packet_artifact_id length ${packet.packet_artifact_id.length} exceeds SAFE_ID cap of 121`,
+  test("different expiry windows produce distinct packet IDs for the same draft tuple", () => {
+    const contract = loadContract();
+    const packetA = buildM5aCuratedProposalFlowApprovalPacket(contract, {
+      now: NOW,
+      expiresAt: "2026-06-18T00:00:00Z",
+      draftedBy: DRAFTED_BY,
+    });
+    const packetB = buildM5aCuratedProposalFlowApprovalPacket(contract, {
+      now: NOW,
+      expiresAt: "2026-06-19T00:00:00Z",
+      draftedBy: DRAFTED_BY,
+    });
+    assert.notEqual(packetA.packet_artifact_id, packetB.packet_artifact_id);
+  });
+
+  test("packet_artifact_id equals the canonical digest of its validated binding tuple", () => {
+    const { contract, packet } = loadLegitimatePacket();
+    assert.equal(
+      packet.packet_artifact_id,
+      canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+        contract.contract_artifact_id,
+        packet.proposal_set_id,
+        packet.account_id,
+        packet.drafted_by,
+        packet.drafted_at,
+        packet.expires_at,
+      ),
     );
+    assert.match(packet.packet_artifact_id, /^m5a-pkt:[a-f0-9]{40}$/);
+  });
+
+  test("longest valid inputs keep packet_artifact_id within SAFE_ID's 121-char cap", () => {
+    const longestSafeId = `a${"x".repeat(120)}`;
+    const id = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+      longestSafeId,
+      longestSafeId,
+      longestSafeId,
+      `o${"p".repeat(60)}`,
+      "2026-06-17T00:00:00.123Z",
+      "2026-06-18T00:00:00.123Z",
+    );
+    assert.ok(id.length <= 121);
+    assert.match(id, /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/);
+    assert.match(id, /^m5a-pkt:[a-f0-9]{40}$/);
   });
 });
 
@@ -489,8 +654,8 @@ describe("M5a step 2 — packet_artifact_id canonical-form enforcement on the VE
   // packet_artifact_id was safe-shaped but forged.
   //
   // The fix re-derives the canonical ID in the verifier from its own
-  // validated locals (references_contract_artifact_id, drafted_by,
-  // drafted_at) and refuses on mismatch. The three regressions below
+  // validated locals (contract reference, proposal, account, drafter,
+  // drafted-at, and expires-at) and refuses on mismatch. The regressions below
   // construct forged packets by hand (NOT from the builder) and feed
   // them to the verifier — the property under test is the verify-side
   // enforcement, not the build-side construction.
@@ -517,18 +682,22 @@ describe("M5a step 2 — packet_artifact_id canonical-form enforcement on the VE
     );
   });
 
-  test("Hermes H3 — a hand-constructed packet whose ID embeds a DIFFERENT contract reference is refused EVEN WHEN the contract-reference triple is otherwise correct (the load-bearing ID-triple-disagreement case)", () => {
+  test("Hermes H3 — a packet ID derived from a DIFFERENT contract reference is refused even when the packet tuple is otherwise correct", () => {
     // The load-bearing forgery: the triple stays correct (the verifier
-    // would accept it on the triple check alone), but the ID embeds a
-    // different contract reference, signaling intent or downstream
+    // would accept it on the triple check alone), but the ID derives from
+    // a different contract reference, signaling intent or downstream
     // confusion. The canonical-form re-derivation catches this even
     // though every other field is honest.
     const { contract, packet } = loadLegitimatePacket();
     const forged = mutate(packet, (p) => {
-      // ID embeds "other-flow" where the real contract_artifact_id has
-      // "m5a-acme-robotics-20260617a". Triple untouched.
-      p.packet_artifact_id =
-        "m5a-pkt:m5a-flow-contract:public-curated-20260611a:other-flow:reviewer_demo:2026-06-17T00:00:00Z";
+      p.packet_artifact_id = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+        "m5a-flow-contract:0000000000000000000000000000000000000000",
+        p.proposal_set_id,
+        p.account_id,
+        p.drafted_by,
+        p.drafted_at,
+        p.expires_at,
+      );
     });
     assert.throws(
       () => verifyM5aCuratedProposalFlowApprovalPacket(forged, contract),
@@ -538,7 +707,8 @@ describe("M5a step 2 — packet_artifact_id canonical-form enforcement on the VE
 
   test("Hermes H4 — the canonical-form re-derivation uses the VERIFIER'S OWN validated locals, not fresh reads of the packet object (TOCTOU-safe)", () => {
     // The re-derivation in the verifier reads from `references_contract_
-    // artifact_id`, `drafted_by`, and `drafted_at` — values already
+    // artifact_id`, proposal/account ids, `drafted_by`, `drafted_at`, and
+    // `expires_at` — values already
     // validated and stored in locals by the time the canonical-form
     // check runs. To confirm the implementation does not accidentally
     // re-read `p.*` at the comparison site, we inspect the module
@@ -547,8 +717,12 @@ describe("M5a step 2 — packet_artifact_id canonical-form enforcement on the VE
     const moduleText = read(MODULE);
     assert.match(
       moduleText,
-      /const expectedPacketArtifactId = `m5a-pkt:\$\{referencesContractId\}:\$\{draftedBy\}:\$\{draftedAt\}`;/,
-      "canonical-form expected ID must be derived from validated locals (referencesContractId, draftedBy, draftedAt), not from p.* re-reads",
+      /const expectedPacketArtifactId = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId\(\s*referencesContractId,\s*packetProposalSetId,\s*packetAccountId,\s*draftedBy,\s*draftedAt,\s*expiresAt,\s*\);/,
+      "canonical-form expected ID must be derived from validated locals, not p.* re-reads",
+    );
+    assert.doesNotMatch(
+      moduleText,
+      /canonicalM5aCuratedProposalFlowApprovalPacketArtifactId\(\s*p\./s,
     );
   });
 
@@ -578,11 +752,11 @@ describe("M5a step 2 — input snapshot discipline imported from step 1", () => 
     );
   });
 
-  test("step 1's safety contract test still passes — step 1's module is backward-compatible after adding `export` to its helpers", () => {
+  test("step 1's safety contract test still passes while step 2 reuses its hardened helpers", () => {
     // Indirect assertion: this test running is itself proof that step
     // 1's module compiles, and the targeted suite covers the rest. We
     // assert one structural fact here: step 1's module exports the
-    // helpers (the only change made to step 1 by this PR).
+    // helpers used at this layer.
     const step1ModuleText = read(join(ROOT, "src/workshop/m5a-curated-proposal-flow-contract.ts"));
     for (const name of [
       "snapshotPlainOwnData",

@@ -2,15 +2,16 @@
 //
 // M5a step 2 (operator GO 2026-06-17). Produces a drafted-and-unarmed
 // approval packet over an M5a step 1 contract artifact. The packet is
-// the typed authorization that a separate future arming slice (the
-// M5a analog of M3 step 3a) will transition from `drafted` to `armed`
-// and that the M5a flow execution slice (the analog of M3 step 3a's
-// executor) will consume.
+// the typed drafted input that step 3 verifies before producing a
+// separate armed-state artifact; the packet itself remains drafted and
+// inert. The future M5a flow execution slice (the analog of M3 step
+// 3a's executor) consumes the verified packet plus that arming artifact.
 //
 // This module performs no provider call, no graph mutation, no
 // durable write, no flow execution. The packet it produces is inert
 // by construction: a drafted authorization that cannot cause a write
-// until a separate arming slice transitions it. A probe in the
+// until a separate arming slice produces a bound armed-state artifact.
+// A probe in the
 // hostile-input regression suite confirms that an attempt to execute
 // against the drafted packet fails closed.
 //
@@ -39,15 +40,17 @@
 // 2 imports `snapshotPlainOwnData`, `snapshotPlainArray`,
 // `isCanonicalIsoTimestamp`, `requireSafeId`,
 // `requireCanonicalIsoTimestamp`, and `M5aContractBuilderRefusal` from
-// step 1's module. Step 1 exported them in this PR (a mechanical
-// three-line change with no behavior change at step 1; verified by
-// step 1's existing safety contract test continuing to pass). The
-// M5a layer is therefore one consolidated site of the discipline
-// rather than two. This is recorded as an H3 retro input: the cost of
+// step 1's module. The shared helpers now include the runtime verifier,
+// exact-key checks, bounded strict array snapshots, chronology checks,
+// and canonical-ID enforcement added by the pre-capstone hardening.
+// The M5a layer is therefore one consolidated site of the discipline.
+// This is recorded as an H3 retro input: the cost of
 // every site hand-rolling is partly offset when sites share a
 // namespace, evidence that informs Q4 and the eventual H3 migration
 // surface (now three M3 sites + one M5a-layer site, not three M3
 // sites + two independent M5a hand-rolls).
+
+import { createHash } from "node:crypto";
 
 import {
   M5A_PINNED_CURATION_ORIGIN,
@@ -59,7 +62,9 @@ import {
   isCanonicalIsoTimestamp,
   requireCanonicalIsoTimestamp,
   requireSafeId,
+  snapshotPlainArray,
   snapshotPlainOwnData,
+  verifyM5aCuratedProposalFlowContract,
   type M5aCuratedProposalFlowContractArtifact,
 } from "./m5a-curated-proposal-flow-contract.ts";
 
@@ -69,8 +74,37 @@ export const M5A_APPROVAL_PACKET_KIND =
 export const M5A_APPROVAL_PACKET_SCHEMA_VERSION =
   "atliera.m5a_curated_proposal_flow_approval_packet.v1" as const;
 
+const M5A_PACKET_ID_DIGEST_HEX_LENGTH = 40;
+
+// The canonical packet identity binds every validated step-2 identity
+// dimension. JSON tuple encoding is unambiguous for strings, and the
+// 40-hex SHA-256 prefix supplies a 160-bit digest within SAFE_ID.
+export function canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+  referencesContractArtifactId: string,
+  proposalSetId: string,
+  accountId: string,
+  draftedBy: string,
+  draftedAt: string,
+  expiresAt: string,
+): string {
+  const canonicalTuple = JSON.stringify([
+    referencesContractArtifactId,
+    proposalSetId,
+    accountId,
+    draftedBy,
+    draftedAt,
+    expiresAt,
+  ]);
+  const digest = createHash("sha256")
+    .update(canonicalTuple, "utf8")
+    .digest("hex")
+    .slice(0, M5A_PACKET_ID_DIGEST_HEX_LENGTH);
+  return `m5a-pkt:${digest}`;
+}
+
 // What the packet's eventual arming will license (when a separate
-// arming slice transitions the packet from drafted to armed). M5a's
+// arming slice produces an armed-state artifact over the drafted
+// packet). M5a's
 // Path-1 ratification means this is ALWAYS the write/render of a
 // recorded proposal — never a fresh provider call.
 export const M5A_EVENTUAL_AUTHORIZATION_SCOPE =
@@ -120,8 +154,8 @@ export interface M5aApprovalPacketTrustTierPins {
   readonly forbidden_per_record_provenance_statuses: readonly ["verified"];
 }
 
-// Flow constraints — drafted-and-unarmed by default; the eventual
-// arming is the surface that flips authorization.
+// Flow constraints — this packet remains drafted and unarmed. Step 3's
+// separate arming artifact is the surface that carries authorization.
 export interface M5aApprovalPacketFlowConstraints {
   readonly drafted_and_unarmed_by_default: true;
   readonly max_flow_executions: 1;
@@ -139,8 +173,9 @@ export interface M5aCuratedProposalFlowApprovalPacketArtifact {
   readonly kind: typeof M5A_APPROVAL_PACKET_KIND;
   readonly schema_version: typeof M5A_APPROVAL_PACKET_SCHEMA_VERSION;
   readonly disposable: true;
-  // current_effective_authorization stays "none" while the packet is
-  // drafted; only an arming slice would flip this.
+  // current_effective_authorization remains "none" on this packet.
+  // Step 3 creates a separate armed-state artifact; it does not mutate
+  // or transition the drafted packet.
   readonly current_effective_authorization: "none";
   readonly packet_artifact_id: string;
   // Contract-reference integrity. The packet binds to its step-1
@@ -150,8 +185,8 @@ export interface M5aCuratedProposalFlowApprovalPacketArtifact {
   readonly references_contract_artifact_id: string;
   readonly proposal_set_id: string;
   readonly account_id: string;
-  // Drafted lifecycle state. The packet is INERT by construction at
-  // this lifecycle value; only an arming slice transitions it.
+  // Drafted lifecycle state. The packet remains INERT and drafted;
+  // Step 3's armed lifecycle exists only on its separate artifact.
   readonly lifecycle: "drafted";
   readonly drafted_at: string;
   readonly drafted_by: string;
@@ -161,8 +196,8 @@ export interface M5aCuratedProposalFlowApprovalPacketArtifact {
   readonly eventual_authorization: M5aApprovalPacketEventualAuthorization;
   readonly trust_tier_pins: M5aApprovalPacketTrustTierPins;
   readonly flow_constraints: M5aApprovalPacketFlowConstraints;
-  // Drafted-state markers. ALL false at draft time; arming would
-  // flip only `armed`. None of these are flippable at this slice.
+  // Drafted-state markers. ALL remain false on the packet. Step 3
+  // records armed state only on its separate arming artifact.
   readonly armed: false;
   readonly consumed: false;
   readonly executed: false;
@@ -183,10 +218,108 @@ export interface BuildM5aApprovalPacketOptions {
   readonly expiresAt: string;
 }
 
+type PlainRecord = Readonly<Record<string, unknown>>;
+
+const PACKET_ROOT_KEYS = [
+  "kind",
+  "schema_version",
+  "disposable",
+  "current_effective_authorization",
+  "packet_artifact_id",
+  "references_contract_artifact_id",
+  "proposal_set_id",
+  "account_id",
+  "lifecycle",
+  "drafted_at",
+  "drafted_by",
+  "expires_at",
+  "eventual_authorization",
+  "trust_tier_pins",
+  "flow_constraints",
+  "armed",
+  "consumed",
+  "executed",
+  "provider_calls_made",
+  "private_evidence_read",
+  "graph_ingestion_performed",
+  "durable_writes_performed",
+  "production_writes",
+  "readiness_claim",
+] as const;
+const EVENTUAL_AUTHORIZATION_KEYS = [
+  "authorization_scope",
+  "authorizes_durable_write_of_recorded_proposal",
+  "authorizes_render_of_durable_state",
+  "authorizes_provider_call",
+  "authorizes_system_side_acquisition",
+  "authorizes_private_evidence_read",
+  "recorded_proposal_source_origin",
+] as const;
+const TRUST_TIER_PIN_KEYS = [
+  "required_row_trust_label",
+  "required_per_record_provenance_status",
+  "forbidden_per_record_provenance_statuses",
+] as const;
+const FLOW_CONSTRAINT_KEYS = [
+  "drafted_and_unarmed_by_default",
+  "max_flow_executions",
+  "retry_budget",
+  "retry_requires_new_approval",
+  "expiry_required",
+  "operator_arming_required_for_flow_execution",
+  "mediation_gate_level",
+  "target_store",
+  "forbids_fresh_provider_call_on_flow_path",
+  "forbids_system_side_acquisition",
+] as const;
+
+function requireExactOwnKeys(record: PlainRecord, expected: readonly string[], label: string): void {
+  const actual = Object.keys(record).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    throw new M5aApprovalPacketRefusal(
+      `${label} must contain exactly the expected own keys; got ${JSON.stringify(actual)}`,
+    );
+  }
+}
+
+function translateContractRefusal(e: unknown): never {
+  if (e instanceof M5aContractBuilderRefusal) {
+    throw new M5aApprovalPacketRefusal(e.detail);
+  }
+  throw e;
+}
+
+function snapshotRecordOrRefuse(value: unknown, label: string): PlainRecord {
+  try {
+    return snapshotPlainOwnData(value, label);
+  } catch (e) {
+    translateContractRefusal(e);
+  }
+}
+
+function snapshotArrayOrRefuse(value: unknown, label: string): readonly unknown[] {
+  try {
+    return snapshotPlainArray(value, label);
+  } catch (e) {
+    translateContractRefusal(e);
+  }
+}
+
+function verifyContractOrRefuse(
+  contract: unknown,
+): asserts contract is M5aCuratedProposalFlowContractArtifact {
+  try {
+    verifyM5aCuratedProposalFlowContract(contract);
+  } catch (e) {
+    translateContractRefusal(e);
+  }
+}
+
 // buildM5aCuratedProposalFlowApprovalPacket: produces a drafted-and-
 // unarmed packet over the given step-1 contract artifact. The packet
-// is inert by construction at draft lifecycle; only a separate arming
-// slice transitions it.
+// is inert by construction and remains drafted; the separate Step 3
+// module creates a bound armed-state artifact without mutating it.
 //
 // Snapshot discipline: the contract and options are snapshotted at
 // entry using the helpers imported from step 1; the packet is built
@@ -227,6 +360,8 @@ export function buildM5aCuratedProposalFlowApprovalPacket(
     throw new M5aApprovalPacketRefusal("options.draftedBy must be a safe operator identity string");
   }
   const draftedBy = draftedByRaw;
+
+  verifyContractOrRefuse(contract as unknown);
 
   // (2) Snapshot the contract input. The contract is itself produced
   // by step 1's builder; a legitimate caller passes the actual frozen
@@ -352,18 +487,17 @@ export function buildM5aCuratedProposalFlowApprovalPacket(
 
   // (5) Construct the packet ID and assemble the artifact from
   // validated locals only.
-  // Packet ID encodes the full contractArtifactId (which itself
-  // encodes proposalSetId + flowId from step 1), the drafter, and the
-  // draft time. The earlier shortening dropped flowId, which would
-  // have collided across two contracts sharing a proposal_set_id but
-  // differing only in flow_id; including contractArtifactId restores
-  // uniqueness without re-extracting flow_id. SAFE_ID caps at ~120
-  // chars; the current form is ~111 chars on the committed fixture.
-  // The contract reference triple (references_contract_artifact_id /
-  // proposal_set_id / account_id) is the load-bearing binding for
-  // verifier integrity; the packet_artifact_id is for downstream
-  // identity-based lookups and must stay uniquely identifying.
-  const packetArtifactId = `m5a-pkt:${contractArtifactId}:${draftedBy}:${now}`;
+  // The digest binds the complete validated contract/proposal/account/
+  // drafter/draft-time/expiry tuple without embedding a delimiter-sensitive
+  // field or approaching SAFE_ID's maximum length.
+  const packetArtifactId = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+    contractArtifactId,
+    proposalSetId,
+    accountId,
+    draftedBy,
+    now,
+    expiresAt,
+  );
 
   const packet: M5aCuratedProposalFlowApprovalPacketArtifact = Object.freeze({
     kind: M5A_APPROVAL_PACKET_KIND,
@@ -441,6 +575,25 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   packet: unknown,
   contract: M5aCuratedProposalFlowContractArtifact,
 ): asserts packet is M5aCuratedProposalFlowApprovalPacketArtifact {
+  verifyContractOrRefuse(contract as unknown);
+  const contractSnap = snapshotRecordOrRefuse(contract as unknown, "contract");
+  const verifiedContractId = requireSafeIdOrRefuse(
+    contractSnap.contract_artifact_id,
+    "contract.contract_artifact_id",
+  );
+  const verifiedContractProposalSetId = requireSafeIdOrRefuse(
+    contractSnap.proposal_set_id,
+    "contract.proposal_set_id",
+  );
+  const verifiedContractAccountId = requireSafeIdOrRefuse(
+    contractSnap.account_id,
+    "contract.account_id",
+  );
+  const verifiedContractedAt = requireCanonicalIsoTimestampOrRefuse(
+    contractSnap.contracted_at,
+    "contract.contracted_at",
+  );
+
   // (a) Snapshot the packet.
   let p: Readonly<Record<string, unknown>>;
   try {
@@ -451,6 +604,7 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
     }
     throw e;
   }
+  requireExactOwnKeys(p, PACKET_ROOT_KEYS, "packet");
 
   // (b) Kind + schema.
   if (p.kind !== M5A_APPROVAL_PACKET_KIND) {
@@ -469,8 +623,8 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   }
 
   // (c) Lifecycle MUST be drafted at this slice. A packet arriving as
-  // already-armed/consumed/expired/revoked is a counterfeit (or
-  // belongs to a future slice that has not been written yet).
+  // already-armed/consumed/expired/revoked is a counterfeit. Armed
+  // state belongs only to the separate Step 3 artifact.
   if (p.lifecycle !== "drafted") {
     throw new M5aApprovalPacketRefusal(
       `packet.lifecycle must be "drafted" at step 2; got ${JSON.stringify(p.lifecycle)}`,
@@ -518,17 +672,17 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   // MUST equal the contract's identity triple. M3 3a's "arming for
   // contract A can't authorize a write of candidate B" lesson, pulled
   // up to the packet-drafting layer.
-  if (referencesContractId !== contract.contract_artifact_id) {
+  if (referencesContractId !== verifiedContractId) {
     throw new M5aApprovalPacketRefusal(
-      `packet.references_contract_artifact_id (${referencesContractId}) does not match contract.contract_artifact_id (${contract.contract_artifact_id})`,
+      `packet.references_contract_artifact_id (${referencesContractId}) does not match contract.contract_artifact_id (${verifiedContractId})`,
     );
   }
-  if (packetProposalSetId !== contract.proposal_set_id) {
+  if (packetProposalSetId !== verifiedContractProposalSetId) {
     throw new M5aApprovalPacketRefusal(
       `packet.proposal_set_id does not match contract.proposal_set_id`,
     );
   }
-  if (packetAccountId !== contract.account_id) {
+  if (packetAccountId !== verifiedContractAccountId) {
     throw new M5aApprovalPacketRefusal(
       `packet.account_id does not match contract.account_id`,
     );
@@ -537,6 +691,11 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   // (h) Timestamps.
   const draftedAt = requireCanonicalIsoTimestampOrRefuse(p.drafted_at, "packet.drafted_at");
   const expiresAt = requireCanonicalIsoTimestampOrRefuse(p.expires_at, "packet.expires_at");
+  if (Date.parse(draftedAt) < Date.parse(verifiedContractedAt)) {
+    throw new M5aApprovalPacketRefusal(
+      "packet.drafted_at must be at or after contract.contracted_at",
+    );
+  }
   if (Date.parse(expiresAt) <= Date.parse(draftedAt)) {
     throw new M5aApprovalPacketRefusal("packet.expires_at must be strictly after packet.drafted_at");
   }
@@ -556,13 +715,14 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   // 2026-06-17; the builder-side fix established the canonical form
   // by construction, but the verifier did not enforce it. A hand-
   // constructed packet whose ID was forged — including the load-
-  // bearing case of an ID that embeds a different contract reference
-  // while the triple stays correct — passed verification. The
+  // bearing case of an ID derived from a different contract reference
+  // while the tuple stays correct — passed verification. The
   // verifier must re-derive the canonical ID from its own validated
   // locals and refuse on mismatch.)
   //
   // The expected ID is computed from the validator's own validated
-  // locals (`referencesContractId`, `draftedBy`, `draftedAt`),
+  // locals (`referencesContractId`, `packetProposalSetId`,
+  // `packetAccountId`, `draftedBy`, `draftedAt`, `expiresAt`),
   // each of which has already been snapshot-backed and validated
   // above. No fresh read of `p.*` happens at this comparison —
   // every input to the canonical form is a local string already
@@ -570,10 +730,17 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
   // construction invariant on the verify path: builder generates
   // canonical, verifier requires canonical, two claims, both now
   // structurally true.
-  const expectedPacketArtifactId = `m5a-pkt:${referencesContractId}:${draftedBy}:${draftedAt}`;
+  const expectedPacketArtifactId = canonicalM5aCuratedProposalFlowApprovalPacketArtifactId(
+    referencesContractId,
+    packetProposalSetId,
+    packetAccountId,
+    draftedBy,
+    draftedAt,
+    expiresAt,
+  );
   if (packetArtifactId !== expectedPacketArtifactId) {
     throw new M5aApprovalPacketRefusal(
-      `packet.packet_artifact_id (${packetArtifactId}) does not match its canonical form derived from references_contract_artifact_id / drafted_by / drafted_at (expected: ${expectedPacketArtifactId})`,
+      `packet.packet_artifact_id (${packetArtifactId}) does not match its canonical contract / proposal / account / drafter / drafted-at / expires-at form (expected: ${expectedPacketArtifactId})`,
     );
   }
 
@@ -587,6 +754,7 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
     }
     throw e;
   }
+  requireExactOwnKeys(auth, EVENTUAL_AUTHORIZATION_KEYS, "packet.eventual_authorization");
   if (auth.authorization_scope !== M5A_EVENTUAL_AUTHORIZATION_SCOPE) {
     throw new M5aApprovalPacketRefusal(
       `packet.eventual_authorization.authorization_scope must be "${M5A_EVENTUAL_AUTHORIZATION_SCOPE}"`,
@@ -636,6 +804,7 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
     }
     throw e;
   }
+  requireExactOwnKeys(pins, TRUST_TIER_PIN_KEYS, "packet.trust_tier_pins");
   if (pins.required_row_trust_label !== M5A_PINNED_ROW_TRUST_LABEL) {
     throw new M5aApprovalPacketRefusal(
       `packet.trust_tier_pins.required_row_trust_label must be "${M5A_PINNED_ROW_TRUST_LABEL}" (positive pin required, not only the negative prohibition)`,
@@ -648,11 +817,11 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
       `packet.trust_tier_pins.required_per_record_provenance_status must be "${M5A_PINNED_PER_RECORD_PROVENANCE_STATUS}" (positive pin required)`,
     );
   }
-  if (
-    !Array.isArray(pins.forbidden_per_record_provenance_statuses) ||
-    pins.forbidden_per_record_provenance_statuses.length !== 1 ||
-    pins.forbidden_per_record_provenance_statuses[0] !== "verified"
-  ) {
+  const forbiddenStatuses = snapshotArrayOrRefuse(
+    pins.forbidden_per_record_provenance_statuses,
+    "packet.trust_tier_pins.forbidden_per_record_provenance_statuses",
+  );
+  if (forbiddenStatuses.length !== 1 || forbiddenStatuses[0] !== "verified") {
     throw new M5aApprovalPacketRefusal(
       "packet.trust_tier_pins.forbidden_per_record_provenance_statuses must be exactly [\"verified\"]",
     );
@@ -669,6 +838,7 @@ export function verifyM5aCuratedProposalFlowApprovalPacket(
     }
     throw e;
   }
+  requireExactOwnKeys(fc, FLOW_CONSTRAINT_KEYS, "packet.flow_constraints");
   if (fc.drafted_and_unarmed_by_default !== true) {
     throw new M5aApprovalPacketRefusal(
       "packet.flow_constraints.drafted_and_unarmed_by_default must be true",

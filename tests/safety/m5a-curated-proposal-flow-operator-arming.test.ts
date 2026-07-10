@@ -2,9 +2,9 @@
 //
 // Threat shape: arming-state counterfeit. This suite is deliberately not
 // a replay of step 1's input-smuggling probes or step 2's packet-
-// counterfeit probes. Step 3's job is to transition one verified drafted
-// packet into one armed, unconsumed authorization for a future flow
-// execution, without executing the flow.
+// counterfeit probes. Step 3's job is to keep one verified packet drafted
+// while producing a separate armed, unconsumed authorization for one future
+// flow execution, without executing the flow.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -25,6 +25,7 @@ import {
   M5A_OPERATOR_ARMING_SCHEMA_VERSION,
   M5aOperatorArmingRefusal,
   buildM5aCuratedProposalFlowOperatorArming,
+  canonicalM5aOneShotConsumptionKey,
   canonicalM5aOperatorArmingArtifactId,
   verifyM5aCuratedProposalFlowOperatorArming,
   type M5aCuratedProposalFlowOperatorArmingArtifact,
@@ -97,8 +98,17 @@ function handConstructArming(
     generated_from: "m5a-curated-proposal-flow-approval-packet",
     arming_artifact_id: canonicalM5aOperatorArmingArtifactId(
       packet.packet_artifact_id,
+      packet.references_contract_artifact_id,
+      packet.proposal_set_id,
+      packet.account_id,
       armedBy,
       armedAt,
+    ),
+    one_shot_consumption_key: canonicalM5aOneShotConsumptionKey(
+      packet.packet_artifact_id,
+      packet.references_contract_artifact_id,
+      packet.proposal_set_id,
+      packet.account_id,
     ),
     packet_artifact_id: packet.packet_artifact_id,
     references_contract_artifact_id: packet.references_contract_artifact_id,
@@ -135,6 +145,10 @@ function handConstructArming(
       consumed_flow_executions: 0,
       retry_budget: 0,
       retry_requires_new_approval: true,
+      one_shot_consumption_recorded: false,
+      step_4_must_check_expiry_at_execution: true,
+      step_4_must_atomically_consume_one_shot_key_in_durable_transaction: true,
+      step_4_must_refuse_replay_after_consumption: true,
       authorizes_provider_call: false,
       authorizes_system_side_acquisition: false,
       authorizes_private_evidence_read: false,
@@ -162,10 +176,20 @@ describe("M5a step 3 — happy path and constants", () => {
     assert.equal(arming.schema_version, M5A_OPERATOR_ARMING_SCHEMA_VERSION);
     assert.equal(arming.arming_artifact_id, canonicalM5aOperatorArmingArtifactId(
       packet.packet_artifact_id,
+      packet.references_contract_artifact_id,
+      packet.proposal_set_id,
+      packet.account_id,
       ARMED_BY,
       ARMED_AT,
     ));
     assert.equal(arming.arming_artifact_id.length <= 121, true);
+    assert.equal(arming.one_shot_consumption_key, canonicalM5aOneShotConsumptionKey(
+      packet.packet_artifact_id,
+      packet.references_contract_artifact_id,
+      packet.proposal_set_id,
+      packet.account_id,
+    ));
+    assert.match(arming.one_shot_consumption_key, /^m5a-one-shot:[a-f0-9]{40}$/);
     assert.equal(arming.packet_artifact_id, packet.packet_artifact_id);
     assert.equal(arming.references_contract_artifact_id, contract.contract_artifact_id);
     assert.equal(arming.packet_lifecycle_before_arming, "drafted");
@@ -176,6 +200,13 @@ describe("M5a step 3 — happy path and constants", () => {
     assert.equal(arming.boundaries.max_flow_executions_authorized, 1);
     assert.equal(arming.boundaries.remaining_flow_executions, 1);
     assert.equal(arming.boundaries.retry_budget, 0);
+    assert.equal(arming.boundaries.one_shot_consumption_recorded, false);
+    assert.equal(arming.boundaries.step_4_must_check_expiry_at_execution, true);
+    assert.equal(
+      arming.boundaries.step_4_must_atomically_consume_one_shot_key_in_durable_transaction,
+      true,
+    );
+    assert.equal(arming.boundaries.step_4_must_refuse_replay_after_consumption, true);
     assert.equal(arming.boundaries.flow_execution_performed, false);
     assert.equal(arming.boundaries.durable_write_execution_performed, false);
     assert.equal(arming.boundaries.durable_writes_performed, false);
@@ -196,6 +227,108 @@ describe("M5a step 3 — happy path and constants", () => {
     const { contract, packet, arming } = loadLegitimate();
     verifyM5aCuratedProposalFlowOperatorArming(arming, packet, contract);
     verifyM5aCuratedProposalFlowOperatorArming(handConstructArming(packet), packet, contract);
+  });
+
+  test("canonical arming IDs are distinct for honest artifacts bound to different accounts", () => {
+    const inputA = JSON.parse(read(MATERIALIZATION_INPUT_FIXTURE)) as Record<string, unknown>;
+    const inputB = JSON.parse(read(MATERIALIZATION_INPUT_FIXTURE)) as Record<string, unknown>;
+    (inputB.context as Record<string, unknown>).account_id = "acc_other_honest_account";
+    const contractA = buildM5aCuratedProposalFlowContract(inputA, {
+      flowId: FLOW_ID,
+      now: CONTRACT_NOW,
+    });
+    const contractB = buildM5aCuratedProposalFlowContract(inputB, {
+      flowId: FLOW_ID,
+      now: CONTRACT_NOW,
+    });
+    const packetA = loadPacket(contractA);
+    const packetB = loadPacket(contractB);
+
+    assert.notEqual(contractA.account_id, contractB.account_id);
+    assert.notEqual(contractA.contract_artifact_id, contractB.contract_artifact_id);
+    assert.notEqual(packetA.packet_artifact_id, packetB.packet_artifact_id);
+
+    const armingA = buildM5aCuratedProposalFlowOperatorArming(contractA, packetA, {
+      armedAt: ARMED_AT,
+      armedBy: ARMED_BY,
+    });
+    const armingB = buildM5aCuratedProposalFlowOperatorArming(contractB, packetB, {
+      armedAt: ARMED_AT,
+      armedBy: ARMED_BY,
+    });
+    assert.notEqual(armingA.arming_artifact_id, armingB.arming_artifact_id);
+    verifyM5aCuratedProposalFlowOperatorArming(armingA, packetA, contractA);
+    verifyM5aCuratedProposalFlowOperatorArming(armingB, packetB, contractB);
+  });
+
+  test("the 160-bit tuple digest keeps the longest valid arming ID inside SAFE_ID", () => {
+    const armedBy = `o${"p".repeat(40)}`;
+    const armedAt = "2026-06-17T01:00:00.123Z";
+    const id = canonicalM5aOperatorArmingArtifactId(
+      `p${"x".repeat(120)}`,
+      `c${"x".repeat(120)}`,
+      `s${"x".repeat(120)}`,
+      `a${"x".repeat(120)}`,
+      armedBy,
+      armedAt,
+    );
+    assert.ok(id.length <= 121);
+    assert.match(id, /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/);
+    assert.match(id, /^m5a-arm:[a-f0-9]{40}:/);
+  });
+
+  test("two arming events over one packet have distinct artifact IDs and one stable consumption key", () => {
+    const contract = loadContract();
+    const packet = loadPacket(contract);
+    const first = buildM5aCuratedProposalFlowOperatorArming(contract, packet, {
+      armedAt: "2026-06-17T01:00:00Z",
+      armedBy: "operator_one",
+    });
+    const second = buildM5aCuratedProposalFlowOperatorArming(contract, packet, {
+      armedAt: "2026-06-17T02:00:00Z",
+      armedBy: "operator_two",
+    });
+
+    assert.notEqual(first.arming_artifact_id, second.arming_artifact_id);
+    assert.equal(first.one_shot_consumption_key, second.one_shot_consumption_key);
+  });
+
+  test("different packet expiry windows produce different arming IDs and consumption keys", () => {
+    const contract = loadContract();
+    const firstPacket = buildM5aCuratedProposalFlowApprovalPacket(contract, {
+      now: PACKET_NOW,
+      expiresAt: "2026-06-18T00:00:00Z",
+      draftedBy: DRAFTED_BY,
+    });
+    const secondPacket = buildM5aCuratedProposalFlowApprovalPacket(contract, {
+      now: PACKET_NOW,
+      expiresAt: "2026-06-19T00:00:00Z",
+      draftedBy: DRAFTED_BY,
+    });
+    const first = buildM5aCuratedProposalFlowOperatorArming(contract, firstPacket, {
+      armedAt: ARMED_AT,
+      armedBy: ARMED_BY,
+    });
+    const second = buildM5aCuratedProposalFlowOperatorArming(contract, secondPacket, {
+      armedAt: ARMED_AT,
+      armedBy: ARMED_BY,
+    });
+
+    assert.notEqual(firstPacket.packet_artifact_id, secondPacket.packet_artifact_id);
+    assert.notEqual(first.arming_artifact_id, second.arming_artifact_id);
+    assert.notEqual(first.one_shot_consumption_key, second.one_shot_consumption_key);
+  });
+
+  test("verification is pure and structurally repeatable; it records no consumption", () => {
+    const { contract, packet, arming } = loadLegitimate();
+    const structuralArming = JSON.parse(JSON.stringify(arming)) as Record<string, unknown>;
+    const before = JSON.stringify(structuralArming);
+
+    verifyM5aCuratedProposalFlowOperatorArming(structuralArming, packet, contract);
+    verifyM5aCuratedProposalFlowOperatorArming(structuralArming, packet, contract);
+
+    assert.equal(JSON.stringify(structuralArming), before);
+    assert.equal(structuralArming.boundaries.one_shot_consumption_recorded, false);
   });
 });
 
@@ -229,7 +362,14 @@ describe("M5a step 3 — hostile-probe suite: arming-state counterfeit", () => {
   test("A3 — arming_artifact_id with the wrong packet digest is refused even when the packet/contract triple is correct", () => {
     const { contract, packet } = loadLegitimate();
     const forged = handConstructArming(packet, {
-      arming_artifact_id: canonicalM5aOperatorArmingArtifactId("m5a-pkt:other-safe-id", ARMED_BY, ARMED_AT),
+      arming_artifact_id: canonicalM5aOperatorArmingArtifactId(
+        "m5a-pkt:other-safe-id",
+        packet.references_contract_artifact_id,
+        packet.proposal_set_id,
+        packet.account_id,
+        ARMED_BY,
+        ARMED_AT,
+      ),
     });
     assert.throws(
       () => verifyM5aCuratedProposalFlowOperatorArming(forged, packet, contract),
@@ -240,6 +380,17 @@ describe("M5a step 3 — hostile-probe suite: arming-state counterfeit", () => {
   test("A4 — arbitrary safe arming_artifact_id is refused; safe shape is not enough", () => {
     const { contract, packet } = loadLegitimate();
     const forged = handConstructArming(packet, { arming_artifact_id: "m5a-arm:other-safe-id" });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(forged, packet, contract),
+      M5aOperatorArmingRefusal,
+    );
+  });
+
+  test("A4b — forged one_shot_consumption_key is refused", () => {
+    const { contract, packet } = loadLegitimate();
+    const forged = handConstructArming(packet, {
+      one_shot_consumption_key: "m5a-one-shot:0000000000000000000000000000000000000000",
+    });
     assert.throws(
       () => verifyM5aCuratedProposalFlowOperatorArming(forged, packet, contract),
       M5aOperatorArmingRefusal,
@@ -395,6 +546,47 @@ describe("M5a step 3 — hostile-probe suite: arming-state counterfeit", () => {
     );
   });
 
+  test("A17b — Proxy-backed nested trust-tier array is refused without firing its get trap", () => {
+    const { contract, packet } = loadLegitimate();
+    const forged = handConstructArming(packet);
+    let trapFired = false;
+    (forged.trust_tier_pins as any).forbidden_per_record_provenance_statuses = new Proxy(
+      ["verified"],
+      {
+        get(target, prop, receiver) {
+          trapFired = true;
+          throw new Error(`UNEXPECTED_ARRAY_GET:${String(prop)}`);
+        },
+      },
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(forged, packet, contract),
+      M5aOperatorArmingRefusal,
+    );
+    assert.equal(trapFired, false);
+  });
+
+  test("A17c — accessor-backed nested trust-tier array index is refused without firing its getter", () => {
+    const { contract, packet } = loadLegitimate();
+    const forged = handConstructArming(packet);
+    let getterFired = false;
+    const forbidden: unknown[] = ["verified"];
+    Object.defineProperty(forbidden, "0", {
+      enumerable: true,
+      configurable: true,
+      get() {
+        getterFired = true;
+        throw new Error("UNEXPECTED_ARRAY_INDEX_GET");
+      },
+    });
+    (forged.trust_tier_pins as any).forbidden_per_record_provenance_statuses = forbidden;
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(forged, packet, contract),
+      M5aOperatorArmingRefusal,
+    );
+    assert.equal(getterFired, false);
+  });
+
   test("A18 — Proxy-backed arming is refused before any get trap fires", () => {
     const { contract, packet } = loadLegitimate();
     let trapFired = false;
@@ -505,15 +697,119 @@ describe("M5a step 3 — hostile-probe suite: arming-state counterfeit", () => {
     );
   });
 
+  test("A23b — contradictory or authorization-shaped unknown fields are refused at root and boundary levels", () => {
+    const { contract, packet } = loadLegitimate();
+    const rootExtra = handConstructArming(packet, {
+      additional_authorization_scope: "unbounded-flow-execution",
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(rootExtra, packet, contract),
+      M5aOperatorArmingRefusal,
+    );
+
+    const boundaryExtra = handConstructArming(packet);
+    (boundaryExtra.boundaries as any).additional_authorization_scope = "unbounded-flow-execution";
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(boundaryExtra, packet, contract),
+      M5aOperatorArmingRefusal,
+    );
+  });
+
+  test("A23c — broadened step-1 root, boundaries, stage, success, and approval shapes are refused", () => {
+    const { contract, packet } = loadLegitimate();
+    const broadenings: Array<(counterfeit: any) => void> = [
+      (counterfeit) => {
+        counterfeit.current_effective_authorization = "flow-execution";
+      },
+      (counterfeit) => {
+        counterfeit.boundaries.authorizes_provider_call = true;
+      },
+      (counterfeit) => {
+        counterfeit.flow_stages[0].stage_closed_markers.authorizes_provider_call = true;
+      },
+      (counterfeit) => {
+        counterfeit.success_criterion.forbids_fresh_provider_call_on_any_stage = false;
+      },
+      (counterfeit) => {
+        counterfeit.approval_packet_shape.max_flow_executions = 2;
+      },
+    ];
+    for (const broaden of broadenings) {
+      const counterfeit = mutate(contract, broaden);
+      assert.throws(
+        () => verifyM5aCuratedProposalFlowOperatorArming(
+          handConstructArming(packet),
+          packet,
+          counterfeit,
+        ),
+        M5aOperatorArmingRefusal,
+      );
+    }
+  });
+
+  test("A23d — nested Proxy/accessor contract paths are refused without executing traps", () => {
+    const { contract, packet } = loadLegitimate();
+    const proxyContract = mutate(contract, () => undefined) as any;
+    let trapFired = false;
+    proxyContract.boundaries = new Proxy(proxyContract.boundaries, {
+      get() {
+        trapFired = true;
+        throw new Error("UNEXPECTED_CONTRACT_BOUNDARY_GET");
+      },
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(
+        handConstructArming(packet),
+        packet,
+        proxyContract,
+      ),
+      M5aOperatorArmingRefusal,
+    );
+    assert.equal(trapFired, false);
+
+    const accessorContract = mutate(contract, () => undefined) as any;
+    let getterFired = false;
+    delete accessorContract.flow_stages[0].stage_closed_markers.authorizes_provider_call;
+    Object.defineProperty(
+      accessorContract.flow_stages[0].stage_closed_markers,
+      "authorizes_provider_call",
+      {
+        enumerable: true,
+        configurable: true,
+        get() {
+          getterFired = true;
+          throw new Error("UNEXPECTED_STAGE_MARKER_GET");
+        },
+      },
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowOperatorArming(
+        handConstructArming(packet),
+        packet,
+        accessorContract,
+      ),
+      M5aOperatorArmingRefusal,
+    );
+    assert.equal(getterFired, false);
+  });
+
   test("A24 — TOCTOU source guard: canonical arming ID uses validated locals, not fresh a.* reads", () => {
     const moduleText = read(MODULE);
     assert.match(
       moduleText,
-      /const expectedArmingArtifactId = canonicalM5aOperatorArmingArtifactId\(\s*packetArtifactId,\s*armedBy,\s*armedAt,\s*\);/,
+      /const expectedArmingArtifactId = canonicalM5aOperatorArmingArtifactId\(\s*packetArtifactId,\s*contractArtifactId,\s*proposalSetId,\s*accountId,\s*armedBy,\s*armedAt,\s*\);/,
     );
     assert.doesNotMatch(
       moduleText,
-      /canonicalM5aOperatorArmingArtifactId\(\s*a\.packet_artifact_id,\s*a\.armed_by,\s*a\.armed_at/s,
+      /canonicalM5aOperatorArmingArtifactId\(\s*a\.packet_artifact_id/s,
+    );
+    assert.match(
+      moduleText,
+      /const expectedOneShotConsumptionKey = canonicalM5aOneShotConsumptionKey\(\s*packetArtifactId,\s*contractArtifactId,\s*proposalSetId,\s*accountId,\s*\);/,
+    );
+    assert.doesNotMatch(
+      moduleText,
+      /canonicalM5aOneShotConsumptionKey\(\s*a\.packet_artifact_id/s,
     );
   });
 });
@@ -523,6 +819,7 @@ describe("M5a step 3 — module purity and runbook/INDEX claims", () => {
     const moduleText = read(MODULE);
     assert.match(moduleText, /from "\.\/m5a-curated-proposal-flow-contract\.ts"/);
     assert.match(moduleText, /snapshotPlainOwnData,/);
+    assert.match(moduleText, /snapshotPlainArray,/);
     assert.match(moduleText, /requireSafeId,/);
     assert.match(moduleText, /requireCanonicalIsoTimestamp,/);
     assert.ok(!moduleText.match(/^function snapshotPlainOwnData\b/m));
@@ -555,12 +852,22 @@ describe("M5a step 3 — module purity and runbook/INDEX claims", () => {
     assert.match(status, /arming is not execution/);
     assert.match(status, /arming-state counterfeit/);
     assert.match(status, /canonicalM5aOperatorArmingArtifactId/);
+    assert.match(status, /canonicalM5aOneShotConsumptionKey/);
     assert.match(status, /verifier re-derives/);
     assert.match(status, /no mediation_gate_level/);
     assert.match(status, /hostile-probe-suite-as-done-criterion/);
     assert.match(status, /build-side \/ verify-side asymmetry/);
     assert.match(status, /positive trust-tier pins/);
     assert.match(status, /Path-1/);
+    assert.match(status, /No concrete committed arming instance exists/);
+    assert.match(status, /only when an operator explicitly supplies/);
+    assert.match(status, /not an execution-time expiry check/);
+    assert.match(status, /execution_at >= packet_expires_at/);
+    assert.match(status, /implements no Step 4 execution behavior/);
+    assert.match(status, /full verified tuple/);
+    assert.match(status, /same durable transaction/);
+    assert.match(status, /refuse replay after consumption/);
+    assert.match(status, /only Step 4 can enforce consumption/i);
   });
 
   test("runbook index lists this runbook exactly once and frames it as M5a step 3 arming", () => {
@@ -573,5 +880,7 @@ describe("M5a step 3 — module purity and runbook/INDEX claims", () => {
     assert.match(row, /M5a step 3/);
     assert.match(row, /arming/);
     assert.match(row, /no flow execution/);
+    assert.match(row, /no concrete committed arming instance exists/);
+    assert.match(row, /execution-time expiry/);
   });
 });

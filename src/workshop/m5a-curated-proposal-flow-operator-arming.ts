@@ -21,7 +21,9 @@ import {
   M5aContractBuilderRefusal,
   requireCanonicalIsoTimestamp,
   requireSafeId,
+  snapshotPlainArray,
   snapshotPlainOwnData,
+  verifyM5aCuratedProposalFlowContract,
   type M5aCuratedProposalFlowContractArtifact,
 } from "./m5a-curated-proposal-flow-contract.ts";
 import {
@@ -64,6 +66,12 @@ export interface M5aOperatorArmingBoundaries {
   readonly consumed_flow_executions: 0;
   readonly retry_budget: 0;
   readonly retry_requires_new_approval: true;
+  // Step 3 records no consumption. The future execution slice must
+  // enforce these closed requirements around its durable effect.
+  readonly one_shot_consumption_recorded: false;
+  readonly step_4_must_check_expiry_at_execution: true;
+  readonly step_4_must_atomically_consume_one_shot_key_in_durable_transaction: true;
+  readonly step_4_must_refuse_replay_after_consumption: true;
   readonly authorizes_provider_call: false;
   readonly authorizes_system_side_acquisition: false;
   readonly authorizes_private_evidence_read: false;
@@ -87,6 +95,7 @@ export interface M5aCuratedProposalFlowOperatorArmingArtifact {
   readonly disposable: true;
   readonly generated_from: typeof M5A_APPROVAL_PACKET_KIND;
   readonly arming_artifact_id: string;
+  readonly one_shot_consumption_key: string;
   readonly packet_artifact_id: string;
   readonly references_contract_artifact_id: string;
   readonly proposal_set_id: string;
@@ -117,9 +126,77 @@ export interface BuildM5aOperatorArmingOptions {
 }
 
 const SAFE_OPERATOR_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,40}$/;
-const ARMING_PACKET_DIGEST_HEX_LENGTH = 24;
+// Forty hex characters provide a 160-bit binding digest while keeping
+// the longest valid operator/timestamp form below SAFE_ID's 121-character cap.
+const ARMING_TUPLE_DIGEST_HEX_LENGTH = 40;
 
 type PlainRecord = Readonly<Record<string, unknown>>;
+
+const ARMING_ROOT_KEYS = [
+  "kind",
+  "schema_version",
+  "disposable",
+  "generated_from",
+  "arming_artifact_id",
+  "one_shot_consumption_key",
+  "packet_artifact_id",
+  "references_contract_artifact_id",
+  "proposal_set_id",
+  "account_id",
+  "packet_lifecycle_before_arming",
+  "lifecycle",
+  "armed",
+  "consumed",
+  "executed",
+  "expired",
+  "revoked",
+  "armed_at",
+  "armed_by",
+  "packet_drafted_at",
+  "packet_expires_at",
+  "authorization_scope",
+  "eventual_authorization_scope",
+  "next_required_contract",
+  "target_store",
+  "recorded_proposal_source_origin",
+  "trust_tier_pins",
+  "boundaries",
+] as const;
+const ARMING_TRUST_TIER_PIN_KEYS = [
+  "required_row_trust_label",
+  "required_per_record_provenance_status",
+  "forbidden_per_record_provenance_statuses",
+] as const;
+const ARMING_BOUNDARY_KEYS = [
+  "current_effective_authorization",
+  "operator_armed",
+  "arming_is_one_shot",
+  "authorizes_future_flow_execution",
+  "max_flow_executions_authorized",
+  "remaining_flow_executions",
+  "consumed_flow_executions",
+  "retry_budget",
+  "retry_requires_new_approval",
+  "one_shot_consumption_recorded",
+  "step_4_must_check_expiry_at_execution",
+  "step_4_must_atomically_consume_one_shot_key_in_durable_transaction",
+  "step_4_must_refuse_replay_after_consumption",
+  "authorizes_provider_call",
+  "authorizes_system_side_acquisition",
+  "authorizes_private_evidence_read",
+  "authorizes_fresh_provider_call_on_flow_path",
+  "authorizes_immediate_durable_write",
+  "flow_execution_performed",
+  "durable_write_execution_performed",
+  "durable_writes_performed",
+  "graph_ingestion_performed",
+  "render_performed",
+  "provider_calls_made",
+  "private_evidence_read",
+  "system_side_acquisition_performed",
+  "production_writes",
+  "readiness_claim",
+] as const;
 
 function refuse(detail: string): never {
   throw new M5aOperatorArmingRefusal(detail);
@@ -138,6 +215,32 @@ function translateSnapshotError(e: unknown): never {
 function snapshotRecordOrRefuse(value: unknown, label: string): PlainRecord {
   try {
     return snapshotPlainOwnData(value, label);
+  } catch (e) {
+    translateSnapshotError(e);
+  }
+}
+
+function snapshotArrayOrRefuse(value: unknown, label: string): readonly unknown[] {
+  try {
+    return snapshotPlainArray(value, label);
+  } catch (e) {
+    translateSnapshotError(e);
+  }
+}
+
+function requireExactOwnKeys(record: PlainRecord, expected: readonly string[], label: string): void {
+  const actual = Object.keys(record).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    refuse(`${label} must contain exactly the expected own keys; got ${JSON.stringify(actual)}`);
+  }
+}
+
+function verifyContractOrRefuse(
+  contract: unknown,
+): asserts contract is M5aCuratedProposalFlowContractArtifact {
+  try {
+    verifyM5aCuratedProposalFlowContract(contract);
   } catch (e) {
     translateSnapshotError(e);
   }
@@ -166,19 +269,51 @@ function requireOperatorIdentity(value: unknown, label: string): string {
   return value;
 }
 
-function packetDigest(packetArtifactId: string): string {
+function m5aArmingTupleDigest(values: readonly string[]): string {
+  // JSON's array form is an unambiguous canonical encoding here: all
+  // values have already been validated as strings, array order is fixed,
+  // and JSON escaping prevents delimiter ambiguity.
+  const canonicalTuple = JSON.stringify(values);
   return createHash("sha256")
-    .update(packetArtifactId, "utf8")
+    .update(canonicalTuple, "utf8")
     .digest("hex")
-    .slice(0, ARMING_PACKET_DIGEST_HEX_LENGTH);
+    .slice(0, ARMING_TUPLE_DIGEST_HEX_LENGTH);
 }
 
 export function canonicalM5aOperatorArmingArtifactId(
   packetArtifactId: string,
+  referencesContractArtifactId: string,
+  proposalSetId: string,
+  accountId: string,
   armedBy: string,
   armedAt: string,
 ): string {
-  return `m5a-arm:${packetDigest(packetArtifactId)}:${armedBy}:${armedAt}`;
+  return `m5a-arm:${m5aArmingTupleDigest([
+    packetArtifactId,
+    referencesContractArtifactId,
+    proposalSetId,
+    accountId,
+    armedBy,
+    armedAt,
+  ])}:${armedBy}:${armedAt}`;
+}
+
+// Unlike arming_artifact_id, this identity deliberately excludes the
+// arming event's operator and timestamp. Every arming over the same
+// verified packet/contract/proposal/account tuple therefore presents the
+// same durable consumption key to Step 4.
+export function canonicalM5aOneShotConsumptionKey(
+  packetArtifactId: string,
+  referencesContractArtifactId: string,
+  proposalSetId: string,
+  accountId: string,
+): string {
+  return `m5a-one-shot:${m5aArmingTupleDigest([
+    packetArtifactId,
+    referencesContractArtifactId,
+    proposalSetId,
+    accountId,
+  ])}`;
 }
 
 function verifyPacketOrRefuse(
@@ -241,6 +376,7 @@ function requireExact(record: PlainRecord, key: string, expected: unknown, label
 }
 
 function verifyTrustPins(record: PlainRecord, label: string): void {
+  requireExactOwnKeys(record, ARMING_TRUST_TIER_PIN_KEYS, label);
   requireExact(record, "required_row_trust_label", M5A_PINNED_ROW_TRUST_LABEL, label);
   requireExact(
     record,
@@ -248,13 +384,17 @@ function verifyTrustPins(record: PlainRecord, label: string): void {
     M5A_PINNED_PER_RECORD_PROVENANCE_STATUS,
     label,
   );
-  const forbidden = record.forbidden_per_record_provenance_statuses;
-  if (!Array.isArray(forbidden) || forbidden.length !== 1 || forbidden[0] !== "verified") {
+  const forbidden = snapshotArrayOrRefuse(
+    record.forbidden_per_record_provenance_statuses,
+    `${label}.forbidden_per_record_provenance_statuses`,
+  );
+  if (forbidden.length !== 1 || forbidden[0] !== "verified") {
     refuse(`${label}.forbidden_per_record_provenance_statuses must be exactly ["verified"]`);
   }
 }
 
 function verifyBoundaries(boundaries: PlainRecord): void {
+  requireExactOwnKeys(boundaries, ARMING_BOUNDARY_KEYS, "arming.boundaries");
   assertNoMediationGateStamp(boundaries, "arming.boundaries");
   requireExact(
     boundaries,
@@ -267,6 +407,9 @@ function verifyBoundaries(boundaries: PlainRecord): void {
     "arming_is_one_shot",
     "authorizes_future_flow_execution",
     "retry_requires_new_approval",
+    "step_4_must_check_expiry_at_execution",
+    "step_4_must_atomically_consume_one_shot_key_in_durable_transaction",
+    "step_4_must_refuse_replay_after_consumption",
   ]) {
     requireExact(boundaries, key, true, "arming.boundaries");
   }
@@ -285,6 +428,7 @@ function verifyBoundaries(boundaries: PlainRecord): void {
     "authorizes_private_evidence_read",
     "authorizes_fresh_provider_call_on_flow_path",
     "authorizes_immediate_durable_write",
+    "one_shot_consumption_recorded",
     "flow_execution_performed",
     "durable_write_execution_performed",
     "durable_writes_performed",
@@ -307,7 +451,7 @@ export function buildM5aCuratedProposalFlowOperatorArming(
   // Snapshot the contract root before any verifier that might otherwise
   // read fields from a hostile object. The step-2 verifier then checks
   // the packet/contract binding; step 3 renders only from validated locals.
-  snapshotRecordOrRefuse(contract as unknown, "contract");
+  verifyContractOrRefuse(contract as unknown);
   verifyPacketOrRefuse(packet as unknown, contract);
   const packetLocals = snapshotVerifiedPacketLocals(packet as unknown);
 
@@ -318,10 +462,20 @@ export function buildM5aCuratedProposalFlowOperatorArming(
 
   const armingArtifactId = canonicalM5aOperatorArmingArtifactId(
     packetLocals.packet_artifact_id,
+    packetLocals.references_contract_artifact_id,
+    packetLocals.proposal_set_id,
+    packetLocals.account_id,
     armedBy,
     armedAt,
   );
   requireSafeIdOrRefuse(armingArtifactId, "arming.arming_artifact_id");
+  const oneShotConsumptionKey = canonicalM5aOneShotConsumptionKey(
+    packetLocals.packet_artifact_id,
+    packetLocals.references_contract_artifact_id,
+    packetLocals.proposal_set_id,
+    packetLocals.account_id,
+  );
+  requireSafeIdOrRefuse(oneShotConsumptionKey, "arming.one_shot_consumption_key");
 
   const arming: M5aCuratedProposalFlowOperatorArmingArtifact = Object.freeze({
     kind: M5A_OPERATOR_ARMING_KIND,
@@ -329,6 +483,7 @@ export function buildM5aCuratedProposalFlowOperatorArming(
     disposable: true as const,
     generated_from: M5A_APPROVAL_PACKET_KIND,
     arming_artifact_id: armingArtifactId,
+    one_shot_consumption_key: oneShotConsumptionKey,
     packet_artifact_id: packetLocals.packet_artifact_id,
     references_contract_artifact_id: packetLocals.references_contract_artifact_id,
     proposal_set_id: packetLocals.proposal_set_id,
@@ -364,6 +519,10 @@ export function buildM5aCuratedProposalFlowOperatorArming(
       consumed_flow_executions: 0 as const,
       retry_budget: 0 as const,
       retry_requires_new_approval: true as const,
+      one_shot_consumption_recorded: false as const,
+      step_4_must_check_expiry_at_execution: true as const,
+      step_4_must_atomically_consume_one_shot_key_in_durable_transaction: true as const,
+      step_4_must_refuse_replay_after_consumption: true as const,
       authorizes_provider_call: false as const,
       authorizes_system_side_acquisition: false as const,
       authorizes_private_evidence_read: false as const,
@@ -391,11 +550,12 @@ export function verifyM5aCuratedProposalFlowOperatorArming(
   packet: unknown,
   contract: M5aCuratedProposalFlowContractArtifact,
 ): asserts arming is M5aCuratedProposalFlowOperatorArmingArtifact {
-  snapshotRecordOrRefuse(contract as unknown, "contract");
+  verifyContractOrRefuse(contract as unknown);
   verifyPacketOrRefuse(packet, contract);
   const packetLocals = snapshotVerifiedPacketLocals(packet);
 
   const a = snapshotRecordOrRefuse(arming, "arming");
+  requireExactOwnKeys(a, ARMING_ROOT_KEYS, "arming");
   assertNoMediationGateStamp(a, "arming");
   requireExact(a, "kind", M5A_OPERATOR_ARMING_KIND, "arming");
   requireExact(a, "schema_version", M5A_OPERATOR_ARMING_SCHEMA_VERSION, "arming");
@@ -409,6 +569,10 @@ export function verifyM5aCuratedProposalFlowOperatorArming(
   }
 
   const armingArtifactId = requireSafeIdOrRefuse(a.arming_artifact_id, "arming.arming_artifact_id");
+  const oneShotConsumptionKey = requireSafeIdOrRefuse(
+    a.one_shot_consumption_key,
+    "arming.one_shot_consumption_key",
+  );
   const packetArtifactId = requireSafeIdOrRefuse(a.packet_artifact_id, "arming.packet_artifact_id");
   const contractArtifactId = requireSafeIdOrRefuse(
     a.references_contract_artifact_id,
@@ -443,11 +607,25 @@ export function verifyM5aCuratedProposalFlowOperatorArming(
 
   const expectedArmingArtifactId = canonicalM5aOperatorArmingArtifactId(
     packetArtifactId,
+    contractArtifactId,
+    proposalSetId,
+    accountId,
     armedBy,
     armedAt,
   );
   if (armingArtifactId !== expectedArmingArtifactId) {
     refuse("arming.arming_artifact_id does not match canonical packet/armed_by/armed_at form");
+  }
+  const expectedOneShotConsumptionKey = canonicalM5aOneShotConsumptionKey(
+    packetArtifactId,
+    contractArtifactId,
+    proposalSetId,
+    accountId,
+  );
+  if (oneShotConsumptionKey !== expectedOneShotConsumptionKey) {
+    refuse(
+      "arming.one_shot_consumption_key does not match canonical packet/contract/proposal/account form",
+    );
   }
 
   requireExact(a, "authorization_scope", M5A_OPERATOR_ARMING_AUTHORIZATION_SCOPE, "arming");

@@ -36,15 +36,18 @@ That deterministic developer/CI check rebuilds the same committed HTML from the 
 
 ## What the user sees
 
-The page presents a fictional Northstar Logistics account as a local durable curated preview:
+The page presents a fictional Northstar Logistics account as a local durable curated preview: **2 sources**, **3 accepted evidence excerpts**, **3 claims** and **3 Workshop cards**, with one populated card in each lens.
 
-- **2 sources** with titles, publishers and high-reliability source metadata;
-- **3 accepted evidence excerpts**, each visibly linked to its supporting source;
-- **3 claims**, each carried into an evidence packet;
-- **3 Workshop cards**, with one populated card in each lens:
-  - **Signals:** “Regional fulfillment capacity expanded”;
-  - **Maps:** “Network operations leader identified”;
-  - **Plays:** “Prepare for a healthcare lane planning session”;
+| Lens and card | Recorded claim | Accepted evidence excerpt | Visible source |
+| --- | --- | --- | --- |
+| **Signals:** “Regional fulfillment capacity expanded” | “Northstar Logistics opened two regional fulfillment centers in June 2026.” | “Northstar Logistics opened two regional fulfillment centers in June 2026.” | “Northstar expands its regional fulfillment network” — Northstar Logistics · high reliability |
+| **Maps:** “Network operations leader identified” | “Maya Chen is Northstar's vice president of network operations.” | “Northstar also named Maya Chen vice president of network operations.” | “Northstar expands its regional fulfillment network” — Northstar Logistics · high reliability |
+| **Plays:** “Prepare for a healthcare lane planning session” | “Northstar plans quarterly healthcare lane planning sessions beginning in August 2026.” | “Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026.” | “Northstar introduces healthcare lane planning sessions” — Northstar Logistics · high reliability |
+
+The Signals and Maps cards intentionally reuse the same visible source while grounding distinct claims in distinct accepted excerpts; the Plays card uses the second source.
+
+The page also shows:
+
 - visible trust and provenance labels: **Source-backed**, **Curated public source**, **medium confidence**, **accepted excerpt**, and source reliability;
 - an honest summary of **0 verified objects**, plus **No provider calls** and **No production writes**.
 
@@ -52,7 +55,7 @@ The useful product result is not the existence of JSON. A reviewer can scan an a
 
 ## What M5a proved
 
-- The doctrine loop can turn bounded curated source material into validated proposals, human-ratified durable graph state and a visible Workshop result.
+- The doctrine loop can consume and validate bounded recorded proposal fixtures grounded in curated sources, produce human-ratified durable graph state and render a visible Workshop result.
 - Signals, Maps and Plays can all be populated from one coherent account bundle.
 - The rendered surface can preserve provenance and trust without promoting source-document-only records to verified facts.
 - Durable read-back, not a pre-write preview, supplies the final Workshop artifact.

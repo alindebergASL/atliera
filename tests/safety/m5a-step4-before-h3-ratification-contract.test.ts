@@ -162,7 +162,7 @@ test("living roadmap authorizes only bounded successor implementation while ever
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
   assert.match(roadmap, /live Atliera fetch still requires the one compact approval packet and one explicit operator GO/i);
-  assert.match(index, /require an explicit operator decision for any later slice/i);
+  assert.match(index, /every other later slice requires a new explicit operator decision/i);
   assert.match(index, /live acquisition remains unauthorized/i);
 });
 

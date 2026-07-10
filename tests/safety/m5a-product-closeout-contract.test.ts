@@ -9,6 +9,7 @@ const ROADMAP = readFileSync(join(ROOT, "docs", "strategy", "roadmap.md"), "utf8
 const INDEX = readFileSync(join(ROOT, "docs", "runbooks", "INDEX.md"), "utf8");
 const HTML_PATH = "fixtures/workshop/m5a-curated-proposal-flow-capstone.html";
 const HTML = readFileSync(join(ROOT, HTML_PATH), "utf8");
+const HTML_TEXT = HTML.replaceAll("&#39;", "'");
 
 function markerValue(document: string, key: string): string {
   const prefix = `- ${key}: `;
@@ -68,8 +69,11 @@ test("the closeout tells Andrew exactly how to view and evaluate the visible pro
   assert.ok(RETRO.includes("python3 -m http.server 4173 --bind 127.0.0.1 --directory fixtures/workshop"));
   assert.ok(RETRO.includes("http://127.0.0.1:4173/m5a-curated-proposal-flow-capstone.html"));
   assert.match(RETRO, /Optional local reproduction check/);
+  const evaluation = RETRO.split("## Five-question user evaluation guide\n", 2)[1]?.split("\n## ", 1)[0];
+  assert.ok(evaluation, "missing bounded five-question evaluation section");
+  assert.equal(evaluation.match(/^\d+\. \*\*Q\d+ —/gm)?.length, 5, "evaluation guide must contain exactly five numbered questions");
   for (const question of ["Q1 — Useful", "Q2 — Grounded", "Q3 — Honest", "Q4 — Navigable", "Q5 — Worth continuing"]) {
-    assert.ok(RETRO.includes(question), `missing evaluation prompt: ${question}`);
+    assert.ok(evaluation.includes(question), `missing evaluation prompt: ${question}`);
   }
 });
 
@@ -90,6 +94,19 @@ test("the shipped artifact visibly contains grounded intelligence in all three W
     "1 accepted excerpt",
   ]) {
     assert.ok(HTML.includes(visible), `artifact missing visible product fact: ${visible}`);
+  }
+
+  for (const groundedDetail of [
+    "Northstar expands its regional fulfillment network",
+    "Northstar introduces healthcare lane planning sessions",
+    "Northstar Logistics opened two regional fulfillment centers in June 2026.",
+    "Maya Chen is Northstar's vice president of network operations.",
+    "Northstar also named Maya Chen vice president of network operations.",
+    "Northstar plans quarterly healthcare lane planning sessions beginning in August 2026.",
+    "Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026.",
+  ]) {
+    assert.ok(HTML_TEXT.includes(groundedDetail), `artifact missing grounded detail: ${groundedDetail}`);
+    assert.ok(RETRO.includes(groundedDetail), `retro missing grounded detail: ${groundedDetail}`);
   }
 });
 

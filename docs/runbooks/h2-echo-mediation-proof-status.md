@@ -1,6 +1,6 @@
 # H2 Capability Registry / Mediation / Echo Proof Status
 
-Status: implementation complete in this bounded H2 slice; effective only when this PR merges after independent review.
+Status: shipped at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284).
 
 ## Visible result
 
@@ -23,7 +23,7 @@ Its exact visible result is one completed echo invocation with descriptor SHA-25
 
 ## Architecture delivered
 
-- `src/capability/h2-registry.ts` contains one immutable system-administered registry entry: `system.inert_echo_v1`. It pins MCP `2025-11-25`, the in-process server identity, canonical descriptor snapshot and SHA-256, L0-only mediation, exact budgets, and a no-effects sandbox profile.
+- `src/capability/h2-registry.ts` retains `system.inert_echo_v1` as the immutable first system-administered registry entry. M4 adds its reviewed second entry without altering the echo descriptor or behavior.
 - `src/capability/h2-approved-schedule.ts` is the only schedule authority. It contains one repository-ratified schedule with a literal canonical SHA-256 pin; runtime input cannot register schedules or claim an approval identity.
 - `src/capability/inert-echo-mcp-server.ts` implements the minimal MCP 2025-11-25 lifecycle and tools surface. Its `CallToolResult` carries required `content` plus matching `structuredContent`; the echo still imports no network, filesystem, environment, provider, database, subprocess, or deployment surface.
 - `src/capability/orchestrator-mcp-client.ts` is the sole client. It negotiates MCP `2025-11-25`, obtains and deeply snapshots the live descriptor through `tools/list`, requires the conformant result shape, keeps `initialize` non-cancellable, bounds the `initialized` notification, and uses cancellation only for cancellable requests. Model and agent modules do not import capability-client code.
@@ -57,10 +57,10 @@ Permanent I-1/I-2 transport tripwires remain in force: model transport capabilit
 - h2_subprocesses: 0
 - h2_production_writes: 0
 - h2_deployments: 0
-- authorizes_m4_implementation: false
+- historical_h2_authorized_m4_implementation: false
 - authorizes_live_acquisition: false
 - readiness_claim: false
 
 ## M4 successor surface
 
-`src/capability/h2-m4-successor-template.ts` and the proof artifact contain only an inert, unregistered, non-executable template for `public_http_fetch_v1`. No fetcher exists. Fork-versus-build is undecided; exact targets are unset; robots, retention, and takedown remain operator decisions. M4 implementation requires a fresh operator/roadmap decision after H2 merges and receives independent review. Any later live acquisition still requires the compact packet and explicit GO.
+The former `src/capability/h2-m4-successor-template.ts` surface now records that the fresh post-H2 decision selected a minimal first-party implementation and superseded the unregistered draft. The M4 path is executable only with recorded/injected dependencies; live acquisition remains unauthorized and requires the drafted compact packet plus later explicit operator GO.

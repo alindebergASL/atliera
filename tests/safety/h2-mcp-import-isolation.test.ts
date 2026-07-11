@@ -45,13 +45,22 @@ test("test_mcp_client_import_isolation", () => {
   const allSource = walk(SRC);
   const clientImporters = allSource
     .filter((path) => path !== join(CAPABILITY, "orchestrator-mcp-client.ts"))
-    .filter((path) => text(path).includes("orchestrator-mcp-client"))
+    .filter((path) => text(path).includes('from "./orchestrator-mcp-client.ts"'))
     .map((path) => relative(ROOT, path));
   assert.deepEqual(clientImporters, ["src/capability/h2-mediation-gate.ts"]);
+
+  const m4ClientImporters = allSource
+    .filter((path) => path !== join(CAPABILITY, "m4-orchestrator-mcp-client.ts"))
+    .filter((path) => text(path).includes("m4-orchestrator-mcp-client"))
+    .map((path) => relative(ROOT, path));
+  assert.deepEqual(m4ClientImporters, ["src/capability/m4-public-http-fetch-mediation.ts"]);
 
   const clientSource = text(join(CAPABILITY, "orchestrator-mcp-client.ts"));
   assert.doesNotMatch(clientSource, /\.\.\/model\/|\.\.\/agent\//);
   assert.doesNotMatch(clientSource, /@modelcontextprotocol/);
+  const m4ClientSource = text(join(CAPABILITY, "m4-orchestrator-mcp-client.ts"));
+  assert.doesNotMatch(m4ClientSource, /\.\.\/model\/|\.\.\/agent\//);
+  assert.doesNotMatch(m4ClientSource, /@modelcontextprotocol/);
 });
 
 test("general index barrel cannot bypass model capability isolation", async () => {
@@ -60,11 +69,12 @@ test("general index barrel cannot bypass model capability isolation", async () =
 
   const rootIndexSource = text(join(SRC, "index.ts"));
   assert.doesNotMatch(rootIndexSource, /capability\//);
-  assert.doesNotMatch(rootIndexSource, /H2_CAPABILITY_REGISTRY|getH2EchoMediationKernel/);
+  assert.doesNotMatch(rootIndexSource, /H2_CAPABILITY_REGISTRY|getH2EchoMediationKernel|public_http_fetch_v1|M4PublicHttp/);
 
   const rootExports = await import("../../src/index.ts");
   assert.equal("H2_CAPABILITY_REGISTRY" in rootExports, false);
   assert.equal("getH2EchoMediationKernel" in rootExports, false);
+  assert.equal("M4PublicHttpFetchMediationKernel" in rootExports, false);
 });
 
 test("inert echo server has no effect-capable imports or runtime surfaces", () => {

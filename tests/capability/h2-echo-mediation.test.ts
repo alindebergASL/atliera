@@ -86,8 +86,8 @@ function countingTransport(options: {
   };
 }
 
-test("H2 registry contains one immutable inert echo entry and no M4 implementation", () => {
-  assert.equal(H2_CAPABILITY_REGISTRY.length, 1);
+test("H2 inert echo remains the immutable first entry after reviewed M4 registration", () => {
+  assert.equal(H2_CAPABILITY_REGISTRY.length, 2);
   assert.equal(registry.capabilityId, H2_ECHO_CAPABILITY_ID);
   assert.equal(registry.protocol, "mcp");
   assert.equal(registry.protocolSpecVersion, "2025-11-25");
@@ -110,7 +110,7 @@ test("H2 registry contains one immutable inert echo entry and no M4 implementati
   assert.ok(Object.isFrozen(H2_CAPABILITY_REGISTRY));
   assert.ok(Object.isFrozen(registry));
   assert.ok(Object.isFrozen(registry.descriptorSnapshot.inputSchema));
-  assert.doesNotMatch(canonicalJson(H2_CAPABILITY_REGISTRY), /public_http_fetch_v1/);
+  assert.match(canonicalJson(H2_CAPABILITY_REGISTRY), /public_http_fetch_v1/);
 });
 
 test("repository-pinned schedule authority is immutable and exact", () => {

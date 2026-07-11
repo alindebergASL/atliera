@@ -41,24 +41,16 @@ test("visible H2 proof artifact is deterministic and records the complete one-sh
   });
 });
 
-test("M4 successor surface is inert, unregistered, and separately gated", () => {
+test("historical H2 successor surface records the authorized M4 implementation without live authority", () => {
   assert.equal(H2_M4_SUCCESSOR_TEMPLATE.capabilityId, "public_http_fetch_v1");
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.status, "draft-inert-unregistered");
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.fetcherImplementationExists, false);
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.registered, false);
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.executable, false);
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.forkVersusBuild, "undecided");
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.exactTargets, "unset");
-  assert.deepEqual(H2_M4_SUCCESSOR_TEMPLATE.operatorDecisionsRequired, [
-    "robots",
-    "retention",
-    "takedown",
-  ]);
-  assert.equal(
-    H2_M4_SUCCESSOR_TEMPLATE.implementationGate,
-    "fresh-operator-roadmap-decision-after-h2-merge-and-independent-review",
-  );
-  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.liveAcquisitionGate, "later-compact-packet-and-explicit-go");
-  assert.equal(H2_CAPABILITY_REGISTRY.length, 1);
-  assert.notEqual(H2_CAPABILITY_REGISTRY[0].capabilityId, H2_M4_SUCCESSOR_TEMPLATE.capabilityId);
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.status, "superseded-by-authorized-m4-implementation");
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.fetcherImplementationExists, true);
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.registered, true);
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.executable, "recorded-injected-proof-only");
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.serverSelection, "minimal-first-party");
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.exactTargets, 1);
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.liveAcquisitionAuthorized, false);
+  assert.equal(H2_M4_SUCCESSOR_TEMPLATE.liveAcquisitionGate, "later-explicit-operator-go");
+  assert.equal(H2_CAPABILITY_REGISTRY.length, 2);
+  assert.equal(H2_CAPABILITY_REGISTRY[1].capabilityId, H2_M4_SUCCESSOR_TEMPLATE.capabilityId);
 });

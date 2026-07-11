@@ -37,6 +37,8 @@ const DESCRIPTOR_VOCAB_FRAGMENTS: string[][] = [
   ["tools/", "call"],
   ["system.inert_", "echo_v1"],
   ["atliera.h2.in_process_", "echo"],
+  ["public_http_", "fetch_v1"],
+  ["atliera.m4.first_party_", "public_http_fetch"],
 ];
 
 function joinFragments(pairs: string[][]): string[] {

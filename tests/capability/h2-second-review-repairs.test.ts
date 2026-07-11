@@ -102,11 +102,13 @@ test("pre-effect descriptor refusal releases the process-local reservation", asy
   const base = createH2InertEchoMcpServer();
   let firstList = true;
   let toolCalls = 0;
+  const toolsListRequestIds: Array<string | number> = [];
   const transport: H2McpInProcessTransport = {
     sendNotification: (notification) => base.sendNotification(notification),
     async sendRequest(request, options) {
       const response = await base.sendRequest(request, options);
       if (request.method === "tools/call") toolCalls += 1;
+      if (request.method === "tools/list") toolsListRequestIds.push(request.id);
       if (request.method !== "tools/list" || !firstList) return response;
       firstList = false;
       const root = response as {
@@ -142,6 +144,55 @@ test("pre-effect descriptor refusal releases the process-local reservation", asy
   const accepted = await kernel.invoke(invocation("second-accepted"));
   assert.equal(accepted.ok, true);
   assert.equal(toolCalls, 1);
+  assert.equal(toolsListRequestIds.length, 2);
+  assert.notEqual(toolsListRequestIds[0], toolsListRequestIds[1]);
+});
+
+test("synchronous cancellation dispatch failure cannot prevent call deadline records", async () => {
+  const base = createH2InertEchoMcpServer();
+  let toolCalls = 0;
+  let cancellationAttempts = 0;
+  const transport: H2McpInProcessTransport = {
+    sendNotification(notification) {
+      if (notification.method === "notifications/cancelled") {
+        cancellationAttempts += 1;
+        throw new Error("synchronous cancellation dispatch failure");
+      }
+      return base.sendNotification(notification);
+    },
+    sendRequest(request, options) {
+      if (request.method !== "tools/call") return base.sendRequest(request, options);
+      toolCalls += 1;
+      return new Promise<H2McpResponse>(() => undefined);
+    },
+  };
+  const kernel = createH2EchoMediationKernelForTest({
+    transport,
+    clock: sequenceClock(
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:03.000Z",
+      ],
+      [10, 1010],
+    ),
+  });
+
+  const result = await kernel.invoke(invocation("sync-cancellation-throw"));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(toolCalls, 1);
+  assert.equal(cancellationAttempts, 1);
+  assert.equal(result.output, null);
+  assert.equal(result.capabilityExecutions[0].outcome, "failed");
+  assert.equal(result.capabilityExecutions[0].retryCount, 0);
+  assert.equal(result.capabilityExecutions.length, 1);
+  assert.equal(result.auditEvents.length, 1);
+  assert.equal(result.accountingIncrements.length, 1);
+
+  const replay = await kernel.invoke(invocation("replay-after-failed-effect"));
+  assert.equal(replay.ok, false);
+  if (!replay.ok) assert.equal(replay.refusalCode, "schedule_consumed");
 });
 
 test("schedule expiry crossing during descriptor preflight refuses before tools/call", async () => {

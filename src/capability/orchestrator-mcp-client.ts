@@ -203,9 +203,15 @@ export class H2OrchestratorMcpClient {
   readonly #transport: H2McpInProcessTransport;
   #initializePromise: Promise<void> | undefined;
   #initialized = false;
+  #requestSequence = 0;
 
   constructor(transport: H2McpInProcessTransport) {
     this.#transport = transport;
+  }
+
+  #nextRequestId(label: "initialize" | "tools_list"): H2McpRequestId {
+    this.#requestSequence += 1;
+    return `h2_${label}_${this.#requestSequence}`;
   }
 
   async #requestWithDeadline(
@@ -220,20 +226,24 @@ export class H2OrchestratorMcpClient {
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
       timeoutHandle = setTimeout(() => {
+        reject(new H2OrchestratorClientBoundaryError());
         if (cancellable && controller !== undefined) {
           controller.abort();
-          void this.#transport
-            .sendNotification({
-              jsonrpc: "2.0",
-              method: "notifications/cancelled",
-              params: {
-                requestId: request.id,
-                reason: "request deadline exceeded",
-              },
-            })
-            .catch(() => undefined);
+          try {
+            void Promise.resolve(
+              this.#transport.sendNotification({
+                jsonrpc: "2.0",
+                method: "notifications/cancelled",
+                params: {
+                  requestId: request.id,
+                  reason: "request deadline exceeded",
+                },
+              }),
+            ).catch(() => undefined);
+          } catch {
+            // Cancellation is best effort; the request deadline is already settled.
+          }
         }
-        reject(new H2OrchestratorClientBoundaryError());
       }, maxDurationMs);
     });
     try {
@@ -275,7 +285,7 @@ export class H2OrchestratorMcpClient {
   async #ensureInitialized(maxDurationMs: number): Promise<void> {
     if (this.#initializePromise !== undefined) return this.#initializePromise;
     this.#initializePromise = (async () => {
-      const requestId = "h2_initialize";
+      const requestId = this.#nextRequestId("initialize");
       const response = await this.#requestWithDeadline(
         {
           jsonrpc: "2.0",
@@ -305,7 +315,7 @@ export class H2OrchestratorMcpClient {
 
   async getLiveDescriptorSnapshot(maxDurationMs: number): Promise<unknown> {
     await this.#ensureInitialized(maxDurationMs);
-    const requestId = "h2_tools_list";
+    const requestId = this.#nextRequestId("tools_list");
     const response = await this.#requestWithDeadline(
       { jsonrpc: "2.0", id: requestId, method: "tools/list" },
       maxDurationMs,

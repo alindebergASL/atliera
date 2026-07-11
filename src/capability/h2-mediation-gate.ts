@@ -2,18 +2,22 @@ import { types as utilTypes } from "node:util";
 
 import type { AuditEvent } from "../graph/types.ts";
 import {
+  H2_APPROVED_ECHO_SCHEDULE,
+  H2_APPROVED_ECHO_SCHEDULE_AUTHORITY_REF,
+  H2_APPROVED_ECHO_SCHEDULE_SHA256,
+} from "./h2-approved-schedule.ts";
+import type { H2ApprovedSchedule } from "./h2-approved-schedule.ts";
+import {
   H2_ECHO_CAPABILITY_ID,
   canonicalJson,
   getH2CapabilityRegistryEntry,
   sha256Canonical,
 } from "./h2-registry.ts";
-import type { H2CapabilityBudgetDefaults } from "./h2-registry.ts";
 import { createH2InertEchoMcpServer, snapshotH2EchoValue } from "./inert-echo-mcp-server.ts";
 import type { H2EchoValue, H2McpInProcessTransport } from "./h2-mcp-protocol.ts";
 import { H2OrchestratorMcpClient } from "./orchestrator-mcp-client.ts";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-const SHA256 = /^[a-f0-9]{64}$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 export type H2MediationRefusalCode =
@@ -25,29 +29,11 @@ export type H2MediationRefusalCode =
   | "capability_not_registered"
   | "capability_mismatch"
   | "descriptor_hash_drift"
+  | "mcp_protocol_refused"
   | "mediation_level_refused"
   | "retry_budget_refused"
   | "invocation_budget_refused"
   | "input_refused";
-
-export interface H2InvocationBudget extends H2CapabilityBudgetDefaults {}
-
-export interface H2ApprovedSchedule {
-  readonly kind: "h2-approved-capability-schedule";
-  readonly schemaVersion: "1";
-  readonly scheduleId: string;
-  readonly capabilityId: typeof H2_ECHO_CAPABILITY_ID;
-  readonly descriptorSha256: string;
-  readonly mediationLevel: "L0";
-  readonly invocationBudget: H2InvocationBudget;
-  readonly retryBudget: 0;
-  readonly maxInvocations: 1;
-  readonly approvalId: string;
-  readonly approvedBy: string;
-  readonly approvedAt: string;
-  readonly validFrom: string;
-  readonly validUntil: string;
-}
 
 export interface H2CapabilityExecution {
   readonly kind: "CapabilityExecution";
@@ -90,6 +76,7 @@ export type H2MediationResult =
       readonly ok: false;
       readonly invoked: false;
       readonly refusalCode: H2MediationRefusalCode;
+      readonly auditEvents: readonly [] | readonly [AuditEvent];
     }
   | {
       readonly ok: true;
@@ -110,41 +97,8 @@ export interface H2EchoMediationKernelOptions {
   readonly clock?: H2Clock;
 }
 
-interface StoredSchedule {
-  readonly schedule: H2ApprovedSchedule;
-  consumed: boolean;
-}
-
-class H2ScheduleBoundaryError extends Error {
-  constructor() {
-    super("approved schedule boundary refused input");
-    this.name = "H2ScheduleBoundaryError";
-  }
-}
-
-function exactObject(value: unknown, keys: readonly string[]): Record<string, unknown> {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value) ||
-    utilTypes.isProxy(value)
-  ) {
-    throw new H2ScheduleBoundaryError();
-  }
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) throw new H2ScheduleBoundaryError();
-  if (Object.getOwnPropertySymbols(value).length !== 0) throw new H2ScheduleBoundaryError();
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (Object.keys(descriptors).length !== keys.length) throw new H2ScheduleBoundaryError();
-  const out: Record<string, unknown> = {};
-  for (const key of keys) {
-    const descriptor = descriptors[key];
-    if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true) {
-      throw new H2ScheduleBoundaryError();
-    }
-    out[key] = descriptor.value;
-  }
-  return out;
+export interface H2MediationKernel {
+  invoke(value: unknown): Promise<H2MediationResult>;
 }
 
 function strictIso(value: unknown): value is string {
@@ -160,85 +114,58 @@ function safeId(value: unknown): value is string {
   return typeof value === "string" && SAFE_ID.test(value) && !value.includes("..") && !value.includes("://");
 }
 
-function snapshotApprovedSchedule(value: unknown): H2ApprovedSchedule {
-  try {
-    const root = exactObject(value, [
-      "kind",
-      "schemaVersion",
-      "scheduleId",
-      "capabilityId",
-      "descriptorSha256",
-      "mediationLevel",
-      "invocationBudget",
-      "retryBudget",
-      "maxInvocations",
-      "approvalId",
-      "approvedBy",
-      "approvedAt",
-      "validFrom",
-      "validUntil",
-    ]);
-    const budget = exactObject(root.invocationBudget, [
-      "maxInputBytes",
-      "maxOutputBytes",
-      "maxDurationMs",
-      "retryBudget",
-      "maxInvocations",
-    ]);
-    const registry = getH2CapabilityRegistryEntry(H2_ECHO_CAPABILITY_ID);
-    if (
-      registry === undefined ||
-      root.kind !== "h2-approved-capability-schedule" ||
-      root.schemaVersion !== "1" ||
-      !safeId(root.scheduleId) ||
-      root.capabilityId !== H2_ECHO_CAPABILITY_ID ||
-      typeof root.descriptorSha256 !== "string" ||
-      !SHA256.test(root.descriptorSha256) ||
-      root.descriptorSha256 !== registry.descriptorSha256 ||
-      root.mediationLevel !== "L0" ||
-      root.retryBudget !== 0 ||
-      root.maxInvocations !== 1 ||
-      budget.maxInputBytes !== registry.budgetDefaults.maxInputBytes ||
-      budget.maxOutputBytes !== registry.budgetDefaults.maxOutputBytes ||
-      budget.maxDurationMs !== registry.budgetDefaults.maxDurationMs ||
-      budget.retryBudget !== 0 ||
-      budget.maxInvocations !== 1 ||
-      !safeId(root.approvalId) ||
-      !safeId(root.approvedBy) ||
-      !strictIso(root.approvedAt) ||
-      !strictIso(root.validFrom) ||
-      !strictIso(root.validUntil) ||
-      root.approvedAt > root.validFrom ||
-      root.validFrom >= root.validUntil
-    ) {
-      throw new H2ScheduleBoundaryError();
-    }
-    return Object.freeze({
-      kind: "h2-approved-capability-schedule",
-      schemaVersion: "1",
-      scheduleId: root.scheduleId,
-      capabilityId: H2_ECHO_CAPABILITY_ID,
-      descriptorSha256: root.descriptorSha256,
-      mediationLevel: "L0",
-      invocationBudget: Object.freeze({
-        maxInputBytes: 512,
-        maxOutputBytes: 512,
-        maxDurationMs: 1000,
-        retryBudget: 0,
-        maxInvocations: 1,
-      }),
-      retryBudget: 0,
-      maxInvocations: 1,
-      approvalId: root.approvalId,
-      approvedBy: root.approvedBy,
-      approvedAt: root.approvedAt,
-      validFrom: root.validFrom,
-      validUntil: root.validUntil,
-    });
-  } catch (error) {
-    if (error instanceof H2ScheduleBoundaryError) throw error;
-    throw new H2ScheduleBoundaryError();
+function snapshotInvocation(value: unknown): { readonly scheduleId: string; readonly input: H2EchoValue } {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    utilTypes.isProxy(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+  ) {
+    throw new Error("invalid invocation request");
   }
+  const rootDescriptors = Object.getOwnPropertyDescriptors(value);
+  if (
+    Object.getOwnPropertySymbols(value).length !== 0 ||
+    Object.keys(rootDescriptors).length !== 2 ||
+    rootDescriptors.trigger === undefined ||
+    !("value" in rootDescriptors.trigger) ||
+    rootDescriptors.trigger.enumerable !== true ||
+    rootDescriptors.input === undefined ||
+    !("value" in rootDescriptors.input) ||
+    rootDescriptors.input.enumerable !== true
+  ) {
+    throw new Error("invalid invocation request");
+  }
+  const trigger = rootDescriptors.trigger.value;
+  if (
+    typeof trigger !== "object" ||
+    trigger === null ||
+    Array.isArray(trigger) ||
+    utilTypes.isProxy(trigger) ||
+    (Object.getPrototypeOf(trigger) !== Object.prototype && Object.getPrototypeOf(trigger) !== null)
+  ) {
+    throw new Error("invalid invocation request");
+  }
+  const triggerDescriptors = Object.getOwnPropertyDescriptors(trigger);
+  if (
+    Object.getOwnPropertySymbols(trigger).length !== 0 ||
+    Object.keys(triggerDescriptors).length !== 2 ||
+    triggerDescriptors.kind === undefined ||
+    !("value" in triggerDescriptors.kind) ||
+    triggerDescriptors.kind.enumerable !== true ||
+    triggerDescriptors.kind.value !== "approved_schedule" ||
+    triggerDescriptors.scheduleId === undefined ||
+    !("value" in triggerDescriptors.scheduleId) ||
+    triggerDescriptors.scheduleId.enumerable !== true ||
+    !safeId(triggerDescriptors.scheduleId.value)
+  ) {
+    throw new Error("invalid invocation request");
+  }
+  return {
+    scheduleId: triggerDescriptors.scheduleId.value,
+    input: snapshotH2EchoValue(rootDescriptors.input.value),
+  };
 }
 
 function defaultClock(): H2Clock {
@@ -249,49 +176,117 @@ function defaultClock(): H2Clock {
 }
 
 function refusal(code: H2MediationRefusalCode): H2MediationResult {
-  return Object.freeze({ ok: false, invoked: false, refusalCode: code });
+  return Object.freeze({
+    ok: false,
+    invoked: false,
+    refusalCode: code,
+    auditEvents: Object.freeze([]) as readonly [],
+  });
 }
 
 function deterministicId(prefix: string, values: readonly string[]): string {
   return `${prefix}_${sha256Canonical(values).slice(0, 24)}`;
 }
 
-export class H2EchoMediationKernel {
+function descriptorRefusalAudit(
+  schedule: H2ApprovedSchedule,
+  startedAt: string,
+  pinnedHash: string,
+  liveHash: string,
+  reason: "descriptor_hash_drift" | "mcp_protocol_refused",
+): AuditEvent {
+  return Object.freeze({
+    id: deterministicId("audit_refusal", [schedule.scheduleId, reason, startedAt]),
+    team_id: "system",
+    actor_type: "system",
+    actor_id: schedule.approvedBy,
+    event_type: "capability.invocation.refused",
+    target_type: "Capability",
+    target_id: schedule.capabilityId,
+    payload_json: Object.freeze({
+      capability_id: schedule.capabilityId,
+      authority_kind: "approved_schedule",
+      authority_ref: schedule.scheduleId,
+      authority_artifact_ref: H2_APPROVED_ECHO_SCHEDULE_AUTHORITY_REF,
+      approval_id: schedule.approvalId,
+      descriptor_sha256_pinned: pinnedHash,
+      descriptor_sha256_live: liveHash,
+      refusal_reason: reason,
+      retry_count: 0,
+      network_effects: 0,
+      provider_calls: 0,
+      system_side_acquisitions: 0,
+      private_reads: 0,
+      production_writes: 0,
+      deployments: 0,
+    }),
+    created_at: startedAt,
+  });
+}
+
+function auditedDescriptorRefusal(
+  schedule: H2ApprovedSchedule,
+  startedAt: string,
+  pinnedHash: string,
+  liveHash: string,
+  reason: "descriptor_hash_drift" | "mcp_protocol_refused",
+): H2MediationResult {
+  return Object.freeze({
+    ok: false,
+    invoked: false,
+    refusalCode: reason,
+    auditEvents: Object.freeze([
+      descriptorRefusalAudit(schedule, startedAt, pinnedHash, liveHash, reason),
+    ]) as readonly [AuditEvent],
+  });
+}
+
+function accountingIncrement(executionId: string): H2AccountingIncrement {
+  return Object.freeze({
+    kind: "capability-accounting-increment",
+    incrementId: deterministicId("acct", [executionId]),
+    executionId,
+    capabilityInvocations: 1,
+    capabilityExecutionRecords: 1,
+    auditEventsEmitted: 1,
+    networkEgressPerformed: 0,
+    providerCallsExecuted: 0,
+    systemSideAcquisitionsPerformed: 0,
+    privateReadsPerformed: 0,
+    filesystemOperationsPerformed: 0,
+    environmentReadsPerformed: 0,
+    databaseOperationsPerformed: 0,
+    subprocessesExecuted: 0,
+    productionWritesPerformed: 0,
+    deploymentsPerformed: 0,
+  });
+}
+
+class H2EchoMediationKernel implements H2MediationKernel {
   readonly #registryEntry = getH2CapabilityRegistryEntry(H2_ECHO_CAPABILITY_ID);
   readonly #client: H2OrchestratorMcpClient;
   readonly #clock: H2Clock;
-  readonly #schedules = new Map<string, StoredSchedule>();
+  #consumed = false;
 
   constructor(options: H2EchoMediationKernelOptions = {}) {
+    if (sha256Canonical(H2_APPROVED_ECHO_SCHEDULE) !== H2_APPROVED_ECHO_SCHEDULE_SHA256) {
+      throw new Error("H2 approved schedule authority hash mismatch");
+    }
     this.#client = new H2OrchestratorMcpClient(options.transport ?? createH2InertEchoMcpServer());
     this.#clock = options.clock ?? defaultClock();
   }
 
-  approveSchedule(value: unknown): H2ApprovedSchedule {
-    const schedule = snapshotApprovedSchedule(value);
-    if (this.#schedules.has(schedule.scheduleId)) throw new H2ScheduleBoundaryError();
-    this.#schedules.set(schedule.scheduleId, { schedule, consumed: false });
-    return schedule;
-  }
-
   async invoke(value: unknown): Promise<H2MediationResult> {
-    let trigger: Record<string, unknown>;
-    let input: H2EchoValue;
+    let request: { readonly scheduleId: string; readonly input: H2EchoValue };
     try {
-      const root = exactObject(value, ["trigger", "input"]);
-      trigger = exactObject(root.trigger, ["kind", "scheduleId"]);
-      if (trigger.kind !== "approved_schedule" || !safeId(trigger.scheduleId)) {
-        return refusal("invalid_invocation_request");
-      }
-      input = snapshotH2EchoValue(root.input);
+      request = snapshotInvocation(value);
     } catch {
       return refusal("invalid_invocation_request");
     }
 
-    const stored = this.#schedules.get(trigger.scheduleId as string);
-    if (stored === undefined) return refusal("schedule_not_approved");
-    if (stored.consumed) return refusal("schedule_consumed");
-    const schedule = stored.schedule;
+    const schedule = H2_APPROVED_ECHO_SCHEDULE;
+    if (request.scheduleId !== schedule.scheduleId) return refusal("schedule_not_approved");
+    if (this.#consumed) return refusal("schedule_consumed");
     const registry = this.#registryEntry;
     if (registry === undefined) return refusal("capability_not_registered");
     if (schedule.capabilityId !== registry.capabilityId) return refusal("capability_mismatch");
@@ -309,29 +304,75 @@ export class H2EchoMediationKernel {
       return refusal("invocation_budget_refused");
     }
 
-    const startedAt = this.#clock.nowIso();
+    let startedAt: string;
+    try {
+      startedAt = this.#clock.nowIso();
+    } catch {
+      return refusal("invalid_invocation_request");
+    }
     if (!strictIso(startedAt)) return refusal("invalid_invocation_request");
     if (startedAt < schedule.validFrom) return refusal("schedule_not_yet_valid");
-    if (startedAt > schedule.validUntil) return refusal("schedule_expired");
+    if (startedAt >= schedule.validUntil) return refusal("schedule_expired");
+
+    let liveDescriptor: unknown;
+    try {
+      liveDescriptor = await this.#client.getLiveDescriptorSnapshot(
+        schedule.invocationBudget.maxDurationMs,
+      );
+    } catch {
+      return auditedDescriptorRefusal(
+        schedule,
+        startedAt,
+        registry.descriptorSha256,
+        "unavailable",
+        "mcp_protocol_refused",
+      );
+    }
 
     let liveDescriptorHash: string;
     try {
-      liveDescriptorHash = sha256Canonical(this.#client.getLiveDescriptorSnapshot());
+      liveDescriptorHash = sha256Canonical(liveDescriptor);
     } catch {
-      return refusal("descriptor_hash_drift");
+      return auditedDescriptorRefusal(
+        schedule,
+        startedAt,
+        registry.descriptorSha256,
+        "unavailable",
+        "descriptor_hash_drift",
+      );
     }
     if (
       liveDescriptorHash !== registry.descriptorSha256 ||
       liveDescriptorHash !== schedule.descriptorSha256
     ) {
-      return refusal("descriptor_hash_drift");
+      return auditedDescriptorRefusal(
+        schedule,
+        startedAt,
+        registry.descriptorSha256,
+        liveDescriptorHash,
+        "descriptor_hash_drift",
+      );
     }
 
-    const inputBytes = Buffer.byteLength(canonicalJson(input), "utf8");
+    let inputBytes: number;
+    try {
+      inputBytes = Buffer.byteLength(canonicalJson(request.input), "utf8");
+    } catch {
+      return refusal("input_refused");
+    }
     if (inputBytes > schedule.invocationBudget.maxInputBytes) return refusal("input_refused");
 
-    stored.consumed = true;
-    const startedMonotonic = this.#clock.monotonicMs();
+    let startedMonotonic: number;
+    try {
+      startedMonotonic = this.#clock.monotonicMs();
+      if (!Number.isSafeInteger(startedMonotonic) || startedMonotonic < 0) {
+        return refusal("invalid_invocation_request");
+      }
+    } catch {
+      return refusal("invalid_invocation_request");
+    }
+
+    this.#consumed = true;
     const executionId = deterministicId("capexec", [schedule.scheduleId, liveDescriptorHash, startedAt]);
     const requestId = deterministicId("mcpcall", [executionId]);
     let output: H2EchoValue | null = null;
@@ -339,28 +380,45 @@ export class H2EchoMediationKernel {
     let outcome: "completed" | "failed" = "failed";
 
     try {
-      const candidate = await this.#client.invokeInertEcho(requestId, input);
-      outputBytes = Buffer.byteLength(canonicalJson(candidate), "utf8");
+      const candidate = await this.#client.invokeInertEcho(
+        requestId,
+        request.input,
+        schedule.invocationBudget.maxDurationMs,
+      );
+      const candidateOutputBytes = Buffer.byteLength(canonicalJson(candidate), "utf8");
       if (
-        outputBytes <= schedule.invocationBudget.maxOutputBytes &&
-        canonicalJson(candidate) === canonicalJson(input)
+        candidateOutputBytes <= schedule.invocationBudget.maxOutputBytes &&
+        canonicalJson(candidate) === canonicalJson(request.input)
       ) {
         output = candidate;
+        outputBytes = candidateOutputBytes;
         outcome = "completed";
       }
     } catch {
       outcome = "failed";
     }
 
-    const completedAt = this.#clock.nowIso();
-    const completedMonotonic = this.#clock.monotonicMs();
-    const rawDuration = completedMonotonic - startedMonotonic;
-    const durationMs = Number.isSafeInteger(rawDuration) && rawDuration >= 0 ? rawDuration : 0;
-    if (
-      !strictIso(completedAt) ||
-      completedAt < startedAt ||
-      durationMs > schedule.invocationBudget.maxDurationMs
-    ) {
+    let completedAt = startedAt;
+    let durationMs: number = schedule.invocationBudget.maxDurationMs;
+    try {
+      const candidateCompletedAt = this.#clock.nowIso();
+      const completedMonotonic = this.#clock.monotonicMs();
+      const rawDuration = completedMonotonic - startedMonotonic;
+      if (
+        strictIso(candidateCompletedAt) &&
+        candidateCompletedAt >= startedAt &&
+        Number.isSafeInteger(rawDuration) &&
+        rawDuration >= 0
+      ) {
+        completedAt = candidateCompletedAt;
+        durationMs = rawDuration;
+      } else {
+        outcome = "failed";
+      }
+    } catch {
+      outcome = "failed";
+    }
+    if (durationMs > schedule.invocationBudget.maxDurationMs || outcome === "failed") {
       outcome = "failed";
       output = null;
       outputBytes = 0;
@@ -378,13 +436,12 @@ export class H2EchoMediationKernel {
       outputBytes,
       retryCount: 0,
       startedAt,
-      completedAt: strictIso(completedAt) ? completedAt : startedAt,
+      completedAt,
       durationMs,
       outcome,
     });
-    const auditId = deterministicId("audit", [executionId]);
     const auditEvent: AuditEvent = Object.freeze({
-      id: auditId,
+      id: deterministicId("audit", [executionId]),
       team_id: "system",
       actor_type: "system",
       actor_id: schedule.approvedBy,
@@ -396,6 +453,8 @@ export class H2EchoMediationKernel {
         descriptor_sha256: liveDescriptorHash,
         authority_kind: "approved_schedule",
         authority_ref: schedule.scheduleId,
+        authority_artifact_ref: H2_APPROVED_ECHO_SCHEDULE_AUTHORITY_REF,
+        authority_artifact_sha256: H2_APPROVED_ECHO_SCHEDULE_SHA256,
         approval_id: schedule.approvalId,
         mediation_level: "L0",
         input_bytes: inputBytes,
@@ -404,25 +463,7 @@ export class H2EchoMediationKernel {
         duration_ms: durationMs,
         outcome,
       }),
-      created_at: execution.completedAt,
-    });
-    const accountingIncrement: H2AccountingIncrement = Object.freeze({
-      kind: "capability-accounting-increment",
-      incrementId: deterministicId("acct", [executionId]),
-      executionId,
-      capabilityInvocations: 1,
-      capabilityExecutionRecords: 1,
-      auditEventsEmitted: 1,
-      networkEgressPerformed: 0,
-      providerCallsExecuted: 0,
-      systemSideAcquisitionsPerformed: 0,
-      privateReadsPerformed: 0,
-      filesystemOperationsPerformed: 0,
-      environmentReadsPerformed: 0,
-      databaseOperationsPerformed: 0,
-      subprocessesExecuted: 0,
-      productionWritesPerformed: 0,
-      deploymentsPerformed: 0,
+      created_at: completedAt,
     });
 
     return Object.freeze({
@@ -431,11 +472,21 @@ export class H2EchoMediationKernel {
       output,
       capabilityExecutions: Object.freeze([execution]) as readonly [H2CapabilityExecution],
       auditEvents: Object.freeze([auditEvent]) as readonly [AuditEvent],
-      accountingIncrements: Object.freeze([accountingIncrement]) as readonly [H2AccountingIncrement],
+      accountingIncrements: Object.freeze([
+        accountingIncrement(executionId),
+      ]) as readonly [H2AccountingIncrement],
     });
   }
 }
 
-export function createH2EchoMediationKernel(): H2EchoMediationKernel {
-  return new H2EchoMediationKernel();
+const systemKernel = new H2EchoMediationKernel();
+
+export function getH2EchoMediationKernel(): H2MediationKernel {
+  return systemKernel;
+}
+
+export function createH2EchoMediationKernelForTest(
+  options: H2EchoMediationKernelOptions = {},
+): H2MediationKernel {
+  return new H2EchoMediationKernel(options);
 }

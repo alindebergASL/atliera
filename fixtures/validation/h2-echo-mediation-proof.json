@@ -63,6 +63,10 @@
       "deploymentAllowed": false
     }
   },
+  "approvedScheduleAuthority": {
+    "artifactRef": "src/capability/h2-approved-schedule.ts#H2_APPROVED_ECHO_SCHEDULE",
+    "artifactSha256": "dd55d62c6b87a8cb395c6cfd88c7707cf88dec418d843debdd2a9ec4d5bdead4"
+  },
   "approvedSchedule": {
     "kind": "h2-approved-capability-schedule",
     "schemaVersion": "1",
@@ -123,6 +127,8 @@
         "descriptor_sha256": "b9f70d3a4b18129022f505bd9b41178fdae40f685a24bfbd0b6977183f4d2fa6",
         "authority_kind": "approved_schedule",
         "authority_ref": "sched_h2_echo_proof_v1",
+        "authority_artifact_ref": "src/capability/h2-approved-schedule.ts#H2_APPROVED_ECHO_SCHEDULE",
+        "authority_artifact_sha256": "dd55d62c6b87a8cb395c6cfd88c7707cf88dec418d843debdd2a9ec4d5bdead4",
         "approval_id": "approval_h2_echo_proof_v1",
         "mediation_level": "L0",
         "input_bytes": 41,

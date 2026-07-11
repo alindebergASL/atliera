@@ -54,6 +54,19 @@ test("test_mcp_client_import_isolation", () => {
   assert.doesNotMatch(clientSource, /@modelcontextprotocol/);
 });
 
+test("general index barrel cannot bypass model capability isolation", async () => {
+  const priorBypass = 'import { H2_CAPABILITY_REGISTRY } from "../index.ts";';
+  assert.doesNotMatch(priorBypass, MODEL_CAPABILITY_IMPORT);
+
+  const rootIndexSource = text(join(SRC, "index.ts"));
+  assert.doesNotMatch(rootIndexSource, /capability\//);
+  assert.doesNotMatch(rootIndexSource, /H2_CAPABILITY_REGISTRY|getH2EchoMediationKernel/);
+
+  const rootExports = await import("../../src/index.ts");
+  assert.equal("H2_CAPABILITY_REGISTRY" in rootExports, false);
+  assert.equal("getH2EchoMediationKernel" in rootExports, false);
+});
+
 test("inert echo server has no effect-capable imports or runtime surfaces", () => {
   const serverSource = text(join(CAPABILITY, "inert-echo-mcp-server.ts"));
   for (const forbidden of [

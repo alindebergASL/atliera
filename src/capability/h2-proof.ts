@@ -1,18 +1,19 @@
 import { H2_M4_SUCCESSOR_TEMPLATE } from "./h2-m4-successor-template.ts";
 import {
+  H2_APPROVED_ECHO_SCHEDULE,
+  H2_APPROVED_ECHO_SCHEDULE_AUTHORITY_REF,
+  H2_APPROVED_ECHO_SCHEDULE_SHA256,
+} from "./h2-approved-schedule.ts";
+import {
   H2_CAPABILITY_REGISTRY,
-  H2_ECHO_CAPABILITY_ID,
 } from "./h2-registry.ts";
 import {
-  H2EchoMediationKernel,
+  createH2EchoMediationKernelForTest,
   type H2Clock,
 } from "./h2-mediation-gate.ts";
 
-const APPROVED_AT = "2026-07-10T12:00:00.000Z";
-const VALID_FROM = "2026-07-10T12:00:01.000Z";
 const STARTED_AT = "2026-07-10T12:00:02.000Z";
 const COMPLETED_AT = "2026-07-10T12:00:02.007Z";
-const VALID_UNTIL = "2026-07-10T12:05:00.000Z";
 
 function deterministicProofClock(): H2Clock {
   const timestamps = [STARTED_AT, COMPLETED_AT];
@@ -33,29 +34,8 @@ function deterministicProofClock(): H2Clock {
 
 export async function generateH2EchoMediationProof(): Promise<Record<string, unknown>> {
   const registry = H2_CAPABILITY_REGISTRY[0];
-  const kernel = new H2EchoMediationKernel({ clock: deterministicProofClock() });
-  const schedule = kernel.approveSchedule({
-    kind: "h2-approved-capability-schedule",
-    schemaVersion: "1",
-    scheduleId: "sched_h2_echo_proof_v1",
-    capabilityId: H2_ECHO_CAPABILITY_ID,
-    descriptorSha256: registry.descriptorSha256,
-    mediationLevel: "L0",
-    invocationBudget: {
-      maxInputBytes: 512,
-      maxOutputBytes: 512,
-      maxDurationMs: 1000,
-      retryBudget: 0,
-      maxInvocations: 1,
-    },
-    retryBudget: 0,
-    maxInvocations: 1,
-    approvalId: "approval_h2_echo_proof_v1",
-    approvedBy: "atliera-system-admin",
-    approvedAt: APPROVED_AT,
-    validFrom: VALID_FROM,
-    validUntil: VALID_UNTIL,
-  });
+  const schedule = H2_APPROVED_ECHO_SCHEDULE;
+  const kernel = createH2EchoMediationKernelForTest({ clock: deterministicProofClock() });
   const input = Object.freeze({ value: "H2 inert echo mediation proof" });
   const result = await kernel.invoke({
     trigger: { kind: "approved_schedule", scheduleId: schedule.scheduleId },
@@ -76,6 +56,10 @@ export async function generateH2EchoMediationProof(): Promise<Record<string, unk
     protocol: "mcp",
     protocolSpecVersion: registry.protocolSpecVersion,
     registryEntry: registry,
+    approvedScheduleAuthority: Object.freeze({
+      artifactRef: H2_APPROVED_ECHO_SCHEDULE_AUTHORITY_REF,
+      artifactSha256: H2_APPROVED_ECHO_SCHEDULE_SHA256,
+    }),
     approvedSchedule: schedule,
     echoInput: input,
     echoOutput: result.output,

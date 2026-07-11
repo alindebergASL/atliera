@@ -3,6 +3,10 @@ import test from "node:test";
 
 import { parseAuditEvent } from "../../src/graph/schema.ts";
 import {
+  H2_APPROVED_ECHO_SCHEDULE,
+  H2_APPROVED_ECHO_SCHEDULE_SHA256,
+} from "../../src/capability/h2-approved-schedule.ts";
+import {
   H2_CAPABILITY_REGISTRY,
   H2_ECHO_CAPABILITY_ID,
   canonicalJson,
@@ -10,12 +14,14 @@ import {
 } from "../../src/capability/h2-registry.ts";
 import { createH2InertEchoMcpServer } from "../../src/capability/inert-echo-mcp-server.ts";
 import type {
-  H2McpCallRequest,
-  H2McpCallResponse,
   H2McpInProcessTransport,
+  H2McpNotification,
+  H2McpRequest,
+  H2McpRequestOptions,
+  H2McpResponse,
 } from "../../src/capability/h2-mcp-protocol.ts";
 import {
-  H2EchoMediationKernel,
+  createH2EchoMediationKernelForTest,
   type H2Clock,
 } from "../../src/capability/h2-mediation-gate.ts";
 
@@ -36,33 +42,10 @@ function clock(timestamps: string[], monotonic: number[] = []): H2Clock {
   };
 }
 
-function scheduleDraft(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    kind: "h2-approved-capability-schedule",
-    schemaVersion: "1",
-    scheduleId: "sched_h2_echo_test",
-    capabilityId: H2_ECHO_CAPABILITY_ID,
-    descriptorSha256: registry.descriptorSha256,
-    mediationLevel: "L0",
-    invocationBudget: {
-      maxInputBytes: 512,
-      maxOutputBytes: 512,
-      maxDurationMs: 1000,
-      retryBudget: 0,
-      maxInvocations: 1,
-    },
-    retryBudget: 0,
-    maxInvocations: 1,
-    approvalId: "approval_h2_echo_test",
-    approvedBy: "system-admin-test",
-    approvedAt: "2026-07-10T11:59:00.000Z",
-    validFrom: "2026-07-10T12:00:00.000Z",
-    validUntil: "2026-07-10T12:05:00.000Z",
-    ...overrides,
-  };
-}
-
-function invocation(scheduleId = "sched_h2_echo_test", value = "bounded echo"): Record<string, unknown> {
+function invocation(
+  scheduleId: string = H2_APPROVED_ECHO_SCHEDULE.scheduleId,
+  value = "bounded echo",
+): Record<string, unknown> {
   return {
     trigger: { kind: "approved_schedule", scheduleId },
     input: { value },
@@ -72,21 +55,34 @@ function invocation(scheduleId = "sched_h2_echo_test", value = "bounded echo"): 
 function countingTransport(options: {
   descriptor?: unknown;
   throwOnCall?: boolean;
-} = {}): { transport: H2McpInProcessTransport; calls: () => number } {
+} = {}): { transport: H2McpInProcessTransport; toolCalls: () => number } {
   const base = createH2InertEchoMcpServer();
-  let calls = 0;
+  let toolCalls = 0;
   return {
     transport: {
-      getDescriptorSnapshot(): unknown {
-        return options.descriptor ?? base.getDescriptorSnapshot();
+      sendNotification(notification: H2McpNotification): Promise<void> {
+        return base.sendNotification(notification);
       },
-      async call(request: H2McpCallRequest): Promise<H2McpCallResponse> {
-        calls += 1;
-        if (options.throwOnCall) throw new Error("sensitive-detail-must-not-escape");
-        return base.call(request);
+      async sendRequest(
+        request: H2McpRequest,
+        requestOptions?: H2McpRequestOptions,
+      ): Promise<H2McpResponse> {
+        const response = await base.sendRequest(request, requestOptions);
+        if (request.method === "tools/list" && options.descriptor !== undefined) {
+          return {
+            jsonrpc: "2.0",
+            id: request.id,
+            result: { tools: [options.descriptor] },
+          };
+        }
+        if (request.method === "tools/call") {
+          toolCalls += 1;
+          if (options.throwOnCall) throw new Error("sensitive-detail-must-not-escape");
+        }
+        return response;
       },
     },
-    calls: () => calls,
+    toolCalls: () => toolCalls,
   };
 }
 
@@ -117,79 +113,56 @@ test("H2 registry contains one immutable inert echo entry and no M4 implementati
   assert.doesNotMatch(canonicalJson(H2_CAPABILITY_REGISTRY), /public_http_fetch_v1/);
 });
 
+test("repository-pinned schedule authority is immutable and exact", () => {
+  assert.equal(
+    sha256Canonical(H2_APPROVED_ECHO_SCHEDULE),
+    H2_APPROVED_ECHO_SCHEDULE_SHA256,
+  );
+  assert.equal(H2_APPROVED_ECHO_SCHEDULE.capabilityId, H2_ECHO_CAPABILITY_ID);
+  assert.equal(H2_APPROVED_ECHO_SCHEDULE.descriptorSha256, registry.descriptorSha256);
+  assert.equal(H2_APPROVED_ECHO_SCHEDULE.mediationLevel, "L0");
+  assert.equal(H2_APPROVED_ECHO_SCHEDULE.retryBudget, 0);
+  assert.equal(H2_APPROVED_ECHO_SCHEDULE.maxInvocations, 1);
+  assert.deepEqual(H2_APPROVED_ECHO_SCHEDULE.invocationBudget, registry.budgetDefaults);
+  assert.ok(Object.isFrozen(H2_APPROVED_ECHO_SCHEDULE));
+  assert.ok(Object.isFrozen(H2_APPROVED_ECHO_SCHEDULE.invocationBudget));
+});
+
 test("test_capability_invocation_requires_consumed_approval_or_schedule", async () => {
   const observed = countingTransport();
-  const kernel = new H2EchoMediationKernel({
+  const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
-    clock: clock(["2026-07-10T12:00:01.000Z"]),
+    clock: clock(["2026-07-10T12:00:02.000Z"]),
   });
 
   assert.deepEqual(await kernel.invoke(invocation("missing_schedule")), {
     ok: false,
     invoked: false,
     refusalCode: "schedule_not_approved",
+    auditEvents: [],
   });
   assert.deepEqual(await kernel.invoke({ input: { value: "raw model text" } }), {
     ok: false,
     invoked: false,
     refusalCode: "invalid_invocation_request",
+    auditEvents: [],
   });
-  assert.equal(observed.calls(), 0);
+  assert.equal(observed.toolCalls(), 0);
+  assert.equal("approveSchedule" in kernel, false);
 });
 
-test("approved schedule boundaries reject counterfeit authority and broadened budgets", () => {
-  const cases: Record<string, unknown>[] = [
-    scheduleDraft({ capabilityId: "system.other" }),
-    scheduleDraft({ descriptorSha256: "0".repeat(64) }),
-    scheduleDraft({ mediationLevel: "L1" }),
-    scheduleDraft({ retryBudget: 1 }),
-    scheduleDraft({ maxInvocations: 2 }),
-    scheduleDraft({ invocationBudget: { ...registry.budgetDefaults, maxInputBytes: 513 } }),
-    scheduleDraft({ invocationBudget: { ...registry.budgetDefaults, retryBudget: 1 } }),
-    scheduleDraft({ invocationBudget: { ...registry.budgetDefaults, maxInvocations: 2 } }),
-    scheduleDraft({ unexpected: true }),
-  ];
-  for (const candidate of cases) {
-    assert.throws(
-      () => new H2EchoMediationKernel().approveSchedule(candidate),
-      /approved schedule boundary refused input/,
-    );
-  }
-
-  let getterReads = 0;
-  const forged = scheduleDraft();
-  Object.defineProperty(forged, "approvedBy", {
-    enumerable: true,
-    get() {
-      getterReads += 1;
-      return "forged-admin";
-    },
-  });
-  assert.throws(
-    () => new H2EchoMediationKernel().approveSchedule(forged),
-    /approved schedule boundary refused input/,
-  );
-  assert.equal(getterReads, 0);
-});
-
-test("approved schedule is snapshotted and invocation-time input is bounded before consumption", async () => {
-  const draft = scheduleDraft();
-  const kernel = new H2EchoMediationKernel({
+test("invocation-time input is bounded before one-shot consumption", async () => {
+  const kernel = createH2EchoMediationKernelForTest({
     clock: clock(
-      ["2026-07-10T12:00:01.000Z", "2026-07-10T12:00:01.004Z"],
+      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.004Z"],
       [10, 14],
     ),
   });
-  const approved = kernel.approveSchedule(draft);
-  (draft.invocationBudget as Record<string, unknown>).retryBudget = 9;
-  draft.capabilityId = "system.other";
-  assert.equal(approved.retryBudget, 0);
-  assert.equal(approved.capabilityId, H2_ECHO_CAPABILITY_ID);
-  assert.ok(Object.isFrozen(approved));
-  assert.ok(Object.isFrozen(approved.invocationBudget));
-
   const malformed = await kernel.invoke({
-    trigger: { kind: "approved_schedule", scheduleId: approved.scheduleId },
+    trigger: {
+      kind: "approved_schedule",
+      scheduleId: H2_APPROVED_ECHO_SCHEDULE.scheduleId,
+    },
     input: { value: "x", extra: true },
   });
   assert.equal(malformed.ok, false);
@@ -200,50 +173,53 @@ test("approved schedule is snapshotted and invocation-time input is bounded befo
   assert.equal(result.invoked, true);
 });
 
-test("schedule validity window refuses not-yet-valid and expired invocations without transport access", async () => {
+test("schedule validity window refuses not-yet-valid and exact-or-later expiry without MCP access", async () => {
   for (const [at, code] of [
-    ["2026-07-10T11:59:59.999Z", "schedule_not_yet_valid"],
+    ["2026-07-10T12:00:00.999Z", "schedule_not_yet_valid"],
+    [H2_APPROVED_ECHO_SCHEDULE.validUntil, "schedule_expired"],
     ["2026-07-10T12:05:00.001Z", "schedule_expired"],
   ] as const) {
     const observed = countingTransport();
-    const kernel = new H2EchoMediationKernel({ transport: observed.transport, clock: clock([at]) });
-    kernel.approveSchedule(scheduleDraft());
+    const kernel = createH2EchoMediationKernelForTest({
+      transport: observed.transport,
+      clock: clock([at]),
+    });
     const result = await kernel.invoke(invocation());
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.refusalCode, code);
-    assert.equal(observed.calls(), 0);
+    assert.equal(observed.toolCalls(), 0);
   }
 });
 
-test("test_descriptor_hash_match_at_invocation", async () => {
+test("test_descriptor_hash_match_at_invocation emits refusal audit without tools/call", async () => {
   const driftedDescriptor = {
     ...registry.descriptorSnapshot,
     description: "changed after schedule approval",
   };
   const observed = countingTransport({ descriptor: driftedDescriptor });
-  const kernel = new H2EchoMediationKernel({
+  const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
-    clock: clock(["2026-07-10T12:00:01.000Z"]),
+    clock: clock(["2026-07-10T12:00:02.000Z"]),
   });
-  kernel.approveSchedule(scheduleDraft());
-  assert.deepEqual(await kernel.invoke(invocation()), {
-    ok: false,
-    invoked: false,
-    refusalCode: "descriptor_hash_drift",
-  });
-  assert.equal(observed.calls(), 0);
+  const result = await kernel.invoke(invocation());
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.refusalCode, "descriptor_hash_drift");
+  assert.equal(result.auditEvents.length, 1);
+  assert.equal(result.auditEvents[0].payload_json.refusal_reason, "descriptor_hash_drift");
+  assert.equal(result.auditEvents[0].payload_json.network_effects, 0);
+  assert.equal(observed.toolCalls(), 0);
 });
 
 test("test_retry_budget_enforced", async () => {
   const observed = countingTransport();
-  const kernel = new H2EchoMediationKernel({
+  const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:01.000Z", "2026-07-10T12:00:01.003Z"],
+      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.003Z"],
       [20, 23],
     ),
   });
-  kernel.approveSchedule(scheduleDraft());
   const first = await kernel.invoke(invocation());
   assert.equal(first.ok, true);
   if (first.ok) assert.equal(first.capabilityExecutions[0].retryCount, 0);
@@ -251,25 +227,25 @@ test("test_retry_budget_enforced", async () => {
     ok: false,
     invoked: false,
     refusalCode: "schedule_consumed",
+    auditEvents: [],
   });
-  assert.equal(observed.calls(), 1);
+  assert.equal(observed.toolCalls(), 1);
 });
 
 test("test_capability_invocation_emits_audit_and_accounting", async () => {
   const observed = countingTransport();
-  const kernel = new H2EchoMediationKernel({
+  const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:01.000Z", "2026-07-10T12:00:01.007Z"],
+      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.007Z"],
       [100, 107],
     ),
   });
-  const schedule = kernel.approveSchedule(scheduleDraft());
-  const result = await kernel.invoke(invocation(schedule.scheduleId, "same bounded value"));
+  const result = await kernel.invoke(invocation(undefined, "same bounded value"));
   assert.equal(result.ok, true);
   if (!result.ok) return;
 
-  assert.equal(observed.calls(), 1);
+  assert.equal(observed.toolCalls(), 1);
   assert.deepEqual(result.output, { value: "same bounded value" });
   assert.equal(result.capabilityExecutions.length, 1);
   assert.equal(result.auditEvents.length, 1);
@@ -279,7 +255,7 @@ test("test_capability_invocation_emits_audit_and_accounting", async () => {
   assert.equal(execution.kind, "CapabilityExecution");
   assert.equal(execution.capabilityId, H2_ECHO_CAPABILITY_ID);
   assert.equal(execution.descriptorSha256, registry.descriptorSha256);
-  assert.equal(execution.authorityRef, schedule.scheduleId);
+  assert.equal(execution.authorityRef, H2_APPROVED_ECHO_SCHEDULE.scheduleId);
   assert.equal(execution.mediationLevel, "L0");
   assert.ok(execution.inputBytes > 0);
   assert.equal(execution.inputBytes, execution.outputBytes);
@@ -287,43 +263,31 @@ test("test_capability_invocation_emits_audit_and_accounting", async () => {
   assert.equal(execution.durationMs, 7);
   assert.equal(execution.outcome, "completed");
 
-  const parsedAudit = parseAuditEvent(result.auditEvents[0]);
-  assert.equal(parsedAudit.ok, true);
+  assert.equal(parseAuditEvent(result.auditEvents[0]).ok, true);
   assert.equal(result.auditEvents[0].target_id, execution.executionId);
   assert.equal(result.auditEvents[0].payload_json.descriptor_sha256, registry.descriptorSha256);
-  assert.equal(result.auditEvents[0].payload_json.authority_ref, schedule.scheduleId);
+  assert.equal(
+    result.auditEvents[0].payload_json.authority_ref,
+    H2_APPROVED_ECHO_SCHEDULE.scheduleId,
+  );
   assert.doesNotMatch(JSON.stringify(result.auditEvents[0]), /same bounded value/);
-
-  assert.deepEqual(result.accountingIncrements[0], {
-    kind: "capability-accounting-increment",
-    incrementId: result.accountingIncrements[0].incrementId,
-    executionId: execution.executionId,
-    capabilityInvocations: 1,
-    capabilityExecutionRecords: 1,
-    auditEventsEmitted: 1,
-    networkEgressPerformed: 0,
-    providerCallsExecuted: 0,
-    systemSideAcquisitionsPerformed: 0,
-    privateReadsPerformed: 0,
-    filesystemOperationsPerformed: 0,
-    environmentReadsPerformed: 0,
-    databaseOperationsPerformed: 0,
-    subprocessesExecuted: 0,
-    productionWritesPerformed: 0,
-    deploymentsPerformed: 0,
-  });
+  assert.equal(result.accountingIncrements[0].capabilityInvocations, 1);
+  assert.equal(result.accountingIncrements[0].auditEventsEmitted, 1);
+  assert.equal(result.accountingIncrements[0].networkEgressPerformed, 0);
+  assert.equal(result.accountingIncrements[0].providerCallsExecuted, 0);
+  assert.equal(result.accountingIncrements[0].databaseOperationsPerformed, 0);
+  assert.equal(result.accountingIncrements[0].deploymentsPerformed, 0);
 });
 
 test("transport failures remain sanitized while preserving one execution, audit, and accounting record", async () => {
   const observed = countingTransport({ throwOnCall: true });
-  const kernel = new H2EchoMediationKernel({
+  const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:01.000Z", "2026-07-10T12:00:01.002Z"],
+      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.002Z"],
       [1, 3],
     ),
   });
-  kernel.approveSchedule(scheduleDraft());
   const result = await kernel.invoke(invocation());
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -333,5 +297,5 @@ test("transport failures remain sanitized while preserving one execution, audit,
   assert.equal(result.auditEvents.length, 1);
   assert.equal(result.accountingIncrements.length, 1);
   assert.doesNotMatch(JSON.stringify(result), /sensitive-detail-must-not-escape/);
-  assert.equal(observed.calls(), 1);
+  assert.equal(observed.toolCalls(), 1);
 });

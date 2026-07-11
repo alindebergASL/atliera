@@ -1,0 +1,206 @@
+{
+  "kind": "h2-echo-mediation-proof",
+  "schemaVersion": "1",
+  "protocol": "mcp",
+  "protocolSpecVersion": "2025-11-25",
+  "registryEntry": {
+    "capabilityId": "system.inert_echo_v1",
+    "serverIdentity": "atliera.h2.in_process_echo",
+    "protocol": "mcp",
+    "protocolSpecVersion": "2025-11-25",
+    "descriptorSnapshot": {
+      "name": "system.inert_echo_v1",
+      "title": "Inert echo",
+      "description": "Returns one bounded plain-data string without side effects",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "descriptorSha256": "b9f70d3a4b18129022f505bd9b41178fdae40f685a24bfbd0b6977183f4d2fa6",
+    "allowedMediationLevels": [
+      "L0"
+    ],
+    "budgetDefaults": {
+      "maxInputBytes": 512,
+      "maxOutputBytes": 512,
+      "maxDurationMs": 1000,
+      "retryBudget": 0,
+      "maxInvocations": 1
+    },
+    "sandboxProfile": {
+      "profileId": "h2-inert-no-effects",
+      "transport": "in-process",
+      "orchestratorSoleClient": true,
+      "networkAllowed": false,
+      "filesystemAllowed": false,
+      "environmentAllowed": false,
+      "providerCallsAllowed": false,
+      "databaseAllowed": false,
+      "subprocessAllowed": false,
+      "deploymentAllowed": false
+    }
+  },
+  "approvedScheduleAuthority": {
+    "artifactRef": "src/capability/h2-approved-schedule.ts#H2_APPROVED_ECHO_SCHEDULE",
+    "artifactSha256": "dd55d62c6b87a8cb395c6cfd88c7707cf88dec418d843debdd2a9ec4d5bdead4"
+  },
+  "approvedSchedule": {
+    "kind": "h2-approved-capability-schedule",
+    "schemaVersion": "1",
+    "scheduleId": "sched_h2_echo_proof_v1",
+    "capabilityId": "system.inert_echo_v1",
+    "descriptorSha256": "b9f70d3a4b18129022f505bd9b41178fdae40f685a24bfbd0b6977183f4d2fa6",
+    "mediationLevel": "L0",
+    "invocationBudget": {
+      "maxInputBytes": 512,
+      "maxOutputBytes": 512,
+      "maxDurationMs": 1000,
+      "retryBudget": 0,
+      "maxInvocations": 1
+    },
+    "retryBudget": 0,
+    "maxInvocations": 1,
+    "approvalId": "approval_h2_echo_proof_v1",
+    "approvedBy": "atliera-system-admin",
+    "approvedAt": "2026-07-10T12:00:00.000Z",
+    "validFrom": "2026-07-10T12:00:01.000Z",
+    "validUntil": "2026-07-10T12:05:00.000Z"
+  },
+  "echoInput": {
+    "value": "H2 inert echo mediation proof"
+  },
+  "echoOutput": {
+    "value": "H2 inert echo mediation proof"
+  },
+  "capabilityExecutions": [
+    {
+      "kind": "CapabilityExecution",
+      "executionId": "capexec_65fb1126004b6830599bbabf",
+      "capabilityId": "system.inert_echo_v1",
+      "descriptorSha256": "b9f70d3a4b18129022f505bd9b41178fdae40f685a24bfbd0b6977183f4d2fa6",
+      "authorityKind": "approved_schedule",
+      "authorityRef": "sched_h2_echo_proof_v1",
+      "mediationLevel": "L0",
+      "inputBytes": 41,
+      "outputBytes": 41,
+      "retryCount": 0,
+      "startedAt": "2026-07-10T12:00:02.000Z",
+      "completedAt": "2026-07-10T12:00:02.007Z",
+      "durationMs": 7,
+      "outcome": "completed"
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "audit_9f6eedd4ff6dc43a366bb410",
+      "team_id": "system",
+      "actor_type": "system",
+      "actor_id": "atliera-system-admin",
+      "event_type": "capability.execution.completed",
+      "target_type": "CapabilityExecution",
+      "target_id": "capexec_65fb1126004b6830599bbabf",
+      "payload_json": {
+        "capability_id": "system.inert_echo_v1",
+        "descriptor_sha256": "b9f70d3a4b18129022f505bd9b41178fdae40f685a24bfbd0b6977183f4d2fa6",
+        "authority_kind": "approved_schedule",
+        "authority_ref": "sched_h2_echo_proof_v1",
+        "authority_artifact_ref": "src/capability/h2-approved-schedule.ts#H2_APPROVED_ECHO_SCHEDULE",
+        "authority_artifact_sha256": "dd55d62c6b87a8cb395c6cfd88c7707cf88dec418d843debdd2a9ec4d5bdead4",
+        "approval_id": "approval_h2_echo_proof_v1",
+        "mediation_level": "L0",
+        "input_bytes": 41,
+        "output_bytes": 41,
+        "retry_count": 0,
+        "duration_ms": 7,
+        "outcome": "completed"
+      },
+      "created_at": "2026-07-10T12:00:02.007Z"
+    }
+  ],
+  "accountingIncrements": [
+    {
+      "kind": "capability-accounting-increment",
+      "incrementId": "acct_9f6eedd4ff6dc43a366bb410",
+      "executionId": "capexec_65fb1126004b6830599bbabf",
+      "capabilityInvocations": 1,
+      "capabilityExecutionRecords": 1,
+      "auditEventsEmitted": 1,
+      "networkEgressPerformed": 0,
+      "providerCallsExecuted": 0,
+      "systemSideAcquisitionsPerformed": 0,
+      "privateReadsPerformed": 0,
+      "filesystemOperationsPerformed": 0,
+      "environmentReadsPerformed": 0,
+      "databaseOperationsPerformed": 0,
+      "subprocessesExecuted": 0,
+      "productionWritesPerformed": 0,
+      "deploymentsPerformed": 0
+    }
+  ],
+  "effects": {
+    "retries": 0,
+    "network": 0,
+    "systemSideAcquisition": 0,
+    "providerCalls": 0,
+    "privateReads": 0,
+    "filesystemOperations": 0,
+    "environmentReads": 0,
+    "databaseOperations": 0,
+    "subprocesses": 0,
+    "productionWrites": 0,
+    "deployments": 0
+  },
+  "m4SuccessorSurface": {
+    "kind": "unregistered-m4-capability-successor-template",
+    "capabilityId": "public_http_fetch_v1",
+    "status": "draft-inert-unregistered",
+    "protocolSpecVersion": "2025-11-25",
+    "fetcherImplementationExists": false,
+    "registered": false,
+    "executable": false,
+    "forkVersusBuild": "undecided",
+    "exactTargets": "unset",
+    "descriptorDraft": {
+      "title": "Public HTTP fetch v1",
+      "input": "ratified-target-reference-shape-unset",
+      "output": "provenance-custody-shape-unset"
+    },
+    "proposedBudgetDefaults": {
+      "maxTargets": 1,
+      "retryBudget": 0,
+      "maxResponseBytes": 1000000,
+      "timeoutMs": 10000,
+      "redirectLimit": 0
+    },
+    "operatorDecisionsRequired": [
+      "robots",
+      "retention",
+      "takedown"
+    ],
+    "implementationGate": "fresh-operator-roadmap-decision-after-h2-merge-and-independent-review",
+    "liveAcquisitionGate": "later-compact-packet-and-explicit-go"
+  }
+}

@@ -9,9 +9,9 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: this index creates no authority; it records the already-ratified conditional successor below, and every other later slice requires a new explicit operator decision
-- ratified next bounded implementation: separate H2 no-network capability-registry/mediation/echo proof only, after the M5a closeout merges and is independently verified
-- M4 implementation remains unauthorized: H2 may draft the future `public_http_fetch_v1` registry entry, descriptor and budget defaults, but a fresh operator/roadmap decision after H2 merge and independent review is required before implementation
+- next recommended work: H2's bounded no-network echo mediation proof is complete on merge; this index creates no authority for M4 or any other later slice
+- ratified next bounded implementation: none
+- M4 implementation remains unauthorized: H2 drafted only an inert, unregistered and non-executable `public_http_fetch_v1` successor template; a fresh operator/roadmap decision after H2 merge and independent review is required before implementation
 - live acquisition remains unauthorized: one compact URL/budget/retention/legal packet and one explicit operator GO are still required
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
@@ -35,6 +35,7 @@ Status vocabulary:
 | `controlled-2b-live-provider-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
+| `h2-echo-mediation-proof-status.md` | active | Current H2 system-side proof: one approved L0 schedule invokes the first/only registered inert echo over the orchestrator-held in-process MCP boundary and emits one execution, audit, and accounting record with zero adjacent effects. M4 remains unauthorized. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |
 | `local-bearer-auth-seam-status.md` | active | Current local bearer-token auth seam for fake-mode Workshop serving; it is no-spend and does not claim deployment readiness. |

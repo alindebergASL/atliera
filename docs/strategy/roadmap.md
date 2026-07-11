@@ -6,8 +6,8 @@ Origin: the chart was first drawn in `docs/reviews/big-picture-review-2026-06-11
 
 Boundary markers (this document authorizes implementation work only; it executes and authorizes no effects):
 
-- implementation_work_authorized: H2-capability-registry-mediation-echo-no-network
-- implementation_start_condition: after-closeout-merge-and-independent-verification
+- implementation_work_authorized: none
+- implementation_start_condition: fresh-operator-roadmap-decision-required-for-M4
 - current_effective_authorization: none
 - authorizes_flow_execution: false
 - authorizes_durable_write_effect: false
@@ -37,7 +37,7 @@ Any reordering carries the burden of proof: the alternative must explicitly just
 
 ### H-track sequencing after the freeze
 
-The entire H-track (H1–H5 and A3) was **frozen until M3 ships**. **The freeze was lifted at the M3 retro (`docs/reviews/m3-retro.md`, PR #275).** That retro's H3-first and H1-with-M5a recommendations remain frozen historical evidence in that file; they were superseded for Step-4 sequencing by the operator ratification in `docs/reviews/m5a-step4-before-h3-ratification.md`. H3's plan is complete and merged through PR #277, but the product-focused M5a closeout (`docs/reviews/m5a-product-closeout-retro.md`) selects only the separate H2 no-network capability-registry/mediation/echo proof as the next bounded implementation after this closeout merges and is independently verified. H1 and H3 remain unstarted and are not next-up; M4 requires a fresh operator/roadmap decision after H2 merges and receives independent review; H4, H5, A3, outward MCP, identity and recurrence remain deferred.
+The entire H-track (H1–H5 and A3) was **frozen until M3 ships**. **The freeze was lifted at the M3 retro (`docs/reviews/m3-retro.md`, PR #275).** That retro's H3-first and H1-with-M5a recommendations remain frozen historical evidence in that file; they were superseded for Step-4 sequencing by the operator ratification in `docs/reviews/m5a-step4-before-h3-ratification.md`. H3's plan is complete and merged through PR #277. The product-focused M5a closeout (`docs/reviews/m5a-product-closeout-retro.md`) selected the separate H2 no-network capability-registry/mediation/echo proof, and that working proof is now implemented with the visible artifact named in the H2 row. H1 and H3 remain unstarted and are not next-up; M4 requires a fresh operator/roadmap decision after H2 merges and receives independent review; H4, H5, A3, outward MCP, identity and recurrence remain deferred.
 
 ### M5a shipped: visible capstone and bounded successor approval
 
@@ -61,7 +61,7 @@ The slice remains closed to every adjacent risk class:
 - step_4_deployments: 0
 - step_4_readiness_claims: 0
 
-M5a is **shipped** because both halves of the done-pattern now exist: the named visible capstone and a bounded successor approval surface. After this closeout merges and is independently verified, `implementation_work_authorized` permits only the separate H2 no-network capability-registry/mediation/echo proof. It does not authorize M4 implementation. `current_effective_authorization` remains `none`, and this closeout authorizes no live acquisition, repeated M5a product slice or durable effect, provider call, private-evidence read, production effect, deployment, M5b provider execution, or readiness claim. M4 requires a fresh operator/roadmap decision after H2 merges and receives independent review; a later live Atliera fetch still requires the compact packet and explicit operator GO described in the retro.
+M5a is **shipped** because both halves of the done-pattern now exist: the named visible capstone and a bounded successor approval surface. The separately authorized H2 no-network capability-registry/mediation/echo proof is implemented in the H2 row below. `implementation_work_authorized` and `current_effective_authorization` are now both `none`. M4 requires a fresh operator/roadmap decision after H2 merges and receives independent review; a later live Atliera fetch still requires the compact packet and explicit operator GO described in the retro. No live acquisition, repeated M5a product slice or durable effect, provider call, private-evidence read, production effect, deployment, M5b provider execution, or readiness claim is authorized.
 
 ## P-track (product loop)
 
@@ -85,7 +85,7 @@ Recurrence/change detection deliberately sits after M7.
 | --- | --- | --- |
 | **Phase 0 — ADR 0003 + tripwire tests + forbidden-phrase lint + vocabulary in contributor docs + this roadmap** | ✅ shipped (`f2397fc`, PR #267) | Authority for this flip: merge commit, the four named green tests (`test_model_transport_flags_pinned_false`, `test_no_capability_descriptor_in_model_payload`, `test_no_third_party_skill_load_path`, `allowlist_remains_exactly_two_paths`), and the done-criteria mapping in `docs/reviews/phase-0-retro-and-m5-drift.md` §1.3 — not reviewer sign-off. |
 | **H1 — Approvals as typed data** (lifecycle drafted → merged → operator-armed → consumed/expired; machine-checked counters; wraps capability descriptors by hash per ADR 0003 I-5) | ⬜ not started; not next-up | The M5a closeout selected the separate H2 no-network kernel proof; no standalone H1 slice is authorized. |
-| **H2 — Capability registry + CapabilityExecution records + mediation gate skeleton (L0 only) + audit/accounting extension** | ⬜ next bounded implementation after closeout merge and independent verification | Separate no-network slice. Mandatory proof: inert echo is the first registered capability; MCP client topology/imports stay orchestrator-only; invocation requires a consumed approval or approved schedule; descriptor snapshot and hash are pinned and matched at invocation; retry budget is deterministically zero; exactly one L0 echo invocation produces one `CapabilityExecution`, one `AuditEvent`, and one accounting increment; ADR invariants I-3, I-4, I-5, I-10 and I-11 stay green. No HTTP/network fetch, acquisition, provider/model call, private read, production write or deployment. H2 may draft—but not implement or execute—the future M4 `public_http_fetch_v1` registry entry, descriptor and budget defaults. |
+| **H2 — Capability registry + CapabilityExecution records + mediation gate skeleton (L0 only) + audit/accounting extension** | ✅ shipped on merge of the bounded H2 implementation | The deterministic artifact `fixtures/validation/h2-echo-mediation-proof.json` shows one approved L0 schedule consuming its one-shot allowance and invoking the first/only registered inert echo over the orchestrator-held in-process MCP 2025-11-25 boundary. It produces exactly one `CapabilityExecution`, one `AuditEvent`, and one accounting increment with zero retries and zero network/acquisition/provider/private/filesystem/environment/database/subprocess/production/deployment effects. I-3, I-4, I-5, I-10 and I-11 are executable. The inert M4 successor template is unregistered and non-executable; M4 remains unauthorized. |
 | **H3 — Snapshot-primitive consolidation + negative-control automation** | ⬜ implementation not started; plan complete/merged; not next-up | Plan merged through PR #277 (`a879c11`). The M5a closeout selects the separate H2 no-network kernel proof instead; H3 remains future work and is not implementation authority for the acquisition path. |
 | **H4 — Single guarded execution entrypoint** | ⬜ not started; queued behind H2 | one chokepoint so future executions cannot skip a check |
 | **H5 — Harness extraction assessment** | ⬜ not started; post-M5b decision point | a decision, not a commitment |
@@ -101,7 +101,7 @@ These are the operator's calls, recorded here so the chart carries them visibly.
 4. **ADR numbering/title** — resolved: ADR 0003.
 5. **A3 timing** — whether the outward server is M7-adjacent or later.
 6. **M5a Step 4 vs. H3 implementation** — **RESOLVED: STEP 4 FIRST.** Steps 1–3 are merged through PRs #278–#280 and Step 4 through PR #282 (`9661468`). The required capstone retro is now `docs/reviews/m5a-product-closeout-retro.md`; H3 remains unstarted and not next-up.
-7. **Post-M5a product direction** — **RESOLVED: H2 NO-NETWORK ECHO PROOF → FRESH M4 DECISION → THIN M4 `public_http_fetch_v1` → REAL-ACCOUNT M5b.** Only H2 implementation begins after the closeout merges and is independently verified. M4 implementation remains unauthorized until H2 merges, receives independent review, and a fresh operator/roadmap decision authorizes it. Live acquisition, provider/model execution and every later effect remain separately gated.
+7. **Post-M5a product direction** — **RESOLVED: H2 NO-NETWORK ECHO PROOF → FRESH M4 DECISION → THIN M4 `public_http_fetch_v1` → REAL-ACCOUNT M5b.** H2's working one-shot echo mediation proof is implemented with a named visible artifact. On H2 merge, implementation authority returns to `none`; M4 remains unauthorized until this H2 implementation receives independent review and a fresh operator/roadmap decision authorizes M4. Live acquisition, provider/model execution and every later effect remain separately gated.
 
 ## Maintenance rules
 

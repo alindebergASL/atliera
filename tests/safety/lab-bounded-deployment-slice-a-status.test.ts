@@ -95,7 +95,8 @@ test("authority docs preserve no-standing-authorization after slice B and reconc
   assert.match(index, /`lab-bounded-deployment-slice-a-execution-status\.md`\s*\|\s*active/i);
   assert.match(index, /`lab-gate3-status-reconciliation\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
-  assert.match(index, /next recommended work: this index creates no authority; it records the already-ratified conditional successor below, and every other later slice requires a new explicit operator decision/i);
+  assert.match(index, /ratified next bounded implementation: none/i);
+  assert.match(index, /M4 implementation remains unauthorized/i);
   assert.match(blockers, /bounded lab deployment slice A executed/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);

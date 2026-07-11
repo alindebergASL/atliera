@@ -74,7 +74,11 @@ test("MCP lifecycle is initialize then initialized then tools/list then tools/ca
   const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.007Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.007Z",
+      ],
       [100, 107],
     ),
   });
@@ -88,24 +92,27 @@ test("MCP lifecycle is initialize then initialized then tools/list then tools/ca
   ]);
 });
 
-test("server refuses operation before initialize and rejects protocol version mismatch", async () => {
-  const server = createH2InertEchoMcpServer();
+test("server refuses operation before initialize and negotiates its pinned version", async () => {
+  const earlyServer = createH2InertEchoMcpServer();
   await assert.rejects(
-    server.sendRequest({ jsonrpc: "2.0", id: "early", method: "tools/list" }),
+    earlyServer.sendRequest({ jsonrpc: "2.0", id: "early", method: "tools/list" }),
     /MCP boundary refused/,
   );
-  await assert.rejects(
-    server.sendRequest({
-      jsonrpc: "2.0",
-      id: "init_bad",
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "atliera-orchestrator", version: "0.1.0" },
-      },
-    }),
-    /MCP boundary refused/,
+
+  const negotiatingServer = createH2InertEchoMcpServer();
+  const response = await negotiatingServer.sendRequest({
+    jsonrpc: "2.0",
+    id: "init_unsupported",
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "atliera-orchestrator", version: "0.1.0" },
+    },
+  });
+  assert.equal(
+    (response.result as { protocolVersion?: unknown }).protocolVersion,
+    "2025-11-25",
   );
 });
 
@@ -153,7 +160,11 @@ test("conformant CallToolResult requires content and malformed result is account
   const kernel = createH2EchoMediationKernelForTest({
     transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.003Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.003Z",
+      ],
       [1, 4],
     ),
   });
@@ -248,7 +259,11 @@ test("hanging tools/call times out with one failed record set and zero retries",
   const kernel = createH2EchoMediationKernelForTest({
     transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:03.000Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:03.000Z",
+      ],
       [10, 1010],
     ),
   });
@@ -268,11 +283,19 @@ test("hanging tools/call times out with one failed record set and zero retries",
 test("post-call clock throw and regression both fail closed with one record set", async () => {
   for (const badClock of [
     clock(
-      ["2026-07-10T12:00:02.000Z", new Error("post-call clock failure")],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        new Error("post-call clock failure"),
+      ],
       [10],
     ),
     clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.001Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.001Z",
+      ],
       [10, 9],
     ),
   ]) {

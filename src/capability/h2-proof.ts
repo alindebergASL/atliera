@@ -16,7 +16,7 @@ const STARTED_AT = "2026-07-10T12:00:02.000Z";
 const COMPLETED_AT = "2026-07-10T12:00:02.007Z";
 
 function deterministicProofClock(): H2Clock {
-  const timestamps = [STARTED_AT, COMPLETED_AT];
+  const timestamps = [STARTED_AT, STARTED_AT, COMPLETED_AT];
   const monotonic = [1000, 1007];
   return Object.freeze({
     nowIso(): string {

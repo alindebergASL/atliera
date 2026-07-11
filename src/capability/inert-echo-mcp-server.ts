@@ -104,7 +104,9 @@ function snapshotInitializeRequest(request: unknown): { readonly id: H2McpReques
     root.jsonrpc !== "2.0" ||
     !validRequestId(root.id) ||
     root.method !== "initialize" ||
-    params.protocolVersion !== H2_MCP_SPEC_VERSION ||
+    typeof params.protocolVersion !== "string" ||
+    params.protocolVersion.length === 0 ||
+    params.protocolVersion.length > 64 ||
     Object.keys(capabilities).length !== 0 ||
     clientInfo.name !== "atliera-orchestrator" ||
     clientInfo.version !== "0.1.0"

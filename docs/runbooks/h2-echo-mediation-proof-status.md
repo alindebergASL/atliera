@@ -26,8 +26,8 @@ Its exact visible result is one completed echo invocation with descriptor SHA-25
 - `src/capability/h2-registry.ts` contains one immutable system-administered registry entry: `system.inert_echo_v1`. It pins MCP `2025-11-25`, the in-process server identity, canonical descriptor snapshot and SHA-256, L0-only mediation, exact budgets, and a no-effects sandbox profile.
 - `src/capability/h2-approved-schedule.ts` is the only schedule authority. It contains one repository-ratified schedule with a literal canonical SHA-256 pin; runtime input cannot register schedules or claim an approval identity.
 - `src/capability/inert-echo-mcp-server.ts` implements the minimal MCP 2025-11-25 lifecycle and tools surface. Its `CallToolResult` carries required `content` plus matching `structuredContent`; the echo still imports no network, filesystem, environment, provider, database, subprocess, or deployment surface.
-- `src/capability/orchestrator-mcp-client.ts` is the sole client. It negotiates MCP `2025-11-25`, obtains the live descriptor through `tools/list`, requires the conformant result shape, and enforces an abortable request deadline with a cancellation notification. Model and agent modules do not import capability-client code.
-- `src/capability/h2-mediation-gate.ts` checks the repository-pinned authority, rederives the live descriptor hash, checks L0 and exact hard budgets, consumes the production singleton's one-shot allowance before invocation, and finalizes the execution/audit/accounting records even on timeout, transport failure, or post-call clock failure.
+- `src/capability/orchestrator-mcp-client.ts` is the sole client. It negotiates MCP `2025-11-25`, obtains and deeply snapshots the live descriptor through `tools/list`, requires the conformant result shape, keeps `initialize` non-cancellable, bounds the `initialized` notification, and uses cancellation only for cancellable requests. Model and agent modules do not import capability-client code.
+- `src/capability/h2-mediation-gate.ts` checks the repository-pinned authority, atomically reserves the process-local one-shot allowance before asynchronous preflight, restores it on pre-effect refusal, rechecks expiry immediately before `tools/call`, consumes it for every call attempt, and finalizes the execution/audit/accounting records even on timeout, transport failure, or post-call clock failure.
 - The general `src/index.ts` barrel exports no capability registry, descriptor, client, or execution surface; system-side exports are isolated under `src/capability/index.ts`.
 - Raw model text is not an invocation trigger. Invocation accepts only the approved-schedule trigger shape plus bounded echo input.
 
@@ -35,8 +35,8 @@ Its exact visible result is one completed echo invocation with descriptor SHA-25
 
 - I-3: model-side import isolation, general-barrel closure, and sole-client topology tests.
 - I-4: the hash-pinned repository authority is the only accepted schedule; missing, forged, or raw trigger shapes refuse before transport access, and no public schedule-registration method exists.
-- I-5: the descriptor comes from MCP `tools/list`; live drift refuses before `tools/call` and emits one sanitized refusal `AuditEvent` with zero-effect markers.
-- I-10: retry budget is exactly zero, the production kernel is a singleton, one approved schedule permits at most one invocation, and each MCP request has a hard abortable deadline.
+- I-5: the descriptor comes from MCP `tools/list` and is copied into an exact deep plain-data snapshot before hashing; hostile nested proxies, accessors, symbols, custom prototypes, and malformed arrays refuse before `tools/call`.
+- I-10: retry budget is exactly zero, concurrent calls share an atomic process-local reservation, expiry is rechecked at the effect boundary, request/notification waits are bounded, and `initialize` is never cancelled.
 - I-11: every attempted `tools/call` produces one execution record, one sanitized `AuditEvent`, and one accounting increment, including timeout, malformed result, transport failure, post-call clock throw, and monotonic-clock regression paths.
 
 Permanent I-1/I-2 transport tripwires remain in force: model transport capability flags stay false, and model-bound code contains no echo capability ID, server identity, descriptor schema, or invocation surface.
@@ -44,6 +44,9 @@ Permanent I-1/I-2 transport tripwires remain in force: model transport capabilit
 ## Authority boundary
 
 - current_effective_authorization: none
+- h2_one_shot_scope: process-local; process restart resets state
+- h2_test_factory_scope: isolated deterministic proof/testing only
+- durable_or_global_consumption_authorized: false
 - h2_network_effects: 0
 - h2_system_side_acquisitions: 0
 - h2_provider_calls: 0

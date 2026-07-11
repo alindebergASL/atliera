@@ -154,7 +154,11 @@ test("test_capability_invocation_requires_consumed_approval_or_schedule", async 
 test("invocation-time input is bounded before one-shot consumption", async () => {
   const kernel = createH2EchoMediationKernelForTest({
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.004Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.004Z",
+      ],
       [10, 14],
     ),
   });
@@ -216,7 +220,11 @@ test("test_retry_budget_enforced", async () => {
   const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.003Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.003Z",
+      ],
       [20, 23],
     ),
   });
@@ -237,7 +245,11 @@ test("test_capability_invocation_emits_audit_and_accounting", async () => {
   const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.007Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.007Z",
+      ],
       [100, 107],
     ),
   });
@@ -284,7 +296,11 @@ test("transport failures remain sanitized while preserving one execution, audit,
   const kernel = createH2EchoMediationKernelForTest({
     transport: observed.transport,
     clock: clock(
-      ["2026-07-10T12:00:02.000Z", "2026-07-10T12:00:02.002Z"],
+      [
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.000Z",
+        "2026-07-10T12:00:02.002Z",
+      ],
       [1, 3],
     ),
   });

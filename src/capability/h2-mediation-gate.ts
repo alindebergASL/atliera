@@ -25,6 +25,7 @@ export type H2MediationRefusalCode =
   | "schedule_not_approved"
   | "schedule_not_yet_valid"
   | "schedule_expired"
+  | "schedule_in_progress"
   | "schedule_consumed"
   | "capability_not_registered"
   | "capability_mismatch"
@@ -266,7 +267,7 @@ class H2EchoMediationKernel implements H2MediationKernel {
   readonly #registryEntry = getH2CapabilityRegistryEntry(H2_ECHO_CAPABILITY_ID);
   readonly #client: H2OrchestratorMcpClient;
   readonly #clock: H2Clock;
-  #consumed = false;
+  #authorityState: "available" | "in_progress" | "consumed" = "available";
 
   constructor(options: H2EchoMediationKernelOptions = {}) {
     if (sha256Canonical(H2_APPROVED_ECHO_SCHEDULE) !== H2_APPROVED_ECHO_SCHEDULE_SHA256) {
@@ -286,7 +287,8 @@ class H2EchoMediationKernel implements H2MediationKernel {
 
     const schedule = H2_APPROVED_ECHO_SCHEDULE;
     if (request.scheduleId !== schedule.scheduleId) return refusal("schedule_not_approved");
-    if (this.#consumed) return refusal("schedule_consumed");
+    if (this.#authorityState === "in_progress") return refusal("schedule_in_progress");
+    if (this.#authorityState === "consumed") return refusal("schedule_consumed");
     const registry = this.#registryEntry;
     if (registry === undefined) return refusal("capability_not_registered");
     if (schedule.capabilityId !== registry.capabilityId) return refusal("capability_mismatch");
@@ -304,15 +306,19 @@ class H2EchoMediationKernel implements H2MediationKernel {
       return refusal("invocation_budget_refused");
     }
 
-    let startedAt: string;
+    let admittedAt: string;
     try {
-      startedAt = this.#clock.nowIso();
+      admittedAt = this.#clock.nowIso();
     } catch {
       return refusal("invalid_invocation_request");
     }
-    if (!strictIso(startedAt)) return refusal("invalid_invocation_request");
-    if (startedAt < schedule.validFrom) return refusal("schedule_not_yet_valid");
-    if (startedAt >= schedule.validUntil) return refusal("schedule_expired");
+    if (!strictIso(admittedAt)) return refusal("invalid_invocation_request");
+    if (admittedAt < schedule.validFrom) return refusal("schedule_not_yet_valid");
+    if (admittedAt >= schedule.validUntil) return refusal("schedule_expired");
+
+    // Process-local one-shot reservation. Pre-effect refusals restore availability;
+    // every tools/call attempt transitions permanently to consumed.
+    this.#authorityState = "in_progress";
 
     let liveDescriptor: unknown;
     try {
@@ -320,9 +326,10 @@ class H2EchoMediationKernel implements H2MediationKernel {
         schedule.invocationBudget.maxDurationMs,
       );
     } catch {
+      this.#authorityState = "available";
       return auditedDescriptorRefusal(
         schedule,
-        startedAt,
+        admittedAt,
         registry.descriptorSha256,
         "unavailable",
         "mcp_protocol_refused",
@@ -333,9 +340,10 @@ class H2EchoMediationKernel implements H2MediationKernel {
     try {
       liveDescriptorHash = sha256Canonical(liveDescriptor);
     } catch {
+      this.#authorityState = "available";
       return auditedDescriptorRefusal(
         schedule,
-        startedAt,
+        admittedAt,
         registry.descriptorSha256,
         "unavailable",
         "descriptor_hash_drift",
@@ -345,9 +353,10 @@ class H2EchoMediationKernel implements H2MediationKernel {
       liveDescriptorHash !== registry.descriptorSha256 ||
       liveDescriptorHash !== schedule.descriptorSha256
     ) {
+      this.#authorityState = "available";
       return auditedDescriptorRefusal(
         schedule,
-        startedAt,
+        admittedAt,
         registry.descriptorSha256,
         liveDescriptorHash,
         "descriptor_hash_drift",
@@ -358,21 +367,48 @@ class H2EchoMediationKernel implements H2MediationKernel {
     try {
       inputBytes = Buffer.byteLength(canonicalJson(request.input), "utf8");
     } catch {
+      this.#authorityState = "available";
       return refusal("input_refused");
     }
-    if (inputBytes > schedule.invocationBudget.maxInputBytes) return refusal("input_refused");
+    if (inputBytes > schedule.invocationBudget.maxInputBytes) {
+      this.#authorityState = "available";
+      return refusal("input_refused");
+    }
+
+    // Authority is rechecked at the effect boundary after asynchronous MCP preflight.
+    let startedAt: string;
+    try {
+      startedAt = this.#clock.nowIso();
+    } catch {
+      this.#authorityState = "available";
+      return refusal("invalid_invocation_request");
+    }
+    if (!strictIso(startedAt)) {
+      this.#authorityState = "available";
+      return refusal("invalid_invocation_request");
+    }
+    if (startedAt < schedule.validFrom) {
+      this.#authorityState = "available";
+      return refusal("schedule_not_yet_valid");
+    }
+    if (startedAt >= schedule.validUntil) {
+      this.#authorityState = "available";
+      return refusal("schedule_expired");
+    }
 
     let startedMonotonic: number;
     try {
       startedMonotonic = this.#clock.monotonicMs();
       if (!Number.isSafeInteger(startedMonotonic) || startedMonotonic < 0) {
+        this.#authorityState = "available";
         return refusal("invalid_invocation_request");
       }
     } catch {
+      this.#authorityState = "available";
       return refusal("invalid_invocation_request");
     }
 
-    this.#consumed = true;
+    this.#authorityState = "consumed";
     const executionId = deterministicId("capexec", [schedule.scheduleId, liveDescriptorHash, startedAt]);
     const requestId = deterministicId("mcpcall", [executionId]);
     let output: H2EchoValue | null = null;

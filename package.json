@@ -27,6 +27,8 @@
     "workshop:runtime-preview:html": "tsx src/cli/runtime-workshop-preview.ts html",
     "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
     "workshop:m5a-capstone": "tsx scripts/generate-m5a-curated-proposal-flow-capstone.mts",
+    "h2:echo-proof": "tsx scripts/generate-h2-echo-mediation-proof.mts",
+    "h2:echo-proof:write": "tsx scripts/generate-h2-echo-mediation-proof.mts --write",
     "db:local:init": "tsx src/cli/local-durable-db.ts init",
     "db:local:inspect": "tsx src/cli/local-durable-db.ts inspect",
     "db:local:backup": "tsx src/cli/local-durable-db.ts backup",

@@ -94,3 +94,15 @@ export * from "./workshop/m5a-curated-proposal-flow-contract.ts";
 export * from "./workshop/m5a-curated-proposal-flow-approval-packet.ts";
 export * from "./workshop/m5a-curated-proposal-flow-operator-arming.ts";
 export * from "./workshop/m5a-curated-proposal-flow-execution.ts";
+export * from "./capability/h2-registry.ts";
+export {
+  createH2EchoMediationKernel,
+  type H2AccountingIncrement,
+  type H2ApprovedSchedule,
+  type H2CapabilityExecution,
+  type H2InvocationBudget,
+  type H2MediationRefusalCode,
+  type H2MediationResult,
+} from "./capability/h2-mediation-gate.ts";
+export * from "./capability/h2-m4-successor-template.ts";
+export * from "./capability/h2-proof.ts";

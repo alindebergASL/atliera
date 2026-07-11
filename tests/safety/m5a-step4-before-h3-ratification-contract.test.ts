@@ -100,15 +100,14 @@ test("H3 plan state and H1/H3 sequencing are reconciled without rewriting histor
 
   assert.ok(hTrackNarrative.includes("H3's plan is complete and merged through PR #277"), "H3 plan must be complete and merged");
   assert.ok(
-    hTrackNarrative.includes("selects only the separate H2 no-network capability-registry/mediation/echo proof"),
-    "the closeout must select the separate no-network H2 proof",
+    hTrackNarrative.includes("selected the separate H2 no-network capability-registry/mediation/echo proof"),
+    "the roadmap must preserve the closeout's H2 selection",
   );
+  assert.ok(hTrackNarrative.includes("working proof is now implemented"), "the roadmap must record the completed H2 proof");
   assert.ok(h1Row.includes("not next-up"), "H1 must not become a standalone next slice");
-  assert.ok(h2Row.includes("next bounded implementation"), "H2 must be the next bounded implementation");
-  assert.ok(h2Row.includes("Separate no-network slice"), "H2 must remain separate from M4 and network effects");
-  assert.ok(h2Row.includes("inert echo is the first registered capability"), "H2 must require the inert echo proof");
-  assert.ok(h2Row.includes("retry budget is deterministically zero"), "H2 must pin a deterministic no-retry budget");
-  assert.ok(h2Row.includes("No HTTP/network fetch, acquisition, provider/model call, private read, production write or deployment"), "H2 must close network and adjacent effects");
+  assert.ok(h2Row.includes("✅ shipped"), "H2 must record the working proof as shipped");
+  assert.ok(h2Row.includes("fixtures/validation/h2-echo-mediation-proof.json"), "H2 must name its visible artifact");
+  assert.ok(h2Row.includes("zero retries and zero network/acquisition/provider/private/filesystem/environment/database/subprocess/production/deployment effects"), "H2 must close retries and adjacent effects");
   assert.ok(h3Row.includes("implementation not started; plan complete/merged; not next-up"), "H3 row must distinguish plan from implementation and stay deferred");
   assert.doesNotMatch(h3Row, /next slice/i, "H3 row must not retain the stale next-slice status");
 });
@@ -151,9 +150,9 @@ test("Step 4 scope separately closes provider, acquisition, private-read, retry,
   assert.equal(markerValue(decisionScope, "step_4_readiness_claims"), "0");
 });
 
-test("living roadmap authorizes only the separate H2 no-network successor while every effect remains closed", () => {
-  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "H2-capability-registry-mediation-echo-no-network");
-  assert.equal(markerValue(roadmap, "implementation_start_condition"), "after-closeout-merge-and-independent-verification");
+test("living roadmap records H2 complete with no successor implementation authority and every effect closed", () => {
+  assert.equal(markerValue(roadmap, "implementation_work_authorized"), "none");
+  assert.equal(markerValue(roadmap, "implementation_start_condition"), "fresh-operator-roadmap-decision-required-for-M4");
   assert.equal(markerValue(roadmap, "current_effective_authorization"), "none");
   assert.equal(markerValue(roadmap, "authorizes_flow_execution"), "false");
   assert.equal(markerValue(roadmap, "authorizes_durable_write_effect"), "false");
@@ -165,7 +164,8 @@ test("living roadmap authorizes only the separate H2 no-network successor while 
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
   assert.match(roadmap, /live Atliera fetch still requires the compact packet and explicit operator GO/i);
-  assert.match(index, /every other later slice requires a new explicit operator decision/i);
+  assert.equal(markerValue(index, "ratified next bounded implementation"), "none");
+  assert.match(index, /fresh operator\/roadmap decision after H2 merge and independent review is required before implementation/i);
   assert.match(index, /live acquisition remains unauthorized/i);
 });
 

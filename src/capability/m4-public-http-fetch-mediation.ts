@@ -16,9 +16,9 @@ import {
   M4_RECORDED_PROOF_SCHEDULE_SHA256,
 } from "./m4-recorded-proof-schedule.ts";
 import {
-  createM4PublicHttpFetchMcpServer,
-  type M4RecordedDependencies,
+  createM4RecordedProofMcpServer,
 } from "./public-http-fetch-mcp-server.ts";
+import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 import {
   M4_MAX_BODY_BYTES,
   M4_MAX_DURATION_MS,
@@ -42,6 +42,7 @@ export interface M4CapabilityExecution {
   readonly executionId: string;
   readonly capabilityId: "public_http_fetch_v1";
   readonly descriptorSha256: string;
+  readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
   readonly authorityKind: "approved_recorded_schedule";
   readonly authorityRef: string;
   readonly mediationLevel: "L0";
@@ -89,10 +90,6 @@ export type M4MediationResult =
       readonly accountingIncrements: readonly [M4AccountingIncrement];
     };
 
-function defaultClock(): H2Clock {
-  return Object.freeze({ nowIso: () => new Date().toISOString(), monotonicMs: () => Date.now() });
-}
-
 function deterministicId(prefix: string, values: readonly string[]): string {
   return `${prefix}_${sha256Canonical(values).slice(0, 24)}`;
 }
@@ -129,17 +126,18 @@ function exactData(value: unknown, keys: readonly string[]): Record<string, unkn
 function snapshotInvocation(value: unknown): {
   readonly scheduleId: string;
   readonly targetRef: typeof M4_TARGET_REF;
+  readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
 } {
   const root = exactData(value, ["trigger", "input"]);
   const trigger = exactData(root.trigger, ["kind", "scheduleId"]);
-  const input = exactData(root.input, ["targetRef"]);
+  const input = exactData(root.input, ["targetRef", "targetPolicySha256"]);
   if (trigger.kind !== "approved_recorded_schedule" ||
       typeof trigger.scheduleId !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(trigger.scheduleId) ||
-      input.targetRef !== M4_TARGET_REF) {
+      input.targetRef !== M4_TARGET_REF || input.targetPolicySha256 !== M4_TARGET_POLICY_SHA256) {
     throw new Error("invalid invocation");
   }
-  return Object.freeze({ scheduleId: trigger.scheduleId, targetRef: M4_TARGET_REF });
+  return Object.freeze({ scheduleId: trigger.scheduleId, targetRef: M4_TARGET_REF, targetPolicySha256: M4_TARGET_POLICY_SHA256 });
 }
 
 function exactSchedulePinsValid(): boolean {
@@ -154,9 +152,13 @@ function exactSchedulePinsValid(): boolean {
       schedule.kind === "approved_recorded_capability_schedule" && schedule.schemaVersion === "1" &&
       schedule.scheduleId === "sched_m4_recorded_fedex_proof_v1" &&
       schedule.capabilityId === M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID &&
+      schedule.targetPolicyRef === M4_TARGET_POLICY_REF &&
+      schedule.targetPolicySha256 === M4_TARGET_POLICY_SHA256 &&
+      registry.targetPolicySha256 === M4_TARGET_POLICY_SHA256 &&
+      sha256Canonical(M4_CANONICAL_TARGET_POLICY) === M4_TARGET_POLICY_SHA256 &&
       schedule.descriptorSha256 === registry.descriptorSha256 && schedule.mediationLevel === "L0" &&
       schedule.targetRefs.length === 1 && schedule.targetRefs[0] === M4_TARGET_REF &&
-      schedule.transport === "recorded_injected" && schedule.retryBudget === 0 &&
+      schedule.transport === "recorded_inert_exchange" && schedule.retryBudget === 0 &&
       schedule.maxInvocations === 1 && schedule.liveNetworkAuthorized === false &&
       policy.scheme === "https" && policy.effectivePort === 443 && policy.redirectLimit === 0 &&
       policy.retryBudget === 0 && policy.maxTargets === 1 && policy.maxDurationMs === M4_MAX_DURATION_MS &&
@@ -173,6 +175,7 @@ function exactSchedulePinsValid(): boolean {
       registryBudget.maxInvocations === budget.maxInvocations && registryBudget.redirectLimit === budget.redirectLimit &&
       registry.allowedMediationLevels.length === 1 && registry.allowedMediationLevels[0] === "L0" &&
       registry.sandboxProfile.orchestratorSoleClient === true && registry.sandboxProfile.publicHttpsOnly === true &&
+      registry.sandboxProfile.networkAllowed === false &&
       registry.sandboxProfile.credentialsAllowed === false && registry.sandboxProfile.cookiesAllowed === false &&
       registry.sandboxProfile.privateDataAllowed === false && registry.sandboxProfile.providerCallsAllowed === false &&
       registry.sandboxProfile.deploymentAllowed === false &&
@@ -198,18 +201,19 @@ function readMonotonic(clock: H2Clock): number | undefined {
   } catch { return undefined; }
 }
 
-export class M4PublicHttpFetchMediationKernel {
+class M4PublicHttpFetchMediationKernel {
   readonly #client: M4OrchestratorMcpClient;
   readonly #clock: H2Clock;
   #state: "available" | "in_progress" | "consumed" = "available";
 
-  constructor(options: { readonly transport: H2McpInProcessTransport; readonly clock?: H2Clock }) {
+  constructor(options: { readonly transport: H2McpInProcessTransport; readonly clock: H2Clock }) {
     this.#client = new M4OrchestratorMcpClient(options.transport);
-    this.#clock = options.clock ?? defaultClock();
+    this.#clock = options.clock;
   }
 
   async invoke(value: unknown): Promise<M4MediationResult> {
-    let request: { readonly scheduleId: string; readonly targetRef: typeof M4_TARGET_REF };
+    let request: { readonly scheduleId: string; readonly targetRef: typeof M4_TARGET_REF;
+      readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256 };
     try { request = snapshotInvocation(value); }
     catch { return refusal("invalid_invocation_request"); }
 
@@ -320,13 +324,15 @@ export class M4PublicHttpFetchMediationKernel {
       refusalCode = "transport_refused";
     }
 
-    const inputBytes = Buffer.byteLength(canonicalJson({ targetRef: request.targetRef }), "utf8");
+    const inputBytes = Buffer.byteLength(canonicalJson({ targetRef: request.targetRef,
+      targetPolicySha256: request.targetPolicySha256 }), "utf8");
     const outputBytes = output === null ? 0 : output.byteCount;
     const execution: M4CapabilityExecution = Object.freeze({
       kind: "CapabilityExecution",
       executionId,
       capabilityId: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
       descriptorSha256: descriptorHash,
+      targetPolicySha256: M4_TARGET_POLICY_SHA256,
       authorityKind: "approved_recorded_schedule",
       authorityRef: schedule.scheduleId,
       mediationLevel: "L0",
@@ -351,6 +357,8 @@ export class M4PublicHttpFetchMediationKernel {
       payload_json: Object.freeze({
         capability_id: execution.capabilityId,
         descriptor_sha256: descriptorHash,
+        target_policy_ref: M4_TARGET_POLICY_REF,
+        target_policy_sha256: M4_TARGET_POLICY_SHA256,
         authority_ref: schedule.scheduleId,
         authority_artifact_ref: M4_RECORDED_PROOF_SCHEDULE_AUTHORITY_REF,
         authority_artifact_sha256: M4_RECORDED_PROOF_SCHEDULE_SHA256,
@@ -400,12 +408,47 @@ export class M4PublicHttpFetchMediationKernel {
   }
 }
 
-export function createM4RecordedMediationKernel(
-  dependencies: M4RecordedDependencies,
-  clock?: H2Clock,
-): M4PublicHttpFetchMediationKernel {
+export interface M4PublicHttpFetchInvocationSurface {
+  invoke(value: unknown): Promise<M4MediationResult>;
+}
+
+function proofClock(value: unknown): H2Clock {
+  const root = exactData(value, ["wallClockIso", "monotonicMs"]);
+  const snapshotArray = (candidate: unknown, length: number): unknown[] => {
+    if (!Array.isArray(candidate) || utilTypes.isProxy(candidate) || Object.getPrototypeOf(candidate) !== Array.prototype ||
+        Object.getOwnPropertySymbols(candidate).length !== 0 || Object.getOwnPropertyNames(candidate).length !== length + 1 ||
+        candidate.length !== length) throw new Error("invalid proof clock transcript");
+    const output: unknown[] = [];
+    for (let index = 0; index < length; index++) {
+      const descriptor = Object.getOwnPropertyDescriptor(candidate, String(index));
+      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) throw new Error("invalid proof clock transcript");
+      output.push(descriptor.value);
+    }
+    return output;
+  };
+  const wall = snapshotArray(root.wallClockIso, 3);
+  const mono = snapshotArray(root.monotonicMs, 2);
+  if (wall.length !== 3 || !wall.every(isStrictIsoTimestamp) || mono.length !== 2 ||
+      !mono.every((item) => Number.isSafeInteger(item) && (item as number) >= 0)) throw new Error("invalid proof clock transcript");
+  return Object.freeze({ nowIso: () => wall.shift() as string, monotonicMs: () => mono.shift() as number });
+}
+
+/** Proof/test-only construction. Inputs are snapshotted plain data; executable dependencies are rejected. */
+export function createM4RecordedProofKernel(recordedExchange: unknown, clockTranscript: unknown): M4PublicHttpFetchInvocationSurface {
   return new M4PublicHttpFetchMediationKernel({
-    transport: createM4PublicHttpFetchMcpServer(dependencies),
-    clock,
+    transport: createM4RecordedProofMcpServer(recordedExchange),
+    clock: proofClock(clockTranscript),
   });
 }
+
+const productionKernel: M4PublicHttpFetchInvocationSurface = Object.freeze({
+  async invoke(value: unknown): Promise<M4MediationResult> {
+    try { snapshotInvocation(value); } catch { return refusal("invalid_invocation_request"); }
+    // This is deliberately a Date-based real-clock read. There is no production transport or recorded material.
+    if (!isStrictIsoTimestamp(new Date().toISOString())) return refusal("invalid_invocation_request");
+    return refusal("schedule_not_approved");
+  },
+});
+
+/** Sole production surface. No live adapter exists in this slice and identity is module-stable. */
+export function getM4PublicHttpFetchKernel(): M4PublicHttpFetchInvocationSurface { return productionKernel; }

@@ -137,6 +137,7 @@ function isIntentionalM4AcquisitionPolicyLiteral(hit: {
   value: string;
 }): boolean {
   const acquisitionPolicyFiles = new Set([
+    "src/capability/m4-target-policy.ts",
     "src/capability/public-http-fetch-policy.ts",
     "src/capability/m4-public-http-fetch-proof.ts",
   ]);
@@ -147,10 +148,10 @@ function isIntentionalM4AcquisitionPolicyLiteral(hit: {
   ]);
 
   // M4 is the one reviewed source boundary whose product code must contain a
-  // ratified public URL, denied address ranges, and deterministic proof-only
-  // addresses/content. These are acquisition policy data, not deploy/runtime
-  // infrastructure locations. Every other infrastructure-literal kind remains
-  // forbidden even in these two files.
+  // ratified public URL, denied address ranges, pinned policy references,
+  // and deterministic proof-only addresses/content. These are acquisition
+  // policy data, not deploy/runtime infrastructure locations. Every other
+  // infrastructure-literal kind remains forbidden even in these three files.
   return acquisitionPolicyFiles.has(hit.file) && acquisitionLiteralKinds.has(hit.kind);
 }
 

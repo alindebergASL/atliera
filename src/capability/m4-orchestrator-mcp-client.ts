@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import { types as utilTypes } from "node:util";
 
 import { H2_MCP_SPEC_VERSION, M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID } from "./h2-registry.ts";
+import { M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 import type {
   H2McpInProcessTransport,
   H2McpNotification,
@@ -11,7 +12,6 @@ import type {
   H2McpResponse,
 } from "./h2-mcp-protocol.ts";
 import {
-  M4_ALLOWLIST_REF,
   M4_MAX_BODY_BYTES,
   M4_PUBLISHER,
   M4_SOURCE_HOST,
@@ -149,13 +149,13 @@ function canonicalBase64Bytes(value: unknown): Buffer {
 
 function snapshotEvidence(value: unknown): M4PublicEvidence {
   const root = ownData(value, [
-    "requestedTargetRef", "requestedUrl", "finalUrl", "sourceHost", "publisher", "fetchedAt",
+    "requestedTargetRef", "requestedUrl", "finalUrl", "sourceHost", "publisher", "targetPolicySha256", "fetchedAt",
     "httpStatus", "contentType", "byteCount", "responseSha256", "bodyBase64", "quotedBodyText",
     "trust", "provenance", "custody",
   ]);
   const trust = ownData(root.trust, ["status", "mayProvideInstructions", "controlAuthority"]);
   const provenance = ownData(root.provenance, [
-    "acquisitionCapability", "transport", "targetAllowlistRef", "resolvedAddresses", "connectedAddress",
+    "acquisitionCapability", "transport", "targetPolicyRef", "targetPolicySha256", "resolvedAddresses", "connectedAddress",
   ]);
   const custody = ownData(root.custody, [
     "exactBytesPreserved", "exactBytesEncoding", "hashAlgorithm", "classification",
@@ -164,7 +164,7 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
   const bytes = canonicalBase64Bytes(root.bodyBase64);
   if (root.requestedTargetRef !== M4_TARGET_REF || root.requestedUrl !== M4_TARGET_URL ||
       root.finalUrl !== M4_TARGET_URL || root.sourceHost !== M4_SOURCE_HOST || root.publisher !== M4_PUBLISHER ||
-      !isStrictIsoTimestamp(root.fetchedAt) || !Number.isSafeInteger(root.httpStatus) ||
+      root.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 || !isStrictIsoTimestamp(root.fetchedAt) || !Number.isSafeInteger(root.httpStatus) ||
       (root.httpStatus as number) < 200 || (root.httpStatus as number) > 299 ||
       (root.contentType !== "text/html" && root.contentType !== "text/plain") ||
       !Number.isSafeInteger(root.byteCount) || root.byteCount !== bytes.byteLength ||
@@ -173,7 +173,8 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
       typeof root.quotedBodyText !== "string" || root.quotedBodyText !== bytes.toString("utf8") ||
       trust.status !== "quoted_untrusted_public_source_content" || trust.mayProvideInstructions !== false ||
       trust.controlAuthority !== "none" || provenance.acquisitionCapability !== M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID ||
-      provenance.transport !== "recorded_injected" || provenance.targetAllowlistRef !== M4_ALLOWLIST_REF ||
+      provenance.transport !== "recorded_inert_exchange" || provenance.targetPolicyRef !== M4_TARGET_POLICY_REF ||
+      provenance.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 ||
       typeof provenance.connectedAddress !== "string" || provenance.connectedAddress !== provenance.connectedAddress.toLowerCase() ||
       !isPublicAddress(provenance.connectedAddress) || !addresses.includes(provenance.connectedAddress) ||
       custody.exactBytesPreserved !== true || custody.exactBytesEncoding !== "base64" ||
@@ -186,6 +187,7 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
     finalUrl: M4_TARGET_URL,
     sourceHost: M4_SOURCE_HOST,
     publisher: M4_PUBLISHER,
+    targetPolicySha256: M4_TARGET_POLICY_SHA256,
     fetchedAt: root.fetchedAt,
     httpStatus: root.httpStatus as number,
     contentType: root.contentType,
@@ -200,8 +202,9 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
     }),
     provenance: Object.freeze({
       acquisitionCapability: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
-      transport: "recorded_injected",
-      targetAllowlistRef: M4_ALLOWLIST_REF,
+      transport: "recorded_inert_exchange",
+      targetPolicyRef: M4_TARGET_POLICY_REF,
+      targetPolicySha256: M4_TARGET_POLICY_SHA256,
       resolvedAddresses: addresses,
       connectedAddress: provenance.connectedAddress,
     }),

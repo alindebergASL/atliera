@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
+import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 
 export const H2_MCP_SPEC_VERSION = "2025-11-25" as const;
 export const H2_ECHO_CAPABILITY_ID = "system.inert_echo_v1" as const;
@@ -96,6 +97,7 @@ export interface M4PublicHttpFetchRegistryEntry {
   readonly protocolSpecVersion: typeof H2_MCP_SPEC_VERSION;
   readonly descriptorSnapshot: M4PublicHttpFetchDescriptor;
   readonly descriptorSha256: string;
+  readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
   readonly allowedMediationLevels: readonly ["L0"];
   readonly budgetDefaults: {
     readonly maxTargets: 1;
@@ -108,10 +110,10 @@ export interface M4PublicHttpFetchRegistryEntry {
     readonly redirectLimit: 0;
   };
   readonly sandboxProfile: {
-    readonly profileId: "m4-public-https-pinned";
+    readonly profileId: "m4-recorded-inert-no-network";
     readonly transport: "in-process";
     readonly orchestratorSoleClient: true;
-    readonly networkAllowed: true;
+    readonly networkAllowed: false;
     readonly publicHttpsOnly: true;
     readonly credentialsAllowed: false;
     readonly cookiesAllowed: false;
@@ -243,6 +245,7 @@ const m4RegistryEntry = deepFreeze<M4PublicHttpFetchRegistryEntry>({
   protocolSpecVersion: H2_MCP_SPEC_VERSION,
   descriptorSnapshot: m4DescriptorSnapshot,
   descriptorSha256: sha256Canonical(m4DescriptorSnapshot),
+  targetPolicySha256: M4_TARGET_POLICY_SHA256,
   allowedMediationLevels: ["L0"],
   budgetDefaults: {
     maxTargets: 1,
@@ -255,10 +258,10 @@ const m4RegistryEntry = deepFreeze<M4PublicHttpFetchRegistryEntry>({
     redirectLimit: 0,
   },
   sandboxProfile: {
-    profileId: "m4-public-https-pinned",
+    profileId: "m4-recorded-inert-no-network",
     transport: "in-process",
     orchestratorSoleClient: true,
-    networkAllowed: true,
+    networkAllowed: false,
     publicHttpsOnly: true,
     credentialsAllowed: false,
     cookiesAllowed: false,
@@ -271,6 +274,11 @@ const m4RegistryEntry = deepFreeze<M4PublicHttpFetchRegistryEntry>({
     deploymentAllowed: false,
   },
 });
+
+if (sha256Canonical(M4_CANONICAL_TARGET_POLICY) !== M4_TARGET_POLICY_SHA256 ||
+    m4RegistryEntry.targetPolicySha256 !== M4_TARGET_POLICY_SHA256) {
+  throw new Error("M4 registry target policy hash mismatch");
+}
 
 export const H2_CAPABILITY_REGISTRY: readonly [H2EchoCapabilityRegistryEntry, M4PublicHttpFetchRegistryEntry] = Object.freeze([
   registryEntry,

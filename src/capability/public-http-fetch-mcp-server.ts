@@ -14,18 +14,11 @@ import type {
   H2McpResponse,
 } from "./h2-mcp-protocol.ts";
 import {
-  acquireM4PublicEvidence,
+  acquireM4ProofRecordedEvidence,
+  snapshotM4ProofRecordedExchange,
   type M4AcquisitionResult,
-  type M4DnsResolver,
-  type M4HttpTransport,
+  type M4ProofRecordedExchange,
 } from "./public-http-fetch-policy.ts";
-
-export interface M4RecordedDependencies {
-  readonly dns: M4DnsResolver;
-  readonly http: M4HttpTransport;
-  readonly fetchedAt: string;
-  readonly transportKind: "recorded_injected";
-}
 
 export class M4PublicHttpBoundaryError extends Error {
   constructor() {
@@ -74,9 +67,11 @@ function methodOf(value: unknown): string {
   return descriptor.value;
 }
 
-export function createM4PublicHttpFetchMcpServer(
-  dependencies: M4RecordedDependencies,
+/** Proof/test-only server over immutable recorded exchange data. No callable dependency is accepted. */
+export function createM4RecordedProofMcpServer(
+  recordedExchange: unknown,
 ): H2McpInProcessTransport {
+  const exchange: Readonly<M4ProofRecordedExchange> = snapshotM4ProofRecordedExchange(recordedExchange);
   const registry = getH2CapabilityRegistryEntry(M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID);
   let state: "new" | "initialize_responded" | "ready" = "new";
   return Object.freeze({
@@ -115,9 +110,9 @@ export function createM4PublicHttpFetchMcpServer(
           if (root.jsonrpc !== "2.0" || !requestId(root.id) || params.name !== M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID ||
               typeof args.targetRef !== "string") throw new M4PublicHttpBoundaryError();
           const signal = options?.signal ?? new AbortController().signal;
-          const acquisition: M4AcquisitionResult = await acquireM4PublicEvidence(
-            args.targetRef, dependencies, signal,
-          );
+          const acquisition: M4AcquisitionResult = signal.aborted
+            ? Object.freeze({ ok: false, refusalCode: "timeout_or_cancelled" as const })
+            : acquireM4ProofRecordedEvidence(args.targetRef, exchange);
           const structured = Object.freeze({ acquisition: acquisition.ok ? acquisition.evidence : null,
             refusalCode: acquisition.ok ? null : acquisition.refusalCode });
           return Object.freeze({ jsonrpc: "2.0", id: root.id, result: Object.freeze({

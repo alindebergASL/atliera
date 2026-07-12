@@ -2,12 +2,17 @@
   "kind": "m4-public-http-fetch-v1-recorded-proof",
   "schemaVersion": "1",
   "status": "deterministic_recorded_no_network_proof",
+  "targetPolicy": {
+    "ref": "src/capability/m4-target-policy.ts#M4_CANONICAL_TARGET_POLICY",
+    "sha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c"
+  },
   "acquisition": {
     "requestedTargetRef": "fedex_company_overview",
     "requestedUrl": "https://investors.fedex.com/company-overview/overview-of-company/default.aspx",
     "finalUrl": "https://investors.fedex.com/company-overview/overview-of-company/default.aspx",
     "sourceHost": "investors.fedex.com",
     "publisher": "FedEx Corporation",
+    "targetPolicySha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
     "fetchedAt": "2026-07-11T11:59:59.000Z",
     "httpStatus": 200,
     "contentType": "text/html",
@@ -22,8 +27,9 @@
     },
     "provenance": {
       "acquisitionCapability": "public_http_fetch_v1",
-      "transport": "recorded_injected",
-      "targetAllowlistRef": "src/capability/public-http-fetch-policy.ts#M4_RATIFIED_TARGET_ALLOWLIST",
+      "transport": "recorded_inert_exchange",
+      "targetPolicyRef": "src/capability/m4-target-policy.ts#M4_CANONICAL_TARGET_POLICY",
+      "targetPolicySha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
       "resolvedAddresses": [
         "104.16.1.1"
       ],
@@ -41,6 +47,7 @@
     "url": "https://investors.fedex.com/company-overview/overview-of-company/default.aspx",
     "maxTargets": 1,
     "mediationLevel": "L0",
+    "targetPolicySha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
     "redirectLimit": 0,
     "retryBudget": 0,
     "maxDurationMs": 10000,
@@ -71,11 +78,12 @@
       "executionId": "capexec_9228c99c44f1e4e792723c17",
       "capabilityId": "public_http_fetch_v1",
       "descriptorSha256": "5a9d1a7c79a3e5ea9039b37e4ecceac4297a9f0bf638ec7a6c591dae747b5edb",
+      "targetPolicySha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
       "authorityKind": "approved_recorded_schedule",
       "authorityRef": "sched_m4_recorded_fedex_proof_v1",
       "mediationLevel": "L0",
       "targetRef": "fedex_company_overview",
-      "inputBytes": 38,
+      "inputBytes": 126,
       "outputBytes": 190,
       "retryCount": 0,
       "startedAt": "2026-07-11T12:00:02.000Z",
@@ -97,9 +105,11 @@
       "payload_json": {
         "capability_id": "public_http_fetch_v1",
         "descriptor_sha256": "5a9d1a7c79a3e5ea9039b37e4ecceac4297a9f0bf638ec7a6c591dae747b5edb",
+        "target_policy_ref": "src/capability/m4-target-policy.ts#M4_CANONICAL_TARGET_POLICY",
+        "target_policy_sha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
         "authority_ref": "sched_m4_recorded_fedex_proof_v1",
         "authority_artifact_ref": "src/capability/m4-recorded-proof-schedule.ts#M4_RECORDED_PROOF_SCHEDULE",
-        "authority_artifact_sha256": "de0f7e79ee808845011f3aff200f27cc995318a78fd0165904a0a865fdd8925a",
+        "authority_artifact_sha256": "d5672d876635f2d51516b9ddeb598ab760e6015904449789891948c05094e79c",
         "mediation_level": "L0",
         "target_ref": "fedex_company_overview",
         "requested_url": "https://investors.fedex.com/company-overview/overview-of-company/default.aspx",
@@ -107,8 +117,9 @@
         "response_sha256": "7f334e83d46f9cc186625e494b51866a389b7e76f34096b310594f2ec2643662",
         "provenance": {
           "acquisitionCapability": "public_http_fetch_v1",
-          "transport": "recorded_injected",
-          "targetAllowlistRef": "src/capability/public-http-fetch-policy.ts#M4_RATIFIED_TARGET_ALLOWLIST",
+          "transport": "recorded_inert_exchange",
+          "targetPolicyRef": "src/capability/m4-target-policy.ts#M4_CANONICAL_TARGET_POLICY",
+          "targetPolicySha256": "34c0ebd3e8492ae7d9dcfae0a98798479bd8ea7664c89618f841ffb4e214b12c",
           "resolvedAddresses": [
             "104.16.1.1"
           ],
@@ -152,7 +163,7 @@
     }
   ],
   "effects": {
-    "recordedInjectedHttpRequests": 1,
+    "recordedInertExchangesConsumed": 1,
     "systemSideAcquisitionProofs": 1,
     "liveNetworkEgress": 0,
     "retries": 0,

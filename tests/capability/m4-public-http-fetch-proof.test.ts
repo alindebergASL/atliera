@@ -5,6 +5,7 @@ import test from "node:test";
 
 import { generateM4PublicHttpFetchProof, M4_RECORDED_PROMPT_INJECTION_BODY } from "../../src/capability/m4-public-http-fetch-proof.ts";
 import { H2_CAPABILITY_REGISTRY, M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID } from "../../src/capability/h2-registry.ts";
+import { M4_TARGET_POLICY_SHA256 } from "../../src/capability/m4-target-policy.ts";
 
 const fixture = join(import.meta.dirname, "..", "..", "fixtures", "validation", "m4-public-http-fetch-v1-recorded-proof.json");
 
@@ -18,10 +19,12 @@ test("recorded proof is deterministic and traverses registry, MCP, mediation, cu
   assert.equal((first.auditEvents as unknown[]).length, 1);
   assert.equal((first.accountingIncrements as unknown[]).length, 1);
   const acquisition = first.acquisition as Record<string, unknown>;
+  assert.equal(acquisition.targetPolicySha256, M4_TARGET_POLICY_SHA256);
+  assert.equal((first.targetPolicy as Record<string, unknown>).sha256, M4_TARGET_POLICY_SHA256);
   assert.equal(acquisition.quotedBodyText, M4_RECORDED_PROMPT_INJECTION_BODY);
   assert.equal(Buffer.from(acquisition.bodyBase64 as string, "base64").toString("utf8"), M4_RECORDED_PROMPT_INJECTION_BODY);
   assert.equal((acquisition.trust as Record<string, unknown>).status, "quoted_untrusted_public_source_content");
-  assert.deepEqual(first.effects, { recordedInjectedHttpRequests: 1, systemSideAcquisitionProofs: 1,
+  assert.deepEqual(first.effects, { recordedInertExchangesConsumed: 1, systemSideAcquisitionProofs: 1,
     liveNetworkEgress: 0, retries: 0, providerCalls: 0, privateReads: 0, graphWrites: 0,
     productionWrites: 0, deployments: 0 });
   const control = first.injectionControlProof as Record<string, unknown>;
@@ -46,6 +49,14 @@ test("roadmap and inert packet preserve explicit none authority markers", () => 
   const packet = readFileSync(join(import.meta.dirname, "..", "..", "docs", "runbooks",
     "m4-public-http-fetch-v1-status-and-fedex-live-packet.md"), "utf8");
   assert.match(packet, /preserve `current_effective_authorization: none` until that GO is recorded/);
+  assert.match(packet, /section 2 signals restrictions on non-authorized scripting/);
+  assert.match(packet, /section 6 signals copying\/content-use restrictions/);
+  assert.match(packet, /blocked pending an operator\/legal decision or written permission/);
+  assert.match(packet, /SEC EDGAR APIs\/data/);
+  assert.match(packet, /Federal Register API/);
+  assert.match(packet, /U\.S\. Census Bureau APIs/);
+  assert.match(packet, new RegExp(M4_TARGET_POLICY_SHA256));
+  assert.match(packet, /No live Node DNS\/HTTPS adapter exists/);
 });
 
 test("capability implementation remains absent from the root model-facing barrel", () => {

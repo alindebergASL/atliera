@@ -150,9 +150,9 @@ test("Step 4 scope separately closes provider, acquisition, private-read, retry,
   assert.equal(markerValue(decisionScope, "step_4_readiness_claims"), "0");
 });
 
-test("living roadmap records H2 complete with no successor implementation authority and every effect closed", () => {
+test("living roadmap records the completed M4 implementation slice with authority returned to none", () => {
   assert.equal(markerValue(roadmap, "implementation_work_authorized"), "none");
-  assert.equal(markerValue(roadmap, "implementation_start_condition"), "fresh-operator-roadmap-decision-required-for-M4");
+  assert.equal(markerValue(roadmap, "implementation_start_condition"), "completed-after-H2-merge-and-verification");
   assert.equal(markerValue(roadmap, "current_effective_authorization"), "none");
   assert.equal(markerValue(roadmap, "authorizes_flow_execution"), "false");
   assert.equal(markerValue(roadmap, "authorizes_durable_write_effect"), "false");
@@ -163,9 +163,9 @@ test("living roadmap records H2 complete with no successor implementation author
   assert.equal(markerValue(roadmap, "authorizes_deployment"), "false");
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
-  assert.match(roadmap, /live Atliera fetch still requires the compact packet and explicit operator GO/i);
+  assert.match(roadmap, /live Atliera fetch still requires the inert compact packet and explicit operator GO/i);
   assert.equal(markerValue(index, "ratified next bounded implementation"), "none");
-  assert.match(index, /fresh operator\/roadmap decision after H2 merge and independent review is required before implementation/i);
+  assert.match(index, /M4 implementation slice is complete.*implementation authority has returned to none/i);
   assert.match(index, /live acquisition remains unauthorized/i);
 });
 

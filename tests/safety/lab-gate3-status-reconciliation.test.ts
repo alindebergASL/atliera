@@ -104,7 +104,7 @@ test("authority docs advance past reconciliation without authorizing a next slic
   assert.match(index, /`lab-gate3-status-reconciliation\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
   assert.match(index, /ratified next bounded implementation: none/i);
-  assert.match(index, /M4 implementation remains unauthorized/i);
+  assert.match(index, /M4 implementation slice is complete.*implementation authority has returned to none/i);
 
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(blockers, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);

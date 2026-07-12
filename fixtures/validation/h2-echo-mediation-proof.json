@@ -174,33 +174,16 @@
     "deployments": 0
   },
   "m4SuccessorSurface": {
-    "kind": "unregistered-m4-capability-successor-template",
+    "kind": "h2-m4-successor-status",
     "capabilityId": "public_http_fetch_v1",
-    "status": "draft-inert-unregistered",
+    "status": "superseded-by-authorized-m4-implementation",
     "protocolSpecVersion": "2025-11-25",
-    "fetcherImplementationExists": false,
-    "registered": false,
-    "executable": false,
-    "forkVersusBuild": "undecided",
-    "exactTargets": "unset",
-    "descriptorDraft": {
-      "title": "Public HTTP fetch v1",
-      "input": "ratified-target-reference-shape-unset",
-      "output": "provenance-custody-shape-unset"
-    },
-    "proposedBudgetDefaults": {
-      "maxTargets": 1,
-      "retryBudget": 0,
-      "maxResponseBytes": 1000000,
-      "timeoutMs": 10000,
-      "redirectLimit": 0
-    },
-    "operatorDecisionsRequired": [
-      "robots",
-      "retention",
-      "takedown"
-    ],
-    "implementationGate": "fresh-operator-roadmap-decision-after-h2-merge-and-independent-review",
-    "liveAcquisitionGate": "later-compact-packet-and-explicit-go"
+    "fetcherImplementationExists": true,
+    "registered": true,
+    "executable": "recorded-injected-proof-only",
+    "serverSelection": "minimal-first-party",
+    "exactTargets": 1,
+    "liveAcquisitionAuthorized": false,
+    "liveAcquisitionGate": "later-explicit-operator-go"
   }
 }

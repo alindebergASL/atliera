@@ -131,6 +131,30 @@ function findInfrastructureLiteralsInText(file: string, text: string): { file: s
   return hits;
 }
 
+function isIntentionalM4AcquisitionPolicyLiteral(hit: {
+  file: string;
+  kind: string;
+  value: string;
+}): boolean {
+  const acquisitionPolicyFiles = new Set([
+    "src/capability/m4-target-policy.ts",
+    "src/capability/public-http-fetch-policy.ts",
+    "src/capability/m4-public-http-fetch-proof.ts",
+  ]);
+  const acquisitionLiteralKinds = new Set([
+    "protocol URL",
+    "literal IPv4 address",
+    "literal IPv6 address",
+  ]);
+
+  // M4 is the one reviewed source boundary whose product code must contain a
+  // ratified public URL, denied address ranges, pinned policy references,
+  // and deterministic proof-only addresses/content. These are acquisition
+  // policy data, not deploy/runtime infrastructure locations. Every other
+  // infrastructure-literal kind remains forbidden even in these three files.
+  return acquisitionPolicyFiles.has(hit.file) && acquisitionLiteralKinds.has(hit.kind);
+}
+
 function findInfrastructureLiterals(files: string[]): { file: string; kind: string; value: string }[] {
   const hits: { file: string; kind: string; value: string }[] = [];
 
@@ -139,7 +163,7 @@ function findInfrastructureLiterals(files: string[]): { file: string; kind: stri
     hits.push(...findInfrastructureLiteralsInText(relative(REPO_ROOT, file), text));
   }
 
-  return hits;
+  return hits.filter((hit) => !isIntentionalM4AcquisitionPolicyLiteral(hit));
 }
 
 describe("safety: app/deploy files do not hardcode infrastructure locations", () => {

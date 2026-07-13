@@ -29,7 +29,7 @@ test("recorded SEC proof and Workshop fixture are deterministic through registry
   assert.doesNotMatch(readFileSync(workshop, "utf8"), />Verified</);
 });
 
-test("roadmap and Gate A packet preserve none authority and one inert target", () => {
+test("roadmap and Gate B attempt-1 retro preserve none authority and one inert target", () => {
   for (const relative of [["docs", "strategy", "roadmap.md"], ["docs", "runbooks", "m4-public-http-fetch-v1-status-and-fedex-live-packet.md"]]) {
     const document = readFileSync(join(root, ...relative), "utf8");
     assert.match(document, /current_effective_authorization:\s*`?none`?/);
@@ -41,10 +41,14 @@ test("roadmap and Gate A packet preserve none authority and one inert target", (
   assert.match(packet, /^- current_implementation_work_authorized: `none`$/m);
   assert.match(packet, /^- historical_implementation_work_authorized: `Atliera-M4-Gate-A-only` \(completed; no current authority\)$/m);
   assert.doesNotMatch(packet, /^- implementation_work_authorized: `Atliera-M4-Gate-A-only`$/m);
+  assert.match(packet, /Gate B attempt 1 used the exact merged commit above and permanently consumed its external GO/);
+  assert.match(packet, /did \*\*not\*\* prove successful acquisition/);
+  assert.match(packet, /family: 4` and `autoSelectFamily: false/);
   const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
-  assert.match(index, /next recommended work: once PR #286 is independently approved and merged, obtain a fresh operator decision on a private reviewed-commit\/policy\/exact-User-Agent-bound Gate B GO; until then, none/);
+  assert.match(index, /next recommended work: independently review and merge the no-network Node 22 transport repair/);
   assert.doesNotMatch(index, /next recommended work: repair and exact-head approval of PR #286/);
-  assert.match(index, /the compact packet exists but is inert; exact-head approval\/merge plus one private commit\/policy\/User-Agent-bound GO/);
+  assert.match(index, /M4 Gate B attempt 1 is permanently consumed and failed with zero response bytes/);
+  assert.match(index, /a future attempt requires repair approval\/merge plus a new private commit\/policy\/User-Agent-bound GO/);
   assert.doesNotMatch(index, /one compact URL\/budget\/retention\/legal packet and one explicit operator GO are still required/);
   assert.doesNotMatch(index, /next recommended work: independent Gate A review/);
   assert.match(packet, new RegExp(M4_TARGET_POLICY_SHA256));

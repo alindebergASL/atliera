@@ -90,7 +90,8 @@ export interface M4PublicHttpFetchDescriptor {
         readonly type: "object";
         readonly additionalProperties: false;
         readonly required: readonly ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress",
-          "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"];
+          "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "failurePhase",
+          "userAgentAudit"];
         readonly properties: Readonly<Record<string, unknown>>;
       };
     };
@@ -244,13 +245,16 @@ const m4DescriptorSnapshot = deepFreeze<M4PublicHttpFetchDescriptor>({
     properties: { acquisition: { type: ["object", "null"] }, refusalCode: { type: ["string", "null"] },
       effectTelemetry: { type: "object", additionalProperties: false,
         required: ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "bytesReceived",
-          "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"],
+          "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "failurePhase", "userAgentAudit"],
         properties: {
           dnsAttempts: { type: "integer", enum: [0, 1] }, requestAttempts: { type: "integer", enum: [0, 1] },
           connectionAttempts: { type: "integer", enum: [0, 1] }, liveNetworkEgress: { type: "integer", enum: [0, 1] },
           bytesReceived: { type: "integer", minimum: 0, maximum: 1048576 },
           selectedAddress: { type: ["string", "null"] }, lookupCallbacks: { type: "integer", enum: [0, 1] },
           retryCount: { type: "integer", enum: [0] }, responseSha256: { type: ["string", "null"] },
+          failurePhase: { type: ["string", "null"], enum: [null, "lookup_contract", "request_construction",
+            "tcp_connection", "tls_handshake", "response_headers", "response_body_or_deadline",
+            "custody_finalization", "mediation_protocol"] },
           userAgentAudit: { type: ["object", "null"] },
         } } },
   },

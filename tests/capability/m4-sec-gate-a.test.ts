@@ -5,8 +5,8 @@ import { existsSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
-import type { RequestOptions } from "node:https";
-import { acquireM4SecLive, type M4LiveDependencies, type M4RequestLike, type M4ResponseLike } from "../../src/capability/m4-sec-live-adapter.ts";
+import { acquireM4SecLive, type M4LiveDependencies, type M4NodeRequestOptions, type M4RequestLike,
+  type M4ResponseLike } from "../../src/capability/m4-sec-live-adapter.ts";
 import { consumeM4GateBGo, M4_GATE_B_EXPECTED_ATTEMPT_OUTPUT, M4_GATE_B_EXPECTED_CUSTODY_OUTPUT, M4_GATE_B_EXPECTED_WORKSHOP_OUTPUT,
   M4_GATE_B_FAILURE_BEHAVIOR, M4_GATE_B_ROLLBACK_BEHAVIOR, M4_GATE_B_TAKEDOWN_POSTURE } from "../../src/capability/m4-sec-gate-b-activation.ts";
 import { reserveM4GateBArtifactOutputs } from "../../src/capability/m4-sec-gate-b-artifacts.ts";
@@ -34,11 +34,12 @@ class FakeRequest extends EventEmitter implements M4RequestLike {
   destroy(): void { this.destroyed++; }
 }
 
-function harness(config: { addresses?: readonly string[]; response?: FakeResponse; dnsPending?: boolean; requestError?: boolean } = {}) {
+function harness(config: { addresses?: readonly string[]; response?: FakeResponse; dnsPending?: boolean;
+  requestError?: boolean; lookupHostname?: string; lookupOptions?: object } = {}) {
   let deadline = () => {}; let deadlineCalls = 0; let deadlineMilliseconds = 0;
   let resolveDns: ((addresses: readonly string[]) => void) | undefined;
   const request = new FakeRequest(); const response = config.response ?? new FakeResponse();
-  let resolverCancelled = 0; let requestCalls = 0; let options: RequestOptions | undefined;
+  let resolverCancelled = 0; let requestCalls = 0; let options: M4NodeRequestOptions | undefined;
   const dependencies: M4LiveDependencies = {
     createResolver: () => ({
       resolve4: () => config.dnsPending ? new Promise((resolve) => { resolveDns = resolve; }) : Promise.resolve(config.addresses ?? ["8.8.8.8"]),
@@ -47,7 +48,10 @@ function harness(config: { addresses?: readonly string[]; response?: FakeRespons
     request: (value, callback) => {
       requestCalls++; options = value;
       const lookup = value.lookup as (hostname: string, options: object, callback: (error: Error | null, address: string, family: number) => void) => void;
-      lookup("data.sec.gov", {}, (error, address, family) => { assert.equal(error, null); assert.equal(address, "8.8.8.8"); assert.equal(family, 4); });
+      lookup(config.lookupHostname ?? "data.sec.gov", config.lookupOptions ?? { family: 4, hints: 0 },
+        (error, address, family) => {
+        assert.equal(error, null); assert.equal(address, "8.8.8.8"); assert.equal(family, 4);
+      });
       queueMicrotask(() => config.requestError ? request.emit("error", new Error("tls")) : callback(response));
       return request;
     },
@@ -109,11 +113,48 @@ test("adapter pins deterministic one IPv4 address, one lookup/request, exact req
   h.response.emit("data", Buffer.from("{}")); h.response.emit("end"); const result = await pending;
   assert.equal(result.ok, true); assert.equal(result.telemetry.selectedAddress, "8.8.8.8");
   assert.deepEqual({ hostname: h.state().options?.hostname, port: h.state().options?.port, path: h.state().options?.path,
-    method: h.state().options?.method, agent: h.state().options?.agent },
-  { hostname: "data.sec.gov", port: 443, path: "/submissions/CIK0001048911.json", method: "GET", agent: false });
+    method: h.state().options?.method, family: h.state().options?.family,
+    autoSelectFamily: h.state().options?.autoSelectFamily, agent: h.state().options?.agent },
+  { hostname: "data.sec.gov", port: 443, path: "/submissions/CIK0001048911.json", method: "GET", family: 4,
+    autoSelectFamily: false, agent: false });
   assert.equal(h.state().requestCalls, 1); assert.equal(result.telemetry.lookupCallbacks, 1); assert.equal(result.telemetry.retryCount, 0);
   assert.equal(h.state().deadlineCalls, 1); assert.equal(h.state().deadlineMilliseconds, 10_000);
   assert.ok(h.request.destroyed > 0 && h.response.destroyed > 0 && h.response.socketDestroyed > 0);
+});
+
+test("adapter fails closed on every non-exact Node 22 lookup invocation contract", async () => {
+  const symbolOptions = { family: 4, hints: 0 } as Record<PropertyKey, unknown>;
+  symbolOptions[Symbol("unexpected")] = true;
+  const accessorOptions = Object.defineProperty({ family: 4 }, "hints", {
+    enumerable: true, get() { throw new Error("lookup options getter must not run"); },
+  });
+  const proxyOptions = new Proxy({ family: 4, hints: 0 }, {
+    ownKeys() { throw new Error("lookup options proxy trap must not run"); },
+  });
+  const nonEnumerableExtra = Object.defineProperty({ family: 4, hints: 0 }, "all", {
+    enumerable: false, value: false,
+  });
+  const variants = [
+    { lookupHostname: "other.example.invalid", lookupOptions: { family: 4, hints: 0 } },
+    { lookupOptions: { family: 4 } },
+    { lookupOptions: { family: 4, hints: 1 } },
+    { lookupOptions: { family: 4, hints: 0, all: false } },
+    { lookupOptions: { family: 4, hints: 0, extra: true } },
+    { lookupOptions: symbolOptions },
+    { lookupOptions: accessorOptions },
+    { lookupOptions: proxyOptions },
+    { lookupOptions: nonEnumerableExtra },
+  ];
+  for (const config of variants) {
+    const h = harness(config); const result = await acquireM4SecLive(VALID_UA, h.dependencies);
+    assert.equal(result.ok, false); assert.equal(result.refusalCode, "transport_refused");
+    assert.equal(result.telemetry.failurePhase, "lookup_contract");
+    assert.deepEqual({ dns: result.telemetry.dnsAttempts, request: result.telemetry.requestAttempts,
+      lookup: result.telemetry.lookupCallbacks, connection: result.telemetry.connectionAttempts,
+      egress: result.telemetry.liveNetworkEgress, retries: result.telemetry.retryCount },
+    { dns: 1, request: 1, lookup: 1, connection: 0, egress: 0, retries: 0 });
+    assert.equal(h.request.ended, 0);
+  }
 });
 
 test("adapter refuses DNS, timeout, connected address, TLS, redirect, status, MIME and overflow with no retry", async () => {
@@ -208,6 +249,31 @@ test("Gate B private activation permits exactly one mediation attempt, including
   assert.equal(h.state().requestCalls, 0);
 });
 
+test("lookup-contract refusal preserves pre-connection telemetry through MCP, audit, and accounting", async () => {
+  const { activation } = consumedActivation();
+  const h = harness({ lookupOptions: { family: 4, hints: 0, all: true } });
+  const monotonic = [1000, 1001];
+  const kernel = createM4SecGateBKernel({ activation, userAgent: VALID_UA,
+    clock: { nowIso: () => "2026-07-12T00:00:03.000Z", monotonicMs: () => monotonic.shift()! },
+    dependencies: h.dependencies });
+  const result = await kernel.invoke(gateBInvocation(activation));
+  assert.equal(result.ok, true); if (!result.ok) return;
+  assert.equal(result.output, null);
+  const telemetry = result.capabilityExecutions[0].effectTelemetry;
+  assert.equal(result.capabilityExecutions[0].refusalCode, "transport_refused");
+  assert.equal(telemetry.failurePhase, "lookup_contract");
+  assert.deepEqual({ dns: telemetry.dnsAttempts, request: telemetry.requestAttempts,
+    lookup: telemetry.lookupCallbacks, connection: telemetry.connectionAttempts,
+    egress: telemetry.liveNetworkEgress, retries: telemetry.retryCount },
+  { dns: 1, request: 1, lookup: 1, connection: 0, egress: 0, retries: 0 });
+  assert.equal(result.auditEvents[0].payload_json.failure_phase, "lookup_contract");
+  assert.equal(result.auditEvents[0].payload_json.lookup_callbacks, 1);
+  assert.equal(result.auditEvents[0].payload_json.connection_attempts, 0);
+  assert.equal(result.accountingIncrements[0].failurePhase, "lookup_contract");
+  assert.equal(result.accountingIncrements[0].lookupCallbacksPerformed, 1);
+  assert.equal(result.accountingIncrements[0].connectionAttemptsPerformed, 0);
+});
+
 test("one consumed activation can construct only one kernel across independent factory calls", async () => {
   const { activation } = consumedActivation(); const firstHarness = harness(); const secondHarness = harness();
   const clock = { nowIso: () => "2026-07-12T00:00:03.000Z", monotonicMs: () => 1000 };
@@ -235,12 +301,14 @@ test("Gate B success traverses MCP mediation once and durably persists truthful 
   assert.deepEqual(result.auditEvents[0].payload_json.user_agent_audit,
     result.capabilityExecutions[0].effectTelemetry.userAgentAudit);
   assert.equal(result.auditEvents[0].payload_json.selected_address, "8.8.8.8");
+  assert.equal(result.auditEvents[0].payload_json.failure_phase, null);
   assert.equal(result.accountingIncrements[0].dnsAttemptsPerformed, 1);
   assert.equal(result.accountingIncrements[0].requestAttemptsPerformed, 1);
   assert.equal(result.accountingIncrements[0].connectionAttemptsPerformed, 1);
   assert.equal(result.accountingIncrements[0].lookupCallbacksPerformed, 1);
   assert.equal(result.accountingIncrements[0].liveNetworkEgressPerformed, 1);
   assert.equal(result.accountingIncrements[0].selectedAddress, "8.8.8.8");
+  assert.equal(result.accountingIncrements[0].failurePhase, null);
   assert.equal(result.accountingIncrements[0].bytesReceived, Buffer.byteLength(M4_RECORDED_SEC_SUBMISSIONS_BODY));
   assert.equal(JSON.stringify(result).includes(VALID_UA), false); assert.equal(h.state().requestCalls, 1);
   reservation.persistInvokedResult(activation, result);
@@ -263,6 +331,9 @@ test("Gate B post-network extraction refusal still emits one truthful failed rec
   assert.equal(result.output, null); assert.equal(result.capabilityExecutions[0].outcome, "failed");
   assert.equal(result.capabilityExecutions[0].refusalCode, "extraction_refused");
   assert.equal(result.capabilityExecutions[0].effectTelemetry.liveNetworkEgress, 1);
+  assert.equal(result.capabilityExecutions[0].effectTelemetry.failurePhase, "custody_finalization");
+  assert.equal(result.auditEvents[0].payload_json.failure_phase, "custody_finalization");
+  assert.equal(result.accountingIncrements[0].failurePhase, "custody_finalization");
   assert.equal(result.auditEvents[0].payload_json.response_sha256, createHash("sha256").update(Buffer.alloc(0)).digest("hex"));
   assert.equal(result.accountingIncrements[0].liveNetworkEgressPerformed, 1);
   assert.equal(result.accountingIncrements[0].bytesReceived, 0);
@@ -287,8 +358,40 @@ test("failed overflow durably persists sanitized execution, audit, and accountin
   assert.equal(receipt.status, "failed_no_evidence");
   assert.equal(receipt.capabilityExecutions[0].refusalCode, "body_limit_refused");
   assert.equal(receipt.capabilityExecutions[0].effectTelemetry.bytesReceived, 1_048_577);
+  assert.equal(receipt.failurePhase, "response_body_or_deadline");
+  assert.equal(receipt.capabilityExecutions[0].effectTelemetry.failurePhase, "response_body_or_deadline");
+  assert.equal(receipt.auditEvents[0].payload_json.failure_phase, "response_body_or_deadline");
+  assert.equal(receipt.accountingIncrements[0].failurePhase, "response_body_or_deadline");
   assert.equal(receipt.auditEvents[0].payload_json.bytes_received, 1_048_577);
   assert.equal(receipt.accountingIncrements[0].bytesReceived, 1_048_577);
+  assert.doesNotMatch(receiptText, /bodyBase64|quotedBodyText|AIR COURIER SERVICES/);
+  assert.equal(readFileSync(reservation.paths.custody).byteLength, 0);
+  assert.equal(readFileSync(reservation.paths.workshop).byteLength, 0);
+});
+
+test("custody finalization failures emit a stable sanitized phase and preserve tombstones", async () => {
+  const outputDirectory = mkdtempSync(join(tmpdir(), "atliera-m4-finalization-artifacts-"));
+  const reservation = reserveM4GateBArtifactOutputs(outputDirectory);
+  const { activation } = consumedActivation();
+  const h = harness();
+  const kernel = createM4SecGateBKernel({ activation, userAgent: VALID_UA,
+    clock: { nowIso: () => "2026-07-12T00:00:03.000Z",
+      monotonicMs: (() => { const values = [4000, 4004]; return () => values.shift()!; })() },
+    dependencies: h.dependencies });
+  const pending = kernel.invoke(gateBInvocation(activation));
+  await new Promise((resolve) => setImmediate(resolve));
+  h.response.emit("data", Buffer.from(M4_RECORDED_SEC_SUBMISSIONS_BODY));
+  h.response.emit("end");
+  const result = await pending;
+  assert.equal(result.ok, true);
+  if (!result.ok || result.output === null) return;
+  const forged = Object.freeze({ ...result, output: Object.freeze({ ...result.output,
+    responseSha256: "0".repeat(64) }) }) as typeof result;
+  assert.throws(() => reservation.persistInvokedResult(activation, forged), /refused/);
+  const receiptText = readFileSync(reservation.paths.attempt, "utf8");
+  const receipt = JSON.parse(receiptText);
+  assert.equal(receipt.status, "effect_completed_artifact_persistence_failed");
+  assert.equal(receipt.failurePhase, "custody_finalization");
   assert.doesNotMatch(receiptText, /bodyBase64|quotedBodyText|AIR COURIER SERVICES/);
   assert.equal(readFileSync(reservation.paths.custody).byteLength, 0);
   assert.equal(readFileSync(reservation.paths.workshop).byteLength, 0);

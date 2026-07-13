@@ -12,7 +12,7 @@ import { assertM4GateBUserAgentMatchesActivation, type M4GateBActivation } from 
 import type { M4LiveDependencies } from "./m4-sec-live-adapter.ts";
 import { M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 import { M4_MAX_DURATION_MS, M4_TARGET_REF, M4_TARGET_URL, M4_ZERO_EFFECT_TELEMETRY,
-  isStrictIsoTimestamp, type M4EffectTelemetry, type M4FetchRefusalCode,
+  isStrictIsoTimestamp, withM4FailurePhase, type M4EffectTelemetry, type M4FetchRefusalCode,
   type M4PublicEvidence } from "./public-http-fetch-policy.ts";
 
 function deterministicId(prefix: string, values: readonly string[]): string {
@@ -109,12 +109,13 @@ class M4SecGateBMediationKernel implements M4PublicHttpFetchInvocationSurface {
       const called = await this.#client.invoke(deterministicId("mcpcall", [executionId]), targetRef,
         M4_GATE_B_MCP_CALL_ENVELOPE_MS);
       output = called.acquisition; refusalCode = called.refusalCode; effects = called.effectTelemetry;
-    } catch { refusalCode = "transport_refused"; }
+    } catch { refusalCode = "transport_refused"; effects = withM4FailurePhase(effects, "mediation_protocol"); }
     let completedAt = readWall(this.#clock); const completedMono = readMono(this.#clock);
     let durationMs = M4_MAX_DURATION_MS;
     if (completedAt === undefined || completedAt < startedAt || completedMono === undefined || completedMono < startedMono ||
         completedMono - startedMono > M4_MAX_DURATION_MS) {
       completedAt = startedAt; output = null; refusalCode = "timeout_or_cancelled";
+      effects = withM4FailurePhase(effects, "response_body_or_deadline");
     } else durationMs = completedMono - startedMono;
     const outcome = output === null ? "failed" : "completed";
     const inputBytes = Buffer.byteLength(canonicalJson({ targetRef, targetPolicySha256: M4_TARGET_POLICY_SHA256 }), "utf8");
@@ -137,7 +138,7 @@ class M4SecGateBMediationKernel implements M4PublicHttpFetchInvocationSurface {
         refusal_code: refusalCode, dns_attempts: effects.dnsAttempts, request_attempts: effects.requestAttempts,
         connection_attempts: effects.connectionAttempts, live_network_egress: effects.liveNetworkEgress,
         lookup_callbacks: effects.lookupCallbacks, selected_address: effects.selectedAddress,
-        bytes_received: effects.bytesReceived, retry_count: 0,
+        bytes_received: effects.bytesReceived, retry_count: 0, failure_phase: effects.failurePhase,
         user_agent_audit: effects.userAgentAudit, provider_calls: 0, private_reads: 0, graph_writes: 0,
         production_writes: 0, deployments: 0,
       }), created_at: completedAt });
@@ -146,7 +147,7 @@ class M4SecGateBMediationKernel implements M4PublicHttpFetchInvocationSurface {
       capabilityExecutionRecords: 1, auditEventsEmitted: 1, liveNetworkEgressPerformed: effects.liveNetworkEgress,
       dnsAttemptsPerformed: effects.dnsAttempts, requestAttemptsPerformed: effects.requestAttempts,
       connectionAttemptsPerformed: effects.connectionAttempts, lookupCallbacksPerformed: effects.lookupCallbacks,
-      bytesReceived: effects.bytesReceived, selectedAddress: effects.selectedAddress,
+      bytesReceived: effects.bytesReceived, selectedAddress: effects.selectedAddress, failurePhase: effects.failurePhase,
       systemSideAcquisitionProofsPerformed: output === null ? 0 : 1, retriesPerformed: 0,
       providerCallsExecuted: 0, privateReadsPerformed: 0, graphWritesPerformed: 0,
       productionWritesPerformed: 0, deploymentsPerformed: 0 });

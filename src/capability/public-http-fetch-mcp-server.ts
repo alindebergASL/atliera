@@ -23,6 +23,7 @@ import {
   M4_ZERO_EFFECT_TELEMETRY,
   snapshotM4ProofRecordedExchange,
   validateM4SecUserAgent,
+  withM4FailurePhase,
   type M4EffectTelemetry,
   type M4ProofRecordedExchange,
   type M4PublicEvidence,
@@ -127,7 +128,7 @@ function createM4McpServer(call: (targetRef: unknown, signal: AbortSignal) => Pr
           const signal = options?.signal ?? new AbortController().signal;
           const structured = signal.aborted
             ? Object.freeze({ acquisition: null, refusalCode: "timeout_or_cancelled" as const,
-                effectTelemetry: M4_ZERO_EFFECT_TELEMETRY })
+                effectTelemetry: withM4FailurePhase(M4_ZERO_EFFECT_TELEMETRY, "response_body_or_deadline") })
             : await call(args.targetRef, signal);
           return Object.freeze({ jsonrpc: "2.0", id: root.id, result: Object.freeze({
             content: Object.freeze([Object.freeze({ type: "text", text: JSON.stringify(structured) })]),
@@ -202,15 +203,17 @@ export function createM4SecGateBLiveMcpServer(options: M4LiveMcpServerOptions): 
       effectTelemetry: acquired.telemetry });
     let fetchedAt: string;
     try { fetchedAt = options.nowIso(); } catch {
-      return Object.freeze({ acquisition: null, refusalCode: "transport_refused" as const, effectTelemetry: acquired.telemetry });
+      return Object.freeze({ acquisition: null, refusalCode: "transport_refused" as const,
+        effectTelemetry: withM4FailurePhase(acquired.telemetry, "custody_finalization") });
     }
     if (!isStrictIsoTimestamp(fetchedAt)) return Object.freeze({ acquisition: null,
-      refusalCode: "transport_refused" as const, effectTelemetry: acquired.telemetry });
+      refusalCode: "transport_refused" as const,
+      effectTelemetry: withM4FailurePhase(acquired.telemetry, "custody_finalization") });
     const bytes = Buffer.from(acquired.bodyBase64, "base64");
     let quotedBodyText: string;
     try { quotedBodyText = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
     catch { return Object.freeze({ acquisition: null, refusalCode: "extraction_refused" as const,
-      effectTelemetry: acquired.telemetry }); }
+      effectTelemetry: withM4FailurePhase(acquired.telemetry, "custody_finalization") }); }
     const evidence: M4PublicEvidence = Object.freeze({
       requestedTargetRef: M4_TARGET_REF, requestedUrl: M4_TARGET_URL, finalUrl: M4_TARGET_URL,
       sourceHost: M4_SOURCE_HOST, publisher: M4_PUBLISHER, targetPolicySha256: M4_TARGET_POLICY_SHA256,
@@ -226,7 +229,7 @@ export function createM4SecGateBLiveMcpServer(options: M4LiveMcpServerOptions): 
     });
     try { extractM4SecEvidence(evidence); }
     catch { return Object.freeze({ acquisition: null, refusalCode: "extraction_refused" as const,
-      effectTelemetry: acquired.telemetry }); }
+      effectTelemetry: withM4FailurePhase(acquired.telemetry, "custody_finalization") }); }
     return Object.freeze({ acquisition: evidence, refusalCode: null, effectTelemetry: acquired.telemetry });
   });
 }

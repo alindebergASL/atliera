@@ -11,7 +11,7 @@ export const M4_RECORDED_PROOF_SCHEDULE = Object.freeze({
   schemaVersion: "1" as const,
   scheduleId: "sched_m4_recorded_sec_fedex_proof_v2" as const,
   capabilityId: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
-  descriptorSha256: "eefbb3bed294c94767190038a1abc466ea0730de97a325ca60be3c647f6aba58" as const,
+  descriptorSha256: "0abd3c555771006749eaa59604c69e37090d32ea738eeb588dbb36423d1a2fb5" as const,
   targetPolicyRef: M4_TARGET_POLICY_REF,
   targetPolicySha256: M4_TARGET_POLICY_SHA256,
   mediationLevel: "L0" as const,
@@ -39,7 +39,7 @@ export const M4_RECORDED_PROOF_SCHEDULE = Object.freeze({
   liveNetworkAuthorized: false as const,
 });
 
-export const M4_RECORDED_PROOF_SCHEDULE_SHA256 = "9a70efab0a9c9ebf3f75c1308b6c93b7fc19e71d9a63e640ae1821487fa8e8e6" as const;
+export const M4_RECORDED_PROOF_SCHEDULE_SHA256 = "9f43034fa44878514ee160a5fc626aa629ebe5a9155a97f3782eaa7216bef4f2" as const;
 
 if (registry.descriptorSha256 !== M4_RECORDED_PROOF_SCHEDULE.descriptorSha256 ||
     registry.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 ||

@@ -73,7 +73,7 @@ function findOffenders(
   return hits;
 }
 
-describe("safety: src/ contains no provider SDK imports, API key reads, or network deps", () => {
+describe("safety: src/ contains no provider SDK imports or API key reads and confines network deps", () => {
   const files = walk(SRC_ROOT);
 
   it("imports no provider SDK packages", () => {
@@ -94,12 +94,15 @@ describe("safety: src/ contains no provider SDK imports, API key reads, or netwo
     );
   });
 
-  it("imports no node http/https/fetch network modules from default paths", () => {
+  it("confines node http/https network modules to the reviewed exact-target M4 adapter", () => {
     const hits = findOffenders(files, joinFragments(NETWORK_FRAGMENTS));
     assert.deepEqual(
       hits,
-      [],
-      "found network module references in src/: " + JSON.stringify(hits, null, 2),
+      [
+        { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:http" },
+        { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:https" },
+      ],
+      "network module references escaped the reviewed exact-target adapter: " + JSON.stringify(hits, null, 2),
     );
   });
 

@@ -26,7 +26,9 @@ import {
   M4_TARGET_URL,
   isStrictIsoTimestamp,
   type M4FetchRefusalCode,
+  type M4EffectTelemetry,
   type M4PublicEvidence,
+  M4_ZERO_EFFECT_TELEMETRY,
 } from "./public-http-fetch-policy.ts";
 
 export type M4MediationRefusalCode =
@@ -43,7 +45,7 @@ export interface M4CapabilityExecution {
   readonly capabilityId: "public_http_fetch_v1";
   readonly descriptorSha256: string;
   readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
-  readonly authorityKind: "approved_recorded_schedule";
+  readonly authorityKind: "approved_recorded_schedule" | "external_gate_b_one_shot_go";
   readonly authorityRef: string;
   readonly mediationLevel: "L0";
   readonly targetRef: typeof M4_TARGET_REF;
@@ -55,6 +57,7 @@ export interface M4CapabilityExecution {
   readonly durationMs: number;
   readonly outcome: "completed" | "failed";
   readonly refusalCode: M4FetchRefusalCode | null;
+  readonly effectTelemetry: M4EffectTelemetry;
 }
 
 export interface M4AccountingIncrement {
@@ -64,7 +67,13 @@ export interface M4AccountingIncrement {
   readonly capabilityInvocations: 1;
   readonly capabilityExecutionRecords: 1;
   readonly auditEventsEmitted: 1;
-  readonly liveNetworkEgressPerformed: 0;
+  readonly liveNetworkEgressPerformed: 0 | 1;
+  readonly dnsAttemptsPerformed: 0 | 1;
+  readonly requestAttemptsPerformed: 0 | 1;
+  readonly connectionAttemptsPerformed: 0 | 1;
+  readonly lookupCallbacksPerformed: 0 | 1;
+  readonly bytesReceived: number;
+  readonly selectedAddress: string | null;
   readonly systemSideAcquisitionProofsPerformed: 0 | 1;
   readonly retriesPerformed: 0;
   readonly providerCallsExecuted: 0;
@@ -150,7 +159,7 @@ function exactSchedulePinsValid(): boolean {
     return sha256Canonical(schedule) === M4_RECORDED_PROOF_SCHEDULE_SHA256 &&
       sha256Canonical(registry.descriptorSnapshot) === registry.descriptorSha256 &&
       schedule.kind === "approved_recorded_capability_schedule" && schedule.schemaVersion === "1" &&
-      schedule.scheduleId === "sched_m4_recorded_fedex_proof_v1" &&
+      schedule.scheduleId === "sched_m4_recorded_sec_fedex_proof_v2" &&
       schedule.capabilityId === M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID &&
       schedule.targetPolicyRef === M4_TARGET_POLICY_REF &&
       schedule.targetPolicySha256 === M4_TARGET_POLICY_SHA256 &&
@@ -162,8 +171,8 @@ function exactSchedulePinsValid(): boolean {
       schedule.maxInvocations === 1 && schedule.liveNetworkAuthorized === false &&
       policy.scheme === "https" && policy.effectivePort === 443 && policy.redirectLimit === 0 &&
       policy.retryBudget === 0 && policy.maxTargets === 1 && policy.maxDurationMs === M4_MAX_DURATION_MS &&
-      policy.maxBodyBytes === M4_MAX_BODY_BYTES && policy.acceptedContentTypes.length === 2 &&
-      policy.acceptedContentTypes[0] === "text/html" && policy.acceptedContentTypes[1] === "text/plain" &&
+      policy.maxBodyBytes === M4_MAX_BODY_BYTES && policy.acceptedContentTypes.length === 1 &&
+      policy.acceptedContentTypes[0] === "application/json" &&
       policy.trustStatus === "quoted_untrusted_public_source_content" &&
       budget.maxTargets === 1 && budget.maxInputBytes === 128 && budget.maxOutputBytes === 8_000_000 &&
       budget.maxDurationMs === M4_MAX_DURATION_MS && budget.maxBodyBytes === M4_MAX_BODY_BYTES &&
@@ -175,7 +184,7 @@ function exactSchedulePinsValid(): boolean {
       registryBudget.maxInvocations === budget.maxInvocations && registryBudget.redirectLimit === budget.redirectLimit &&
       registry.allowedMediationLevels.length === 1 && registry.allowedMediationLevels[0] === "L0" &&
       registry.sandboxProfile.orchestratorSoleClient === true && registry.sandboxProfile.publicHttpsOnly === true &&
-      registry.sandboxProfile.networkAllowed === false &&
+      registry.sandboxProfile.networkAllowed === true &&
       registry.sandboxProfile.credentialsAllowed === false && registry.sandboxProfile.cookiesAllowed === false &&
       registry.sandboxProfile.privateDataAllowed === false && registry.sandboxProfile.providerCallsAllowed === false &&
       registry.sandboxProfile.deploymentAllowed === false &&
@@ -345,6 +354,7 @@ class M4PublicHttpFetchMediationKernel {
       durationMs,
       outcome,
       refusalCode,
+      effectTelemetry: M4_ZERO_EFFECT_TELEMETRY,
     });
     const audit: AuditEvent = Object.freeze({
       id: deterministicId("audit", [executionId]),
@@ -373,6 +383,12 @@ class M4PublicHttpFetchMediationKernel {
         refusal_code: refusalCode,
         retry_count: 0,
         live_network_egress: 0,
+        dns_attempts: 0,
+        request_attempts: 0,
+        connection_attempts: 0,
+        lookup_callbacks: 0,
+        selected_address: null,
+        bytes_received: 0,
         provider_calls: 0,
         private_reads: 0,
         graph_writes: 0,
@@ -389,6 +405,12 @@ class M4PublicHttpFetchMediationKernel {
       capabilityExecutionRecords: 1,
       auditEventsEmitted: 1,
       liveNetworkEgressPerformed: 0,
+      dnsAttemptsPerformed: 0,
+      requestAttemptsPerformed: 0,
+      connectionAttemptsPerformed: 0,
+      lookupCallbacksPerformed: 0,
+      bytesReceived: 0,
+      selectedAddress: null,
       systemSideAcquisitionProofsPerformed: outcome === "completed" ? 1 : 0,
       retriesPerformed: 0,
       providerCallsExecuted: 0,
@@ -450,5 +472,5 @@ const productionKernel: M4PublicHttpFetchInvocationSurface = Object.freeze({
   },
 });
 
-/** Sole production surface. No live adapter exists in this slice and identity is module-stable. */
+/** Sole production surface. It remains unarmed; the external Gate B factory is separate and one-shot. */
 export function getM4PublicHttpFetchKernel(): M4PublicHttpFetchInvocationSurface { return productionKernel; }

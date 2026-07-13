@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -11,7 +11,7 @@ import { acquireM4ProofRecordedEvidence, M4_MAX_BODY_BYTES, M4_TARGET_URL, isPub
 
 function exchange(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return { fetchedAt: "2026-07-11T11:59:59.000Z", resolvedAddresses: ["104.16.1.1"], status: 200,
-    contentType: "text/plain; charset=utf-8", location: null, connectedAddress: "104.16.1.1",
+    contentType: "application/json; charset=utf-8", location: null, connectedAddress: "104.16.1.1",
     finalUrl: M4_TARGET_URL, bodyBase64: Buffer.from("recorded").toString("base64"), cancelAt: "none", ...overrides };
 }
 function clock(): Record<string, unknown> {
@@ -20,7 +20,7 @@ function clock(): Record<string, unknown> {
 }
 function invocation(hash: unknown = M4_TARGET_POLICY_SHA256): Record<string, unknown> {
   return { trigger: { kind: "approved_recorded_schedule", scheduleId: M4_RECORDED_PROOF_SCHEDULE.scheduleId },
-    input: { targetRef: "fedex_company_overview", targetPolicySha256: hash } };
+    input: { targetRef: "sec_fedex_submissions", targetPolicySha256: hash } };
 }
 
 test("production access is one module singleton and proof construction cannot reset it", async () => {
@@ -43,7 +43,7 @@ test("proof surface rejects executable DNS, HTTP, clock, transport, and caller p
   let getterCalls = 0;
   const hostile = Object.defineProperty({ ...exchange() }, "bodyBase64", { enumerable: true, get() { getterCalls++; return ""; } });
   assert.throws(() => createM4RecordedProofKernel(hostile, clock()), /unsafe recorded exchange/);
-  assert.throws(() => acquireM4ProofRecordedEvidence("fedex_company_overview", hostile), /unsafe recorded exchange/);
+  assert.throws(() => acquireM4ProofRecordedEvidence("sec_fedex_submissions", hostile), /unsafe recorded exchange/);
   assert.equal(getterCalls, 0);
 });
 
@@ -105,15 +105,33 @@ test("canonical target policy hash is independently pinned by registry, schedule
   for (const mutation of addressPolicyMutations) {
     assert.notEqual(sha256Canonical(mutation), M4_TARGET_POLICY_SHA256);
   }
+  const loadBearingMutations = [
+    { ...M4_CANONICAL_TARGET_POLICY, targetRef: "other" },
+    { ...M4_CANONICAL_TARGET_POLICY, url: "https://data.sec.gov/submissions/CIK0000000000.json" },
+    { ...M4_CANONICAL_TARGET_POLICY, hostname: "sec.gov" },
+    { ...M4_CANONICAL_TARGET_POLICY, publisher: "other" },
+    { ...M4_CANONICAL_TARGET_POLICY, sourceFamily: "other" },
+    { ...M4_CANONICAL_TARGET_POLICY, expectedIdentity: { ...M4_CANONICAL_TARGET_POLICY.expectedIdentity, cik: "0000000000" } },
+    { ...M4_CANONICAL_TARGET_POLICY, permissionAndAccess: { ...M4_CANONICAL_TARGET_POLICY.permissionAndAccess, milestoneRequestCount: 2 } },
+    { ...M4_CANONICAL_TARGET_POLICY, userAgent: { ...M4_CANONICAL_TARGET_POLICY.userAgent, configInput: "OTHER" } },
+    { ...M4_CANONICAL_TARGET_POLICY, extraction: { ...M4_CANONICAL_TARGET_POLICY.extraction, literalExcerptPointer: "/name" } },
+    { ...M4_CANONICAL_TARGET_POLICY, network: { ...M4_CANONICAL_TARGET_POLICY.network, addressFamily: 6 } },
+    { ...M4_CANONICAL_TARGET_POLICY, contentTrust: { ...M4_CANONICAL_TARGET_POLICY.contentTrust, controlAuthority: "source" } },
+    { ...M4_CANONICAL_TARGET_POLICY, liveExecution: "armed" },
+  ];
+  for (const mutation of loadBearingMutations) assert.notEqual(sha256Canonical(mutation), M4_TARGET_POLICY_SHA256);
   const kernel = createM4RecordedProofKernel(exchange(), clock());
   const refused = await kernel.invoke(invocation("0".repeat(64)));
   assert.equal(refused.ok, false); if (!refused.ok) assert.equal(refused.refusalCode, "invalid_invocation_request");
 });
 
 test("scheme, effective port, hostname, and pinned IANA special-purpose boundaries are exact", () => {
-  assert.equal(validateM4PublicTargetUrl(M4_TARGET_URL, "investors.fedex.com"), null);
-  assert.equal(validateM4PublicTargetUrl(M4_TARGET_URL.replace("https:", "http:"), "investors.fedex.com"), "url_policy_refused");
-  assert.equal(validateM4PublicTargetUrl("https://investors.fedex.com:444/path", "investors.fedex.com"), "url_policy_refused");
+  assert.equal(validateM4PublicTargetUrl(M4_TARGET_URL, "data.sec.gov"), null);
+  assert.equal(validateM4PublicTargetUrl(M4_TARGET_URL.replace("https:", "http:"), "data.sec.gov"), "url_policy_refused");
+  assert.equal(validateM4PublicTargetUrl("https://data.sec.gov:444/path", "data.sec.gov"), "url_policy_refused");
+  for (const refused of ["https://investors.fedex.com/", "https://newsroom.fedex.com/", "https://www.fedex.com/"]) {
+    assert.notEqual(validateM4PublicTargetUrl(refused, "data.sec.gov"), null);
+  }
   for (const address of ["169.254.169.254", "127.0.0.1", "2001:db8::1", "3fff::1", "3fff:0abc::1"]) {
     assert.equal(isPublicAddress(address), false, address);
   }
@@ -137,7 +155,7 @@ test("recorded cancellation, overflow, and refusal settle once with zero retry a
     [{ cancelAt: "during_body" }, "timeout_or_cancelled"],
     [{ bodyBase64: Buffer.alloc(M4_MAX_BODY_BYTES + 1).toString("base64") }, "body_limit_refused"],
     [{ status: 503 }, "http_status_refused"],
-    [{ contentType: 'text/plain; charset="utf-8' }, "mime_refused"],
+    [{ contentType: 'application/json; charset="utf-8' }, "mime_refused"],
   ] as const) {
     const kernel = createM4RecordedProofKernel(exchange(change), clock());
     const result = await kernel.invoke(invocation());
@@ -153,19 +171,26 @@ test("recorded cancellation, overflow, and refusal settle once with zero retry a
 });
 
 test("successful inert evidence derives recorded provenance and policy hash internally", async () => {
+  const registry = getH2CapabilityRegistryEntry(M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID);
+  assert.equal(registry.sandboxProfile.networkAllowed, true);
+  assert.equal(registry.sandboxProfile.profileId, "m4-exact-target-gate-b-public-https");
+  assert.equal(M4_RECORDED_PROOF_SCHEDULE.liveNetworkAuthorized, false);
   const result = await createM4RecordedProofKernel(exchange(), clock()).invoke(invocation());
   assert.equal(result.ok, true); if (!result.ok || result.output === null) return;
   assert.equal(result.output.targetPolicySha256, M4_TARGET_POLICY_SHA256);
   assert.equal(result.output.provenance.targetPolicySha256, M4_TARGET_POLICY_SHA256);
   assert.equal(result.output.provenance.transport, "recorded_inert_exchange");
   assert.equal(result.accountingIncrements[0].liveNetworkEgressPerformed, 0);
+  assert.deepEqual(result.capabilityExecutions[0].effectTelemetry, {
+    dnsAttempts: 0, requestAttempts: 0, connectionAttempts: 0, liveNetworkEgress: 0, bytesReceived: 0,
+    selectedAddress: null, lookupCallbacks: 0, retryCount: 0, responseSha256: null, userAgentAudit: null,
+  });
   assert.equal(result.capabilityExecutions[0].targetPolicySha256, M4_TARGET_POLICY_SHA256);
   assert.equal(result.auditEvents[0].payload_json.target_policy_sha256, M4_TARGET_POLICY_SHA256);
 });
 
-test("no dormant or imported Node DNS/HTTPS live adapter exists", () => {
+test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () => {
   const root = join(import.meta.dirname, "..", "..");
-  assert.equal(existsSync(join(root, "scripts", "m4-node-public-http-dependencies.ts")), false);
   const files = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
     return entry.isDirectory() ? files(path) : entry.name.endsWith(".ts") ? [path] : [];
@@ -181,7 +206,9 @@ test("no dormant or imported Node DNS/HTTPS live adapter exists", () => {
         join(root, "src", "capability", "public-http-fetch-policy.ts"),
         join(root, "src", "capability", "m4-orchestrator-mcp-client.ts"),
       ].includes(path) && /node:net["']/.test(networkImport);
-      assert.equal(allowedInboundServer || allowedAddressClassifier, true, `${path}: ${networkImport}`);
+      const allowedM4Adapter = path === join(root, "src", "capability", "m4-sec-live-adapter.ts") &&
+        /node:(?:dns|https|http|net)["']/.test(networkImport);
+      assert.equal(allowedInboundServer || allowedAddressClassifier || allowedM4Adapter, true, `${path}: ${networkImport}`);
     }
     if (path === join(root, "scripts", "fake-mode-workshop-server.ts")) {
       assert.equal(networkImports.length, 1);
@@ -195,6 +222,7 @@ test("no dormant or imported Node DNS/HTTPS live adapter exists", () => {
       assert.equal(networkImports.length, 1);
       assert.match(source, /^import \{ isIP \} from "node:net";$/m);
     }
+    if (path === join(root, "src", "capability", "m4-sec-live-adapter.ts")) assert.equal(networkImports.length, 4);
     assert.doesNotMatch(source, /\bfetch\s*\(/);
   }
 });

@@ -31,6 +31,7 @@
     "h2:echo-proof:write": "tsx scripts/generate-h2-echo-mediation-proof.mts --write",
     "m4:public-http-fetch-proof": "node --import tsx scripts/generate-m4-public-http-fetch-proof.mts",
     "m4:public-http-fetch-proof:write": "node --import tsx scripts/generate-m4-public-http-fetch-proof.mts --write",
+    "m4:sec-gate-b-one-shot": "node --import tsx scripts/m4-sec-gate-b-one-shot.mts",
     "db:local:init": "tsx src/cli/local-durable-db.ts init",
     "db:local:inspect": "tsx src/cli/local-durable-db.ts inspect",
     "db:local:backup": "tsx src/cli/local-durable-db.ts backup",

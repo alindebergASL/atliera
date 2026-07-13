@@ -18,7 +18,8 @@ export const M4_MAX_DURATION_MS = M4_CANONICAL_TARGET_POLICY.network.maxDuration
 
 export type M4FetchRefusalCode = "target_ref_refused" | "url_policy_refused" | "hostname_refused" |
   "dns_refused" | "non_public_address_refused" | "connected_address_mismatch" | "redirect_refused" |
-  "http_status_refused" | "mime_refused" | "body_limit_refused" | "timeout_or_cancelled" | "transport_refused";
+  "http_status_refused" | "mime_refused" | "body_limit_refused" | "timeout_or_cancelled" | "transport_refused" |
+  "user_agent_refused" | "authorization_refused" | "authorization_replay_refused" | "extraction_refused";
 
 export interface M4PublicEvidence {
   readonly requestedTargetRef: typeof M4_TARGET_REF;
@@ -29,7 +30,7 @@ export interface M4PublicEvidence {
   readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
   readonly fetchedAt: string;
   readonly httpStatus: number;
-  readonly contentType: "text/html" | "text/plain";
+  readonly contentType: "application/json";
   readonly byteCount: number;
   readonly responseSha256: string;
   readonly bodyBase64: string;
@@ -37,7 +38,7 @@ export interface M4PublicEvidence {
   readonly trust: typeof M4_CANONICAL_TARGET_POLICY.contentTrust;
   readonly provenance: {
     readonly acquisitionCapability: "public_http_fetch_v1";
-    readonly transport: "recorded_inert_exchange";
+    readonly transport: "recorded_inert_exchange" | "live_sec_one_shot";
     readonly targetPolicyRef: typeof M4_TARGET_POLICY_REF;
     readonly targetPolicySha256: typeof M4_TARGET_POLICY_SHA256;
     readonly resolvedAddresses: readonly string[];
@@ -46,6 +47,33 @@ export interface M4PublicEvidence {
   readonly custody: { readonly exactBytesPreserved: true; readonly exactBytesEncoding: "base64";
     readonly hashAlgorithm: "sha256"; readonly classification: "public_evidence" };
 }
+
+export interface M4SanitizedUserAgentAudit {
+  readonly configured: true;
+  readonly byteLength: number;
+  readonly sha256: string;
+  readonly formatValid: true;
+  readonly contactRedacted: true;
+}
+
+export interface M4EffectTelemetry {
+  readonly dnsAttempts: 0 | 1;
+  readonly requestAttempts: 0 | 1;
+  readonly connectionAttempts: 0 | 1;
+  readonly liveNetworkEgress: 0 | 1;
+  readonly bytesReceived: number;
+  readonly selectedAddress: string | null;
+  readonly lookupCallbacks: 0 | 1;
+  readonly retryCount: 0;
+  readonly responseSha256: string | null;
+  readonly userAgentAudit: M4SanitizedUserAgentAudit | null;
+}
+
+export const M4_ZERO_EFFECT_TELEMETRY: M4EffectTelemetry = Object.freeze({
+  dnsAttempts: 0, requestAttempts: 0, connectionAttempts: 0, liveNetworkEgress: 0,
+  bytesReceived: 0, selectedAddress: null, lookupCallbacks: 0, retryCount: 0,
+  responseSha256: null, userAgentAudit: null,
+});
 
 export type M4AcquisitionResult = { readonly ok: true; readonly evidence: M4PublicEvidence } |
   { readonly ok: false; readonly refusalCode: M4FetchRefusalCode };
@@ -150,9 +178,12 @@ export function snapshotM4ProofRecordedExchange(value: unknown): Readonly<M4Proo
 }
 
 function refusal(refusalCode: M4FetchRefusalCode): M4AcquisitionResult { return Object.freeze({ ok: false, refusalCode }); }
-function contentType(value: string): "text/html" | "text/plain" | undefined {
-  const match = /^(text\/html|text\/plain)(?:\s*;\s*charset\s*=\s*(?:"(utf-8|utf8|us-ascii)"|(utf-8|utf8|us-ascii)))?\s*$/i.exec(value);
-  return match?.[1]?.toLowerCase() as "text/html" | "text/plain" | undefined;
+export function parseM4ContentType(value: string): "application/json" | undefined {
+  if (typeof value !== "string") return undefined;
+  const parts = value.split(";");
+  if (parts.length < 1 || parts.length > 2 || parts[0]?.trim().toLowerCase() !== "application/json") return undefined;
+  if (parts.length === 2 && !/^\s*charset\s*=\s*utf-8\s*$/i.test(parts[1] ?? "")) return undefined;
+  return "application/json";
 }
 
 /** Proof/test-only: consumes already snapshotted inert bytes and performs no DNS, HTTP, or other effect. */
@@ -169,7 +200,7 @@ export function acquireM4ProofRecordedEvidence(targetRef: unknown, value: unknow
     return refusal("redirect_refused");
   }
   if (exchange.status < 200 || exchange.status > 299) return refusal("http_status_refused");
-  const mime = contentType(exchange.contentType); if (!mime) return refusal("mime_refused");
+  const mime = parseM4ContentType(exchange.contentType); if (!mime) return refusal("mime_refused");
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(exchange.bodyBase64)) return refusal("transport_refused");
   const bytes = Buffer.from(exchange.bodyBase64, "base64");
   if (bytes.toString("base64") !== exchange.bodyBase64) return refusal("transport_refused");
@@ -198,4 +229,15 @@ export function validateM4PublicTargetUrl(url: string, expectedHostname: string)
     return "hostname_refused";
   }
   return null;
+}
+
+/** Validates without normalizing: the exact configured bytes are sent if accepted. */
+export function validateM4SecUserAgent(value: unknown): M4SanitizedUserAgentAudit | null {
+  if (typeof value !== "string" || value.length < M4_CANONICAL_TARGET_POLICY.userAgent.minimumLength ||
+      value.length > M4_CANONICAL_TARGET_POLICY.userAgent.maximumLength || !/^[\x20-\x7e]+$/.test(value) ||
+      value.trim() !== value) return null;
+  const match = /^(\S(?:.*\S)?)\s+([A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+)$/i.exec(value);
+  if (!match || !/[A-Za-z0-9]/.test(match[1] ?? "")) return null;
+  return Object.freeze({ configured: true, byteLength: Buffer.byteLength(value, "utf8"),
+    sha256: createHash("sha256").update(value, "utf8").digest("hex"), formatValid: true, contactRedacted: true });
 }

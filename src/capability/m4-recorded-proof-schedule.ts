@@ -9,13 +9,13 @@ export const M4_RECORDED_PROOF_SCHEDULE_AUTHORITY_REF =
 export const M4_RECORDED_PROOF_SCHEDULE = Object.freeze({
   kind: "approved_recorded_capability_schedule" as const,
   schemaVersion: "1" as const,
-  scheduleId: "sched_m4_recorded_fedex_proof_v1" as const,
+  scheduleId: "sched_m4_recorded_sec_fedex_proof_v2" as const,
   capabilityId: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
-  descriptorSha256: "5a9d1a7c79a3e5ea9039b37e4ecceac4297a9f0bf638ec7a6c591dae747b5edb" as const,
+  descriptorSha256: "eefbb3bed294c94767190038a1abc466ea0730de97a325ca60be3c647f6aba58" as const,
   targetPolicyRef: M4_TARGET_POLICY_REF,
   targetPolicySha256: M4_TARGET_POLICY_SHA256,
   mediationLevel: "L0" as const,
-  targetRefs: Object.freeze(["fedex_company_overview" as const]),
+  targetRefs: Object.freeze(["sec_fedex_submissions" as const]),
   transport: "recorded_inert_exchange" as const,
   invocationBudget: registry.budgetDefaults,
   networkPolicy: Object.freeze({
@@ -26,7 +26,7 @@ export const M4_RECORDED_PROOF_SCHEDULE = Object.freeze({
     maxTargets: 1 as const,
     maxDurationMs: 10_000 as const,
     maxBodyBytes: 1_048_576 as const,
-    acceptedContentTypes: Object.freeze(["text/html" as const, "text/plain" as const]),
+    acceptedContentTypes: Object.freeze(["application/json" as const]),
     trustStatus: "quoted_untrusted_public_source_content" as const,
   }),
   retryBudget: 0 as const,
@@ -39,12 +39,11 @@ export const M4_RECORDED_PROOF_SCHEDULE = Object.freeze({
   liveNetworkAuthorized: false as const,
 });
 
-export const M4_RECORDED_PROOF_SCHEDULE_SHA256 =
-  "d5672d876635f2d51516b9ddeb598ab760e6015904449789891948c05094e79c" as const;
+export const M4_RECORDED_PROOF_SCHEDULE_SHA256 = "9a70efab0a9c9ebf3f75c1308b6c93b7fc19e71d9a63e640ae1821487fa8e8e6" as const;
 
 if (registry.descriptorSha256 !== M4_RECORDED_PROOF_SCHEDULE.descriptorSha256 ||
     registry.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 ||
     sha256Canonical(M4_CANONICAL_TARGET_POLICY) !== M4_TARGET_POLICY_SHA256 ||
     sha256Canonical(M4_RECORDED_PROOF_SCHEDULE) !== M4_RECORDED_PROOF_SCHEDULE_SHA256) {
-  throw new Error("M4 recorded proof schedule authority hash mismatch");
+  throw new Error(`M4 recorded proof schedule authority hash mismatch: ${sha256Canonical(M4_RECORDED_PROOF_SCHEDULE)}`);
 }

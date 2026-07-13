@@ -76,16 +76,23 @@ export interface M4PublicHttpFetchDescriptor {
     readonly additionalProperties: false;
     readonly required: readonly ["targetRef"];
     readonly properties: {
-      readonly targetRef: { readonly type: "string"; readonly enum: readonly ["fedex_company_overview"] };
+      readonly targetRef: { readonly type: "string"; readonly enum: readonly ["sec_fedex_submissions"] };
     };
   };
   readonly outputSchema: {
     readonly type: "object";
     readonly additionalProperties: false;
-    readonly required: readonly ["acquisition", "refusalCode"];
+    readonly required: readonly ["acquisition", "refusalCode", "effectTelemetry"];
     readonly properties: {
       readonly acquisition: { readonly type: readonly ["object", "null"] };
       readonly refusalCode: { readonly type: readonly ["string", "null"] };
+      readonly effectTelemetry: {
+        readonly type: "object";
+        readonly additionalProperties: false;
+        readonly required: readonly ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress",
+          "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"];
+        readonly properties: Readonly<Record<string, unknown>>;
+      };
     };
   };
 }
@@ -110,10 +117,10 @@ export interface M4PublicHttpFetchRegistryEntry {
     readonly redirectLimit: 0;
   };
   readonly sandboxProfile: {
-    readonly profileId: "m4-recorded-inert-no-network";
+    readonly profileId: "m4-exact-target-gate-b-public-https";
     readonly transport: "in-process";
     readonly orchestratorSoleClient: true;
-    readonly networkAllowed: false;
+    readonly networkAllowed: true;
     readonly publicHttpsOnly: true;
     readonly credentialsAllowed: false;
     readonly cookiesAllowed: false;
@@ -228,13 +235,24 @@ const m4DescriptorSnapshot = deepFreeze<M4PublicHttpFetchDescriptor>({
     type: "object",
     additionalProperties: false,
     required: ["targetRef"],
-    properties: { targetRef: { type: "string", enum: ["fedex_company_overview"] } },
+    properties: { targetRef: { type: "string", enum: ["sec_fedex_submissions"] } },
   },
   outputSchema: {
     type: "object",
     additionalProperties: false,
-    required: ["acquisition", "refusalCode"],
-    properties: { acquisition: { type: ["object", "null"] }, refusalCode: { type: ["string", "null"] } },
+    required: ["acquisition", "refusalCode", "effectTelemetry"],
+    properties: { acquisition: { type: ["object", "null"] }, refusalCode: { type: ["string", "null"] },
+      effectTelemetry: { type: "object", additionalProperties: false,
+        required: ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "bytesReceived",
+          "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"],
+        properties: {
+          dnsAttempts: { type: "integer", enum: [0, 1] }, requestAttempts: { type: "integer", enum: [0, 1] },
+          connectionAttempts: { type: "integer", enum: [0, 1] }, liveNetworkEgress: { type: "integer", enum: [0, 1] },
+          bytesReceived: { type: "integer", minimum: 0, maximum: 1048576 },
+          selectedAddress: { type: ["string", "null"] }, lookupCallbacks: { type: "integer", enum: [0, 1] },
+          retryCount: { type: "integer", enum: [0] }, responseSha256: { type: ["string", "null"] },
+          userAgentAudit: { type: ["object", "null"] },
+        } } },
   },
 });
 
@@ -258,10 +276,10 @@ const m4RegistryEntry = deepFreeze<M4PublicHttpFetchRegistryEntry>({
     redirectLimit: 0,
   },
   sandboxProfile: {
-    profileId: "m4-recorded-inert-no-network",
+    profileId: "m4-exact-target-gate-b-public-https",
     transport: "in-process",
     orchestratorSoleClient: true,
-    networkAllowed: false,
+    networkAllowed: true,
     publicHttpsOnly: true,
     credentialsAllowed: false,
     cookiesAllowed: false,

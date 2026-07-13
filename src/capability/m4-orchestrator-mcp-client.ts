@@ -20,6 +20,7 @@ import {
   isPublicAddress,
   isStrictIsoTimestamp,
   type M4FetchRefusalCode,
+  type M4EffectTelemetry,
   type M4PublicEvidence,
 } from "./public-http-fetch-policy.ts";
 
@@ -121,6 +122,7 @@ const REFUSAL_CODES = new Set<M4FetchRefusalCode>([
   "non_public_address_refused", "connected_address_mismatch", "redirect_refused",
   "http_status_refused", "mime_refused", "body_limit_refused", "timeout_or_cancelled",
   "transport_refused",
+  "user_agent_refused", "authorization_refused", "authorization_replay_refused", "extraction_refused",
 ]);
 
 function snapshotResolvedAddresses(value: unknown): readonly string[] {
@@ -153,7 +155,7 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
     "httpStatus", "contentType", "byteCount", "responseSha256", "bodyBase64", "quotedBodyText",
     "trust", "provenance", "custody",
   ]);
-  const trust = ownData(root.trust, ["status", "mayProvideInstructions", "controlAuthority"]);
+  const trust = ownData(root.trust, ["status", "mayProvideInstructions", "controlAuthority", "transportSuccessPromotesTrust"]);
   const provenance = ownData(root.provenance, [
     "acquisitionCapability", "transport", "targetPolicyRef", "targetPolicySha256", "resolvedAddresses", "connectedAddress",
   ]);
@@ -166,14 +168,16 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
       root.finalUrl !== M4_TARGET_URL || root.sourceHost !== M4_SOURCE_HOST || root.publisher !== M4_PUBLISHER ||
       root.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 || !isStrictIsoTimestamp(root.fetchedAt) || !Number.isSafeInteger(root.httpStatus) ||
       (root.httpStatus as number) < 200 || (root.httpStatus as number) > 299 ||
-      (root.contentType !== "text/html" && root.contentType !== "text/plain") ||
+      root.contentType !== "application/json" ||
       !Number.isSafeInteger(root.byteCount) || root.byteCount !== bytes.byteLength ||
       typeof root.responseSha256 !== "string" || !/^[a-f0-9]{64}$/.test(root.responseSha256) ||
       createHash("sha256").update(bytes).digest("hex") !== root.responseSha256 ||
       typeof root.quotedBodyText !== "string" || root.quotedBodyText !== bytes.toString("utf8") ||
       trust.status !== "quoted_untrusted_public_source_content" || trust.mayProvideInstructions !== false ||
-      trust.controlAuthority !== "none" || provenance.acquisitionCapability !== M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID ||
-      provenance.transport !== "recorded_inert_exchange" || provenance.targetPolicyRef !== M4_TARGET_POLICY_REF ||
+      trust.controlAuthority !== "none" || trust.transportSuccessPromotesTrust !== false ||
+      provenance.acquisitionCapability !== M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID ||
+      (provenance.transport !== "recorded_inert_exchange" && provenance.transport !== "live_sec_one_shot") ||
+      provenance.targetPolicyRef !== M4_TARGET_POLICY_REF ||
       provenance.targetPolicySha256 !== M4_TARGET_POLICY_SHA256 ||
       typeof provenance.connectedAddress !== "string" || provenance.connectedAddress !== provenance.connectedAddress.toLowerCase() ||
       !isPublicAddress(provenance.connectedAddress) || !addresses.includes(provenance.connectedAddress) ||
@@ -199,10 +203,11 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
       status: "quoted_untrusted_public_source_content",
       mayProvideInstructions: false,
       controlAuthority: "none",
+      transportSuccessPromotesTrust: false,
     }),
     provenance: Object.freeze({
       acquisitionCapability: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
-      transport: "recorded_inert_exchange",
+      transport: provenance.transport as "recorded_inert_exchange" | "live_sec_one_shot",
       targetPolicyRef: M4_TARGET_POLICY_REF,
       targetPolicySha256: M4_TARGET_POLICY_SHA256,
       resolvedAddresses: addresses,
@@ -218,8 +223,49 @@ function snapshotEvidence(value: unknown): M4PublicEvidence {
 }
 
 export type M4ClientCallResult =
-  | { readonly acquisition: M4PublicEvidence; readonly refusalCode: null }
-  | { readonly acquisition: null; readonly refusalCode: M4FetchRefusalCode };
+  | { readonly acquisition: M4PublicEvidence; readonly refusalCode: null; readonly effectTelemetry: M4EffectTelemetry }
+  | { readonly acquisition: null; readonly refusalCode: M4FetchRefusalCode; readonly effectTelemetry: M4EffectTelemetry };
+
+function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
+  const root = ownData(value, ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress",
+    "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"]);
+  for (const key of ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "lookupCallbacks"] as const) {
+    if (root[key] !== 0 && root[key] !== 1) throw new M4OrchestratorBoundaryError();
+  }
+  if (root.retryCount !== 0 || !Number.isSafeInteger(root.bytesReceived) || (root.bytesReceived as number) < 0 ||
+      (root.bytesReceived as number) > M4_MAX_BODY_BYTES) throw new M4OrchestratorBoundaryError();
+  const selectedAddress = root.selectedAddress;
+  if (selectedAddress !== null && (typeof selectedAddress !== "string" || selectedAddress !== selectedAddress.toLowerCase() ||
+      isIP(selectedAddress) === 0 || !isPublicAddress(selectedAddress))) throw new M4OrchestratorBoundaryError();
+  if ((root.requestAttempts === 1 || root.connectionAttempts === 1 || root.liveNetworkEgress === 1 || root.lookupCallbacks === 1) &&
+      selectedAddress === null) throw new M4OrchestratorBoundaryError();
+  if (root.responseSha256 !== null && (typeof root.responseSha256 !== "string" || !/^[a-f0-9]{64}$/.test(root.responseSha256))) {
+    throw new M4OrchestratorBoundaryError();
+  }
+  let userAgentAudit: M4EffectTelemetry["userAgentAudit"] = null;
+  if (root.userAgentAudit !== null) {
+    const audit = ownData(root.userAgentAudit, ["configured", "byteLength", "sha256", "formatValid", "contactRedacted"]);
+    if (audit.configured !== true || audit.formatValid !== true || audit.contactRedacted !== true ||
+        !Number.isSafeInteger(audit.byteLength) || (audit.byteLength as number) < 8 || (audit.byteLength as number) > 256 ||
+        typeof audit.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(audit.sha256)) throw new M4OrchestratorBoundaryError();
+    userAgentAudit = Object.freeze({ configured: true, byteLength: audit.byteLength as number,
+      sha256: audit.sha256, formatValid: true, contactRedacted: true });
+  }
+  if ((root.requestAttempts as number) > (root.dnsAttempts as number) ||
+      (root.connectionAttempts as number) > (root.requestAttempts as number) ||
+      (root.liveNetworkEgress as number) > (root.connectionAttempts as number) ||
+      (root.lookupCallbacks as number) > (root.connectionAttempts as number) ||
+      ((root.dnsAttempts !== 0 || root.requestAttempts !== 0 || root.connectionAttempts !== 0 ||
+        root.liveNetworkEgress !== 0 || root.bytesReceived !== 0 || selectedAddress !== null ||
+        root.lookupCallbacks !== 0 || root.responseSha256 !== null) && userAgentAudit === null)) {
+    throw new M4OrchestratorBoundaryError();
+  }
+  return Object.freeze({ dnsAttempts: root.dnsAttempts as 0 | 1, requestAttempts: root.requestAttempts as 0 | 1,
+    connectionAttempts: root.connectionAttempts as 0 | 1, liveNetworkEgress: root.liveNetworkEgress as 0 | 1,
+    bytesReceived: root.bytesReceived as number, selectedAddress: selectedAddress as string | null,
+    lookupCallbacks: root.lookupCallbacks as 0 | 1, retryCount: 0, responseSha256: root.responseSha256 as string | null,
+    userAgentAudit });
+}
 
 export class M4OrchestratorMcpClient {
   readonly #transport: H2McpInProcessTransport;
@@ -302,17 +348,35 @@ export class M4OrchestratorMcpClient {
     const content = denseArray(exact.content, 1);
     if (content.length !== 1) throw new M4OrchestratorBoundaryError();
     const textContent = ownData(content[0], ["type", "text"]);
-    const structured = ownData(exact.structuredContent, ["acquisition", "refusalCode"]);
+    const structured = ownData(exact.structuredContent, ["acquisition", "refusalCode", "effectTelemetry"]);
     if (textContent.type !== "text" || typeof textContent.text !== "string" ||
         Buffer.byteLength(textContent.text, "utf8") > 8_000_000 || typeof exact.isError !== "boolean") {
       throw new M4OrchestratorBoundaryError();
     }
     let snapshot: M4ClientCallResult;
+    const effectTelemetry = snapshotEffectTelemetry(structured.effectTelemetry);
     if (exact.isError === false && structured.refusalCode === null) {
-      snapshot = Object.freeze({ acquisition: snapshotEvidence(structured.acquisition), refusalCode: null });
+      const acquisition = snapshotEvidence(structured.acquisition);
+      if (effectTelemetry.responseSha256 !== null && effectTelemetry.responseSha256 !== acquisition.responseSha256) {
+        throw new M4OrchestratorBoundaryError();
+      }
+      if (acquisition.provenance.transport === "recorded_inert_exchange") {
+        if (effectTelemetry.dnsAttempts !== 0 || effectTelemetry.requestAttempts !== 0 ||
+            effectTelemetry.connectionAttempts !== 0 || effectTelemetry.liveNetworkEgress !== 0 ||
+            effectTelemetry.bytesReceived !== 0 || effectTelemetry.selectedAddress !== null ||
+            effectTelemetry.lookupCallbacks !== 0 || effectTelemetry.responseSha256 !== null ||
+            effectTelemetry.userAgentAudit !== null) throw new M4OrchestratorBoundaryError();
+      } else if (effectTelemetry.dnsAttempts !== 1 || effectTelemetry.requestAttempts !== 1 ||
+          effectTelemetry.connectionAttempts !== 1 || effectTelemetry.liveNetworkEgress !== 1 ||
+          effectTelemetry.lookupCallbacks !== 1 || effectTelemetry.bytesReceived !== acquisition.byteCount ||
+          effectTelemetry.selectedAddress !== acquisition.provenance.connectedAddress ||
+          effectTelemetry.responseSha256 !== acquisition.responseSha256 || effectTelemetry.userAgentAudit === null) {
+        throw new M4OrchestratorBoundaryError();
+      }
+      snapshot = Object.freeze({ acquisition, refusalCode: null, effectTelemetry });
     } else if (exact.isError === true && structured.acquisition === null &&
                typeof structured.refusalCode === "string" && REFUSAL_CODES.has(structured.refusalCode as M4FetchRefusalCode)) {
-      snapshot = Object.freeze({ acquisition: null, refusalCode: structured.refusalCode as M4FetchRefusalCode });
+      snapshot = Object.freeze({ acquisition: null, refusalCode: structured.refusalCode as M4FetchRefusalCode, effectTelemetry });
     } else {
       throw new M4OrchestratorBoundaryError();
     }

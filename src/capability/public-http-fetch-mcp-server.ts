@@ -15,10 +15,22 @@ import type {
 } from "./h2-mcp-protocol.ts";
 import {
   acquireM4ProofRecordedEvidence,
+  isStrictIsoTimestamp,
+  M4_PUBLISHER,
+  M4_SOURCE_HOST,
+  M4_TARGET_REF,
+  M4_TARGET_URL,
+  M4_ZERO_EFFECT_TELEMETRY,
   snapshotM4ProofRecordedExchange,
-  type M4AcquisitionResult,
+  validateM4SecUserAgent,
+  type M4EffectTelemetry,
   type M4ProofRecordedExchange,
+  type M4PublicEvidence,
 } from "./public-http-fetch-policy.ts";
+import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
+import { acquireM4SecLive, type M4LiveDependencies } from "./m4-sec-live-adapter.ts";
+import { assertM4GateBActivationConsumed, type M4GateBActivation } from "./m4-sec-gate-b-activation.ts";
+import { extractM4SecEvidence } from "./m4-sec-extraction.ts";
 
 export class M4PublicHttpBoundaryError extends Error {
   constructor() {
@@ -67,11 +79,13 @@ function methodOf(value: unknown): string {
   return descriptor.value;
 }
 
-/** Proof/test-only server over immutable recorded exchange data. No callable dependency is accepted. */
-export function createM4RecordedProofMcpServer(
-  recordedExchange: unknown,
-): H2McpInProcessTransport {
-  const exchange: Readonly<M4ProofRecordedExchange> = snapshotM4ProofRecordedExchange(recordedExchange);
+type ServerCallResult = Readonly<{
+  acquisition: M4PublicEvidence | null;
+  refusalCode: import("./public-http-fetch-policy.ts").M4FetchRefusalCode | null;
+  effectTelemetry: M4EffectTelemetry;
+}>;
+
+function createM4McpServer(call: (targetRef: unknown, signal: AbortSignal) => Promise<ServerCallResult>): H2McpInProcessTransport {
   const registry = getH2CapabilityRegistryEntry(M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID);
   let state: "new" | "initialize_responded" | "ready" = "new";
   return Object.freeze({
@@ -110,15 +124,14 @@ export function createM4RecordedProofMcpServer(
           if (root.jsonrpc !== "2.0" || !requestId(root.id) || params.name !== M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID ||
               typeof args.targetRef !== "string") throw new M4PublicHttpBoundaryError();
           const signal = options?.signal ?? new AbortController().signal;
-          const acquisition: M4AcquisitionResult = signal.aborted
-            ? Object.freeze({ ok: false, refusalCode: "timeout_or_cancelled" as const })
-            : acquireM4ProofRecordedEvidence(args.targetRef, exchange);
-          const structured = Object.freeze({ acquisition: acquisition.ok ? acquisition.evidence : null,
-            refusalCode: acquisition.ok ? null : acquisition.refusalCode });
+          const structured = signal.aborted
+            ? Object.freeze({ acquisition: null, refusalCode: "timeout_or_cancelled" as const,
+                effectTelemetry: M4_ZERO_EFFECT_TELEMETRY })
+            : await call(args.targetRef, signal);
           return Object.freeze({ jsonrpc: "2.0", id: root.id, result: Object.freeze({
             content: Object.freeze([Object.freeze({ type: "text", text: JSON.stringify(structured) })]),
             structuredContent: structured,
-            isError: !acquisition.ok,
+            isError: structured.acquisition === null,
           }) });
         }
         throw new M4PublicHttpBoundaryError();
@@ -144,5 +157,70 @@ export function createM4RecordedProofMcpServer(
       }
       throw new M4PublicHttpBoundaryError();
     },
+  });
+}
+
+/** Proof/test-only server over immutable recorded exchange data. No callable dependency is accepted. */
+export function createM4RecordedProofMcpServer(recordedExchange: unknown): H2McpInProcessTransport {
+  const exchange: Readonly<M4ProofRecordedExchange> = snapshotM4ProofRecordedExchange(recordedExchange);
+  return createM4McpServer(async (targetRef) => {
+    const acquisition = acquireM4ProofRecordedEvidence(targetRef, exchange);
+    return Object.freeze({ acquisition: acquisition.ok ? acquisition.evidence : null,
+      refusalCode: acquisition.ok ? null : acquisition.refusalCode, effectTelemetry: M4_ZERO_EFFECT_TELEMETRY });
+  });
+}
+
+export interface M4LiveMcpServerOptions {
+  readonly activation: Readonly<M4GateBActivation>;
+  readonly userAgent: unknown;
+  readonly nowIso: () => string;
+  readonly dependencies?: M4LiveDependencies;
+}
+
+/** Exact-target Gate B server. Its MCP caller can provide only the ratified targetRef. */
+export function createM4SecGateBLiveMcpServer(options: M4LiveMcpServerOptions): H2McpInProcessTransport {
+  const audit = validateM4SecUserAgent(options.userAgent);
+  if (audit === null) throw new M4PublicHttpBoundaryError();
+  const admittedAt = options.nowIso();
+  assertM4GateBActivationConsumed(options.activation, admittedAt);
+  const userAgent = options.userAgent as string;
+  let called = false;
+  return createM4McpServer(async (targetRef) => {
+    if (called) return Object.freeze({ acquisition: null, refusalCode: "authorization_replay_refused" as const,
+      effectTelemetry: Object.freeze({ ...M4_ZERO_EFFECT_TELEMETRY, userAgentAudit: audit }) });
+    called = true;
+    if (targetRef !== M4_TARGET_REF) return Object.freeze({ acquisition: null, refusalCode: "target_ref_refused" as const,
+      effectTelemetry: Object.freeze({ ...M4_ZERO_EFFECT_TELEMETRY, userAgentAudit: audit }) });
+    const acquired = await acquireM4SecLive(userAgent, options.dependencies);
+    if (!acquired.ok) return Object.freeze({ acquisition: null, refusalCode: acquired.refusalCode,
+      effectTelemetry: acquired.telemetry });
+    let fetchedAt: string;
+    try { fetchedAt = options.nowIso(); } catch {
+      return Object.freeze({ acquisition: null, refusalCode: "transport_refused" as const, effectTelemetry: acquired.telemetry });
+    }
+    if (!isStrictIsoTimestamp(fetchedAt)) return Object.freeze({ acquisition: null,
+      refusalCode: "transport_refused" as const, effectTelemetry: acquired.telemetry });
+    const bytes = Buffer.from(acquired.bodyBase64, "base64");
+    let quotedBodyText: string;
+    try { quotedBodyText = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+    catch { return Object.freeze({ acquisition: null, refusalCode: "extraction_refused" as const,
+      effectTelemetry: acquired.telemetry }); }
+    const evidence: M4PublicEvidence = Object.freeze({
+      requestedTargetRef: M4_TARGET_REF, requestedUrl: M4_TARGET_URL, finalUrl: M4_TARGET_URL,
+      sourceHost: M4_SOURCE_HOST, publisher: M4_PUBLISHER, targetPolicySha256: M4_TARGET_POLICY_SHA256,
+      fetchedAt, httpStatus: acquired.status, contentType: acquired.contentType, byteCount: bytes.byteLength,
+      responseSha256: acquired.responseSha256, bodyBase64: acquired.bodyBase64, quotedBodyText,
+      trust: M4_CANONICAL_TARGET_POLICY.contentTrust,
+      provenance: Object.freeze({ acquisitionCapability: M4_PUBLIC_HTTP_FETCH_CAPABILITY_ID,
+        transport: "live_sec_one_shot", targetPolicyRef: M4_TARGET_POLICY_REF,
+        targetPolicySha256: M4_TARGET_POLICY_SHA256, resolvedAddresses: Object.freeze([acquired.telemetry.selectedAddress!]),
+        connectedAddress: acquired.telemetry.selectedAddress! }),
+      custody: Object.freeze({ exactBytesPreserved: true, exactBytesEncoding: "base64", hashAlgorithm: "sha256",
+        classification: "public_evidence" }),
+    });
+    try { extractM4SecEvidence(evidence); }
+    catch { return Object.freeze({ acquisition: null, refusalCode: "extraction_refused" as const,
+      effectTelemetry: acquired.telemetry }); }
+    return Object.freeze({ acquisition: evidence, refusalCode: null, effectTelemetry: acquired.telemetry });
   });
 }

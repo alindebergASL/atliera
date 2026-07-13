@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: independent verification of the bounded M4 recorded proof; later live execution still requires explicit operator GO
+- next recommended work: independent Gate A review; later one-shot SEC execution requires a private, commit/policy-bound Gate B GO and declared User-Agent
 - ratified next bounded implementation: none
 - M4 implementation slice is complete under the recorded operator decision; implementation authority has returned to none
 - live acquisition remains unauthorized: one compact URL/budget/retention/legal packet and one explicit operator GO are still required
@@ -36,7 +36,7 @@ Status vocabulary:
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
 | `h2-echo-mediation-proof-status.md` | active | Shipped H2 system-side proof at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284): one approved L0 schedule invokes the first registered inert echo and emits one execution, audit, and accounting record with zero adjacent effects. |
-| `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | inert-approval | M4 recorded/injected implementation status plus drafted, unarmed, non-executable FedEx live packet. Current effective authority is none; live acquisition requires later explicit operator GO. |
+| `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | inert-approval | M4 Gate A recorded SEC/Workshop status plus exact, unarmed FedEx submissions Gate B packet. Current effective authority is none; live acquisition requires a private one-shot GO, reviewed commit, exact policy hash, and declared SEC User-Agent. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |
 | `local-bearer-auth-seam-status.md` | active | Current local bearer-token auth seam for fake-mode Workshop serving; it is no-spend and does not claim deployment readiness. |

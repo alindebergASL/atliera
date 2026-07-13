@@ -53,7 +53,10 @@ test("test_mcp_client_import_isolation", () => {
     .filter((path) => path !== join(CAPABILITY, "m4-orchestrator-mcp-client.ts"))
     .filter((path) => text(path).includes("m4-orchestrator-mcp-client"))
     .map((path) => relative(ROOT, path));
-  assert.deepEqual(m4ClientImporters, ["src/capability/m4-public-http-fetch-mediation.ts"]);
+  assert.deepEqual(m4ClientImporters, [
+    "src/capability/m4-public-http-fetch-mediation.ts",
+    "src/capability/m4-sec-gate-b-mediation.ts",
+  ]);
 
   const clientSource = text(join(CAPABILITY, "orchestrator-mcp-client.ts"));
   assert.doesNotMatch(clientSource, /\.\.\/model\/|\.\.\/agent\//);

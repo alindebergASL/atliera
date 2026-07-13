@@ -42,8 +42,9 @@ test("M5a ships only with its visible capstone and bounded successor approval su
   assert.ok(h2.includes("I-3, I-4, I-5, I-10 and I-11"));
   assert.ok(h2.includes("reviewed second entry"));
   assert.ok(m4.includes("🔶 in progress"));
-  assert.ok(m4.includes("implementation slice complete, not shipped"));
+  assert.ok(m4.includes("Gate A complete and unarmed"));
   assert.ok(m4.includes("zero live egress"));
+  assert.ok(m4.includes("M4 remains in progress until a separately authorized Gate B one-shot succeeds"));
 
   assert.equal(markerValue(ROADMAP, "implementation_work_authorized"), "none");
   assert.equal(markerValue(ROADMAP, "implementation_start_condition"), "completed-after-H2-merge-and-verification");

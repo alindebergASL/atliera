@@ -13,6 +13,8 @@
   "validFrom": "<EXTERNAL_ISO_TIMESTAMP>",
   "validUntil": "<EXTERNAL_ISO_TIMESTAMP>",
   "userAgentConfigInput": "ATLIERA_M4_SEC_USER_AGENT",
+  "userAgentSha256": "<SHA256_OF_EXACT_APPROVED_USER_AGENT_BYTES>",
+  "userAgentByteLength": "<UTF8_BYTE_LENGTH_OF_EXACT_APPROVED_USER_AGENT>",
   "networkBudget": {
     "scheme": "https",
     "effectivePort": 443,
@@ -30,9 +32,10 @@
   },
   "retentionDays": 30,
   "takedownPosture": "quarantine_and_stop_downstream_use; retain_minimum_audit_hash_unless_deletion_required",
+  "expectedAttemptOutput": "artifacts/m4-sec-gate-b/sec-fedex-submissions-attempt.json",
   "expectedCustodyOutput": "artifacts/m4-sec-gate-b/sec-fedex-submissions-custody.json",
   "expectedWorkshopOutput": "artifacts/m4-sec-gate-b/sec-fedex-submissions-workshop.html",
-  "failureBehavior": "consume_once; zero_retry; destroy_resources; write_no_evidence_output",
+  "failureBehavior": "consume_once; zero_retry; destroy_resources; persist_sanitized_attempt_receipt; write_no_evidence_output",
   "rollbackBehavior": "remain_unarmed; require_new_explicit_go_for_any_later_attempt",
   "authorizesLiveAcquisition": false
 }

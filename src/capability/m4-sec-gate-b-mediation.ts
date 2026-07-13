@@ -8,11 +8,11 @@ import { M4OrchestratorMcpClient } from "./m4-orchestrator-mcp-client.ts";
 import type { M4AccountingIncrement, M4CapabilityExecution, M4MediationResult,
   M4MediationRefusalCode, M4PublicHttpFetchInvocationSurface } from "./m4-public-http-fetch-mediation.ts";
 import { createM4SecGateBLiveMcpServer } from "./public-http-fetch-mcp-server.ts";
-import type { M4GateBActivation } from "./m4-sec-gate-b-activation.ts";
+import { assertM4GateBUserAgentMatchesActivation, type M4GateBActivation } from "./m4-sec-gate-b-activation.ts";
 import type { M4LiveDependencies } from "./m4-sec-live-adapter.ts";
 import { M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 import { M4_MAX_DURATION_MS, M4_TARGET_REF, M4_TARGET_URL, M4_ZERO_EFFECT_TELEMETRY,
-  isStrictIsoTimestamp, validateM4SecUserAgent, type M4EffectTelemetry, type M4FetchRefusalCode,
+  isStrictIsoTimestamp, type M4EffectTelemetry, type M4FetchRefusalCode,
   type M4PublicEvidence } from "./public-http-fetch-policy.ts";
 
 function deterministicId(prefix: string, values: readonly string[]): string {
@@ -166,7 +166,7 @@ export interface M4SecGateBKernelOptions {
 
 /** Gate B only. Validation occurs before the optional live dependency is read by the server. */
 export function createM4SecGateBKernel(options: M4SecGateBKernelOptions): M4PublicHttpFetchInvocationSurface {
-  if (validateM4SecUserAgent(options.userAgent) === null) throw new Error("Gate B User-Agent refused");
-  return new M4SecGateBMediationKernel({ activation: options.activation, userAgent: options.userAgent as string,
+  const userAgent = assertM4GateBUserAgentMatchesActivation(options.userAgent, options.activation);
+  return new M4SecGateBMediationKernel({ activation: options.activation, userAgent,
     clock: options.clock, dependencies: options.dependencies });
 }

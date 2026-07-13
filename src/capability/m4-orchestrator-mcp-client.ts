@@ -232,8 +232,9 @@ function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
   for (const key of ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "lookupCallbacks"] as const) {
     if (root[key] !== 0 && root[key] !== 1) throw new M4OrchestratorBoundaryError();
   }
-  if (root.retryCount !== 0 || !Number.isSafeInteger(root.bytesReceived) || (root.bytesReceived as number) < 0 ||
-      (root.bytesReceived as number) > M4_MAX_BODY_BYTES) throw new M4OrchestratorBoundaryError();
+  if (root.retryCount !== 0 || !Number.isSafeInteger(root.bytesReceived) || (root.bytesReceived as number) < 0) {
+    throw new M4OrchestratorBoundaryError();
+  }
   const selectedAddress = root.selectedAddress;
   if (selectedAddress !== null && (typeof selectedAddress !== "string" || selectedAddress !== selectedAddress.toLowerCase() ||
       isIP(selectedAddress) === 0 || !isPublicAddress(selectedAddress))) throw new M4OrchestratorBoundaryError();

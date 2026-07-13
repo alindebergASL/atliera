@@ -29,7 +29,8 @@ import {
 } from "./public-http-fetch-policy.ts";
 import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_REF, M4_TARGET_POLICY_SHA256 } from "./m4-target-policy.ts";
 import { acquireM4SecLive, type M4LiveDependencies } from "./m4-sec-live-adapter.ts";
-import { assertM4GateBActivationConsumed, type M4GateBActivation } from "./m4-sec-gate-b-activation.ts";
+import { assertM4GateBActivationConsumed, assertM4GateBUserAgentMatchesActivation,
+  claimM4GateBActivationExecution, type M4GateBActivation } from "./m4-sec-gate-b-activation.ts";
 import { extractM4SecEvidence } from "./m4-sec-extraction.ts";
 
 export class M4PublicHttpBoundaryError extends Error {
@@ -179,11 +180,16 @@ export interface M4LiveMcpServerOptions {
 
 /** Exact-target Gate B server. Its MCP caller can provide only the ratified targetRef. */
 export function createM4SecGateBLiveMcpServer(options: M4LiveMcpServerOptions): H2McpInProcessTransport {
-  const audit = validateM4SecUserAgent(options.userAgent);
-  if (audit === null) throw new M4PublicHttpBoundaryError();
+  const candidateUserAgent = options.userAgent;
   const admittedAt = options.nowIso();
-  assertM4GateBActivationConsumed(options.activation, admittedAt);
-  const userAgent = options.userAgent as string;
+  const activation = assertM4GateBActivationConsumed(options.activation, admittedAt);
+  let userAgent: string;
+  try { userAgent = assertM4GateBUserAgentMatchesActivation(candidateUserAgent, activation); }
+  catch { throw new M4PublicHttpBoundaryError(); }
+  const audit = validateM4SecUserAgent(userAgent);
+  if (audit === null) throw new M4PublicHttpBoundaryError();
+  try { claimM4GateBActivationExecution(activation, admittedAt); }
+  catch { throw new M4PublicHttpBoundaryError(); }
   let called = false;
   return createM4McpServer(async (targetRef) => {
     if (called) return Object.freeze({ acquisition: null, refusalCode: "authorization_replay_refused" as const,

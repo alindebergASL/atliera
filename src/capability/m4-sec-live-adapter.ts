@@ -154,10 +154,11 @@ export async function acquireM4SecLive(userAgent: unknown, injected?: M4LiveDepe
           if (settled) return;
           if (!(typeof chunk === "string" || ArrayBuffer.isView(chunk))) { settle({ ok: false, refusalCode: "transport_refused" }); return; }
           const bytes = Buffer.from(chunk as string | Uint8Array);
-          if (mutable.bytesReceived + bytes.byteLength > M4_CANONICAL_TARGET_POLICY.network.maxBodyBytes) {
+          mutable.bytesReceived += bytes.byteLength;
+          if (mutable.bytesReceived > M4_CANONICAL_TARGET_POLICY.network.maxBodyBytes) {
             settle({ ok: false, refusalCode: "body_limit_refused" }); return;
           }
-          mutable.bytesReceived += bytes.byteLength; chunks.push(bytes);
+          chunks.push(bytes);
         });
         incoming.on("error", () => settle({ ok: false, refusalCode: "transport_refused" }));
         incoming.on("end", () => {

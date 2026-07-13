@@ -238,6 +238,6 @@ export function validateM4SecUserAgent(value: unknown): M4SanitizedUserAgentAudi
       value.trim() !== value) return null;
   const match = /^(\S(?:.*\S)?)\s+([A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+)$/i.exec(value);
   if (!match || !/[A-Za-z0-9]/.test(match[1] ?? "")) return null;
-  return Object.freeze({ configured: true, byteLength: Buffer.byteLength(value, "ascii"),
-    sha256: createHash("sha256").update(value, "ascii").digest("hex"), formatValid: true, contactRedacted: true });
+  return Object.freeze({ configured: true, byteLength: Buffer.byteLength(value, "utf8"),
+    sha256: createHash("sha256").update(value, "utf8").digest("hex"), formatValid: true, contactRedacted: true });
 }

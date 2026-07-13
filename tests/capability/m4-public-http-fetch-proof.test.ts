@@ -38,20 +38,31 @@ test("roadmap and Gate A packet preserve none authority and one inert target", (
   const packet = readFileSync(join(root, "docs", "runbooks", "m4-public-http-fetch-v1-status-and-fedex-live-packet.md"), "utf8");
   assert.match(packet, /data\.sec\.gov\/submissions\/CIK0001048911\.json/);
   assert.match(packet, /ATLIERA_M4_SEC_USER_AGENT/);
+  assert.match(packet, /^- current_implementation_work_authorized: `none`$/m);
+  assert.match(packet, /^- historical_implementation_work_authorized: `Atliera-M4-Gate-A-only` \(completed; no current authority\)$/m);
+  assert.doesNotMatch(packet, /^- implementation_work_authorized: `Atliera-M4-Gate-A-only`$/m);
+  const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
+  assert.match(index, /next recommended work: repair and exact-head approval of PR #286; after merge, Gate B/);
+  assert.match(index, /the compact packet exists but is inert; exact-head approval\/merge plus one private commit\/policy\/User-Agent-bound GO/);
+  assert.doesNotMatch(index, /one compact URL\/budget\/retention\/legal packet and one explicit operator GO are still required/);
+  assert.doesNotMatch(index, /next recommended work: independent Gate A review/);
   assert.match(packet, new RegExp(M4_TARGET_POLICY_SHA256));
   const template = JSON.parse(readFileSync(join(root, "fixtures", "validation", "m4-sec-gate-b-go-template.json"), "utf8"));
   assert.equal(template.authorizesLiveAcquisition, false);
   assert.equal(template.targetRef, "sec_fedex_submissions");
   assert.equal(template.reviewedAdapterCommit, "<GATE_B_REVIEWED_ADAPTER_COMMIT_AFTER_MERGE>");
   assert.equal(template.oneShotConsumptionPath, "<EXTERNAL_ABSOLUTE_CONSUMPTION_RECORD_PATH_ENDING_IN_ID>");
+  assert.equal(template.userAgentSha256, "<SHA256_OF_EXACT_APPROVED_USER_AGENT_BYTES>");
+  assert.equal(template.userAgentByteLength, "<UTF8_BYTE_LENGTH_OF_EXACT_APPROVED_USER_AGENT>");
   assert.deepEqual(template.networkBudget, { scheme: "https", effectivePort: 443, method: "GET", addressFamily: 4,
     maxTargets: 1, maxRequests: 1, onePinnedAddress: true, oneConnectionAttempt: true, redirectLimit: 0,
     retryBudget: 0, totalDeadlineMs: 10_000, maxBodyBytes: 1_048_576, acceptedContentTypes: ["application/json"] });
   assert.equal(template.retentionDays, 30);
   assert.equal(template.takedownPosture, "quarantine_and_stop_downstream_use; retain_minimum_audit_hash_unless_deletion_required");
+  assert.equal(template.expectedAttemptOutput, "artifacts/m4-sec-gate-b/sec-fedex-submissions-attempt.json");
   assert.equal(template.expectedCustodyOutput, "artifacts/m4-sec-gate-b/sec-fedex-submissions-custody.json");
   assert.equal(template.expectedWorkshopOutput, "artifacts/m4-sec-gate-b/sec-fedex-submissions-workshop.html");
-  assert.equal(template.failureBehavior, "consume_once; zero_retry; destroy_resources; write_no_evidence_output");
+  assert.equal(template.failureBehavior, "consume_once; zero_retry; destroy_resources; persist_sanitized_attempt_receipt; write_no_evidence_output");
   assert.equal(template.rollbackBehavior, "remain_unarmed; require_new_explicit_go_for_any_later_attempt");
 });
 

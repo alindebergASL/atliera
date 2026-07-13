@@ -9,10 +9,10 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: independent Gate A review; later one-shot SEC execution requires a private, commit/policy-bound Gate B GO and declared User-Agent
+- next recommended work: repair and exact-head approval of PR #286; after merge, Gate B requires a private commit/policy/User-Agent-bound GO before one-shot SEC execution
 - ratified next bounded implementation: none
 - M4 implementation slice is complete under the recorded operator decision; implementation authority has returned to none
-- live acquisition remains unauthorized: one compact URL/budget/retention/legal packet and one explicit operator GO are still required
+- live acquisition remains unauthorized: the compact packet exists but is inert; exact-head approval/merge plus one private commit/policy/User-Agent-bound GO are still required
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 

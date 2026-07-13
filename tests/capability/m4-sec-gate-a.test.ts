@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import type { RequestOptions } from "node:https";
 import { acquireM4SecLive, type M4LiveDependencies, type M4RequestLike, type M4ResponseLike } from "../../src/capability/m4-sec-live-adapter.ts";
-import { consumeM4GateBGo, M4_GATE_B_EXPECTED_CUSTODY_OUTPUT, M4_GATE_B_EXPECTED_WORKSHOP_OUTPUT,
+import { consumeM4GateBGo, M4_GATE_B_EXPECTED_ATTEMPT_OUTPUT, M4_GATE_B_EXPECTED_CUSTODY_OUTPUT, M4_GATE_B_EXPECTED_WORKSHOP_OUTPUT,
   M4_GATE_B_FAILURE_BEHAVIOR, M4_GATE_B_ROLLBACK_BEHAVIOR, M4_GATE_B_TAKEDOWN_POSTURE } from "../../src/capability/m4-sec-gate-b-activation.ts";
+import { reserveM4GateBArtifactOutputs } from "../../src/capability/m4-sec-gate-b-artifacts.ts";
 import { createM4SecGateBKernel } from "../../src/capability/m4-sec-gate-b-mediation.ts";
 import { extractM4SecEvidence } from "../../src/capability/m4-sec-extraction.ts";
 import { M4_RECORDED_SEC_SUBMISSIONS_BODY } from "../../src/capability/m4-public-http-fetch-proof.ts";
@@ -64,16 +65,19 @@ function consumedActivation(now = new Date("2026-07-12T00:00:02.000Z")) {
     targetUrl: M4_CANONICAL_TARGET_POLICY.url, targetPolicySha256: M4_TARGET_POLICY_SHA256, cik: "0001048911",
     authorizedAt: "2026-07-12T00:00:00.000Z", validFrom: "2026-07-12T00:00:01.000Z", validUntil: "2026-07-12T00:05:00.000Z",
     userAgentConfigInput: "ATLIERA_M4_SEC_USER_AGENT",
+    userAgentSha256: createHash("sha256").update(VALID_UA, "ascii").digest("hex"),
+    userAgentByteLength: Buffer.byteLength(VALID_UA, "ascii"),
     networkBudget: { scheme: "https", effectivePort: 443, method: "GET", addressFamily: 4, maxTargets: 1,
       maxRequests: 1, onePinnedAddress: true, oneConnectionAttempt: true, redirectLimit: 0, retryBudget: 0,
       totalDeadlineMs: 10_000, maxBodyBytes: 1_048_576, acceptedContentTypes: ["application/json"] },
     retentionDays: 30, takedownPosture: M4_GATE_B_TAKEDOWN_POSTURE,
+    expectedAttemptOutput: M4_GATE_B_EXPECTED_ATTEMPT_OUTPUT,
     expectedCustodyOutput: M4_GATE_B_EXPECTED_CUSTODY_OUTPUT,
     expectedWorkshopOutput: M4_GATE_B_EXPECTED_WORKSHOP_OUTPUT,
     failureBehavior: M4_GATE_B_FAILURE_BEHAVIOR, rollbackBehavior: M4_GATE_B_ROLLBACK_BEHAVIOR,
     authorizesLiveAcquisition: true };
   writeFileSync(path, JSON.stringify(go));
-  return { path, activation: consumeM4GateBGo(path, "a".repeat(40), now) };
+  return { path, activation: consumeM4GateBGo(path, "a".repeat(40), VALID_UA, now) };
 }
 
 function gateBInvocation(activation: ReturnType<typeof consumeM4GateBGo>) {
@@ -138,6 +142,7 @@ test("adapter refuses DNS, timeout, connected address, TLS, redirect, status, MI
   await new Promise((resolve) => setImmediate(resolve)); overflow.response.emit("data", Buffer.alloc(1_048_577));
   const overflowResult = await overflowPending; assert.equal(overflowResult.ok, false);
   if (!overflowResult.ok) assert.equal(overflowResult.refusalCode, "body_limit_refused");
+  assert.equal(overflowResult.telemetry.bytesReceived, 1_048_577);
 });
 
 test("body exact limit succeeds and body deadline settles once", async () => {
@@ -177,12 +182,18 @@ test("strict extraction rejects identity, malformed JSON, invalid UTF-8 and secu
 test("private Gate B GO is exact, time-bound, commit/policy-bound and consumed before replay", () => {
   assert.throws(() => consumedActivation(new Date("2026-07-12T00:05:00.000Z")), /GO refused/);
   const { path, activation } = consumedActivation();
-  assert.equal(JSON.parse(readFileSync(activation.consumptionPath, "utf8")).oneShotConsumptionId, "consume_test_001");
-  assert.throws(() => consumeM4GateBGo(path, "b".repeat(40), new Date("2026-07-12T00:00:03.000Z")), /GO refused/);
-  assert.throws(() => consumeM4GateBGo(path, "a".repeat(40), new Date("2026-07-12T00:00:03.000Z")), /replay/);
+  const consumptionText = readFileSync(activation.consumptionPath, "utf8");
+  const consumption = JSON.parse(consumptionText);
+  assert.equal(consumption.oneShotConsumptionId, "consume_test_001");
+  assert.equal(consumption.userAgentSha256, createHash("sha256").update(VALID_UA, "utf8").digest("hex"));
+  assert.equal(consumption.userAgentByteLength, Buffer.byteLength(VALID_UA, "utf8"));
+  assert.equal(consumptionText.includes(VALID_UA), false);
+  assert.throws(() => consumeM4GateBGo(path, "b".repeat(40), VALID_UA, new Date("2026-07-12T00:00:03.000Z")), /GO refused/);
+  assert.throws(() => consumeM4GateBGo(path, "a".repeat(40), `${VALID_UA}x`, new Date("2026-07-12T00:00:03.000Z")), /User-Agent refused/);
+  assert.throws(() => consumeM4GateBGo(path, "a".repeat(40), VALID_UA, new Date("2026-07-12T00:00:03.000Z")), /replay/);
   const copiedPath = join(mkdtempSync(join(tmpdir(), "atliera-m4-go-copy-")), "copied-go.json");
   writeFileSync(copiedPath, readFileSync(path));
-  assert.throws(() => consumeM4GateBGo(copiedPath, "a".repeat(40), new Date("2026-07-12T00:00:03.000Z")), /replay/);
+  assert.throws(() => consumeM4GateBGo(copiedPath, "a".repeat(40), VALID_UA, new Date("2026-07-12T00:00:03.000Z")), /replay/);
   assert.equal(M4_TARGET_POLICY_REF.includes("m4-target-policy"), true);
 });
 
@@ -197,7 +208,21 @@ test("Gate B private activation permits exactly one mediation attempt, including
   assert.equal(h.state().requestCalls, 0);
 });
 
-test("Gate B success traverses MCP mediation once and emits truthful redacted live records", async () => {
+test("one consumed activation can construct only one kernel across independent factory calls", async () => {
+  const { activation } = consumedActivation(); const firstHarness = harness(); const secondHarness = harness();
+  const clock = { nowIso: () => "2026-07-12T00:00:03.000Z", monotonicMs: () => 1000 };
+  const first = createM4SecGateBKernel({ activation, userAgent: VALID_UA, clock, dependencies: firstHarness.dependencies });
+  assert.throws(() => createM4SecGateBKernel({ activation, userAgent: VALID_UA, clock,
+    dependencies: secondHarness.dependencies }));
+  const pending = first.invoke(gateBInvocation(activation)); await new Promise((resolve) => setImmediate(resolve));
+  firstHarness.response.emit("data", Buffer.from(M4_RECORDED_SEC_SUBMISSIONS_BODY)); firstHarness.response.emit("end");
+  const result = await pending; assert.equal(result.ok, true);
+  assert.equal(firstHarness.state().requestCalls, 1); assert.equal(secondHarness.state().requestCalls, 0);
+});
+
+test("Gate B success traverses MCP mediation once and durably persists truthful redacted live records", async () => {
+  const outputDirectory = mkdtempSync(join(tmpdir(), "atliera-m4-success-artifacts-"));
+  const reservation = reserveM4GateBArtifactOutputs(outputDirectory);
   const { activation } = consumedActivation(); const h = harness();
   const kernel = createM4SecGateBKernel({ activation, userAgent: VALID_UA,
     clock: { nowIso: () => "2026-07-12T00:00:03.000Z", monotonicMs: (() => { const values = [1000, 1009]; return () => values.shift()!; })() },
@@ -218,6 +243,12 @@ test("Gate B success traverses MCP mediation once and emits truthful redacted li
   assert.equal(result.accountingIncrements[0].selectedAddress, "8.8.8.8");
   assert.equal(result.accountingIncrements[0].bytesReceived, Buffer.byteLength(M4_RECORDED_SEC_SUBMISSIONS_BODY));
   assert.equal(JSON.stringify(result).includes(VALID_UA), false); assert.equal(h.state().requestCalls, 1);
+  reservation.persistInvokedResult(activation, result);
+  const attemptText = readFileSync(reservation.paths.attempt, "utf8");
+  assert.equal(JSON.parse(attemptText).status, "completed_evidence_persisted");
+  assert.doesNotMatch(attemptText, /bodyBase64|quotedBodyText|AIR COURIER SERVICES/);
+  assert.match(readFileSync(reservation.paths.custody, "utf8"), /AIR COURIER SERVICES/);
+  assert.match(readFileSync(reservation.paths.workshop, "utf8"), /Quoted\/untrusted public-source content — Unverified/);
   const replay = await kernel.invoke(gateBInvocation(activation)); assert.equal(replay.ok, false);
   if (!replay.ok) assert.equal(replay.refusalCode, "schedule_consumed"); assert.equal(h.state().requestCalls, 1);
 });
@@ -237,9 +268,59 @@ test("Gate B post-network extraction refusal still emits one truthful failed rec
   assert.equal(result.accountingIncrements[0].bytesReceived, 0);
 });
 
+test("failed overflow durably persists sanitized execution, audit, and accounting after atomic reservation", async () => {
+  const outputDirectory = mkdtempSync(join(tmpdir(), "atliera-m4-artifacts-"));
+  const reservation = reserveM4GateBArtifactOutputs(outputDirectory);
+  assert.equal(existsSync(reservation.paths.attempt), true);
+  assert.equal(existsSync(reservation.paths.custody), true);
+  assert.equal(existsSync(reservation.paths.workshop), true);
+  const { activation } = consumedActivation(); const h = harness();
+  const kernel = createM4SecGateBKernel({ activation, userAgent: VALID_UA,
+    clock: { nowIso: () => "2026-07-12T00:00:03.000Z", monotonicMs: (() => { const values = [3000, 3004]; return () => values.shift()!; })() },
+    dependencies: h.dependencies });
+  const pending = kernel.invoke(gateBInvocation(activation)); await new Promise((resolve) => setImmediate(resolve));
+  h.response.emit("data", Buffer.alloc(1_048_577));
+  const result = await pending; assert.equal(result.ok, true); if (!result.ok) return;
+  reservation.persistInvokedResult(activation, result);
+  const receiptText = readFileSync(reservation.paths.attempt, "utf8");
+  const receipt = JSON.parse(receiptText);
+  assert.equal(receipt.status, "failed_no_evidence");
+  assert.equal(receipt.capabilityExecutions[0].refusalCode, "body_limit_refused");
+  assert.equal(receipt.capabilityExecutions[0].effectTelemetry.bytesReceived, 1_048_577);
+  assert.equal(receipt.auditEvents[0].payload_json.bytes_received, 1_048_577);
+  assert.equal(receipt.accountingIncrements[0].bytesReceived, 1_048_577);
+  assert.doesNotMatch(receiptText, /bodyBase64|quotedBodyText|AIR COURIER SERVICES/);
+  assert.equal(readFileSync(reservation.paths.custody).byteLength, 0);
+  assert.equal(readFileSync(reservation.paths.workshop).byteLength, 0);
+});
+
+test("artifact reservation refuses collisions without deleting pre-existing paths and leaves empty fail-closed tombstones", () => {
+  const outputDirectory = mkdtempSync(join(tmpdir(), "atliera-m4-artifact-race-"));
+  const workshopPath = join(outputDirectory, "sec-fedex-submissions-workshop.html");
+  writeFileSync(workshopPath, "occupied");
+  assert.throws(() => reserveM4GateBArtifactOutputs(outputDirectory), /reservation refused/);
+  assert.equal(readFileSync(workshopPath, "utf8"), "occupied");
+  assert.equal(readFileSync(join(outputDirectory, "sec-fedex-submissions-attempt.json")).byteLength, 0);
+  assert.equal(readFileSync(join(outputDirectory, "sec-fedex-submissions-custody.json")).byteLength, 0);
+});
+
+test("reservation identity check never deletes a concurrently substituted canonical path", () => {
+  const outputDirectory = mkdtempSync(join(tmpdir(), "atliera-m4-artifact-substitute-"));
+  const reservation = reserveM4GateBArtifactOutputs(outputDirectory);
+  const movedCustody = `${reservation.paths.custody}.moved`;
+  renameSync(reservation.paths.custody, movedCustody);
+  writeFileSync(reservation.paths.custody, "replacement-must-survive");
+  assert.throws(() => reservation.assertIntact(), /identity refused/);
+  reservation.releaseWithoutInvocation();
+  assert.equal(readFileSync(reservation.paths.custody, "utf8"), "replacement-must-survive");
+  assert.equal(readFileSync(movedCustody).byteLength, 0);
+  assert.equal(readFileSync(reservation.paths.attempt).byteLength, 0);
+  assert.equal(readFileSync(reservation.paths.workshop).byteLength, 0);
+});
+
 test("Gate B preflight and production singleton remain fail-closed without live dependency access", async () => {
   const { activation } = consumedActivation(); let accesses = 0;
-  const options = Object.defineProperty({ activation, userAgent: "bad", clock: {} }, "dependencies",
+  const options = Object.defineProperty({ activation, userAgent: `${VALID_UA}x`, clock: {} }, "dependencies",
     { enumerable: true, get() { accesses++; throw new Error("dependency touched"); } });
   assert.throws(() => createM4SecGateBKernel(options as never), /User-Agent refused/); assert.equal(accesses, 0);
   const result = await getM4PublicHttpFetchKernel().invoke({ trigger: { kind: "approved_recorded_schedule", scheduleId: "x" },
@@ -250,7 +331,6 @@ test("Gate B preflight and production singleton remain fail-closed without live 
   assert.match(script, /git", \["rev-parse", "HEAD"\]/);
   assert.match(script, /git", \["status", "--porcelain"\]/);
   assert.ok(script.indexOf("validateM4SecUserAgent") < script.indexOf("consumeM4GateBGo(resolve"));
-  assert.ok(script.indexOf("existsSync(custodyPath)") < script.indexOf("consumeM4GateBGo(resolve"));
-  assert.match(script, /openSync\(custodyPath, "wx", 0o600\)/);
-  assert.match(script, /fsyncSync\(custodyDescriptor\)/);
+  assert.ok(script.indexOf("reserveM4GateBArtifactOutputs") < script.indexOf("consumeM4GateBGo(resolve"));
+  assert.ok(script.indexOf("persistInvokedResult") < script.indexOf("result.output === null"));
 });

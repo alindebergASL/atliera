@@ -4,7 +4,8 @@ Status: `Gate A implemented`, `unarmed`, `Gate B executable only after external 
 
 ## Authority
 
-- implementation_work_authorized: `Atliera-M4-Gate-A-only`
+- current_implementation_work_authorized: `none`
+- historical_implementation_work_authorized: `Atliera-M4-Gate-A-only` (completed; no current authority)
 - implementation_authority_after_completion: `none`
 - current_effective_authorization: `none`
 - live_acquisition_authorized: `false`
@@ -30,13 +31,13 @@ The machine-readable companion `fixtures/validation/m4-sec-gate-b-go-template.js
 - MIME: exactly `application/json`, optionally one normal `charset=utf-8` parameter. Other, malformed, quoted, or duplicate parameters refuse.
 - Trust: `quoted_untrusted_public_source_content`; `mayProvideInstructions: false`; `controlAuthority: none`; transport success never promotes trust.
 - Retention/takedown proposal requiring Gate B ratification: retain exact bytes and custody for 30 days unless separately governed/promoted. For takedown or legal concern, quarantine and stop downstream use; retain minimum audit/hash unless deletion is required.
-- One-shot contract: an external private JSON GO must name an authorization ID, authorization/validity timestamps, unique consumption ID, one fixed absolute consumption-record path whose filename ends in that ID, exact target/URL/CIK/policy hash, `authorizesLiveAcquisition: true`, and the reviewed 40-hex adapter commit. The operator command independently requires a clean checkout whose `HEAD` is that exact commit before consuming the GO. Exclusive file-and-directory-synced consumption is written at the GO-bound path before DNS, so moving or copying the GO cannot reset its identity; failure consumes the attempt and replay refuses.
-- Expected Gate B outputs: `artifacts/m4-sec-gate-b/sec-fedex-submissions-custody.json` and `artifacts/m4-sec-gate-b/sec-fedex-submissions-workshop.html`.
-- Failure/rollback: destroy resolver/request/response/socket, write no evidence output, do not retry, leave the one-shot consumed, keep production defaults unarmed, and require a new explicit authorization for any later attempt.
+- One-shot contract: an external private JSON GO must name an authorization ID, authorization/validity timestamps, unique consumption ID, one fixed absolute consumption-record path whose filename ends in that ID, the SHA-256 and UTF-8 byte length of Andrew's exact approved SEC User-Agent, exact target/URL/CIK/policy hash, `authorizesLiveAcquisition: true`, and the reviewed 40-hex adapter commit. The operator command independently requires a clean checkout whose `HEAD` is that exact commit and compares the runtime User-Agent hash/length before consuming the GO. Exclusive file-and-directory-synced consumption records the same redacted User-Agent identity at the GO-bound path before DNS, and kernel construction then exclusively creates a sibling durable execution claim before any network dependency can run. Moving/copying the GO or constructing a second kernel cannot reset either identity; failure consumes the attempt and replay refuses.
+- Expected Gate B outputs: a sanitized attempt receipt at `artifacts/m4-sec-gate-b/sec-fedex-submissions-attempt.json` for every invoked outcome, plus pre-reserved custody and Workshop paths at `artifacts/m4-sec-gate-b/sec-fedex-submissions-custody.json` and `artifacts/m4-sec-gate-b/sec-fedex-submissions-workshop.html`. All three names are exclusively reserved before GO consumption or network construction. On failure, the latter two remain zero-byte fail-closed tombstones rather than being unlinked through a racy pathname; the attempt receipt preserves execution/audit/accounting without evidence body bytes. Any tombstones require explicit operator inspection and removal before a separately authorized later attempt.
+- Failure/rollback: destroy resolver/request/response/socket, durably persist the sanitized attempt receipt, truncate this attempt's evidence descriptors to zero, never unlink a possibly substituted pathname, do not retry, leave the one-shot consumed, keep production defaults unarmed, and require a new explicit authorization for any later attempt.
 
 ## SEC User-Agent requirement
 
-Gate B requires `ATLIERA_M4_SEC_USER_AGENT` before the private GO is consumed and before dependencies or DNS/network are touched. Missing, malformed, non-printable, CRLF-bearing, or implausible declared-bot values fail closed. Accepted configured bytes are sent exactly; audit metadata stores only a redacted shape, byte length, and SHA-256.
+Gate B requires `ATLIERA_M4_SEC_USER_AGENT` before the private GO is consumed and before dependencies or DNS/network are touched. Missing, malformed, non-printable, CRLF-bearing, implausible, or hash/byte-length-mismatched declared-bot values fail closed. The private GO, durable consumption record, and activation bind only the SHA-256 and UTF-8 byte length of Andrew's exact approved value; accepted configured bytes are sent exactly, and no raw contact string is committed or emitted in audit metadata.
 
 Andrew must provide the exact final public string before Gate B. SEC’s `OrganizationOrApplication <MONITORED_PUBLIC_CONTACT_EMAIL>` shape is FORMAT ONLY; the placeholder is not an actual contact and must not be used as one. No personal or fabricated contact value is committed here.
 

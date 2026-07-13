@@ -42,7 +42,8 @@ test("roadmap and Gate A packet preserve none authority and one inert target", (
   assert.match(packet, /^- historical_implementation_work_authorized: `Atliera-M4-Gate-A-only` \(completed; no current authority\)$/m);
   assert.doesNotMatch(packet, /^- implementation_work_authorized: `Atliera-M4-Gate-A-only`$/m);
   const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
-  assert.match(index, /next recommended work: repair and exact-head approval of PR #286; after merge, Gate B/);
+  assert.match(index, /next recommended work: once PR #286 is independently approved and merged, obtain a fresh operator decision on a private reviewed-commit\/policy\/exact-User-Agent-bound Gate B GO; until then, none/);
+  assert.doesNotMatch(index, /next recommended work: repair and exact-head approval of PR #286/);
   assert.match(index, /the compact packet exists but is inert; exact-head approval\/merge plus one private commit\/policy\/User-Agent-bound GO/);
   assert.doesNotMatch(index, /one compact URL\/budget\/retention\/legal packet and one explicit operator GO are still required/);
   assert.doesNotMatch(index, /next recommended work: independent Gate A review/);

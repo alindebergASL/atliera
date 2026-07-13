@@ -9,7 +9,7 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: repair and exact-head approval of PR #286; after merge, Gate B requires a private commit/policy/User-Agent-bound GO before one-shot SEC execution
+- next recommended work: once PR #286 is independently approved and merged, obtain a fresh operator decision on a private reviewed-commit/policy/exact-User-Agent-bound Gate B GO; until then, none
 - ratified next bounded implementation: none
 - M4 implementation slice is complete under the recorded operator decision; implementation authority has returned to none
 - live acquisition remains unauthorized: the compact packet exists but is inert; exact-head approval/merge plus one private commit/policy/User-Agent-bound GO are still required

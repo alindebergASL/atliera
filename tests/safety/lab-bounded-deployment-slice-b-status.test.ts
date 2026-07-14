@@ -103,7 +103,7 @@ test("authority docs advance to Gate 3 reconciliation without standing authoriza
   assert.match(index, /`lab-bounded-deployment-slice-b-backup-restore-status\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
   assert.match(index, /ratified next bounded implementation: none/i);
-  assert.match(index, /M4 implementation slice is complete.*implementation authority has returned to none/i);
+  assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(plan, /bounded lab deployment slice B backup\/restore status/i);

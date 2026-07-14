@@ -29,7 +29,7 @@ test("recorded SEC proof and Workshop fixture are deterministic through registry
   assert.doesNotMatch(readFileSync(workshop, "utf8"), />Verified</);
 });
 
-test("roadmap and Gate B attempt-1 retro preserve none authority and one inert target", () => {
+test("roadmap and M4 closeout preserve none authority after one successful consumed attempt", () => {
   for (const relative of [["docs", "strategy", "roadmap.md"], ["docs", "runbooks", "m4-public-http-fetch-v1-status-and-fedex-live-packet.md"]]) {
     const document = readFileSync(join(root, ...relative), "utf8");
     assert.match(document, /current_effective_authorization:\s*`?none`?/);
@@ -37,20 +37,20 @@ test("roadmap and Gate B attempt-1 retro preserve none authority and one inert t
   }
   const packet = readFileSync(join(root, "docs", "runbooks", "m4-public-http-fetch-v1-status-and-fedex-live-packet.md"), "utf8");
   assert.match(packet, /data\.sec\.gov\/submissions\/CIK0001048911\.json/);
-  assert.match(packet, /ATLIERA_M4_SEC_USER_AGENT/);
-  assert.match(packet, /^- current_implementation_work_authorized: `none`$/m);
-  assert.match(packet, /^- historical_implementation_work_authorized: `Atliera-M4-Gate-A-only` \(completed; no current authority\)$/m);
-  assert.doesNotMatch(packet, /^- implementation_work_authorized: `Atliera-M4-Gate-A-only`$/m);
-  assert.match(packet, /Gate B attempt 1 used the exact merged commit above and permanently consumed its external GO/);
-  assert.match(packet, /did \*\*not\*\* prove successful acquisition/);
-  assert.match(packet, /family: 4` and `autoSelectFamily: false/);
+  assert.match(packet, /^- current_implementation_work_authorized: none$/m);
+  assert.match(packet, /^- current_effective_authorization: none$/m);
+  assert.match(packet, /Attempt 1 remains byte-identical and permanently consumed/);
+  assert.match(packet, /It did not prove successful acquisition/);
+  assert.match(packet, /family: 4/);
+  assert.match(packet, /autoSelectFamily: false/);
+  assert.match(packet, /Attempt 2 used a new authorization and new consumption identity/);
+  assert.match(packet, /response bytes: `160,901`/);
+  assert.match(packet, /response SHA-256: `ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d`/);
   const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
-  assert.match(index, /next recommended work: independently review and merge the no-network Node 22 transport repair/);
-  assert.doesNotMatch(index, /next recommended work: repair and exact-head approval of PR #286/);
-  assert.match(index, /M4 Gate B attempt 1 is permanently consumed and failed with zero response bytes/);
-  assert.match(index, /a future attempt requires repair approval\/merge plus a new private commit\/policy\/User-Agent-bound GO/);
-  assert.doesNotMatch(index, /one compact URL\/budget\/retention\/legal packet and one explicit operator GO are still required/);
-  assert.doesNotMatch(index, /next recommended work: independent Gate A review/);
+  assert.match(index, /next recommended work: separate explicit M5b decision after the M4 closeout merges/);
+  assert.match(index, /M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes/);
+  assert.match(index, /M4 Gate B attempt 2 is permanently consumed and succeeded once/);
+  assert.match(index, /neither consumed attempt may be retried or reused/);
   assert.match(packet, new RegExp(M4_TARGET_POLICY_SHA256));
   const template = JSON.parse(readFileSync(join(root, "fixtures", "validation", "m4-sec-gate-b-go-template.json"), "utf8"));
   assert.equal(template.authorizesLiveAcquisition, false);

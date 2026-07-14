@@ -4,7 +4,7 @@ Status: active (plan-only)
 
 This runbook is the H3 slice plan — the consolidation of the `util.types.isProxy` + own-data descriptor-snapshot + (selectively) deep-freeze discipline that currently lives in three independent implementations, into `src/safety/own-data-snapshot.ts`. It is the first H-track artifact after the M3-retro freeze lift (`docs/reviews/m3-retro.md`, PR #275, merged at `a48e5ab`).
 
-**This PR ships the plan, not the code.** `src/safety/own-data-snapshot.ts` does not exist in this PR. No call site is migrated. The implementation slice — which is the slice that actually moves code — is a separate, future PR that is gated behind (1) operator ratification of this plan and (2) the M5a-vs-M4 sequencing call that is operator-direct at the moment the implementation slice would begin. Drafting the map is not driving the road; the implementation slice is the road.
+**This PR ships the plan, not the code.** `src/safety/own-data-snapshot.ts` does not exist in this PR. No call site is migrated. The implementation slice — which is the slice that actually moves code — is a separate, future PR gated behind (1) operator ratification of this plan and (2) a separate future explicit H3 implementation decision. The M4 closeout resolves the prior M5a-vs-M4 sequencing question and leaves H3 unstarted, not next-up and unauthorized. Drafting the map is not driving the road; the implementation slice is the road.
 
 Doctrine alignment (M3 step 3a retro §3, M3 retro §3):
 
@@ -267,14 +267,14 @@ The implementation slice is **behavior-preserving by default**, with any behavio
 - No reader array helper (the reader does not currently have one; adding one is a behavior change).
 - No provider call, no graph mutation, no production write, no readiness claim — H3 implementation touches none of these surfaces.
 - No adjacent improvement on the reader, executor, or render-side composer (the "while I'm here" temptation; explicitly out of scope).
-- No M5a-anticipating change. M5a's eventual durable-state surface may use the consolidated primitive; the implementation slice does not preempt M5a's contract.
+- No M5b-anticipating change. M5a is shipped; a future H3 implementation slice may not preempt a separate M5b decision or contract.
 
 ## 10. Gating — what authorizes the implementation slice to begin
 
 The implementation slice is correctly gated behind:
 
 - **Operator ratification of this plan.** Specifically, ratification of each Q in §3 (which branch the consolidated primitive adopts), of the union-never-intersection rule in §4, and of the per-site reject-path discipline in §7.
-- **The M5a-vs-M4 sequencing decision the M3 retro recorded as closed for the M3-to-M5a step.** The implementation slice does not preempt that decision; it lands when the operator picks it up against the live next-slice queue, not because this plan landed first. Drafting the plan is not driving the road; the M3-retro's M5a-next disposition stays the default and the implementation slice's start time is operator-direct against the queue.
+- **A separate future explicit H3 implementation decision.** The M4 closeout resolves the prior M5a-vs-M4 sequencing question, recommends only a separate explicit M5b decision and leaves H3 not next-up. H3 cannot begin because this plan landed first or because the old sequencing question once existed.
 
 Both gates are operator-direct. This plan PR does not authorize either.
 

@@ -102,6 +102,6 @@ test("BLOCKERS exposes per-gate status and the Gate 3/Gate 4 imbalance", () => {
   assert.match(blockers, /Gate 3\s*\|\s*underbuilt/i);
   assert.match(blockers, /Gate 4\s*\|\s*fixture-only/i);
   assert.match(blockers, /no launch-ready claim/i);
-  assert.match(blockers, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);
+  assert.match(blockers, /current next recommended work is only a separate explicit M5b decision/i);
   assertNoBroadening("BLOCKERS", blockers);
 });

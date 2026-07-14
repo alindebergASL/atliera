@@ -87,8 +87,9 @@ test("Gate 3 status reconciliation records a no-side-effect boundary", () => {
 
   assert.match(status, /Gate 3 remains underbuilt/i);
   assert.match(status, /The status reconciliation requested after slice B is now complete/i);
-  assert.match(status, /The next recommended work is an explicit operator decision for the next scoped Gate 3 slice/i);
-  assert.match(status, /does not choose, approve, or execute that slice/i);
+  assert.match(status, /local historical follow-up was an explicit operator decision for another scoped Gate 3 slice/i);
+  assert.match(status, /current repository-level next recommendation is only a separate explicit M5b decision/i);
+  assert.match(status, /does not choose, approve, or execute Gate 3 or M5b work/i);
   assertNoPrivateLiterals("Gate 3 reconciliation", status);
 });
 
@@ -104,11 +105,11 @@ test("authority docs advance past reconciliation without authorizing a next slic
   assert.match(index, /`lab-gate3-status-reconciliation\.md`\s*\|\s*active/i);
   assert.match(index, /current_effective_authorization:\s*none/i);
   assert.match(index, /ratified next bounded implementation: none/i);
-  assert.match(index, /M4 implementation slice is complete.*implementation authority has returned to none/i);
+  assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
 
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
-  assert.match(blockers, /next recommended work: explicit operator decision for the next scoped Gate 3 slice/i);
-  assert.match(blockers, /fresh explicit operator decision before further lab expansion/i);
+  assert.match(blockers, /current next recommended work is only a separate explicit M5b decision/i);
+  assert.match(blockers, /Any later Gate 3 expansion still requires a fresh explicit operator decision/i);
 
   assert.match(plan, /Gate 3 reconciliation completed without side effects/i);
   assert.match(plan, /No further lab expansion is approved/i);

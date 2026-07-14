@@ -81,9 +81,9 @@ The following remain future work and require fresh explicit operator approval be
 
 The status reconciliation requested after slice B is now complete. Current effective authorization is none.
 
-The next recommended work is an explicit operator decision for the next scoped Gate 3 slice. This reconciliation does not choose, approve, or execute that slice.
+At the time this reconciliation closed, its local historical follow-up was an explicit operator decision for another scoped Gate 3 slice. The M4 closeout supersedes that queue position: the current repository-level next recommendation is only a separate explicit M5b decision. This reconciliation does not choose, approve, or execute Gate 3 or M5b work.
 
-Reasonable next-slice options include:
+Historical Gate 3 options remain unapproved and include:
 
 - no-side-effect persistent deployment wiring plan
 - no-side-effect deployment-target empty-DB boot proof plan

@@ -41,13 +41,14 @@ test("M5a ships only with its visible capstone and bounded successor approval su
   assert.ok(h2.includes("one `CapabilityExecution`, one `AuditEvent`, and one accounting increment"));
   assert.ok(h2.includes("I-3, I-4, I-5, I-10 and I-11"));
   assert.ok(h2.includes("reviewed second entry"));
-  assert.ok(m4.includes("🔶 in progress"));
-  assert.ok(m4.includes("Gate A complete and unarmed"));
-  assert.ok(m4.includes("zero live egress"));
-  assert.ok(m4.includes("M4 remains in progress until a separately authorized Gate B one-shot succeeds"));
+  assert.ok(m4.includes("✅ shipped upon closeout merge"));
+  assert.ok(m4.includes("fixtures/workshop/m4-sec-fedex-live-evidence-preview.html"));
+  assert.ok(m4.includes("fixtures/validation/m4-live-acquisition-success-proof.json"));
+  assert.ok(m4.includes("docs/reviews/m4-live-acquisition-closeout-retro.md"));
+  assert.ok(m4.includes("zero redirects and zero retries"));
 
   assert.equal(markerValue(ROADMAP, "implementation_work_authorized"), "none");
-  assert.equal(markerValue(ROADMAP, "implementation_start_condition"), "completed-after-H2-merge-and-verification");
+  assert.equal(markerValue(ROADMAP, "implementation_start_condition"), "none");
   assert.equal(markerValue(ROADMAP, "current_effective_authorization"), "none");
   assert.equal(markerValue(ROADMAP, "authorizes_flow_execution"), "false");
   assert.equal(markerValue(ROADMAP, "authorizes_provider_call"), "false");
@@ -57,7 +58,7 @@ test("M5a ships only with its visible capstone and bounded successor approval su
   assert.equal(markerValue(ROADMAP, "readiness_claim"), "false");
   assert.equal(markerValue(INDEX, "current_effective_authorization"), "none");
   assert.equal(markerValue(INDEX, "ratified next bounded implementation"), "none");
-  assert.match(INDEX, /M4 implementation slice is complete/i);
+  assert.match(INDEX, /M4 is shipped upon closeout merge/i);
   assert.match(INDEX, /live acquisition remains unauthorized/i);
 
   for (const document of [RETRO, ROADMAP, INDEX]) {

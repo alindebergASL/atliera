@@ -217,10 +217,13 @@ test("the non-goals list includes the 'while I'm here' guard and names behavior-
   assert.match(status, /No reader array helper/);
 });
 
-test("§10 gates the implementation slice on operator ratification AND the live M5a-vs-M4 sequencing call", () => {
+test("§10 gates the implementation slice on operator ratification and a separate future explicit H3 decision", () => {
   const status = read(STATUS);
   assert.match(status, /Operator ratification of this plan/);
-  assert.match(status, /M5a-vs-M4 sequencing decision/);
+  assert.match(status, /separate future explicit H3 implementation decision/);
+  assert.match(status, /M4 closeout resolves the prior M5a-vs-M4 sequencing question/);
+  assert.match(status, /leaves H3 not next-up/);
+  assert.doesNotMatch(status, /live M5a-vs-M4 sequencing call/);
   assert.match(status, /This plan PR does not authorize either/);
 });
 

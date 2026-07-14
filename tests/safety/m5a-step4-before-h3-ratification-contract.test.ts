@@ -89,7 +89,7 @@ test("operator ratification selected Step 4 before H3 and the living roadmap pre
     "the historical Step 4-before-H3 sequence must remain attributable",
   );
   assert.ok(currentSlice.includes("implemented through PR #282"), "living status must record Step 4 implementation");
-  assert.match(currentSlice, /compact packet and explicit operator GO/i);
+  assert.match(currentSlice, /M4 has now completed one separately authorized acquisition and its own visible closeout/i);
 });
 
 test("H3 plan state and H1/H3 sequencing are reconciled without rewriting history", () => {
@@ -152,7 +152,7 @@ test("Step 4 scope separately closes provider, acquisition, private-read, retry,
 
 test("living roadmap records the completed M4 implementation slice with authority returned to none", () => {
   assert.equal(markerValue(roadmap, "implementation_work_authorized"), "none");
-  assert.equal(markerValue(roadmap, "implementation_start_condition"), "completed-after-H2-merge-and-verification");
+  assert.equal(markerValue(roadmap, "implementation_start_condition"), "none");
   assert.equal(markerValue(roadmap, "current_effective_authorization"), "none");
   assert.equal(markerValue(roadmap, "authorizes_flow_execution"), "false");
   assert.equal(markerValue(roadmap, "authorizes_durable_write_effect"), "false");
@@ -163,9 +163,9 @@ test("living roadmap records the completed M4 implementation slice with authorit
   assert.equal(markerValue(roadmap, "authorizes_deployment"), "false");
   assert.equal(markerValue(roadmap, "readiness_claim"), "false");
   assert.equal(markerValue(index, "current_effective_authorization"), "none");
-  assert.match(roadmap, /live Atliera fetch still requires the inert compact packet and explicit operator GO/i);
+  assert.match(roadmap, /No repeated acquisition.*M5b provider execution.*is authorized/i);
   assert.equal(markerValue(index, "ratified next bounded implementation"), "none");
-  assert.match(index, /M4 implementation slice is complete.*implementation authority has returned to none/i);
+  assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
   assert.match(index, /live acquisition remains unauthorized/i);
 });
 

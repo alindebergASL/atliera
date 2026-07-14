@@ -56,6 +56,10 @@ export interface M4SanitizedUserAgentAudit {
   readonly contactRedacted: true;
 }
 
+export type M4FailurePhase = "lookup_contract" | "request_construction" | "tcp_connection" |
+  "tls_handshake" | "response_headers" | "response_body_or_deadline" | "custody_finalization" |
+  "mediation_protocol";
+
 export interface M4EffectTelemetry {
   readonly dnsAttempts: 0 | 1;
   readonly requestAttempts: 0 | 1;
@@ -66,14 +70,20 @@ export interface M4EffectTelemetry {
   readonly lookupCallbacks: 0 | 1;
   readonly retryCount: 0;
   readonly responseSha256: string | null;
+  readonly failurePhase: M4FailurePhase | null;
   readonly userAgentAudit: M4SanitizedUserAgentAudit | null;
 }
 
 export const M4_ZERO_EFFECT_TELEMETRY: M4EffectTelemetry = Object.freeze({
   dnsAttempts: 0, requestAttempts: 0, connectionAttempts: 0, liveNetworkEgress: 0,
   bytesReceived: 0, selectedAddress: null, lookupCallbacks: 0, retryCount: 0,
-  responseSha256: null, userAgentAudit: null,
+  responseSha256: null, failurePhase: null, userAgentAudit: null,
 });
+
+export function withM4FailurePhase(telemetry: Readonly<M4EffectTelemetry>,
+  failurePhase: M4FailurePhase): M4EffectTelemetry {
+  return Object.freeze({ ...telemetry, failurePhase });
+}
 
 export type M4AcquisitionResult = { readonly ok: true; readonly evidence: M4PublicEvidence } |
   { readonly ok: false; readonly refusalCode: M4FetchRefusalCode };

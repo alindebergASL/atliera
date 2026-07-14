@@ -116,6 +116,8 @@ export function reserveM4GateBArtifactOutputs(outputDirectoryInput: string): M4G
         userAgentSha256: activation.userAgentSha256, userAgentByteLength: activation.userAgentByteLength },
       targetPolicySha256: M4_TARGET_POLICY_SHA256,
       evidenceArtifactsPersisted: status === "completed_evidence_persisted",
+      failurePhase: status === "effect_completed_artifact_persistence_failed" ? "custody_finalization" :
+        result.capabilityExecutions[0].effectTelemetry.failurePhase,
       capabilityExecutions: result.capabilityExecutions,
       auditEvents: result.auditEvents,
       accountingIncrements: result.accountingIncrements,

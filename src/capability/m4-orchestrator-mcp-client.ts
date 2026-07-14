@@ -19,6 +19,7 @@ import {
   M4_TARGET_URL,
   isPublicAddress,
   isStrictIsoTimestamp,
+  type M4FailurePhase,
   type M4FetchRefusalCode,
   type M4EffectTelemetry,
   type M4PublicEvidence,
@@ -124,6 +125,8 @@ const REFUSAL_CODES = new Set<M4FetchRefusalCode>([
   "transport_refused",
   "user_agent_refused", "authorization_refused", "authorization_replay_refused", "extraction_refused",
 ]);
+const FAILURE_PHASES = new Set<M4FailurePhase>(["lookup_contract", "request_construction", "tcp_connection",
+  "tls_handshake", "response_headers", "response_body_or_deadline", "custody_finalization", "mediation_protocol"]);
 
 function snapshotResolvedAddresses(value: unknown): readonly string[] {
   const values = denseArray(value, 16);
@@ -228,7 +231,8 @@ export type M4ClientCallResult =
 
 function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
   const root = ownData(value, ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress",
-    "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "userAgentAudit"]);
+    "bytesReceived", "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "failurePhase",
+    "userAgentAudit"]);
   for (const key of ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "lookupCallbacks"] as const) {
     if (root[key] !== 0 && root[key] !== 1) throw new M4OrchestratorBoundaryError();
   }
@@ -243,6 +247,9 @@ function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
   if (root.responseSha256 !== null && (typeof root.responseSha256 !== "string" || !/^[a-f0-9]{64}$/.test(root.responseSha256))) {
     throw new M4OrchestratorBoundaryError();
   }
+  const failurePhase = root.failurePhase;
+  if (failurePhase !== null && (typeof failurePhase !== "string" ||
+      !FAILURE_PHASES.has(failurePhase as M4FailurePhase))) throw new M4OrchestratorBoundaryError();
   let userAgentAudit: M4EffectTelemetry["userAgentAudit"] = null;
   if (root.userAgentAudit !== null) {
     const audit = ownData(root.userAgentAudit, ["configured", "byteLength", "sha256", "formatValid", "contactRedacted"]);
@@ -255,7 +262,7 @@ function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
   if ((root.requestAttempts as number) > (root.dnsAttempts as number) ||
       (root.connectionAttempts as number) > (root.requestAttempts as number) ||
       (root.liveNetworkEgress as number) > (root.connectionAttempts as number) ||
-      (root.lookupCallbacks as number) > (root.connectionAttempts as number) ||
+      (root.lookupCallbacks as number) > (root.requestAttempts as number) ||
       ((root.dnsAttempts !== 0 || root.requestAttempts !== 0 || root.connectionAttempts !== 0 ||
         root.liveNetworkEgress !== 0 || root.bytesReceived !== 0 || selectedAddress !== null ||
         root.lookupCallbacks !== 0 || root.responseSha256 !== null) && userAgentAudit === null)) {
@@ -265,7 +272,7 @@ function snapshotEffectTelemetry(value: unknown): M4EffectTelemetry {
     connectionAttempts: root.connectionAttempts as 0 | 1, liveNetworkEgress: root.liveNetworkEgress as 0 | 1,
     bytesReceived: root.bytesReceived as number, selectedAddress: selectedAddress as string | null,
     lookupCallbacks: root.lookupCallbacks as 0 | 1, retryCount: 0, responseSha256: root.responseSha256 as string | null,
-    userAgentAudit });
+    failurePhase: failurePhase as M4FailurePhase | null, userAgentAudit });
 }
 
 export class M4OrchestratorMcpClient {
@@ -366,12 +373,15 @@ export class M4OrchestratorMcpClient {
             effectTelemetry.connectionAttempts !== 0 || effectTelemetry.liveNetworkEgress !== 0 ||
             effectTelemetry.bytesReceived !== 0 || effectTelemetry.selectedAddress !== null ||
             effectTelemetry.lookupCallbacks !== 0 || effectTelemetry.responseSha256 !== null ||
-            effectTelemetry.userAgentAudit !== null) throw new M4OrchestratorBoundaryError();
+            effectTelemetry.failurePhase !== null || effectTelemetry.userAgentAudit !== null) {
+          throw new M4OrchestratorBoundaryError();
+        }
       } else if (effectTelemetry.dnsAttempts !== 1 || effectTelemetry.requestAttempts !== 1 ||
           effectTelemetry.connectionAttempts !== 1 || effectTelemetry.liveNetworkEgress !== 1 ||
           effectTelemetry.lookupCallbacks !== 1 || effectTelemetry.bytesReceived !== acquisition.byteCount ||
           effectTelemetry.selectedAddress !== acquisition.provenance.connectedAddress ||
-          effectTelemetry.responseSha256 !== acquisition.responseSha256 || effectTelemetry.userAgentAudit === null) {
+          effectTelemetry.responseSha256 !== acquisition.responseSha256 || effectTelemetry.failurePhase !== null ||
+          effectTelemetry.userAgentAudit === null) {
         throw new M4OrchestratorBoundaryError();
       }
       snapshot = Object.freeze({ acquisition, refusalCode: null, effectTelemetry });

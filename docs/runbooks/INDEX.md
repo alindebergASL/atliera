@@ -9,10 +9,11 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: once PR #286 is independently approved and merged, obtain a fresh operator decision on a private reviewed-commit/policy/exact-User-Agent-bound Gate B GO; until then, none
+- next recommended work: independently review and merge the no-network Node 22 transport repair; only after merge may an operator consider an entirely new one-shot Gate B authorization with new identities and paths
 - ratified next bounded implementation: none
 - M4 implementation slice is complete under the recorded operator decision; implementation authority has returned to none
-- live acquisition remains unauthorized: the compact packet exists but is inert; exact-head approval/merge plus one private commit/policy/User-Agent-bound GO are still required
+- M4 Gate B attempt 1 is permanently consumed and failed with zero response bytes; the repair slice may not reuse its authority or artifacts
+- live acquisition remains unauthorized: a future attempt requires repair approval/merge plus a new private commit/policy/User-Agent-bound GO
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -36,7 +37,7 @@ Status vocabulary:
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
 | `h2-echo-mediation-proof-status.md` | active | Shipped H2 system-side proof at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284): one approved L0 schedule invokes the first registered inert echo and emits one execution, audit, and accounting record with zero adjacent effects. |
-| `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | inert-approval | M4 Gate A recorded SEC/Workshop status plus exact, unarmed FedEx submissions Gate B packet. Current effective authority is none; live acquisition requires a private one-shot GO, reviewed commit, exact policy hash, and declared SEC User-Agent. |
+| `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | active | M4 Gate A status, permanently consumed `failed_no_evidence` Gate B attempt-1 retro, and no-network Node 22 transport-repair boundary. Current effective authority is none; a future live attempt requires repair approval/merge and a completely new private one-shot GO with new identities and paths. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |
 | `local-bearer-auth-seam-status.md` | active | Current local bearer-token auth seam for fake-mode Workshop serving; it is no-spend and does not claim deployment readiness. |

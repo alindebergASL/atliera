@@ -52,6 +52,11 @@ test("canonical target policy hash is independently pinned by registry, schedule
   assert.equal(registry.targetPolicySha256, M4_TARGET_POLICY_SHA256);
   assert.equal(sha256Canonical(M4_CANONICAL_TARGET_POLICY), M4_TARGET_POLICY_SHA256);
   assert.equal(M4_RECORDED_PROOF_SCHEDULE.targetPolicySha256, M4_TARGET_POLICY_SHA256);
+  assert.equal(registry.descriptorSha256, "0abd3c555771006749eaa59604c69e37090d32ea738eeb588dbb36423d1a2fb5");
+  assert.equal(M4_RECORDED_PROOF_SCHEDULE.descriptorSha256, registry.descriptorSha256);
+  assert.equal(M4_RECORDED_PROOF_SCHEDULE_SHA256,
+    "9f43034fa44878514ee160a5fc626aa629ebe5a9155a97f3782eaa7216bef4f2");
+  assert.ok(registry.descriptorSnapshot.outputSchema.properties.effectTelemetry.required.includes("failurePhase"));
   assert.equal(sha256Canonical(M4_RECORDED_PROOF_SCHEDULE), M4_RECORDED_PROOF_SCHEDULE_SHA256);
   assert.equal(Object.isFrozen(M4_CANONICAL_TARGET_POLICY), true);
   assert.equal(Object.isFrozen(M4_CANONICAL_TARGET_POLICY.addressPolicy.deniedCidrs.ipv4), true);
@@ -183,7 +188,8 @@ test("successful inert evidence derives recorded provenance and policy hash inte
   assert.equal(result.accountingIncrements[0].liveNetworkEgressPerformed, 0);
   assert.deepEqual(result.capabilityExecutions[0].effectTelemetry, {
     dnsAttempts: 0, requestAttempts: 0, connectionAttempts: 0, liveNetworkEgress: 0, bytesReceived: 0,
-    selectedAddress: null, lookupCallbacks: 0, retryCount: 0, responseSha256: null, userAgentAudit: null,
+    selectedAddress: null, lookupCallbacks: 0, retryCount: 0, responseSha256: null, failurePhase: null,
+    userAgentAudit: null,
   });
   assert.equal(result.capabilityExecutions[0].targetPolicySha256, M4_TARGET_POLICY_SHA256);
   assert.equal(result.auditEvents[0].payload_json.target_policy_sha256, M4_TARGET_POLICY_SHA256);

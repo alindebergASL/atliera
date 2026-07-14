@@ -25,6 +25,7 @@ import {
   M4_TARGET_REF,
   M4_TARGET_URL,
   isStrictIsoTimestamp,
+  type M4FailurePhase,
   type M4FetchRefusalCode,
   type M4EffectTelemetry,
   type M4PublicEvidence,
@@ -74,6 +75,7 @@ export interface M4AccountingIncrement {
   readonly lookupCallbacksPerformed: 0 | 1;
   readonly bytesReceived: number;
   readonly selectedAddress: string | null;
+  readonly failurePhase: M4FailurePhase | null;
   readonly systemSideAcquisitionProofsPerformed: 0 | 1;
   readonly retriesPerformed: 0;
   readonly providerCallsExecuted: 0;
@@ -389,6 +391,7 @@ class M4PublicHttpFetchMediationKernel {
         lookup_callbacks: 0,
         selected_address: null,
         bytes_received: 0,
+        failure_phase: null,
         provider_calls: 0,
         private_reads: 0,
         graph_writes: 0,
@@ -411,6 +414,7 @@ class M4PublicHttpFetchMediationKernel {
       lookupCallbacksPerformed: 0,
       bytesReceived: 0,
       selectedAddress: null,
+      failurePhase: null,
       systemSideAcquisitionProofsPerformed: outcome === "completed" ? 1 : 0,
       retriesPerformed: 0,
       providerCallsExecuted: 0,

@@ -106,9 +106,9 @@
   "capabilityExecutions": [
     {
       "kind": "CapabilityExecution",
-      "executionId": "capexec_eaae66594598586d6ca020e8",
+      "executionId": "capexec_2974e90bc93aa3cde3fb10a5",
       "capabilityId": "public_http_fetch_v1",
-      "descriptorSha256": "eefbb3bed294c94767190038a1abc466ea0730de97a325ca60be3c647f6aba58",
+      "descriptorSha256": "0abd3c555771006749eaa59604c69e37090d32ea738eeb588dbb36423d1a2fb5",
       "targetPolicySha256": "a8ecbbe0706d65db12189a6e4e5c5383fdf1e6071c59e1f0931009aa67eca32a",
       "authorityKind": "approved_recorded_schedule",
       "authorityRef": "sched_m4_recorded_sec_fedex_proof_v2",
@@ -132,27 +132,28 @@
         "lookupCallbacks": 0,
         "retryCount": 0,
         "responseSha256": null,
+        "failurePhase": null,
         "userAgentAudit": null
       }
     }
   ],
   "auditEvents": [
     {
-      "id": "audit_cc82e0fce2d3b2b3863395df",
+      "id": "audit_d961e0b307331757df76330c",
       "team_id": "system",
       "actor_type": "system",
       "actor_id": "atliera-system-admin",
       "event_type": "capability.execution.completed",
       "target_type": "CapabilityExecution",
-      "target_id": "capexec_eaae66594598586d6ca020e8",
+      "target_id": "capexec_2974e90bc93aa3cde3fb10a5",
       "payload_json": {
         "capability_id": "public_http_fetch_v1",
-        "descriptor_sha256": "eefbb3bed294c94767190038a1abc466ea0730de97a325ca60be3c647f6aba58",
+        "descriptor_sha256": "0abd3c555771006749eaa59604c69e37090d32ea738eeb588dbb36423d1a2fb5",
         "target_policy_ref": "src/capability/m4-target-policy.ts#M4_CANONICAL_TARGET_POLICY",
         "target_policy_sha256": "a8ecbbe0706d65db12189a6e4e5c5383fdf1e6071c59e1f0931009aa67eca32a",
         "authority_ref": "sched_m4_recorded_sec_fedex_proof_v2",
         "authority_artifact_ref": "src/capability/m4-recorded-proof-schedule.ts#M4_RECORDED_PROOF_SCHEDULE",
-        "authority_artifact_sha256": "9a70efab0a9c9ebf3f75c1308b6c93b7fc19e71d9a63e640ae1821487fa8e8e6",
+        "authority_artifact_sha256": "9f43034fa44878514ee160a5fc626aa629ebe5a9155a97f3782eaa7216bef4f2",
         "mediation_level": "L0",
         "target_ref": "sec_fedex_submissions",
         "requested_url": "https://data.sec.gov/submissions/CIK0001048911.json",
@@ -184,6 +185,7 @@
         "lookup_callbacks": 0,
         "selected_address": null,
         "bytes_received": 0,
+        "failure_phase": null,
         "provider_calls": 0,
         "private_reads": 0,
         "graph_writes": 0,
@@ -196,8 +198,8 @@
   "accountingIncrements": [
     {
       "kind": "capability-accounting-increment",
-      "incrementId": "acct_cc82e0fce2d3b2b3863395df",
-      "executionId": "capexec_eaae66594598586d6ca020e8",
+      "incrementId": "acct_d961e0b307331757df76330c",
+      "executionId": "capexec_2974e90bc93aa3cde3fb10a5",
       "capabilityInvocations": 1,
       "capabilityExecutionRecords": 1,
       "auditEventsEmitted": 1,
@@ -208,6 +210,7 @@
       "lookupCallbacksPerformed": 0,
       "bytesReceived": 0,
       "selectedAddress": null,
+      "failurePhase": null,
       "systemSideAcquisitionProofsPerformed": 1,
       "retriesPerformed": 0,
       "providerCallsExecuted": 0,
@@ -217,5 +220,5 @@
       "deploymentsPerformed": 0
     }
   ],
-  "proofPacketSha256": "6302a43a017af0bf4e4918dec7aea86b9c3c48139f6ae2f20a7ca048520ed4ef"
+  "proofPacketSha256": "f757adfa0386654a09e616fd7ddd5dd4d0cd8f019f74b97af82ae5aad555974c"
 }

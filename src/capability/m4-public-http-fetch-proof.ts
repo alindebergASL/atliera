@@ -7,7 +7,7 @@ import { extractM4SecEvidence, renderM4SecWorkshopEvidence } from "./m4-sec-extr
 
 export const M4_RECORDED_SEC_SUBMISSIONS_BODY =
   '{"cik":"0001048911","sic":"4513","sicDescription":"AIR COURIER SERVICES","name":"FEDEX CORP","tickers":["FDX"],"exchanges":["NYSE"]}';
-export const M4_RECORDED_PROOF_PACKET_SHA256 = "6302a43a017af0bf4e4918dec7aea86b9c3c48139f6ae2f20a7ca048520ed4ef" as const;
+export const M4_RECORDED_PROOF_PACKET_SHA256 = "f757adfa0386654a09e616fd7ddd5dd4d0cd8f019f74b97af82ae5aad555974c" as const;
 export const M4_SEC_WORKSHOP_FIXTURE_SHA256 = "a21963592e34335b466970d039383ca68f26994813b7d3a690342d8338d53c46" as const;
 
 export async function generateM4PublicHttpFetchProof(): Promise<Record<string, unknown>> {

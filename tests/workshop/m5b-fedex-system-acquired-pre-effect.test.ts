@@ -317,6 +317,97 @@ describe("M5b exact source admission and bounded extraction", () => {
       "response_base64_bounds");
   });
 
+  test("uses trap-free intrinsic byte lengths before any proportional custody or fixture copy", () => {
+    const boundaries: ReadonlyArray<{
+      readonly label: "custody" | "response";
+      readonly maximumBytes: number;
+      readonly admit: (input: Uint8Array) => unknown;
+      readonly postCopyRefusal: string;
+    }> = [
+      {
+        label: "custody",
+        maximumBytes: M5B_FEDEX_INPUT_LIMITS.custodyInputBytes,
+        admit: (input) => admitM5bFedExProductionCustodyBytes(input),
+        postCopyRefusal: "custody_sha256",
+      },
+      {
+        label: "response",
+        maximumBytes: M5B_FEDEX_INPUT_LIMITS.responseInputBytes,
+        admit: (input) => extractM5bFedExCommittedFixtureSource(input),
+        postCopyRefusal: "response_json",
+      },
+    ];
+
+    for (const boundary of boundaries) {
+      let ownByteLengthGetterReads = 0;
+      const ownGetterBytes = new Uint8Array(boundary.maximumBytes + 1);
+      Object.defineProperty(ownGetterBytes, "byteLength", {
+        configurable: true,
+        get() {
+          ownByteLengthGetterReads += 1;
+          return 0;
+        },
+      });
+      assertRefusalCode(() => boundary.admit(ownGetterBytes), `${boundary.label}_input_bytes`);
+      assert.equal(ownByteLengthGetterReads, 0, `${boundary.label}: own byteLength getter must not run`);
+
+      let subclassByteLengthGetterReads = 0;
+      class MisleadingByteLengthUint8Array extends Uint8Array {
+        override get byteLength(): number {
+          subclassByteLengthGetterReads += 1;
+          return 0;
+        }
+      }
+      const subclassBytes = new MisleadingByteLengthUint8Array(boundary.maximumBytes + 1);
+      assertRefusalCode(() => boundary.admit(subclassBytes), `${boundary.label}_input_bytes`);
+      assert.equal(subclassByteLengthGetterReads, 0, `${boundary.label}: subclass byteLength getter must not run`);
+
+      let proxyTraps = 0;
+      const proxyBytes = new Proxy(new Uint8Array(boundary.maximumBytes + 1), {
+        get() {
+          proxyTraps += 1;
+          throw new Error("byte proxy get trap must not run");
+        },
+        getPrototypeOf() {
+          proxyTraps += 1;
+          throw new Error("byte proxy prototype trap must not run");
+        },
+      });
+      assertRefusalCode(() => boundary.admit(proxyBytes), `${boundary.label}_bytes`);
+      assert.equal(proxyTraps, 0, `${boundary.label}: proxy traps must not run`);
+
+      const counterfeitView = Object.create(Uint8Array.prototype) as Uint8Array;
+      assertRefusalCode(() => boundary.admit(counterfeitView), `${boundary.label}_bytes`);
+
+      let valueOfCalls = 0;
+      let lengthGetterReads = 0;
+      class CopyDispatchUint8Array extends Uint8Array {
+        override valueOf(): this {
+          valueOfCalls += 1;
+          return new Uint8Array(boundary.maximumBytes + 1) as this;
+        }
+
+        override get length(): number {
+          lengthGetterReads += 1;
+          throw new Error("byte length getter must not run during copy");
+        }
+      }
+      const copyDispatchBytes = new CopyDispatchUint8Array(Buffer.from("not-json", "utf8"));
+      assertRefusalCode(() => boundary.admit(copyDispatchBytes), boundary.postCopyRefusal);
+      assert.equal(valueOfCalls, 0, `${boundary.label}: valueOf must not dispatch during copy`);
+      assert.equal(lengthGetterReads, 0, `${boundary.label}: length getter must not run during copy`);
+    }
+  });
+
+  test("preserves ordinary Uint8Array and Node Buffer fixture inputs", () => {
+    const ordinary = new Uint8Array(secBody());
+    const fromOrdinary = extractM5bFedExCommittedFixtureSource(ordinary);
+    const fromBuffer = extractM5bFedExCommittedFixtureSource(secBody());
+    assert.equal(fromOrdinary.name, "FEDEX CORP");
+    assert.equal(fromBuffer.name, "FEDEX CORP");
+    assert.equal(fromOrdinary.inputSha256, fromBuffer.inputSha256);
+  });
+
   test("omits ambiguous filing alignment and selects only one uniquely newest canonical same-index row", () => {
     const ambiguous = [
       { filings: { recent: { form: ["10-K"], filingDate: [], accessionNumber: ["0001048911-26-000001"], primaryDocument: ["fdx.htm"] } } },

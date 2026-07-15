@@ -51,6 +51,19 @@ const SAFE_HASH = /^[a-f0-9]{64}$/;
 const STRICT_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const CANONICAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+const {
+  byteLength: TYPED_ARRAY_BYTE_LENGTH_GETTER,
+  byteOffset: TYPED_ARRAY_BYTE_OFFSET_GETTER,
+  buffer: TYPED_ARRAY_BUFFER_GETTER,
+} = (() => {
+  const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
+  const getter = (name: "byteLength" | "byteOffset" | "buffer"): (() => unknown) => {
+    const candidate = Object.getOwnPropertyDescriptor(typedArrayPrototype, name)?.get;
+    if (typeof candidate !== "function") throw new Error(`TypedArray ${name} intrinsic unavailable`);
+    return candidate;
+  };
+  return Object.freeze({ byteLength: getter("byteLength"), byteOffset: getter("byteOffset"), buffer: getter("buffer") });
+})();
 export const M5B_FEDEX_INPUT_LIMITS = Object.freeze({
   objectOwnPropertyCount: 256,
   primitiveLeafAndPropertyCount: 50_000,
@@ -274,10 +287,31 @@ interface M5bFedExStrictJsonBytes {
   readonly value: unknown;
 }
 
+function intrinsicUint8ArrayByteLength(value: unknown, label: string): number {
+  if (typeof value !== "object" || value === null || utilTypes.isProxy(value) || !utilTypes.isUint8Array(value)) {
+    refuse(`${label}_bytes`);
+  }
+  const byteLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH_GETTER, value, []) as unknown;
+  if (!Number.isSafeInteger(byteLength) || (byteLength as number) < 0) refuse(`${label}_bytes`);
+  return byteLength as number;
+}
+
+function plainIntrinsicUint8ArrayView(value: Uint8Array, byteLength: number, label: string): Uint8Array {
+  try {
+    const buffer = Reflect.apply(TYPED_ARRAY_BUFFER_GETTER, value, []) as ArrayBufferLike;
+    const byteOffset = Reflect.apply(TYPED_ARRAY_BYTE_OFFSET_GETTER, value, []) as unknown;
+    if (!Number.isSafeInteger(byteOffset) || (byteOffset as number) < 0) refuse(`${label}_bytes`);
+    return new Uint8Array(buffer, byteOffset as number, byteLength);
+  } catch (error) {
+    if (error instanceof M5bFedExRefusal) throw error;
+    refuse(`${label}_bytes`);
+  }
+}
+
 function strictJsonBytes(bytesInput: Uint8Array, label: string, maximumBytes: number): M5bFedExStrictJsonBytes {
-  if (!(bytesInput instanceof Uint8Array)) refuse(`${label}_bytes`);
-  if (bytesInput.byteLength > maximumBytes) refuse(`${label}_input_bytes`);
-  const bytes = Buffer.from(bytesInput);
+  const byteLength = intrinsicUint8ArrayByteLength(bytesInput, label);
+  if (byteLength > maximumBytes) refuse(`${label}_input_bytes`);
+  const bytes = Buffer.from(plainIntrinsicUint8ArrayView(bytesInput, byteLength, label));
   if (bytes.length === 0 || (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)) refuse(`${label}_utf8`);
   let text: string;
   try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); }
@@ -627,9 +661,9 @@ export function validateM5bFedExCustodyBytesAgainstPins(custodyBytes: Uint8Array
   pinsInput: M5bFedExProductionPins): Readonly<M5bFedExBoundedSource> {
   const pins = snapshotM5bFedExOwnData(pinsInput, "pins") as M5bFedExProductionPins;
   validatePins(pins);
-  if (!(custodyBytes instanceof Uint8Array)) refuse("custody_bytes");
-  if (custodyBytes.byteLength > M5B_FEDEX_INPUT_LIMITS.custodyInputBytes) refuse("custody_input_bytes");
-  const copied = Buffer.from(custodyBytes);
+  const custodyByteLength = intrinsicUint8ArrayByteLength(custodyBytes, "custody");
+  if (custodyByteLength > M5B_FEDEX_INPUT_LIMITS.custodyInputBytes) refuse("custody_input_bytes");
+  const copied = Buffer.from(plainIntrinsicUint8ArrayView(custodyBytes, custodyByteLength, "custody"));
   // The outer custody digest is deliberately checked before UTF-8 decode,
   // JSON parse, envelope inspection, base64 decode, or response hashing.
   if (sha256Bytes(copied) !== pins.custodyArtifactSha256) refuse("custody_sha256");

@@ -69,7 +69,8 @@ test("M5b production surface stays byte-only, narrow, unarmed, and path-free", (
   assert.doesNotMatch(source, /export function extractM5bFedExBoundedSource\(/);
   assert.doesNotMatch(source, /export interface M5bFedExBoundedExtractionOptions/);
   assert.match(source, /custodyInputBytes: 1_048_576/);
-  assert.match(source, /if \(custodyBytes\.byteLength > M5B_FEDEX_INPUT_LIMITS\.custodyInputBytes\) refuse\("custody_input_bytes"\)/);
+  assert.match(source, /const custodyByteLength = intrinsicUint8ArrayByteLength\(custodyBytes, "custody"\)/);
+  assert.match(source, /if \(custodyByteLength > M5B_FEDEX_INPUT_LIMITS\.custodyInputBytes\) refuse\("custody_input_bytes"\)/);
   assert.match(source, /if \(sha256Bytes\(copied\) !== pins\.custodyArtifactSha256\) refuse\("custody_sha256"\)/);
   assert.match(source, /extractM4SecEvidence\(acquisition/);
   assert.match(source, /sanitizedSourcePack: Readonly<M5bFedExSanitizedSourcePack>/);
@@ -102,7 +103,7 @@ test("M5b production surface stays byte-only, narrow, unarmed, and path-free", (
 test("hostile-input bounds are named and enforced before proportional reflection or decoding", () => {
   const source = read(SOURCE_PATH);
   for (const name of ["objectOwnPropertyCount", "primitiveLeafAndPropertyCount", "stringUtf8Bytes",
-    "cumulativeCanonicalUtf8Bytes", "custodyInputBytes", "recursionDepth", "arraySize", "totalNodes"]) {
+    "cumulativeCanonicalUtf8Bytes", "custodyInputBytes", "responseInputBytes", "recursionDepth", "arraySize", "totalNodes"]) {
     assert.match(source, new RegExp(`${name}:`), name);
   }
   const snapshot = source.slice(source.indexOf("function snapshotM5bFedExOwnDataInternal"),
@@ -116,9 +117,21 @@ test("hostile-input bounds are named and enforced before proportional reflection
   assert.match(canonical, /canonical_utf8_budget/);
   assert.match(canonical, /canonical_recursion_depth/);
   assert.match(canonical, /canonical_cycle/);
+  const byteBoundary = source.slice(source.indexOf("function intrinsicUint8ArrayByteLength"),
+    source.indexOf("function strictJsonBytes"));
+  assert.ok(byteBoundary.indexOf("utilTypes.isProxy(value)") < byteBoundary.indexOf("utilTypes.isUint8Array(value)"));
+  assert.match(byteBoundary, /Reflect\.apply\(TYPED_ARRAY_BYTE_LENGTH_GETTER, value, \[\]\)/);
+  assert.doesNotMatch(byteBoundary, /value\.byteLength|instanceof Uint8Array/);
+  const strictBytes = source.slice(source.indexOf("function strictJsonBytes"),
+    source.indexOf("export interface M5bFedExLiteralField"));
+  assert.ok(strictBytes.indexOf("intrinsicUint8ArrayByteLength(bytesInput, label)") <
+    strictBytes.indexOf("Buffer.from(plainIntrinsicUint8ArrayView(bytesInput, byteLength, label))"));
+  assert.doesNotMatch(strictBytes, /Buffer\.from\(bytesInput\)|bytesInput\.byteLength/);
   const custody = source.slice(source.indexOf("export function validateM5bFedExCustodyBytesAgainstPins"),
     source.indexOf("export function admitM5bFedExProductionCustodyBytes"));
-  assert.ok(custody.indexOf("custodyBytes.byteLength") < custody.indexOf("Buffer.from(custodyBytes)"));
+  assert.ok(custody.indexOf("intrinsicUint8ArrayByteLength(custodyBytes, \"custody\")") <
+    custody.indexOf("Buffer.from(plainIntrinsicUint8ArrayView(custodyBytes, custodyByteLength, \"custody\"))"));
+  assert.doesNotMatch(custody, /Buffer\.from\(custodyBytes\)|custodyBytes\.byteLength|instanceof Uint8Array/);
   assert.ok(custody.indexOf("response_base64_bounds") < custody.indexOf('Buffer.from(bodyBase64, "base64")'));
 });
 

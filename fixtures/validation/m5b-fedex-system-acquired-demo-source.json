@@ -1,0 +1,21 @@
+{
+  "fixture_notice": "synthetic/committed-public pre-effect fixture; exact private source admission not completed",
+  "name": "FEDEX CORP",
+  "cik": 1048911,
+  "tickers": [
+    "FDX"
+  ],
+  "exchanges": [
+    "NYSE"
+  ],
+  "sic": "4513",
+  "sicDescription": "Air Courier Services",
+  "filings": {
+    "recent": {
+      "form": [],
+      "filingDate": [],
+      "accessionNumber": [],
+      "primaryDocument": []
+    }
+  }
+}

@@ -279,7 +279,7 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.ok(m4.includes(WORKSHOP_PATH));
   assert.ok(m4.includes(PROOF_PATH));
   assert.ok(m4.includes(RETRO_PATH));
-  assert.ok(m5b.includes("⬜ not started"));
+  assert.ok(m5b.includes("🔶 in progress — Gate A pre-effect, unarmed, not shipped"));
 
   for (const document of [RETRO, RUNBOOK, ROADMAP, INDEX]) {
     assert.equal(markerValue(document, "current_effective_authorization"), "none");
@@ -289,12 +289,20 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.equal(markerValue(RETRO, "implementation_work_authorized"), "none");
   assert.equal(markerValue(RETRO, "next_recommended_work"), "separate explicit M5b decision");
   assert.equal(markerValue(RUNBOOK, "next_recommended_work"), "separate explicit M5b decision");
-  assert.match(INDEX, /next recommended work: separate explicit M5b decision after the M4 closeout merges/);
+  assert.match(
+    INDEX,
+    /next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, merge commit SHA\/tree binding, exact custody identity plus a separately supplied private path, and execution before 2026-08-13T18:41:11\.277Z unless a separately ratified bounded retention decision exists/,
+  );
   assert.equal(PROOF.boundaries.current_effective_authorization, "none");
   assert.equal(PROOF.boundaries.next_recommended_work, "separate_explicit_M5b_decision");
-  assert.match(read(BLOCKERS_PATH), /current next recommended work is only a separate explicit M5b decision/i);
-  assert.match(read(GATE3_PATH), /current repository-level next recommendation is only a separate explicit M5b decision/i);
-  assert.match(INDEX, /current repository-level recommendation is only the separate explicit M5b decision/i);
+  assert.match(
+    read(BLOCKERS_PATH),
+    /The next possible M5b private-read gate is blocked and requires all of: PR #289 approval on its then-current exact head; merge; successful post-merge CI; binding to the resulting merge commit SHA and tree; exact custody artifact identity plus a separately supplied private path; and execution before `2026-08-13T18:41:11\.277Z` unless a separately ratified bounded retention decision already exists/i,
+  );
+  assert.match(
+    read(GATE3_PATH),
+    /The repaired M5b Gate A frontier supersedes that queue position but authorizes no private read: a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, binding to the resulting merge commit SHA and tree, exact custody artifact identity plus a separately supplied private path, and execution before `2026-08-13T18:41:11\.277Z` unless a separately ratified bounded retention decision already exists/i,
+  );
   assert.doesNotMatch(INDEX, /live M5a-vs-M4 sequencing decision/);
   assert.doesNotMatch(ROADMAP, /queued behind H2|queued behind H3/);
   for (const key of [

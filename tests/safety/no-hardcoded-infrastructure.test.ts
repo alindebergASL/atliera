@@ -131,7 +131,7 @@ function findInfrastructureLiteralsInText(file: string, text: string): { file: s
   return hits;
 }
 
-function isIntentionalM4AcquisitionPolicyLiteral(hit: {
+function isIntentionalAcquisitionPolicyLiteral(hit: {
   file: string;
   kind: string;
   value: string;
@@ -152,7 +152,19 @@ function isIntentionalM4AcquisitionPolicyLiteral(hit: {
   // and deterministic proof-only addresses/content. These are acquisition
   // policy data, not deploy/runtime infrastructure locations. Every other
   // infrastructure-literal kind remains forbidden even in these three files.
-  return acquisitionPolicyFiles.has(hit.file) && acquisitionLiteralKinds.has(hit.kind);
+  if (acquisitionPolicyFiles.has(hit.file) && acquisitionLiteralKinds.has(hit.kind)) {
+    return true;
+  }
+
+  const m5bPinnedSourceFiles = new Set([
+    "src/workshop/m5b-fedex-system-acquired-source.ts",
+    "src/workshop/m5b-fedex-prewrite-workshop.ts",
+  ]);
+  return (
+    m5bPinnedSourceFiles.has(hit.file) &&
+    hit.kind === "protocol URL" &&
+    hit.value === "https://data.sec.gov/submissions/CIK0001048911.json"
+  );
 }
 
 function findInfrastructureLiterals(files: string[]): { file: string; kind: string; value: string }[] {
@@ -163,7 +175,7 @@ function findInfrastructureLiterals(files: string[]): { file: string; kind: stri
     hits.push(...findInfrastructureLiteralsInText(relative(REPO_ROOT, file), text));
   }
 
-  return hits.filter((hit) => !isIntentionalM4AcquisitionPolicyLiteral(hit));
+  return hits.filter((hit) => !isIntentionalAcquisitionPolicyLiteral(hit));
 }
 
 describe("safety: app/deploy files do not hardcode infrastructure locations", () => {

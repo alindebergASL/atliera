@@ -18,6 +18,7 @@ function read(path: string): string {
 }
 
 function assertNoPrivateLiterals(label: string, text: string): void {
+  const withoutRequiredPublicDeadline = text.replaceAll("2026-08-13T18:41:11.277Z", "");
   for (const pattern of [
     /https?:\/\/[^\s)]+/i,
     /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
@@ -28,7 +29,8 @@ function assertNoPrivateLiterals(label: string, text: string): void {
     /s3:\/\//i,
     /-----BEGIN [A-Z ]+PRIVATE KEY-----/i,
   ]) {
-    assert.doesNotMatch(text, pattern, `${label} contains private or endpoint-shaped literal ${pattern}`);
+    assert.doesNotMatch(withoutRequiredPublicDeadline, pattern,
+      `${label} contains private or endpoint-shaped literal ${pattern}`);
   }
 }
 
@@ -88,7 +90,11 @@ test("Gate 3 status reconciliation records a no-side-effect boundary", () => {
   assert.match(status, /Gate 3 remains underbuilt/i);
   assert.match(status, /The status reconciliation requested after slice B is now complete/i);
   assert.match(status, /local historical follow-up was an explicit operator decision for another scoped Gate 3 slice/i);
-  assert.match(status, /current repository-level next recommendation is only a separate explicit M5b decision/i);
+  assert.match(status, /possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI/i);
+  assert.match(status, /resulting merge commit SHA and tree/i);
+  assert.match(status, /exact custody artifact identity plus a separately supplied private path/i);
+  assert.match(status, /2026-08-13T18:41:11\.277Z/i);
+  assert.match(status, /unratified drafts and cannot satisfy future arming/i);
   assert.match(status, /does not choose, approve, or execute Gate 3 or M5b work/i);
   assertNoPrivateLiterals("Gate 3 reconciliation", status);
 });
@@ -108,7 +114,12 @@ test("authority docs advance past reconciliation without authorizing a next slic
   assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
 
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
-  assert.match(blockers, /current next recommended work is only a separate explicit M5b decision/i);
+  assert.match(blockers, /PR #289 remains an unarmed M5b Gate A pre-effect repair; it authorizes no next step/i);
+  assert.match(blockers, /next possible M5b private-read gate is blocked and requires all of/i);
+  assert.match(blockers, /successful post-merge CI/i);
+  assert.match(blockers, /resulting merge commit SHA and tree/i);
+  assert.match(blockers, /separately supplied private path/i);
+  assert.match(blockers, /unratified drafts and cannot satisfy future arming/i);
   assert.match(blockers, /Any later Gate 3 expansion still requires a fresh explicit operator decision/i);
 
   assert.match(plan, /Gate 3 reconciliation completed without side effects/i);

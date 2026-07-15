@@ -27,6 +27,7 @@
     "workshop:runtime-preview:html": "tsx src/cli/runtime-workshop-preview.ts html",
     "workshop:serve:fake": "tsx scripts/fake-mode-workshop-server.ts",
     "workshop:m5a-capstone": "tsx scripts/generate-m5a-curated-proposal-flow-capstone.mts",
+    "workshop:m5b-fedex-prewrite": "node --import tsx scripts/generate-m5b-fedex-system-acquired-prewrite.mts",
     "h2:echo-proof": "tsx scripts/generate-h2-echo-mediation-proof.mts",
     "h2:echo-proof:write": "tsx scripts/generate-h2-echo-mediation-proof.mts --write",
     "m4:public-http-fetch-proof": "node --import tsx scripts/generate-m4-public-http-fetch-proof.mts",

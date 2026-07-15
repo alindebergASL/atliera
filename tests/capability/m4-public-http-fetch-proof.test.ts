@@ -47,7 +47,13 @@ test("roadmap and M4 closeout preserve none authority after one successful consu
   assert.match(packet, /response bytes: `160,901`/);
   assert.match(packet, /response SHA-256: `ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d`/);
   const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
-  assert.match(index, /next recommended work: separate explicit M5b decision after the M4 closeout merges/);
+  assert.match(
+    index,
+    /next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI/,
+  );
+  assert.match(index, /resulting merge commit SHA and tree/);
+  assert.match(index, /exact custody artifact identity plus a separately supplied private path/);
+  assert.match(index, /before 2026-08-13T18:41:11\.277Z unless a separately ratified bounded retention decision exists/);
   assert.match(index, /M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes/);
   assert.match(index, /M4 Gate B attempt 2 is permanently consumed and succeeded once/);
   assert.match(index, /neither consumed attempt may be retried or reused/);

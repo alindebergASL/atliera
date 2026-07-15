@@ -22,19 +22,27 @@ Boundary markers (this document authorizes implementation work only; it executes
 - production_readiness_claim: false
 - product_readiness_claim: false
 - launch_readiness_claim: false
+- private_reads: 0
+- product_provider_calls: 0
+- acquisitions: 0
+- graph_durable_writes: 0
+- deployments: 0
+- retries: 0
+- external_product_effects: 0
+- local_deterministic_fixture_outputs_written: 3
 
 Latest completed operator decision recorded for this milestone:
 
-- decision_implementation_work_authorized: `M4 closeout documentation only (this PR; no effects)`
-- decision_implementation_start_condition: `after successful attempt-2 deterministic local verification`
+- decision_implementation_work_authorized: `M5b-FedEx-system-acquired-source-pre-effect-capstone (Gate A; implementation complete; no effects)`
+- decision_implementation_start_condition: `exact base commit 2f37a6b2b489e97b0bc7ebda5e01a1fe40fdd360 and tree 4f1c550744ddc5c25da4a67a1e2e97be10d03936`
 - decision_current_effective_authorization: `none`
 - server_selection: `minimal first-party MCP server; no third-party survey/fork`
 - demonstration_account: `FedEx`
 - live_acquisition_authorized: `false`
 - deployment_authorized: `false`
-- next_recommended_work: `separate explicit M5b decision`
+- next_recommended_work: `no private read authorized; possible M5b gate requires PR #289 approval on then-current exact head + merge + successful post-merge CI + resulting merge SHA/tree binding + exact custody identity + separately supplied private path + deadline/ratified-retention check`
 
-Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed, and closeout implementation authority is now `none`.
+Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed. M5b Gate A implementation is complete and unarmed; implementation authority and current effective authority are both again `none`.
 
 ## Doctrine spine
 
@@ -76,6 +84,12 @@ The slice remains closed to every adjacent risk class:
 
 M5a is **shipped** because both halves of the done-pattern now exist: the named visible capstone and a bounded successor approval surface. H2 subsequently shipped at PR #284, and M4 has now completed one separately authorized acquisition and its own visible closeout. `implementation_work_authorized` and `current_effective_authorization` are again both `none`. No repeated acquisition, repeated M5a product slice or durable effect, provider call, private-evidence read, production effect, deployment, M5b provider execution, or readiness claim is authorized.
 
+### M5b Gate A in progress: FedEx pre-write review candidate
+
+M5b Gate A now has a repaired unarmed pre-effect path at `src/workshop/m5b-fedex-system-acquired-source.ts`, `src/workshop/m5b-fedex-review-composition.ts`, and `src/workshop/m5b-fedex-prewrite-workshop.ts`. Its visible review artifact is `fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html`; the machine source pack and unratified review-draft packet are under `fixtures/validation/m5b-fedex-system-acquired-*.json`. The committed demo is explicitly simulated fixture content with empty filing arrays, origin `simulated-fixture`, and source type `simulated_fixture_sec_submissions_bounded_projection`; it cannot be mistaken for exact production admission.
+
+The production wrapper is pinned to the exact M4 custody/response/policy/descriptor/source/timestamp/retention identities and accepts caller-supplied bytes only. Serialized admission constants and hashes are content identity, not authority. Future composition must independently invoke exact byte admission, rebuild the production pack, require exact equality to the supplied pack, and reverify the actual candidate. Review and retention outputs are explicitly unratified drafts that cannot satisfy future arming. The next possible private-read gate is not authorized and requires all of: PR #289 approval on its then-current exact head; merge; successful post-merge CI; binding to the resulting merge commit SHA and tree; exact custody artifact identity plus a separately supplied private path; and execution before `2026-08-13T18:41:11.277Z` unless a separately ratified bounded retention decision already exists. M5b is **🔶 in progress, pre-effect, unarmed, not shipped**. Private reads 0, product provider calls 0, acquisitions 0, graph/durable writes 0, deployments 0, retries 0, and external/product effects 0; the deterministic generator writes exactly 3 local fixture outputs.
+
 ## P-track (product loop)
 
 | Milestone | Status | Anchor |
@@ -86,7 +100,7 @@ M5a is **shipped** because both halves of the done-pattern now exist: the named 
 | **M2.5 — Prompt contracts → SKILL.md instruction packages** (execution affordances structurally stripped; loader rejection tests; `mode: "placeholder"` retired) | ⬜ not started | ADR 0003 A2; direction memo §6. M2.5 is not currently authorized; any later slice requires a new explicit operator decision. |
 | **M5a — Doctrine-loop proof, curated public sources** (curated public GraphBundle → recorded proposal fixtures grounded in curated sources → validation → human ratification → durable graph write → Workshop renders from durable state; visible artifact: a real-account-looking Workshop page rendered entirely from durable state without any system-acquisition path being exercised) | ✅ shipped | Steps 1–3 merged through PRs #278 (`6205c4a`), #279 (`d09ac17`), and #280 (`dc0381f`); Step 4 merged through PR #282 (`9661468`). Proposals were fixture-curated, not model-generated. Visible artifact: `fixtures/workshop/m5a-curated-proposal-flow-capstone.html`. Closeout, drift boundary and successor approval surface: `docs/reviews/m5a-product-closeout-retro.md`. |
 | **M4 — Evidence acquisition v1** (deterministic system-side fetcher as the first orchestrator-held MCP integration; allowlisted, sandboxed, provenance-tagged; L0 only in this slice; **its own capstone, visible artifact and retro — not co-shipped with M5**) | ✅ shipped upon closeout merge | Canonical implementation `c1372acd14e09722c1e54646b85d89d3a0fd73f1`, tree `1eb28fcea7ced5ba2357bd32c35561a7cadc4918`. Attempt 1 remains a truthful permanently consumed `failed_no_evidence` record; PR #287 merged the Node 22 repair; separately authorized attempt 2 succeeded once with HTTP 200, `application/json`, 160,901 bytes, one DNS/request/connection attempt, zero redirects and zero retries. Visible artifact: `fixtures/workshop/m4-sec-fedex-live-evidence-preview.html`; sanitized proof: `fixtures/validation/m4-live-acquisition-success-proof.json`; retro: `docs/reviews/m4-live-acquisition-closeout-retro.md`. `current_effective_authorization: none`; no repeat acquisition, M5b, graph, provider, deployment or readiness authority. |
-| **M5b — Does-its-job-once, system-acquired sources** (the original capstone framing carried forward from the frozen big-picture review: pick one real account → system fetches public sources via M4 → loop runs → Workshop renders durable state with honest trust labels; visible artifact: a shareable Workshop account page about a real company, every claim traceable to a stored source, every unverified item labeled) | ⬜ not started | originates as the frozen review's M5; see `phase-0-retro-and-m5-drift.md` §3 |
+| **M5b — Does-its-job-once, system-acquired sources** (the original capstone framing carried forward from the frozen big-picture review: pick one real account → system fetches public sources via M4 → loop runs → Workshop renders durable state with honest trust labels; visible artifact: a shareable Workshop account page about a real company, every claim traceable to a stored source, every unverified item labeled) | 🔶 in progress — Gate A pre-effect, unarmed, not shipped | PR #289 repair: proportional hostile-input bounds; explicit simulated fixture provenance; exact candidate-bound unratified review/retention drafts; exact filing-only citations; and future composition that re-admits supplied custody bytes and exactly compares the rebuilt production pack. Public hashes are never admission or human ratification. Two Maps remain; fixture Signals and Plays remain empty. The conjunctive post-approval/merge/CI/SHA-tree/custody/path/deadline gate is unapproved. External/product effects 0; local deterministic fixture outputs written 3. |
 | **M6 — Identity + lab deployment** (Team/User/membership; auth in front of Workshop; lab target executed under existing deployment contracts; Gate 3 lands here, in service of M5b's artifact) | ⬜ not started | `docs/BLOCKERS.md` Gate 3 |
 | **M7 — Gate 4 corpus + first external users** (launch-gate corpus on real accounts; quantitative bars evaluated honestly; first users admitted per the original gating plan) | ⬜ not started | `docs/BLOCKERS.md` Gate 4 |
 
@@ -100,7 +114,7 @@ Recurrence/change detection deliberately sits after M7.
 | **H1 — Approvals as typed data** (lifecycle drafted → merged → operator-armed → consumed/expired; machine-checked counters; wraps capability descriptors by hash per ADR 0003 I-5) | ⬜ not started; not next-up | The M5a closeout selected the separate H2 no-network kernel proof; no standalone H1 slice is authorized. |
 | **H2 — Capability registry + CapabilityExecution records + mediation gate skeleton (L0 only) + audit/accounting extension** | ✅ shipped | Merged at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284). `fixtures/validation/h2-echo-mediation-proof.json` preserves the first registered inert echo, one `CapabilityExecution`, one `AuditEvent`, and one accounting increment with zero retries and zero network/acquisition/provider/private/filesystem/environment/database/subprocess/production/deployment effects; I-3, I-4, I-5, I-10 and I-11 remain executable. M4 reuses the boundary as the reviewed second entry without changing H2 semantics. |
 | **H3 — Snapshot-primitive consolidation + negative-control automation** | ⬜ implementation not started; plan complete/merged; not next-up | Plan merged through PR #277 (`a879c11`). The M5a closeout selects the separate H2 no-network kernel proof instead; H3 remains future work and is not implementation authority for the acquisition path. |
-| **H4 — Single guarded execution entrypoint** | ⬜ not started; not next-up | One chokepoint so future executions cannot skip a check. Any future H4 work requires a separate explicit operator decision; the current next recommendation is only a separate M5b decision. |
+| **H4 — Single guarded execution entrypoint** | ⬜ not started; not next-up | One chokepoint so future executions cannot skip a check. PR #289 does no H4 or general-framework work. Any future H4 work requires a separate explicit operator decision; the only possible M5b private-read gate is the still-unapproved conjunctive PR-approval/merge/post-merge-CI/SHA-tree/custody/path/deadline gate. |
 | **H5 — Harness extraction assessment** | ⬜ not started; post-M5b decision point | a decision, not a commitment |
 | **A3 — Outward-facing read-only MCP server over the verified graph** | ⬜ spec-only, deferred until post-M5b | ADR 0003 A3 (not changed by M3 retro freeze lift) |
 
@@ -114,7 +128,7 @@ These are the operator's calls, recorded here so the chart carries them visibly.
 4. **ADR numbering/title** — resolved: ADR 0003.
 5. **A3 timing** — whether the outward server is M7-adjacent or later.
 6. **M5a Step 4 vs. H3 implementation** — **RESOLVED: STEP 4 FIRST.** Steps 1–3 are merged through PRs #278–#280 and Step 4 through PR #282 (`9661468`). The required capstone retro is now `docs/reviews/m5a-product-closeout-retro.md`; H3 remains unstarted and not next-up.
-7. **Post-M5a product direction** — **RESOLVED THROUGH M4: H2 NO-NETWORK ECHO PROOF → THIN M4 `public_http_fetch_v1` → SEPARATE EXPLICIT M5b DECISION.** H2 shipped at PR #284. M4 completed one bounded acquisition and its visible closeout; both attempt authorities are permanently consumed. The next recommendation is only a separate explicit M5b decision. Provider/model execution and every later effect remain separately gated.
+7. **Post-M5a product direction** — **RESOLVED THROUGH THE REPAIRED M5b GATE A PRE-EFFECT FRONTIER: H2 NO-NETWORK ECHO PROOF → THIN M4 `public_http_fetch_v1` → M5b FEDEX UNARMED REVIEW DRAFT.** H2 shipped at PR #284. M4 completed one bounded acquisition and its visible closeout; both attempt authorities are permanently consumed. M5b Gate A supplies a simulated-fixture review surface without reading private custody. Caller-mintable review/retention hashes are unratified drafts, not human decisions. No next step is authorized. A possible private read requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, merge SHA/tree binding, exact custody identity and a separately supplied private path, plus the original deadline unless a separately ratified bounded retention decision exists. Provider/model execution and every later effect remain separately gated.
 
 ## Maintenance rules
 

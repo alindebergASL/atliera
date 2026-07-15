@@ -1,0 +1,172 @@
+{
+  "kind": "m5b-fedex-human-review-packet",
+  "schemaVersion": "1",
+  "boundaryMarker": "m5b-gate-a-pre-effect-unarmed",
+  "fixtureClassification": "synthetic/committed-public pre-effect fixture; exact private source admission not completed",
+  "current_effective_authorization": "none",
+  "sourcePackSha256": "26aded53e7cab9ead17968efe088f052984415fff0dff88ee6ad02cdc89fc360",
+  "candidateContentSha256": "18dc9913330029079e3d60d42f9157f3b292908f328c9fe183b8565d460c3324",
+  "proposals": [
+    {
+      "proposalId": "m5b-fedex-registrant-identity",
+      "proposedLens": "maps",
+      "proposedCard": "SEC registrant identity",
+      "proposedClaim": "The SEC submissions record identifies FEDEX CORP, CIK 0001048911, with ticker FDX on NYSE.",
+      "sourceLiterals": [
+        {
+          "jsonPointer": "/name",
+          "literal": "FEDEX CORP",
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 263,
+            "charEnd": 275
+          }
+        },
+        {
+          "jsonPointer": "/cik",
+          "literal": 1048911,
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 309,
+            "charEnd": 316
+          }
+        },
+        {
+          "jsonPointer": "/tickers",
+          "literal": [
+            "FDX"
+          ],
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 354,
+            "charEnd": 361
+          }
+        },
+        {
+          "jsonPointer": "/exchanges",
+          "literal": [
+            "NYSE"
+          ],
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 401,
+            "charEnd": 409
+          }
+        }
+      ],
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001048911.json",
+      "productionResponseSha256": "ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d",
+      "sanitizedSourcePackSha256": "26aded53e7cab9ead17968efe088f052984415fff0dff88ee6ad02cdc89fc360",
+      "transformations": [
+        {
+          "id": "normalize-cik-to-sec-10-digit-display",
+          "inputs": [
+            "/cik"
+          ],
+          "output": "0001048911",
+          "description": "Zero-pad the exact SEC numeric identity to the official 10-digit CIK display; retain the source literal separately."
+        },
+        {
+          "id": "select-aligned-fdx-nyse-pair",
+          "inputs": [
+            "/tickers",
+            "/exchanges"
+          ],
+          "output": "index 0: FDX / NYSE",
+          "description": "Select the exact same-index ticker/exchange pair; do not reorder either source array."
+        },
+        {
+          "id": "compose-registrant-identity-proposal",
+          "inputs": [
+            "/name",
+            "/cik",
+            "/tickers",
+            "/exchanges"
+          ],
+          "output": "The SEC submissions record identifies FEDEX CORP, CIK 0001048911, with ticker FDX on NYSE.",
+          "description": "Compose the proposed review text deterministically from the cited exact literals; the composition is not itself a source literal."
+        }
+      ],
+      "trustStatus": "source-backed-not-independently-verified",
+      "disposition": "pending",
+      "allowedDispositions": [
+        "accept",
+        "reject"
+      ]
+    },
+    {
+      "proposalId": "m5b-fedex-industry-classification",
+      "proposedLens": "maps",
+      "proposedCard": "SEC industry classification",
+      "proposedClaim": "The SEC classifies the registrant under SIC 4513, “Air Courier Services.”",
+      "sourceLiterals": [
+        {
+          "jsonPointer": "/sic",
+          "literal": "4513",
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 443,
+            "charEnd": 449
+          }
+        },
+        {
+          "jsonPointer": "/sicDescription",
+          "literal": "Air Courier Services",
+          "locator": {
+            "document": "sanitized-source-pack-canonical-json",
+            "charStart": 494,
+            "charEnd": 516
+          }
+        }
+      ],
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001048911.json",
+      "productionResponseSha256": "ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d",
+      "sanitizedSourcePackSha256": "26aded53e7cab9ead17968efe088f052984415fff0dff88ee6ad02cdc89fc360",
+      "transformations": [
+        {
+          "id": "compose-industry-classification-proposal",
+          "inputs": [
+            "/sic",
+            "/sicDescription"
+          ],
+          "output": "The SEC classifies the registrant under SIC 4513, “Air Courier Services.”",
+          "description": "Compose the proposed review text deterministically from the cited exact literals; the composition is not itself a source literal."
+        }
+      ],
+      "trustStatus": "source-backed-not-independently-verified",
+      "disposition": "pending",
+      "allowedDispositions": [
+        "accept",
+        "reject"
+      ]
+    }
+  ],
+  "retentionDecision": {
+    "decisionId": "m5b-fedex-source-retention-beyond-original-deadline",
+    "deadline": "2026-08-13T18:41:11.277Z",
+    "disposition": "pending",
+    "allowedDispositions": [
+      "accept",
+      "reject"
+    ],
+    "separateHumanDecisionRequired": true
+  },
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "authorizes_provider_call": false,
+    "authorizes_private_read": false,
+    "authorizes_graph_ingestion": false,
+    "authorizes_durable_write": false,
+    "authorizes_acquisition": false,
+    "authorizes_deployment": false,
+    "providerCalls": 0,
+    "privateReads": 0,
+    "graphWrites": 0,
+    "acquisitions": 0,
+    "deployments": 0,
+    "effects": 0,
+    "retryCount": 0,
+    "verifiedObjects": 0
+  },
+  "packetSha256": "1ff193344dbd5b7e76e19c78d4b3121e4edc73b437ff4bededae4c5004ad6513"
+}

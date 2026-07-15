@@ -25,16 +25,16 @@ Boundary markers (this document authorizes implementation work only; it executes
 
 Latest completed operator decision recorded for this milestone:
 
-- decision_implementation_work_authorized: `M4 closeout documentation only (this PR; no effects)`
-- decision_implementation_start_condition: `after successful attempt-2 deterministic local verification`
+- decision_implementation_work_authorized: `M5b-FedEx-system-acquired-source-pre-effect-capstone (Gate A; implementation complete; no effects)`
+- decision_implementation_start_condition: `exact base commit 2f37a6b2b489e97b0bc7ebda5e01a1fe40fdd360 and tree 4f1c550744ddc5c25da4a67a1e2e97be10d03936`
 - decision_current_effective_authorization: `none`
 - server_selection: `minimal first-party MCP server; no third-party survey/fork`
 - demonstration_account: `FedEx`
 - live_acquisition_authorized: `false`
 - deployment_authorized: `false`
-- next_recommended_work: `separate explicit M5b decision`
+- next_recommended_work: `separately authorize exact M5b private custody read/admission after Gate A review`
 
-Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed, and closeout implementation authority is now `none`.
+Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed. M5b Gate A implementation is complete and unarmed; implementation authority and current effective authority are both again `none`.
 
 ## Doctrine spine
 
@@ -76,6 +76,12 @@ The slice remains closed to every adjacent risk class:
 
 M5a is **shipped** because both halves of the done-pattern now exist: the named visible capstone and a bounded successor approval surface. H2 subsequently shipped at PR #284, and M4 has now completed one separately authorized acquisition and its own visible closeout. `implementation_work_authorized` and `current_effective_authorization` are again both `none`. No repeated acquisition, repeated M5a product slice or durable effect, provider call, private-evidence read, production effect, deployment, M5b provider execution, or readiness claim is authorized.
 
+### M5b Gate A in progress: FedEx pre-write review candidate
+
+M5b Gate A now has a complete unarmed pre-effect path at `src/workshop/m5b-fedex-system-acquired-source.ts` and `src/workshop/m5b-fedex-prewrite-workshop.ts`. Its visible review artifact is `fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html`; the machine source pack and human-review packet are under `fixtures/validation/m5b-fedex-system-acquired-*.json`. The committed demo is explicitly a synthetic/committed-public pre-effect fixture with empty filing arrays. It does not claim exact private custody admission and is refused by the production-only future-composition boundary.
+
+The production wrapper is pinned to the exact M4 custody/response/policy/descriptor/source/timestamp/retention identities and accepts caller-supplied bytes only. After exact validation, its sanitized pack records canonical-hash-bound serialized admission evidence that can survive human review and later-process JSON reload without object-identity state. Exact production admission remains blocked on a separately authorized private custody read. Human proposal dispositions, source retention beyond the original deadline, any optional provider call, future one-shot durable write, acquisition, and deployment are separate later gates. M5b is **🔶 in progress, not shipped**. Private reads, provider calls, graph writes, acquisitions, deployments and effects in Gate A are all 0.
+
 ## P-track (product loop)
 
 | Milestone | Status | Anchor |
@@ -86,7 +92,7 @@ M5a is **shipped** because both halves of the done-pattern now exist: the named 
 | **M2.5 — Prompt contracts → SKILL.md instruction packages** (execution affordances structurally stripped; loader rejection tests; `mode: "placeholder"` retired) | ⬜ not started | ADR 0003 A2; direction memo §6. M2.5 is not currently authorized; any later slice requires a new explicit operator decision. |
 | **M5a — Doctrine-loop proof, curated public sources** (curated public GraphBundle → recorded proposal fixtures grounded in curated sources → validation → human ratification → durable graph write → Workshop renders from durable state; visible artifact: a real-account-looking Workshop page rendered entirely from durable state without any system-acquisition path being exercised) | ✅ shipped | Steps 1–3 merged through PRs #278 (`6205c4a`), #279 (`d09ac17`), and #280 (`dc0381f`); Step 4 merged through PR #282 (`9661468`). Proposals were fixture-curated, not model-generated. Visible artifact: `fixtures/workshop/m5a-curated-proposal-flow-capstone.html`. Closeout, drift boundary and successor approval surface: `docs/reviews/m5a-product-closeout-retro.md`. |
 | **M4 — Evidence acquisition v1** (deterministic system-side fetcher as the first orchestrator-held MCP integration; allowlisted, sandboxed, provenance-tagged; L0 only in this slice; **its own capstone, visible artifact and retro — not co-shipped with M5**) | ✅ shipped upon closeout merge | Canonical implementation `c1372acd14e09722c1e54646b85d89d3a0fd73f1`, tree `1eb28fcea7ced5ba2357bd32c35561a7cadc4918`. Attempt 1 remains a truthful permanently consumed `failed_no_evidence` record; PR #287 merged the Node 22 repair; separately authorized attempt 2 succeeded once with HTTP 200, `application/json`, 160,901 bytes, one DNS/request/connection attempt, zero redirects and zero retries. Visible artifact: `fixtures/workshop/m4-sec-fedex-live-evidence-preview.html`; sanitized proof: `fixtures/validation/m4-live-acquisition-success-proof.json`; retro: `docs/reviews/m4-live-acquisition-closeout-retro.md`. `current_effective_authorization: none`; no repeat acquisition, M5b, graph, provider, deployment or readiness authority. |
-| **M5b — Does-its-job-once, system-acquired sources** (the original capstone framing carried forward from the frozen big-picture review: pick one real account → system fetches public sources via M4 → loop runs → Workshop renders durable state with honest trust labels; visible artifact: a shareable Workshop account page about a real company, every claim traceable to a stored source, every unverified item labeled) | ⬜ not started | originates as the frozen review's M5; see `phase-0-retro-and-m5-drift.md` §3 |
+| **M5b — Does-its-job-once, system-acquired sources** (the original capstone framing carried forward from the frozen big-picture review: pick one real account → system fetches public sources via M4 → loop runs → Workshop renders durable state with honest trust labels; visible artifact: a shareable Workshop account page about a real company, every claim traceable to a stored source, every unverified item labeled) | 🔶 in progress — Gate A pre-effect, not shipped | FedEx byte-only future custody admission, canonical-hash-bound serialized admission evidence, bounded source pack, individual review packet, valid unverified GraphBundle candidate and visible pre-write artifact are implemented at `fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html`. The demo is explicitly synthetic/committed-public with null admission evidence and cannot enter future durable-write composition. Exact production admission awaits a separately authorized private custody read; provider, retention, write, acquisition and deployment gates remain closed. |
 | **M6 — Identity + lab deployment** (Team/User/membership; auth in front of Workshop; lab target executed under existing deployment contracts; Gate 3 lands here, in service of M5b's artifact) | ⬜ not started | `docs/BLOCKERS.md` Gate 3 |
 | **M7 — Gate 4 corpus + first external users** (launch-gate corpus on real accounts; quantitative bars evaluated honestly; first users admitted per the original gating plan) | ⬜ not started | `docs/BLOCKERS.md` Gate 4 |
 
@@ -114,7 +120,7 @@ These are the operator's calls, recorded here so the chart carries them visibly.
 4. **ADR numbering/title** — resolved: ADR 0003.
 5. **A3 timing** — whether the outward server is M7-adjacent or later.
 6. **M5a Step 4 vs. H3 implementation** — **RESOLVED: STEP 4 FIRST.** Steps 1–3 are merged through PRs #278–#280 and Step 4 through PR #282 (`9661468`). The required capstone retro is now `docs/reviews/m5a-product-closeout-retro.md`; H3 remains unstarted and not next-up.
-7. **Post-M5a product direction** — **RESOLVED THROUGH M4: H2 NO-NETWORK ECHO PROOF → THIN M4 `public_http_fetch_v1` → SEPARATE EXPLICIT M5b DECISION.** H2 shipped at PR #284. M4 completed one bounded acquisition and its visible closeout; both attempt authorities are permanently consumed. The next recommendation is only a separate explicit M5b decision. Provider/model execution and every later effect remain separately gated.
+7. **Post-M5a product direction** — **RESOLVED THROUGH M5b GATE A: H2 NO-NETWORK ECHO PROOF → THIN M4 `public_http_fetch_v1` → M5b FEDEX UNARMED PRE-EFFECT REVIEW.** H2 shipped at PR #284. M4 completed one bounded acquisition and its visible closeout; both attempt authorities are permanently consumed. M5b Gate A now supplies the unarmed review surface without reading private custody. The next possible step is only a separately authorized exact private custody read/admission. Provider/model execution and every later effect remain separately gated.
 
 ## Maintenance rules
 

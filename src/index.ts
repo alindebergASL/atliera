@@ -95,4 +95,5 @@ export * from "./workshop/m5a-curated-proposal-flow-approval-packet.ts";
 export * from "./workshop/m5a-curated-proposal-flow-operator-arming.ts";
 export * from "./workshop/m5a-curated-proposal-flow-execution.ts";
 export * from "./workshop/m5b-fedex-system-acquired-source.ts";
+export * from "./workshop/m5b-fedex-review-composition.ts";
 export * from "./workshop/m5b-fedex-prewrite-workshop.ts";

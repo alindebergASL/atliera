@@ -9,14 +9,22 @@ Boundary markers:
 - current_effective_authorization: none
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: separately authorize the exact M5b private custody read/admission only if Gate A review passes
+- next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, merge commit SHA/tree binding, exact custody identity plus a separately supplied private path, and execution before 2026-08-13T18:41:11.277Z unless a separately ratified bounded retention decision exists
 - ratified next bounded implementation: none
 - M4 is shipped upon closeout merge; M5b Gate A is now an unarmed pre-effect candidate and implementation authority has returned to none
 - M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes
 - M4 Gate B attempt 2 is permanently consumed and succeeded once; it creates no standing live authority
 - live acquisition remains unauthorized: neither consumed attempt may be retried or reused
+- private_reads: 0
+- product_provider_calls: 0
+- acquisitions: 0
+- graph_durable_writes: 0
+- deployments: 0
+- retries: 0
+- external_product_effects: 0
+- local_deterministic_fixture_outputs_written: 3
 
-Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. The current repository-level recommendation is only a separately authorized exact M5b private custody read/admission after Gate A review; provider, retention, write, acquisition, and deployment decisions remain separate.
+Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. The next possible M5b private-read gate is unapproved and conjunctive: PR #289 approval on its then-current exact head, merge, successful post-merge CI, binding to the resulting merge commit SHA and tree, exact custody artifact identity plus a separately supplied private path, and execution before the original deadline unless a separately ratified bounded retention decision already exists. Provider, model, external ratification, write, acquisition, and deployment decisions remain separate.
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -41,7 +49,7 @@ Status vocabulary:
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
 | `h2-echo-mediation-proof-status.md` | active | Shipped H2 system-side proof at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284): one approved L0 schedule invokes the first registered inert echo and emits one execution, audit, and accounting record with zero adjacent effects. |
 | `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | active | Shipped M4 closeout: attempt 1 remains a truthful consumed failure, PR #287 supplied the Node 22 repair, and separately authorized attempt 2 succeeded once with exact private custody plus a public unverified Workshop excerpt. Current effective authority is none; the next recommendation is only a separate explicit M5b decision. |
-| `m5b-fedex-system-acquired-pre-effect-gate-a-status.md` | active | M5b Gate A unarmed pre-effect implementation for the FedEx source-backed account snapshot: exact byte-only future custody admission pins, internal production-only and public fixture-only bounded extraction, canonical-hash-bound serialized exact admission evidence in the sanitized source pack, individually disposable human-review packet, exact-pack-bound closed optional model seam, valid unverified GraphBundle candidate, escaped Workshop HTML, and serialized-production-admission-gated inert future-write composition. The committed demo is explicitly synthetic/committed-public with null admission evidence and empty filing arrays and cannot enter future composition. M5b is 🔶 in progress, not shipped; exact production admission awaits a separately authorized private custody read, and all effect counts remain zero. |
+| `m5b-fedex-system-acquired-pre-effect-gate-a-status.md` | active | M5b Gate A unarmed pre-effect repair for the FedEx source-backed account snapshot: proportional hostile-input bounds; simulated fixture origin/source type; exact candidate-bound unratified review and retention drafts; exact filing-only model citations with no call; and future composition that re-admits caller-supplied custody bytes, rebuilds the production pack, and requires exact equality. Serialized public constants and caller-mintable hashes are identity, never authority or human ratification. The committed fixture preserves two Maps, empty Signals/Plays, and cannot compose with fixture bytes. M5b is 🔶 in progress, not shipped; the conjunctive next private-read gate is unapproved. External/product effects are 0 and the deterministic generator writes exactly 3 local fixture outputs. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |
 | `local-bearer-auth-seam-status.md` | active | Current local bearer-token auth seam for fake-mode Workshop serving; it is no-spend and does not claim deployment readiness. |

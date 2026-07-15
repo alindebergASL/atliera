@@ -28,6 +28,14 @@ Boundary markers:
 - production_readiness_claim: false
 - product_readiness_claim: false
 - launch_readiness_claim: false
+- m5b_private_reads: 0
+- m5b_product_provider_calls: 0
+- m5b_acquisitions: 0
+- m5b_graph_durable_writes: 0
+- m5b_deployments: 0
+- m5b_retries: 0
+- m5b_external_product_effects: 0
+- m5b_local_deterministic_fixture_outputs_written: 3
 
 ## Reconciled foundation
 
@@ -81,7 +89,7 @@ The following remain future work and require fresh explicit operator approval be
 
 The status reconciliation requested after slice B is now complete. Current effective authorization is none.
 
-At the time this reconciliation closed, its local historical follow-up was an explicit operator decision for another scoped Gate 3 slice. The M4 closeout supersedes that queue position: the current repository-level next recommendation is only a separate explicit M5b decision. This reconciliation does not choose, approve, or execute Gate 3 or M5b work.
+At the time this reconciliation closed, its local historical follow-up was an explicit operator decision for another scoped Gate 3 slice. The repaired M5b Gate A frontier supersedes that queue position but authorizes no private read: a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, binding to the resulting merge commit SHA and tree, exact custody artifact identity plus a separately supplied private path, and execution before `2026-08-13T18:41:11.277Z` unless a separately ratified bounded retention decision already exists. Caller-mintable review and retention hashes remain unratified drafts and cannot satisfy future arming. This reconciliation does not choose, approve, or execute Gate 3 or M5b work.
 
 Historical Gate 3 options remain unapproved and include:
 

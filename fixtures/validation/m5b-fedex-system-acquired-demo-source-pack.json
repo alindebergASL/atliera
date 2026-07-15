@@ -4,12 +4,13 @@
   "fixtureClassification": "synthetic/committed-public pre-effect fixture; exact private source admission not completed",
   "exactProductionCustodyAdmissionCompleted": false,
   "productionAdmissionEvidence": null,
-  "origin": "system-acquired-public",
+  "origin": "simulated-fixture",
   "trustStatus": "source-backed-not-independently-verified",
   "source": {
     "url": "https://data.sec.gov/submissions/CIK0001048911.json",
     "acquiredAt": "2026-07-14T18:41:11.214Z",
-    "upstreamResponseSha256": "ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d",
+    "sourceType": "simulated_fixture_sec_submissions_bounded_projection",
+    "sourceSha256": "b83f0447214a05fde756044336418d2f196175a9b85c85f36157a39d121a9217",
     "originalCustodyRetentionDeadline": "2026-08-13T18:41:11.277Z"
   },
   "fields": [
@@ -80,5 +81,5 @@
     "resolvedIpOmitted": true,
     "credentialsOmitted": true
   },
-  "sourcePackSha256": "26aded53e7cab9ead17968efe088f052984415fff0dff88ee6ad02cdc89fc360"
+  "sourcePackSha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208"
 }

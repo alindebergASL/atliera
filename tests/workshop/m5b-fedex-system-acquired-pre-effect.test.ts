@@ -11,34 +11,37 @@ import { parseGraphBundle } from "../../src/graph/schema.ts";
 import { validateGraphBundle } from "../../src/graph/validate.ts";
 import {
   M5B_FEDEX_DEMO_FIXTURE_NOTICE,
+  M5B_FEDEX_INPUT_LIMITS,
   M5B_FEDEX_PRODUCTION_PINS,
   M5B_FEDEX_REQUIRED_CLASSIFICATION_CLAIM,
   M5B_FEDEX_REQUIRED_IDENTITY_CLAIM,
   M5B_FEDEX_RESTRAINED_PLAY,
   admitM5bFedExProductionCustodyBytes,
-  applyM5bFedExIndividualReviewDecisions,
-  applyM5bFedExRetentionDecision,
   buildM5bFedExOptionalModelRequest,
-  buildM5bFedExReviewPacket,
   buildM5bFedExSanitizedSourcePack,
   canonicalM5bFedExJson,
-  composeM5bFedExUnarmedFutureEffect,
   extractM5bFedExCommittedFixtureSource,
-  refuseM5bFedExPreEffectExecution,
   sha256M5bFedExCanonical,
   snapshotM5bFedExOwnData,
   validateM5bFedExCustodyBytesAgainstPins,
   validateM5bFedExOptionalModelOutput,
-  verifyM5bFedExReviewPacket,
   verifyM5bFedExSanitizedSourcePack,
   type M5bFedExProductionPins,
 } from "../../src/workshop/m5b-fedex-system-acquired-source.ts";
 import {
+  applyM5bFedExIndividualReviewDraftSelections,
+  applyM5bFedExRetentionDraftSelection,
   buildM5bFedExPrewriteCandidate,
+  buildM5bFedExReviewPacket,
+  composeM5bFedExUnarmedFutureEffect,
+  refuseM5bFedExPreEffectExecution,
+  verifyM5bFedExPrewriteCandidate,
+  verifyM5bFedExReviewPacket,
+} from "../../src/workshop/m5b-fedex-review-composition.ts";
+import {
   generateM5bFedExDemoArtifacts,
   renderM5bFedExPrewriteWorkshopHtml,
   renderM5bFedExSafeSourceLink,
-  verifyM5bFedExPrewriteCandidate,
 } from "../../src/workshop/m5b-fedex-prewrite-workshop.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
@@ -177,6 +180,13 @@ function boundedFrom(overrides: Record<string, unknown> = {}) {
   return extractM5bFedExCommittedFixtureSource(secBody(overrides));
 }
 
+function assertRefusalCode(operation: () => unknown, code: string): void {
+  assert.throws(operation, (error: any) => {
+    assert.equal(error.code, code);
+    return true;
+  });
+}
+
 describe("M5b exact source admission and bounded extraction", () => {
   test("pins every supplied production identity and rejects synthetic bytes at the outer hash first", () => {
     assert.deepEqual(M5B_FEDEX_PRODUCTION_PINS, {
@@ -262,6 +272,51 @@ describe("M5b exact source admission and bounded extraction", () => {
     assert.throws(() => snapshotM5bFedExOwnData(JSON.parse('{"__proto__":{"polluted":true}}')), /unsafe_key/);
   });
 
+  test("enforces proportional hostile-input ceilings before reflection, copying, encoding, or decoding", () => {
+    const flat = Object.fromEntries(Array.from({ length: M5B_FEDEX_INPUT_LIMITS.objectOwnPropertyCount + 1 },
+      (_, index) => [`p${index}`, index]));
+    assertRefusalCode(() => snapshotM5bFedExOwnData(flat), "input_own_property_count");
+
+    const primitiveArrayLength = Math.ceil(M5B_FEDEX_INPUT_LIMITS.primitiveLeafAndPropertyCount / (128 * 2)) + 1;
+    const primitiveHeavy = Object.fromEntries(Array.from({ length: 128 }, (_, index) =>
+      [`p${index}`, Array.from({ length: primitiveArrayLength }, () => null)]));
+    assertRefusalCode(() => snapshotM5bFedExOwnData(primitiveHeavy), "input_primitive_budget");
+    assertRefusalCode(() => snapshotM5bFedExOwnData("x".repeat(M5B_FEDEX_INPUT_LIMITS.stringUtf8Bytes + 1)),
+      "input_string_bytes");
+    const canonicalStringCount = Math.floor(M5B_FEDEX_INPUT_LIMITS.cumulativeCanonicalUtf8Bytes /
+      M5B_FEDEX_INPUT_LIMITS.stringUtf8Bytes) + 1;
+    assertRefusalCode(() => canonicalM5bFedExJson({ values: Array.from({ length: canonicalStringCount },
+      () => "x".repeat(M5B_FEDEX_INPUT_LIMITS.stringUtf8Bytes)) }),
+      "canonical_utf8_budget");
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    assertRefusalCode(() => snapshotM5bFedExOwnData(cyclic), "input_cycle");
+    const deep: Record<string, unknown> = {};
+    let cursor = deep;
+    for (let depth = 0; depth <= M5B_FEDEX_INPUT_LIMITS.recursionDepth; depth += 1) {
+      const next: Record<string, unknown> = {};
+      cursor.next = next;
+      cursor = next;
+    }
+    assertRefusalCode(() => snapshotM5bFedExOwnData(deep), "input_recursion_depth");
+    const outerNodeCount = 201;
+    const innerNodeCount = Math.ceil(M5B_FEDEX_INPUT_LIMITS.totalNodes / outerNodeCount);
+    const nodeHeavy = Array.from({ length: outerNodeCount }, () =>
+      Array.from({ length: innerNodeCount }, () => ({})));
+    assertRefusalCode(() => snapshotM5bFedExOwnData(nodeHeavy), "input_total_nodes");
+    assertRefusalCode(() => snapshotM5bFedExOwnData(
+      Array.from({ length: M5B_FEDEX_INPUT_LIMITS.arraySize + 1 }, () => null)), "input_array_size");
+    assertRefusalCode(() => admitM5bFedExProductionCustodyBytes(
+      Buffer.alloc(M5B_FEDEX_INPUT_LIMITS.custodyInputBytes + 1)), "custody_input_bytes");
+
+    const oversizedBase64 = custodyFor();
+    oversizedBase64.envelope.acquisition.bodyBase64 = "A".repeat(1_000);
+    const rebuilt = rebuiltCustody(oversizedBase64);
+    assertRefusalCode(() => validateM5bFedExCustodyBytesAgainstPins(rebuilt.bytes, rebuilt.pins),
+      "response_base64_bounds");
+  });
+
   test("omits ambiguous filing alignment and selects only one uniquely newest canonical same-index row", () => {
     const ambiguous = [
       { filings: { recent: { form: ["10-K"], filingDate: [], accessionNumber: ["0001048911-26-000001"], primaryDocument: ["fdx.htm"] } } },
@@ -276,7 +331,7 @@ describe("M5b exact source admission and bounded extraction", () => {
       assert.equal(bounded.filingAlignment, "omitted_ambiguous");
       const pack = buildM5bFedExSanitizedSourcePack(bounded);
       const candidate = buildM5bFedExPrewriteCandidate(pack);
-      const packet = buildM5bFedExReviewPacket(pack, candidate.candidateContentSha256);
+      const packet = buildM5bFedExReviewPacket(pack, candidate);
       const html = renderM5bFedExPrewriteWorkshopHtml(pack, packet, candidate);
       assert.match(html, /No Signals proposed/);
       assert.match(html, /No Plays proposed/);
@@ -296,7 +351,7 @@ describe("M5b exact source admission and bounded extraction", () => {
   });
 });
 
-describe("M5b source pack, packet, review decisions, and composition", () => {
+describe("M5b source pack, packet, unratified review drafts, and composition", () => {
   const generated = generateM5bFedExDemoArtifacts(DEMO_SOURCE);
 
   test("binds exact pointers/literals/spans and records every deterministic claim transformation", () => {
@@ -339,7 +394,8 @@ describe("M5b source pack, packet, review decisions, and composition", () => {
     badPacket.boundaryMarker = "armed";
     const { packetSha256: _oldPacketHash, ...badPacketContent } = badPacket;
     badPacket.packetSha256 = sha256M5bFedExCanonical(badPacketContent);
-    assert.throws(() => verifyM5bFedExReviewPacket(badPacket, generated.sourcePack), /review_packet_boundary/);
+    assert.throws(() => verifyM5bFedExReviewPacket(badPacket, generated.sourcePack, generated.candidate),
+      /review_packet_boundary/);
 
     const semanticPack = clone(generated.sourcePack) as any;
     semanticPack.fields.find((field: any) => field.jsonPointer === "/sicDescription").literal = "AIR COURIER SERVICES";
@@ -352,50 +408,86 @@ describe("M5b source pack, packet, review decisions, and composition", () => {
     semanticPacket.proposals[0].proposedCard = "Counterfeit card";
     const { packetSha256: _semanticPacketHash, ...semanticPacketContent } = semanticPacket;
     semanticPacket.packetSha256 = sha256M5bFedExCanonical(semanticPacketContent);
-    assert.throws(() => verifyM5bFedExReviewPacket(semanticPacket, generated.sourcePack), /review_packet_counterfeit/);
+    assert.throws(() => verifyM5bFedExReviewPacket(semanticPacket, generated.sourcePack, generated.candidate),
+      /review_packet_counterfeit/);
+  });
+
+  test("requires the exact verified candidate instead of a caller-selected digest at every review boundary", () => {
+    assertRefusalCode(() => buildM5bFedExReviewPacket(generated.sourcePack, "a".repeat(64) as any),
+      "review_candidate_required");
+    assert.doesNotThrow(() => buildM5bFedExReviewPacket(generated.sourcePack, generated.candidate as any));
+
+    const counterfeit = clone(generated.candidate) as any;
+    counterfeit.bundle.account_objects[0].title = "Counterfeit card";
+    counterfeit.candidateContentSha256 = sha256M5bFedExCanonical(counterfeit.bundle);
+    assertRefusalCode(() => verifyM5bFedExReviewPacket(generated.reviewPacket, generated.sourcePack, counterfeit),
+      "review_candidate_counterfeit");
+    assertRefusalCode(() => applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [], counterfeit),
+      "review_candidate_counterfeit");
+    assertRefusalCode(() => applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [],
+      "b".repeat(64) as any), "review_candidate_counterfeit");
+
+    const all = applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack,
+      generated.reviewPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })),
+      generated.candidate);
+    assertRefusalCode(() => applyM5bFedExRetentionDraftSelection(all, "accept", generated.reviewPacket,
+      generated.sourcePack, counterfeit), "review_candidate_counterfeit");
+    assertRefusalCode(() => composeM5bFedExUnarmedFutureEffect(generated.sourcePack, generated.reviewPacket, all,
+      counterfeit, Buffer.from(DEMO_SOURCE, "utf8")), "review_candidate_counterfeit");
   });
 
   test("applies accept/reject individually, permits honest partial state, and keeps retention separate", () => {
-    const partial = applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack, [
+    const partial = applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [
       { proposalId: "m5b-fedex-registrant-identity", disposition: "accept" },
-    ]);
+    ], generated.candidate);
     assert.equal(partial.allProposalsDecided, false);
     assert.equal(partial.unarmed, true);
     assert.deepEqual(partial.pendingProposalIds, ["m5b-fedex-industry-classification"]);
-    assert.equal(partial.retentionDecision, "pending");
-    assert.throws(() => composeM5bFedExUnarmedFutureEffect(generated.sourcePack, generated.reviewPacket, partial));
+    assert.equal(partial.retentionDraft, "pending");
+    assert.equal(partial.ratificationState, "unratified-draft");
+    assert.equal(partial.satisfiesFutureArming, false);
+    assert.throws(() => composeM5bFedExUnarmedFutureEffect(generated.sourcePack, generated.reviewPacket, partial,
+      generated.candidate, Buffer.from(DEMO_SOURCE, "utf8")));
 
-    assert.throws(() => applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack, [
+    assert.throws(() => applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [
       { proposalId: "m5b-fedex-registrant-identity", disposition: "accept" },
       { proposalId: "m5b-fedex-registrant-identity", disposition: "reject" },
-    ]), /decision_duplicate_id/);
-    assert.throws(() => applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack, [
+    ], generated.candidate), /decision_duplicate_id/);
+    assert.throws(() => applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [
       { proposalId: "unknown", disposition: "accept" },
-    ]), /decision_unknown_id/);
-    assert.throws(() => applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack, [
+    ], generated.candidate), /decision_unknown_id/);
+    assert.throws(() => applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack, [
       { disposition: "accept" },
-    ]), /envelope/);
+    ], generated.candidate), /envelope/);
 
-    const all = applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack,
-      generated.reviewPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })));
+    const all = applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack,
+      generated.reviewPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })),
+      generated.candidate);
     assert.equal(all.allProposalsAccepted, true);
-    assert.equal(all.retentionDecision, "pending");
-    const retained = applyM5bFedExRetentionDecision(all, "accept");
-    assert.equal(retained.retentionDecision, "accept");
-    assert.notEqual(retained.decisionArtifactSha256, all.decisionArtifactSha256);
+    assert.equal(all.retentionDraft, "pending");
+    const retained = applyM5bFedExRetentionDraftSelection(all, "accept", generated.reviewPacket, generated.sourcePack,
+      generated.candidate);
+    assert.equal(retained.retentionDraft, "accept");
+    assert.equal(retained.ratificationState, "unratified-draft");
+    assert.equal(retained.satisfiesFutureArming, false);
+    assert.notEqual(retained.reviewDraftSha256, all.reviewDraftSha256);
 
     const counterfeitDecision = clone(all) as any;
     counterfeitDecision.acceptedProposalIds = [];
-    const { decisionArtifactSha256: _decisionHash, ...counterfeitDecisionContent } = counterfeitDecision;
-    counterfeitDecision.decisionArtifactSha256 = sha256M5bFedExCanonical(counterfeitDecisionContent);
-    assert.throws(() => applyM5bFedExRetentionDecision(counterfeitDecision, "accept"), /decision_artifact_summary/);
+    const { reviewDraftSha256: _draftHash, ...counterfeitDecisionContent } = counterfeitDecision;
+    counterfeitDecision.reviewDraftSha256 = sha256M5bFedExCanonical(counterfeitDecisionContent);
+    assert.throws(() => applyM5bFedExRetentionDraftSelection(counterfeitDecision, "accept", generated.reviewPacket,
+      generated.sourcePack, generated.candidate), /review_draft_summary/);
   });
 
   test("refuses the committed demo and a rehashed flag/classification flip without serialized admission evidence", () => {
-    const all = applyM5bFedExIndividualReviewDecisions(generated.reviewPacket, generated.sourcePack,
-      generated.reviewPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })));
-    const retained = applyM5bFedExRetentionDecision(all, "accept");
-    assert.throws(() => composeM5bFedExUnarmedFutureEffect(generated.sourcePack, generated.reviewPacket, retained),
+    const all = applyM5bFedExIndividualReviewDraftSelections(generated.reviewPacket, generated.sourcePack,
+      generated.reviewPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })),
+      generated.candidate);
+    const retained = applyM5bFedExRetentionDraftSelection(all, "accept", generated.reviewPacket, generated.sourcePack,
+      generated.candidate);
+    assert.throws(() => composeM5bFedExUnarmedFutureEffect(generated.sourcePack, generated.reviewPacket, retained,
+      generated.candidate, Buffer.from(DEMO_SOURCE, "utf8")),
       /future_composition_production_admission/);
 
     const productionLookingPack = clone(generated.sourcePack) as any;
@@ -405,14 +497,48 @@ describe("M5b source pack, packet, review decisions, and composition", () => {
     productionLookingPack.sourcePackSha256 = sha256M5bFedExCanonical(productionLookingContent);
     assert.equal(productionLookingPack.productionAdmissionEvidence, null);
     assert.throws(() => verifyM5bFedExSanitizedSourcePack(productionLookingPack), /source_pack_admission_evidence/);
-    assert.throws(() => composeM5bFedExUnarmedFutureEffect(productionLookingPack, generated.reviewPacket, retained),
+    assert.throws(() => composeM5bFedExUnarmedFutureEffect(productionLookingPack, generated.reviewPacket, retained,
+      generated.candidate, Buffer.from(DEMO_SOURCE, "utf8")),
       /source_pack_admission_evidence/);
 
     assert.deepEqual(refuseM5bFedExPreEffectExecution({ kind: "synthetic-pack-never-composed" }), {
       outcome: "refused_pre_effect",
-      reason: "later-exact-approval-and-one-shot-arming-required",
-      privateReads: 0, providerCalls: 0, graphWrites: 0, acquisitions: 0, deployments: 0, effects: 0,
+      reason: "later-external-ratification-exact-approval-and-one-shot-arming-required",
+      privateReads: 0, providerCalls: 0, graphDurableWrites: 0, acquisitions: 0, deployments: 0, retries: 0,
+      externalProductEffects: 0,
     });
+  });
+
+  test("refuses the complete public-constant admission forgery when supplied non-custody fixture bytes", () => {
+    const forgedPack = clone(generated.sourcePack) as any;
+    forgedPack.exactProductionCustodyAdmissionCompleted = true;
+    forgedPack.fixtureClassification = "exact-production-custody-admitted";
+    forgedPack.fixtureInputSha256 = null;
+    forgedPack.origin = "system-acquired-public";
+    forgedPack.source.sourceType = "system_acquired_sec_submissions_bounded_projection";
+    forgedPack.source.sourceSha256 = M5B_FEDEX_PRODUCTION_PINS.responseSha256;
+    forgedPack.productionAdmissionEvidence = {
+      state: "exact-production-custody-admission-completed",
+      custodyArtifactSha256: M5B_FEDEX_PRODUCTION_PINS.custodyArtifactSha256,
+      decodedResponseBytes: M5B_FEDEX_PRODUCTION_PINS.decodedResponseBytes,
+      responseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
+      targetPolicySha256: M5B_FEDEX_PRODUCTION_PINS.targetPolicySha256,
+      capabilityDescriptorSha256: M5B_FEDEX_PRODUCTION_PINS.capabilityDescriptorSha256,
+      sourceUrl: M5B_FEDEX_PRODUCTION_PINS.sourceUrl,
+      cik: M5B_FEDEX_PRODUCTION_PINS.cik,
+      acquiredAt: M5B_FEDEX_PRODUCTION_PINS.acquiredAt,
+    };
+    const { sourcePackSha256: _oldPackHash, ...forgedPackContent } = forgedPack;
+    forgedPack.sourcePackSha256 = sha256M5bFedExCanonical(forgedPackContent);
+    const forgedCandidate = buildM5bFedExPrewriteCandidate(forgedPack);
+    const forgedPacket = buildM5bFedExReviewPacket(forgedPack, forgedCandidate);
+    const forgedDecisions = applyM5bFedExIndividualReviewDraftSelections(forgedPacket, forgedPack,
+      forgedPacket.proposals.map((proposal) => ({ proposalId: proposal.proposalId, disposition: "accept" as const })),
+      forgedCandidate);
+    const forgedRetention = applyM5bFedExRetentionDraftSelection(forgedDecisions, "accept", forgedPacket, forgedPack,
+      forgedCandidate);
+    assertRefusalCode(() => composeM5bFedExUnarmedFutureEffect(forgedPack, forgedPacket, forgedRetention,
+      forgedCandidate, Buffer.from(DEMO_SOURCE, "utf8")), "future_composition_production_admission");
   });
 });
 
@@ -441,15 +567,16 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     const counterfeit = clone(generated.candidate) as any;
     counterfeit.bundle.account_objects[0].title = "Counterfeit card";
     counterfeit.candidateContentSha256 = sha256M5bFedExCanonical(counterfeit.bundle);
-    assert.throws(() => verifyM5bFedExPrewriteCandidate(counterfeit, generated.sourcePack), /semantic counterfeit/);
+    assert.throws(() => verifyM5bFedExPrewriteCandidate(counterfeit, generated.sourcePack),
+      /review_candidate_counterfeit/);
   });
 
   test("renders exact hero/copy, literal evidence, honest empty lenses, and only identity/classification claims", () => {
     const html = generated.html;
     for (const copy of [
       "FEDEX CORP", "FDX · NYSE", "CIK 0001048911", "SIC 4513 / Air Courier Services",
-      "Acquired-source timestamp", "2026-07-14T18:41:11.214Z", "one source", "zero independently verified objects",
-      "System-acquired SEC source", "Pending human ratification before persistence",
+      "Fixture source timestamp", "2026-07-14T18:41:11.214Z", "one source", "zero independently verified objects",
+      "Simulated SEC fixture source", "Unratified review draft; external ratification required",
       "Source-backed / not independently verified", "SEC registrant identity", "SEC industry classification",
       M5B_FEDEX_REQUIRED_IDENTITY_CLAIM, M5B_FEDEX_REQUIRED_CLASSIFICATION_CLAIM,
       "/name", "/cik", "/tickers", "/exchanges", "/sic", "/sicDescription",
@@ -459,6 +586,19 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     assert.match(html, /rel="noreferrer noopener"/);
     assert.doesNotMatch(generated.candidate.bundle.claims.map((claim) => claim.text).join(" "),
       /stakeholder|personnel|strategic priorit|financial performance|financial trend|security need|technology need|buying intent|competitive|meeting brief|RFI|RFP/i);
+  });
+
+  test("labels committed machine and HTML artifacts only as simulated fixture provenance", () => {
+    assert.equal(generated.sourcePack.origin, "simulated-fixture");
+    assert.equal(generated.candidate.origin, "simulated-fixture");
+    assert.equal(generated.candidate.bundle.sources[0]?.source_type,
+      "simulated_fixture_sec_submissions_bounded_projection");
+    assert.doesNotMatch(canonicalM5bFedExJson(generated.sourcePack), /system-acquired-public/);
+    assert.doesNotMatch(canonicalM5bFedExJson(generated.candidate),
+      /system_acquired_sec_submissions_bounded_projection/);
+    assert.match(generated.html, /Simulated SEC fixture source/);
+    assert.match(generated.html, /Fixture source SHA-256/);
+    assert.doesNotMatch(generated.html, /System-acquired SEC source|Production response SHA-256/);
   });
 
   test("escapes labels and only emits safe credential-free http/https links", () => {
@@ -496,7 +636,7 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     assert.equal(play.play?.text, M5B_FEDEX_RESTRAINED_PLAY);
     assert.throws(() => validateM5bFedExOptionalModelOutput(request, { signal: null,
       play: { text: M5B_FEDEX_RESTRAINED_PLAY, citedExcerptIds: ["exc_invented"], provenanceStatus: "unverified" } }, pack),
-    /model_invented_excerpt/);
+    /model_filing_citation_exact/);
     const signal = { text: request.allowedSignalText, citedExcerptIds: cited, provenanceStatus: "unverified" };
     assert.throws(() => validateM5bFedExOptionalModelOutput(request, { signal,
       play: { text: M5B_FEDEX_RESTRAINED_PLAY, citedExcerptIds: cited, provenanceStatus: "unverified" } }, pack), /model_both_items/);
@@ -505,6 +645,19 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     assert.throws(() => validateM5bFedExOptionalModelOutput(request, { signal: null,
       play: { text: M5B_FEDEX_RESTRAINED_PLAY, citedExcerptIds: cited, provenanceStatus: "verified" } }, pack),
     /model_item_content/);
+
+    for (const invalidCitations of [
+      ["exc_fedex_latest_filing_metadata", "exc_fedex_latest_filing_metadata"],
+      ["exc_fedex_registrant_identity"],
+      ["exc_fedex_industry_classification"],
+      ["exc_fedex_latest_filing_metadata", "exc_fedex_registrant_identity"],
+      ["exc_invented"],
+      [],
+    ]) {
+      assertRefusalCode(() => validateM5bFedExOptionalModelOutput(request, { signal: null,
+        play: { text: M5B_FEDEX_RESTRAINED_PLAY, citedExcerptIds: invalidCitations,
+          provenanceStatus: "unverified" } }, pack), "model_filing_citation_exact");
+    }
 
     const counterfeitRequest = { ...request, allowedSignalText: "FedEx financial performance changed." };
     assert.throws(() => validateM5bFedExOptionalModelOutput(counterfeitRequest, { signal: null, play: null }, pack),

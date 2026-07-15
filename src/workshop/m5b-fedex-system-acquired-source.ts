@@ -6,6 +6,11 @@ import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_SHA256 } from "../capabili
 import type { M4PublicEvidence } from "../capability/public-http-fetch-policy.ts";
 
 export const M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN = "system-acquired-public" as const;
+export const M5B_FEDEX_FIXTURE_ORIGIN = "simulated-fixture" as const;
+export const M5B_FEDEX_SYSTEM_ACQUIRED_SOURCE_TYPE =
+  "system_acquired_sec_submissions_bounded_projection" as const;
+export const M5B_FEDEX_FIXTURE_SOURCE_TYPE =
+  "simulated_fixture_sec_submissions_bounded_projection" as const;
 export const M5B_FEDEX_TRUST_STATUS = "source-backed-not-independently-verified" as const;
 export const M5B_FEDEX_REVIEW_STATE = "pending human review" as const;
 export const M5B_FEDEX_REQUIRED_IDENTITY_CLAIM =
@@ -46,9 +51,17 @@ const SAFE_HASH = /^[a-f0-9]{64}$/;
 const STRICT_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const CANONICAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const UNSAFE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-const MAX_SNAPSHOT_DEPTH = 32;
-const MAX_SNAPSHOT_NODES = 20_000;
-const MAX_ARRAY_LENGTH = 100_000;
+export const M5B_FEDEX_INPUT_LIMITS = Object.freeze({
+  objectOwnPropertyCount: 256,
+  primitiveLeafAndPropertyCount: 50_000,
+  stringUtf8Bytes: 262_144,
+  cumulativeCanonicalUtf8Bytes: 2_097_152,
+  custodyInputBytes: 1_048_576,
+  responseInputBytes: 1_048_576,
+  recursionDepth: 32,
+  arraySize: 10_000,
+  totalNodes: 40_000,
+} as const);
 
 export class M5bFedExRefusal extends Error {
   constructor(public readonly code: string) {
@@ -61,25 +74,60 @@ function refuse(code: string): never {
   throw new M5bFedExRefusal(code);
 }
 
-interface SnapshotBudget { nodes: number }
+interface SnapshotBudget {
+  totalNodes: number;
+  primitiveLeavesAndProperties: number;
+  readonly active: WeakSet<object>;
+  readonly rootLabel: string;
+}
+
+function accountSnapshotNode(budget: SnapshotBudget, label: string): void {
+  budget.totalNodes += 1;
+  if (budget.totalNodes > M5B_FEDEX_INPUT_LIMITS.totalNodes) refuse(`${budget.rootLabel}_total_nodes`);
+}
+
+function accountPrimitiveOrProperty(budget: SnapshotBudget, label: string): void {
+  budget.primitiveLeavesAndProperties += 1;
+  if (budget.primitiveLeavesAndProperties > M5B_FEDEX_INPUT_LIMITS.primitiveLeafAndPropertyCount) {
+    refuse(`${budget.rootLabel}_primitive_budget`);
+  }
+}
+
+function validateStringBytes(value: string, label: string): void {
+  if (Buffer.byteLength(value, "utf8") > M5B_FEDEX_INPUT_LIMITS.stringUtf8Bytes) refuse(`${label}_string_bytes`);
+}
 
 /**
  * Hostile-input snapshot used by every public M5b object boundary. Proxy is
  * checked first; accessor values are never read. Arrays permit only their
  * intrinsic non-enumerable length plus dense enumerable own data elements.
  */
-export function snapshotM5bFedExOwnData(value: unknown, label = "input",
-  budget: SnapshotBudget = { nodes: 0 }, depth = 0): unknown {
-  if (depth > MAX_SNAPSHOT_DEPTH || budget.nodes >= MAX_SNAPSHOT_NODES) refuse(`${label}_bounds`);
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+function snapshotM5bFedExOwnDataInternal(value: unknown, label: string, budget: SnapshotBudget,
+  depth: number): unknown {
+  if (depth > M5B_FEDEX_INPUT_LIMITS.recursionDepth) refuse(`${budget.rootLabel}_recursion_depth`);
+  accountSnapshotNode(budget, label);
+  if (value === null || typeof value === "boolean") {
+    accountPrimitiveOrProperty(budget, label);
+    return value;
+  }
+  if (typeof value === "string") {
+    validateStringBytes(value, label);
+    accountPrimitiveOrProperty(budget, label);
+    return value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    accountPrimitiveOrProperty(budget, label);
+    return value;
+  }
   if (typeof value !== "object") refuse(`${label}_non_data`);
   if (utilTypes.isProxy(value)) refuse(`${label}_proxy`);
-  budget.nodes += 1;
+  if (budget.active.has(value)) refuse(`${budget.rootLabel}_cycle`);
+  budget.active.add(value);
+  try {
   if (Array.isArray(value)) {
-    if (Object.getPrototypeOf(value) !== Array.prototype || value.length > MAX_ARRAY_LENGTH ||
+    if (Object.getPrototypeOf(value) !== Array.prototype || value.length > M5B_FEDEX_INPUT_LIMITS.arraySize ||
         !Number.isSafeInteger(value.length) || value.length < 0 || Object.getOwnPropertySymbols(value).length !== 0) {
-      refuse(`${label}_array_shape`);
+      refuse(value.length > M5B_FEDEX_INPUT_LIMITS.arraySize ? `${label}_array_size` : `${label}_array_shape`);
     }
     const names = Object.getOwnPropertyNames(value);
     if (names.length !== value.length + 1 || !names.includes("length")) refuse(`${label}_array_shape`);
@@ -87,26 +135,40 @@ export function snapshotM5bFedExOwnData(value: unknown, label = "input",
     for (let index = 0; index < value.length; index += 1) {
       const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
       if (!descriptor || descriptor.enumerable !== true || !("value" in descriptor)) refuse(`${label}_array_data`);
-      out.push(snapshotM5bFedExOwnData(descriptor.value, `${label}[${index}]`, budget, depth + 1));
+      accountPrimitiveOrProperty(budget, label);
+      out.push(snapshotM5bFedExOwnDataInternal(descriptor.value, `${label}[${index}]`, budget, depth + 1));
     }
     return Object.freeze(out);
   }
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) refuse(`${label}_prototype`);
+  const names = Object.getOwnPropertyNames(value);
+  if (names.length > M5B_FEDEX_INPUT_LIMITS.objectOwnPropertyCount) refuse(`${label}_own_property_count`);
   if (Object.getOwnPropertySymbols(value).length !== 0) refuse(`${label}_symbols`);
-  const descriptors = Object.getOwnPropertyDescriptors(value);
   const out: Record<string, unknown> = {};
-  for (const [key, descriptor] of Object.entries(descriptors)) {
+  for (const key of names) {
     if (UNSAFE_KEYS.has(key)) refuse(`${label}_unsafe_key`);
+    validateStringBytes(key, label);
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor) refuse(`${label}_own_data`);
     if (descriptor.enumerable !== true || !("value" in descriptor)) refuse(`${label}_own_data`);
+    accountPrimitiveOrProperty(budget, label);
     Object.defineProperty(out, key, {
       enumerable: true,
       configurable: false,
       writable: false,
-      value: snapshotM5bFedExOwnData(descriptor.value, `${label}.${key}`, budget, depth + 1),
+      value: snapshotM5bFedExOwnDataInternal(descriptor.value, `${label}.${key}`, budget, depth + 1),
     });
   }
   return Object.freeze(out);
+  } finally {
+    budget.active.delete(value);
+  }
+}
+
+export function snapshotM5bFedExOwnData(value: unknown, label = "input"): unknown {
+  return snapshotM5bFedExOwnDataInternal(value, label,
+    { totalNodes: 0, primitiveLeavesAndProperties: 0, active: new WeakSet<object>(), rootLabel: label }, 0);
 }
 
 function record(value: unknown, label: string): Readonly<Record<string, unknown>> {
@@ -146,15 +208,56 @@ function strictIso(value: unknown, label: string): string {
 }
 
 export function canonicalM5bFedExJson(value: unknown): string {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
-  if (typeof value === "number" && Number.isFinite(value)) return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalM5bFedExJson).join(",")}]`;
-  if (typeof value === "object") {
-    const snap = record(value, "canonical");
-    return `{${Object.keys(snap).sort().map((key) =>
-      `${JSON.stringify(key)}:${canonicalM5bFedExJson(snap[key])}`).join(",")}}`;
-  }
-  refuse("canonical_non_json");
+  const snapshot = snapshotM5bFedExOwnData(value, "canonical");
+  const chunks: string[] = [];
+  let utf8Bytes = 0;
+  let totalNodes = 0;
+  const active = new WeakSet<object>();
+  const emit = (chunk: string): void => {
+    utf8Bytes += Buffer.byteLength(chunk, "utf8");
+    if (utf8Bytes > M5B_FEDEX_INPUT_LIMITS.cumulativeCanonicalUtf8Bytes) refuse("canonical_utf8_budget");
+    chunks.push(chunk);
+  };
+  const visit = (current: unknown, depth: number): void => {
+    if (depth > M5B_FEDEX_INPUT_LIMITS.recursionDepth) refuse("canonical_recursion_depth");
+    totalNodes += 1;
+    if (totalNodes > M5B_FEDEX_INPUT_LIMITS.totalNodes) refuse("canonical_total_nodes");
+    if (current === null || typeof current === "string" || typeof current === "boolean" ||
+        (typeof current === "number" && Number.isFinite(current))) {
+      emit(JSON.stringify(current));
+      return;
+    }
+    if (typeof current !== "object") refuse("canonical_non_json");
+    if (active.has(current)) refuse("canonical_cycle");
+    active.add(current);
+    try {
+      if (Array.isArray(current)) {
+        if (current.length > M5B_FEDEX_INPUT_LIMITS.arraySize) refuse("canonical_array_size");
+        emit("[");
+        for (let index = 0; index < current.length; index += 1) {
+          if (index > 0) emit(",");
+          visit(current[index], depth + 1);
+        }
+        emit("]");
+        return;
+      }
+      const object = record(current, "canonical");
+      const keys = Object.keys(object).sort();
+      if (keys.length > M5B_FEDEX_INPUT_LIMITS.objectOwnPropertyCount) refuse("canonical_own_property_count");
+      emit("{");
+      for (const [index, key] of keys.entries()) {
+        if (index > 0) emit(",");
+        emit(JSON.stringify(key));
+        emit(":");
+        visit(object[key], depth + 1);
+      }
+      emit("}");
+    } finally {
+      active.delete(current);
+    }
+  };
+  visit(snapshot, 0);
+  return chunks.join("");
 }
 
 export function sha256M5bFedExCanonical(value: unknown): string {
@@ -171,8 +274,9 @@ interface M5bFedExStrictJsonBytes {
   readonly value: unknown;
 }
 
-function strictJsonBytes(bytesInput: Uint8Array, label: string): M5bFedExStrictJsonBytes {
+function strictJsonBytes(bytesInput: Uint8Array, label: string, maximumBytes: number): M5bFedExStrictJsonBytes {
   if (!(bytesInput instanceof Uint8Array)) refuse(`${label}_bytes`);
+  if (bytesInput.byteLength > maximumBytes) refuse(`${label}_input_bytes`);
   const bytes = Buffer.from(bytesInput);
   if (bytes.length === 0 || (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)) refuse(`${label}_utf8`);
   let text: string;
@@ -201,7 +305,8 @@ export interface M5bFedExAlignedFiling {
 
 export interface M5bFedExBoundedSource {
   readonly kind: "m5b-fedex-bounded-sec-source";
-  readonly origin: typeof M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN;
+  readonly origin: typeof M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN | typeof M5B_FEDEX_FIXTURE_ORIGIN;
+  readonly sourceType: typeof M5B_FEDEX_SYSTEM_ACQUIRED_SOURCE_TYPE | typeof M5B_FEDEX_FIXTURE_SOURCE_TYPE;
   readonly trustStatus: typeof M5B_FEDEX_TRUST_STATUS;
   readonly name: "FEDEX CORP";
   readonly cikLiteral: string | number;
@@ -220,7 +325,7 @@ export interface M5bFedExBoundedSource {
   readonly transformations: readonly M5bFedExTransformation[];
   readonly sourceUrl: typeof M5B_FEDEX_PRODUCTION_PINS.sourceUrl;
   readonly acquiredAt: typeof M5B_FEDEX_PRODUCTION_PINS.acquiredAt;
-  readonly productionResponseSha256: typeof M5B_FEDEX_PRODUCTION_PINS.responseSha256;
+  readonly sourceSha256: string;
   readonly inputSha256: string;
   readonly exactProductionCustodyAdmissionCompleted: boolean;
   readonly fixtureNotice: typeof M5B_FEDEX_DEMO_FIXTURE_NOTICE | null;
@@ -370,15 +475,18 @@ function extractM5bFedExBoundedSourceInternal(decoded: M5bFedExStrictJsonBytes,
   const transformations: M5bFedExTransformation[] = [cikDisplayTransformation(cik), tickerExchangeTransformation(tickerIndex)];
   if (selected.filing) transformations.push(filingTransformation(selected.filing));
   const exactProductionCustodyAdmissionCompleted = admission === M5B_FEDEX_EXACT_PRODUCTION_CUSTODY_ADMISSION;
+  const origin = exactProductionCustodyAdmissionCompleted ? M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN : M5B_FEDEX_FIXTURE_ORIGIN;
+  const sourceType = exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_SYSTEM_ACQUIRED_SOURCE_TYPE : M5B_FEDEX_FIXTURE_SOURCE_TYPE;
   const bounded = Object.freeze({
-    kind: "m5b-fedex-bounded-sec-source", origin: M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN,
+    kind: "m5b-fedex-bounded-sec-source", origin, sourceType,
     trustStatus: M5B_FEDEX_TRUST_STATUS, name: "FEDEX CORP", cikLiteral: cikLiteral as string | number,
     cik: "0001048911", tickersLiteral: tickers, exchangesLiteral: exchanges, ticker: "FDX", exchange: "NYSE",
     sicLiteral: "4513", sic: "4513", sicDescriptionLiteral: "Air Courier Services", sicDescription: "Air Courier Services",
     filing: selected.filing, filingAlignment: selected.alignment, fields: Object.freeze(fields),
     transformations: Object.freeze(transformations), sourceUrl: M5B_FEDEX_PRODUCTION_PINS.sourceUrl,
     acquiredAt: M5B_FEDEX_PRODUCTION_PINS.acquiredAt,
-    productionResponseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
+    sourceSha256: sha256Bytes(decoded.bytes),
     inputSha256: sha256Bytes(decoded.bytes),
     exactProductionCustodyAdmissionCompleted,
     fixtureNotice: exactProductionCustodyAdmissionCompleted ? null : M5B_FEDEX_DEMO_FIXTURE_NOTICE,
@@ -389,7 +497,7 @@ function extractM5bFedExBoundedSourceInternal(decoded: M5bFedExStrictJsonBytes,
 
 /** Strict committed-fixture extraction. It can never assert exact production custody admission. */
 export function extractM5bFedExCommittedFixtureSource(responseBytes: Uint8Array): Readonly<M5bFedExBoundedSource> {
-  const decoded = strictJsonBytes(responseBytes, "response");
+  const decoded = strictJsonBytes(responseBytes, "response", M5B_FEDEX_INPUT_LIMITS.responseInputBytes);
   return extractM5bFedExBoundedSourceInternal(decoded, M5B_FEDEX_COMMITTED_FIXTURE_ADMISSION);
 }
 
@@ -520,22 +628,25 @@ export function validateM5bFedExCustodyBytesAgainstPins(custodyBytes: Uint8Array
   const pins = snapshotM5bFedExOwnData(pinsInput, "pins") as M5bFedExProductionPins;
   validatePins(pins);
   if (!(custodyBytes instanceof Uint8Array)) refuse("custody_bytes");
+  if (custodyBytes.byteLength > M5B_FEDEX_INPUT_LIMITS.custodyInputBytes) refuse("custody_input_bytes");
   const copied = Buffer.from(custodyBytes);
   // The outer custody digest is deliberately checked before UTF-8 decode,
   // JSON parse, envelope inspection, base64 decode, or response hashing.
   if (sha256Bytes(copied) !== pins.custodyArtifactSha256) refuse("custody_sha256");
-  const decoded = strictJsonBytes(copied, "custody");
+  const decoded = strictJsonBytes(copied, "custody", M5B_FEDEX_INPUT_LIMITS.custodyInputBytes);
   const acquisition = validateCustodyEnvelope(decoded.value, pins);
+  const bodyBase64 = string(acquisition.bodyBase64, "acquisition.bodyBase64");
+  const maximumBase64Bytes = 4 * Math.ceil(pins.decodedResponseBytes / 3);
+  if (Buffer.byteLength(bodyBase64, "utf8") > maximumBase64Bytes) refuse("response_base64_bounds");
   // Reuse the shipped M4 acquisition/SEC identity validator unchanged.
   extractM4SecEvidence(acquisition as unknown as M4PublicEvidence);
-  const bodyBase64 = string(acquisition.bodyBase64, "acquisition.bodyBase64");
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(bodyBase64)) refuse("response_base64");
   const responseBytes = Buffer.from(bodyBase64, "base64");
   if (responseBytes.toString("base64") !== bodyBase64 || responseBytes.byteLength !== pins.decodedResponseBytes ||
       sha256Bytes(responseBytes) !== pins.responseSha256) {
     refuse("response_custody");
   }
-  const decodedResponse = strictJsonBytes(responseBytes, "response");
+  const decodedResponse = strictJsonBytes(responseBytes, "response", M5B_FEDEX_INPUT_LIMITS.responseInputBytes);
   if (acquisition.quotedBodyText !== decodedResponse.text) refuse("response_custody");
   const admission = canonicalM5bFedExJson(pins) === canonicalM5bFedExJson(M5B_FEDEX_PRODUCTION_PINS)
     ? M5B_FEDEX_EXACT_PRODUCTION_CUSTODY_ADMISSION
@@ -554,12 +665,13 @@ export interface M5bFedExSanitizedSourcePackContent {
   readonly fixtureClassification: typeof M5B_FEDEX_DEMO_FIXTURE_NOTICE | "exact-production-custody-admitted";
   readonly exactProductionCustodyAdmissionCompleted: boolean;
   readonly productionAdmissionEvidence: Readonly<M5bFedExProductionAdmissionEvidence> | null;
-  readonly origin: typeof M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN;
+  readonly origin: M5bFedExBoundedSource["origin"];
   readonly trustStatus: typeof M5B_FEDEX_TRUST_STATUS;
   readonly source: {
     readonly url: typeof M5B_FEDEX_PRODUCTION_PINS.sourceUrl;
     readonly acquiredAt: typeof M5B_FEDEX_PRODUCTION_PINS.acquiredAt;
-    readonly upstreamResponseSha256: typeof M5B_FEDEX_PRODUCTION_PINS.responseSha256;
+    readonly sourceType: M5bFedExBoundedSource["sourceType"];
+    readonly sourceSha256: string;
     readonly originalCustodyRetentionDeadline: typeof M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline;
   };
   readonly fields: readonly M5bFedExLiteralField[];
@@ -580,11 +692,19 @@ export interface M5bFedExSanitizedSourcePack extends M5bFedExSanitizedSourcePack
 
 function sourcePackContent(sourceInput: M5bFedExBoundedSource): Readonly<M5bFedExSanitizedSourcePackContent> {
   const source = snapshotM5bFedExOwnData(sourceInput, "boundedSource") as M5bFedExBoundedSource;
-  if (source.kind !== "m5b-fedex-bounded-sec-source" || source.origin !== M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN ||
+  const expectedOrigin = source.exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN : M5B_FEDEX_FIXTURE_ORIGIN;
+  const expectedSourceType = source.exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_SYSTEM_ACQUIRED_SOURCE_TYPE : M5B_FEDEX_FIXTURE_SOURCE_TYPE;
+  if (source.kind !== "m5b-fedex-bounded-sec-source" || source.origin !== expectedOrigin ||
+      source.sourceType !== expectedSourceType ||
       source.trustStatus !== M5B_FEDEX_TRUST_STATUS || source.sourceUrl !== M5B_FEDEX_PRODUCTION_PINS.sourceUrl ||
-      source.productionResponseSha256 !== M5B_FEDEX_PRODUCTION_PINS.responseSha256 || source.name !== "FEDEX CORP" ||
+      !SAFE_HASH.test(source.sourceSha256) || source.name !== "FEDEX CORP" ||
       source.cik !== "0001048911" || source.ticker !== "FDX" || source.exchange !== "NYSE" || source.sic !== "4513") {
     refuse("bounded_source_counterfeit");
+  }
+  if (source.exactProductionCustodyAdmissionCompleted && source.sourceSha256 !== M5B_FEDEX_PRODUCTION_PINS.responseSha256) {
+    refuse("bounded_source_production_hash");
   }
   if (source.fields.length > 10) refuse("source_pack_field_ceiling");
   return Object.freeze({
@@ -592,9 +712,9 @@ function sourcePackContent(sourceInput: M5bFedExBoundedSource): Readonly<M5bFedE
     fixtureClassification: source.exactProductionCustodyAdmissionCompleted ? "exact-production-custody-admitted" : M5B_FEDEX_DEMO_FIXTURE_NOTICE,
     exactProductionCustodyAdmissionCompleted: source.exactProductionCustodyAdmissionCompleted,
     productionAdmissionEvidence: source.exactProductionCustodyAdmissionCompleted ? exactProductionAdmissionEvidence() : null,
-    origin: M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN, trustStatus: M5B_FEDEX_TRUST_STATUS,
+    origin: source.origin, trustStatus: M5B_FEDEX_TRUST_STATUS,
     source: Object.freeze({ url: M5B_FEDEX_PRODUCTION_PINS.sourceUrl, acquiredAt: M5B_FEDEX_PRODUCTION_PINS.acquiredAt,
-      upstreamResponseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
+      sourceType: source.sourceType, sourceSha256: source.sourceSha256,
       originalCustodyRetentionDeadline: M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline }),
     fields: source.fields,
     selectedIdentity: Object.freeze({ name: "FEDEX CORP", cik: "0001048911", ticker: "FDX", exchange: "NYSE",
@@ -633,22 +753,8 @@ function validateProductionAdmissionEvidence(pack: M5bFedExSanitizedSourcePack):
   }
 }
 
-function hasExactSerializedProductionAdmission(pack: M5bFedExSanitizedSourcePack): boolean {
-  const evidence = pack.productionAdmissionEvidence;
-  return pack.exactProductionCustodyAdmissionCompleted === true &&
-    pack.fixtureClassification === "exact-production-custody-admitted" && pack.fixtureInputSha256 === null &&
-    evidence !== null && evidence.state === "exact-production-custody-admission-completed" &&
-    evidence.custodyArtifactSha256 === M5B_FEDEX_PRODUCTION_PINS.custodyArtifactSha256 &&
-    evidence.decodedResponseBytes === M5B_FEDEX_PRODUCTION_PINS.decodedResponseBytes &&
-    evidence.responseSha256 === M5B_FEDEX_PRODUCTION_PINS.responseSha256 &&
-    evidence.targetPolicySha256 === M5B_FEDEX_PRODUCTION_PINS.targetPolicySha256 &&
-    evidence.capabilityDescriptorSha256 === M5B_FEDEX_PRODUCTION_PINS.capabilityDescriptorSha256 &&
-    evidence.sourceUrl === M5B_FEDEX_PRODUCTION_PINS.sourceUrl && evidence.cik === M5B_FEDEX_PRODUCTION_PINS.cik &&
-    evidence.acquiredAt === M5B_FEDEX_PRODUCTION_PINS.acquiredAt;
-}
-
 function validateSourcePackSemantics(pack: M5bFedExSanitizedSourcePack): void {
-  exactKeys(record(pack.source, "sourcePack.source"), ["url", "acquiredAt", "upstreamResponseSha256",
+  exactKeys(record(pack.source, "sourcePack.source"), ["url", "acquiredAt", "sourceType", "sourceSha256",
     "originalCustodyRetentionDeadline"], "source_pack_source");
   exactKeys(record(pack.selectedIdentity, "sourcePack.selectedIdentity"), ["name", "cik", "ticker", "exchange", "sic",
     "sicDescription"], "source_pack_identity");
@@ -656,6 +762,16 @@ function validateSourcePackSemantics(pack: M5bFedExSanitizedSourcePack): void {
     "privatePathOmitted", "contactOmitted", "resolvedIpOmitted", "credentialsOmitted"], "source_pack_exclusions");
 
   validateProductionAdmissionEvidence(pack);
+  const expectedOrigin = pack.exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN : M5B_FEDEX_FIXTURE_ORIGIN;
+  const expectedSourceType = pack.exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_SYSTEM_ACQUIRED_SOURCE_TYPE : M5B_FEDEX_FIXTURE_SOURCE_TYPE;
+  const expectedSourceSha256 = pack.exactProductionCustodyAdmissionCompleted
+    ? M5B_FEDEX_PRODUCTION_PINS.responseSha256 : pack.fixtureInputSha256;
+  if (pack.origin !== expectedOrigin || pack.source.sourceType !== expectedSourceType ||
+      pack.source.sourceSha256 !== expectedSourceSha256 || !SAFE_HASH.test(pack.source.sourceSha256)) {
+    refuse("source_pack_origin_semantics");
+  }
 
   const fields = array(pack.fields, "sourcePack.fields");
   const basePointers = ["/name", "/cik", "/tickers", "/exchanges", "/sic", "/sicDescription"] as const;
@@ -718,9 +834,8 @@ export function verifyM5bFedExSanitizedSourcePack(packInput: unknown): Readonly<
   const { sourcePackSha256, ...content } = pack;
   if (sha256M5bFedExCanonical(content) !== sourcePackSha256) refuse("source_pack_hash");
   if (pack.kind !== "m5b-fedex-sanitized-source-pack" || pack.schemaVersion !== "2" ||
-      pack.origin !== M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN || pack.trustStatus !== M5B_FEDEX_TRUST_STATUS ||
+      pack.trustStatus !== M5B_FEDEX_TRUST_STATUS ||
       pack.source.url !== M5B_FEDEX_PRODUCTION_PINS.sourceUrl ||
-      pack.source.upstreamResponseSha256 !== M5B_FEDEX_PRODUCTION_PINS.responseSha256 ||
       pack.source.acquiredAt !== M5B_FEDEX_PRODUCTION_PINS.acquiredAt ||
       pack.source.originalCustodyRetentionDeadline !== M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline ||
       pack.selectedIdentity.name !== "FEDEX CORP" || pack.selectedIdentity.cik !== "0001048911" ||
@@ -731,291 +846,6 @@ export function verifyM5bFedExSanitizedSourcePack(packInput: unknown): Readonly<
     refuse("source_pack_raw_content");
   }
   return Object.freeze(pack);
-}
-
-export interface M5bFedExEvidenceBinding {
-  readonly jsonPointer: M5bFedExLiteralField["jsonPointer"];
-  readonly literal: M5bFedExLiteralField["literal"];
-  readonly locator: {
-    readonly document: "sanitized-source-pack-canonical-json";
-    readonly charStart: number;
-    readonly charEnd: number;
-  };
-}
-
-export interface M5bFedExReviewProposal {
-  readonly proposalId: string;
-  readonly proposedLens: "maps" | "signals";
-  readonly proposedCard: string;
-  readonly proposedClaim: string;
-  readonly sourceLiterals: readonly M5bFedExEvidenceBinding[];
-  readonly sourceUrl: typeof M5B_FEDEX_PRODUCTION_PINS.sourceUrl;
-  readonly productionResponseSha256: typeof M5B_FEDEX_PRODUCTION_PINS.responseSha256;
-  readonly sanitizedSourcePackSha256: string;
-  readonly transformations: readonly M5bFedExTransformation[];
-  readonly trustStatus: typeof M5B_FEDEX_TRUST_STATUS;
-  readonly disposition: "pending";
-  readonly allowedDispositions: readonly ["accept", "reject"];
-}
-
-export interface M5bFedExReviewPacketContent {
-  readonly kind: "m5b-fedex-human-review-packet";
-  readonly schemaVersion: "1";
-  readonly boundaryMarker: "m5b-gate-a-pre-effect-unarmed";
-  readonly fixtureClassification: M5bFedExSanitizedSourcePack["fixtureClassification"];
-  readonly current_effective_authorization: "none";
-  readonly sourcePackSha256: string;
-  readonly candidateContentSha256: string;
-  readonly proposals: readonly M5bFedExReviewProposal[];
-  readonly retentionDecision: {
-    readonly decisionId: "m5b-fedex-source-retention-beyond-original-deadline";
-    readonly deadline: typeof M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline;
-    readonly disposition: "pending";
-    readonly allowedDispositions: readonly ["accept", "reject"];
-    readonly separateHumanDecisionRequired: true;
-  };
-  readonly boundaries: M5bFedExZeroEffectBoundaries;
-}
-
-export interface M5bFedExReviewPacket extends M5bFedExReviewPacketContent {
-  readonly packetSha256: string;
-}
-
-export interface M5bFedExZeroEffectBoundaries {
-  readonly current_effective_authorization: "none";
-  readonly authorizes_provider_call: false;
-  readonly authorizes_private_read: false;
-  readonly authorizes_graph_ingestion: false;
-  readonly authorizes_durable_write: false;
-  readonly authorizes_acquisition: false;
-  readonly authorizes_deployment: false;
-  readonly providerCalls: 0;
-  readonly privateReads: 0;
-  readonly graphWrites: 0;
-  readonly acquisitions: 0;
-  readonly deployments: 0;
-  readonly effects: 0;
-  readonly retryCount: 0;
-  readonly verifiedObjects: 0;
-}
-
-export function m5bFedExZeroEffectBoundaries(): Readonly<M5bFedExZeroEffectBoundaries> {
-  return Object.freeze({ current_effective_authorization: "none", authorizes_provider_call: false,
-    authorizes_private_read: false, authorizes_graph_ingestion: false, authorizes_durable_write: false,
-    authorizes_acquisition: false, authorizes_deployment: false, providerCalls: 0, privateReads: 0, graphWrites: 0,
-    acquisitions: 0, deployments: 0, effects: 0, retryCount: 0, verifiedObjects: 0 });
-}
-
-function binding(pack: M5bFedExSanitizedSourcePack, pointer: M5bFedExLiteralField["jsonPointer"]): M5bFedExEvidenceBinding {
-  const field = pack.fields.find((candidate) => candidate.jsonPointer === pointer);
-  if (!field) refuse(`missing_${pointer}`);
-  const packCanonical = canonicalM5bFedExJson((({ sourcePackSha256: _hash, ...content }) => content)(pack));
-  const fieldCanonical = canonicalM5bFedExJson(field);
-  const fieldStart = packCanonical.indexOf(fieldCanonical);
-  if (fieldStart < 0 || packCanonical.indexOf(fieldCanonical, fieldStart + 1) >= 0) refuse(`locator_${pointer}`);
-  const prefix = `${JSON.stringify("literal")}:`;
-  const literalRelative = fieldCanonical.indexOf(prefix) + prefix.length;
-  const literalCanonical = canonicalM5bFedExJson(field.literal);
-  const charStart = fieldStart + literalRelative;
-  if (literalRelative < prefix.length || packCanonical.slice(charStart, charStart + literalCanonical.length) !== literalCanonical) {
-    refuse(`locator_${pointer}`);
-  }
-  return Object.freeze({ jsonPointer: pointer, literal: field.literal,
-    locator: Object.freeze({ document: "sanitized-source-pack-canonical-json", charStart,
-      charEnd: charStart + literalCanonical.length }) });
-}
-
-function claimConstruction(id: string, inputs: readonly string[], output: string): M5bFedExTransformation {
-  return Object.freeze({ id, inputs: Object.freeze([...inputs]), output,
-    description: "Compose the proposed review text deterministically from the cited exact literals; the composition is not itself a source literal." });
-}
-
-export function buildM5bFedExReviewPacket(packInput: M5bFedExSanitizedSourcePack,
-  candidateContentSha256: string): Readonly<M5bFedExReviewPacket> {
-  const pack = verifyM5bFedExSanitizedSourcePack(packInput);
-  if (!SAFE_HASH.test(candidateContentSha256)) refuse("candidate_hash");
-  const identityBindings = ["/name", "/cik", "/tickers", "/exchanges"].map((pointer) =>
-    binding(pack, pointer as M5bFedExLiteralField["jsonPointer"]));
-  const classificationBindings = ["/sic", "/sicDescription"].map((pointer) =>
-    binding(pack, pointer as M5bFedExLiteralField["jsonPointer"]));
-  const proposals: M5bFedExReviewProposal[] = [
-    Object.freeze({ proposalId: "m5b-fedex-registrant-identity", proposedLens: "maps", proposedCard: "SEC registrant identity",
-      proposedClaim: M5B_FEDEX_REQUIRED_IDENTITY_CLAIM, sourceLiterals: Object.freeze(identityBindings),
-      sourceUrl: M5B_FEDEX_PRODUCTION_PINS.sourceUrl, productionResponseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
-      sanitizedSourcePackSha256: pack.sourcePackSha256,
-      transformations: Object.freeze([...pack.transformations.filter((item) => ["normalize-cik-to-sec-10-digit-display",
-        "select-aligned-fdx-nyse-pair"].includes(item.id)), claimConstruction("compose-registrant-identity-proposal",
-        ["/name", "/cik", "/tickers", "/exchanges"], M5B_FEDEX_REQUIRED_IDENTITY_CLAIM)]),
-      trustStatus: M5B_FEDEX_TRUST_STATUS, disposition: "pending", allowedDispositions: Object.freeze(["accept", "reject"] as const) }),
-    Object.freeze({ proposalId: "m5b-fedex-industry-classification", proposedLens: "maps", proposedCard: "SEC industry classification",
-      proposedClaim: M5B_FEDEX_REQUIRED_CLASSIFICATION_CLAIM, sourceLiterals: Object.freeze(classificationBindings),
-      sourceUrl: M5B_FEDEX_PRODUCTION_PINS.sourceUrl, productionResponseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
-      sanitizedSourcePackSha256: pack.sourcePackSha256,
-      transformations: Object.freeze([claimConstruction("compose-industry-classification-proposal",
-        ["/sic", "/sicDescription"], M5B_FEDEX_REQUIRED_CLASSIFICATION_CLAIM)]),
-      trustStatus: M5B_FEDEX_TRUST_STATUS, disposition: "pending", allowedDispositions: Object.freeze(["accept", "reject"] as const) }),
-  ];
-  if (pack.filing) {
-    const filingPointers = [`/filings/recent/form/${pack.filing.index}`, `/filings/recent/filingDate/${pack.filing.index}`,
-      `/filings/recent/accessionNumber/${pack.filing.index}`, `/filings/recent/primaryDocument/${pack.filing.index}`] as const;
-    const claim = `The SEC submissions metadata lists ${pack.filing.form}, filed ${pack.filing.filingDate}, accession ${pack.filing.accessionNumber}, primary document ${pack.filing.primaryDocument}.`;
-    proposals.push(Object.freeze({ proposalId: "m5b-fedex-latest-filing-metadata", proposedLens: "signals",
-      proposedCard: "Newest aligned SEC filing metadata", proposedClaim: claim,
-      sourceLiterals: Object.freeze(filingPointers.map((pointer) => binding(pack, pointer))),
-      sourceUrl: M5B_FEDEX_PRODUCTION_PINS.sourceUrl, productionResponseSha256: M5B_FEDEX_PRODUCTION_PINS.responseSha256,
-      sanitizedSourcePackSha256: pack.sourcePackSha256,
-      transformations: Object.freeze([...pack.transformations.filter((item) => item.id === "select-unique-newest-aligned-filing-row"),
-        claimConstruction("compose-filing-metadata-proposal", filingPointers, claim)]), trustStatus: M5B_FEDEX_TRUST_STATUS,
-      disposition: "pending", allowedDispositions: Object.freeze(["accept", "reject"] as const) }));
-  }
-  if (proposals.length > 3) refuse("proposal_ceiling");
-  const content: M5bFedExReviewPacketContent = Object.freeze({ kind: "m5b-fedex-human-review-packet", schemaVersion: "1",
-    boundaryMarker: "m5b-gate-a-pre-effect-unarmed", fixtureClassification: pack.fixtureClassification,
-    current_effective_authorization: "none", sourcePackSha256: pack.sourcePackSha256, candidateContentSha256,
-    proposals: Object.freeze(proposals), retentionDecision: Object.freeze({
-      decisionId: "m5b-fedex-source-retention-beyond-original-deadline", deadline: M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline,
-      disposition: "pending", allowedDispositions: Object.freeze(["accept", "reject"] as const), separateHumanDecisionRequired: true }),
-    boundaries: m5bFedExZeroEffectBoundaries() });
-  return Object.freeze({ ...content, packetSha256: sha256M5bFedExCanonical(content) });
-}
-
-export function verifyM5bFedExReviewPacket(packetInput: unknown, packInput: unknown): Readonly<M5bFedExReviewPacket> {
-  const pack = verifyM5bFedExSanitizedSourcePack(packInput);
-  const packet = record(snapshotM5bFedExOwnData(packetInput, "reviewPacket"), "reviewPacket") as unknown as M5bFedExReviewPacket;
-  exactKeys(packet as unknown as Readonly<Record<string, unknown>>, ["kind", "schemaVersion", "boundaryMarker", "fixtureClassification", "current_effective_authorization",
-    "sourcePackSha256", "candidateContentSha256", "proposals", "retentionDecision", "boundaries", "packetSha256"], "review_packet");
-  const { packetSha256, ...content } = packet;
-  if (!SAFE_HASH.test(packetSha256) || sha256M5bFedExCanonical(content) !== packetSha256) refuse("review_packet_hash");
-  if (packet.kind !== "m5b-fedex-human-review-packet" || packet.schemaVersion !== "1" ||
-      packet.boundaryMarker !== "m5b-gate-a-pre-effect-unarmed" || packet.current_effective_authorization !== "none" ||
-      packet.sourcePackSha256 !== pack.sourcePackSha256 || !SAFE_HASH.test(packet.candidateContentSha256) ||
-      packet.retentionDecision.disposition !== "pending" || packet.retentionDecision.separateHumanDecisionRequired !== true ||
-      packet.retentionDecision.deadline !== M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline ||
-      canonicalM5bFedExJson(packet.boundaries) !== canonicalM5bFedExJson(m5bFedExZeroEffectBoundaries())) {
-    refuse("review_packet_boundary");
-  }
-  const proposals = array(packet.proposals, "reviewPacket.proposals") as readonly M5bFedExReviewProposal[];
-  const expectedIds = pack.filing ? ["m5b-fedex-registrant-identity", "m5b-fedex-industry-classification",
-    "m5b-fedex-latest-filing-metadata"] : ["m5b-fedex-registrant-identity", "m5b-fedex-industry-classification"];
-  if (proposals.length !== expectedIds.length || proposals.some((proposal, index) => proposal.proposalId !== expectedIds[index] ||
-      proposal.disposition !== "pending" || proposal.sanitizedSourcePackSha256 !== pack.sourcePackSha256 ||
-      proposal.productionResponseSha256 !== M5B_FEDEX_PRODUCTION_PINS.responseSha256 ||
-      proposal.sourceUrl !== M5B_FEDEX_PRODUCTION_PINS.sourceUrl || proposal.trustStatus !== M5B_FEDEX_TRUST_STATUS)) {
-    refuse("review_packet_proposals");
-  }
-  if (proposals[0]?.proposedClaim !== M5B_FEDEX_REQUIRED_IDENTITY_CLAIM ||
-      proposals[1]?.proposedClaim !== M5B_FEDEX_REQUIRED_CLASSIFICATION_CLAIM) refuse("review_packet_claims");
-  const expected = buildM5bFedExReviewPacket(pack, packet.candidateContentSha256);
-  if (canonicalM5bFedExJson(packet) !== canonicalM5bFedExJson(expected)) refuse("review_packet_counterfeit");
-  return Object.freeze(packet);
-}
-
-export interface M5bFedExIndividualDecision {
-  readonly proposalId: string;
-  readonly disposition: "accept" | "reject";
-}
-
-export interface M5bFedExReviewDecisionArtifactContent {
-  readonly kind: "m5b-fedex-individual-review-decisions";
-  readonly schemaVersion: "1";
-  readonly sourcePacketSha256: string;
-  readonly sourcePackSha256: string;
-  readonly proposalDispositions: readonly { readonly proposalId: string; readonly disposition: "pending" | "accept" | "reject" }[];
-  readonly acceptedProposalIds: readonly string[];
-  readonly rejectedProposalIds: readonly string[];
-  readonly pendingProposalIds: readonly string[];
-  readonly allProposalsDecided: boolean;
-  readonly allProposalsAccepted: boolean;
-  readonly retentionDecision: "pending" | "accept" | "reject";
-  readonly retentionDecisionSeparate: true;
-  readonly unarmed: true;
-  readonly boundaries: M5bFedExZeroEffectBoundaries;
-}
-
-export interface M5bFedExReviewDecisionArtifact extends M5bFedExReviewDecisionArtifactContent {
-  readonly decisionArtifactSha256: string;
-}
-
-function verifyM5bFedExReviewDecisionArtifact(artifactInput: unknown): Readonly<M5bFedExReviewDecisionArtifact> {
-  const artifact = record(snapshotM5bFedExOwnData(artifactInput, "decisionArtifact"), "decisionArtifact") as unknown as M5bFedExReviewDecisionArtifact;
-  exactKeys(artifact as unknown as Readonly<Record<string, unknown>>, ["kind", "schemaVersion", "sourcePacketSha256",
-    "sourcePackSha256", "proposalDispositions", "acceptedProposalIds", "rejectedProposalIds", "pendingProposalIds",
-    "allProposalsDecided", "allProposalsAccepted", "retentionDecision", "retentionDecisionSeparate", "unarmed",
-    "boundaries", "decisionArtifactSha256"], "decision_artifact");
-  const { decisionArtifactSha256, ...content } = artifact;
-  if (!SAFE_HASH.test(decisionArtifactSha256) || sha256M5bFedExCanonical(content) !== decisionArtifactSha256 ||
-      artifact.kind !== "m5b-fedex-individual-review-decisions" || artifact.schemaVersion !== "1" ||
-      !SAFE_HASH.test(artifact.sourcePacketSha256) || !SAFE_HASH.test(artifact.sourcePackSha256) ||
-      artifact.retentionDecisionSeparate !== true || artifact.unarmed !== true ||
-      !["pending", "accept", "reject"].includes(artifact.retentionDecision) ||
-      canonicalM5bFedExJson(artifact.boundaries) !== canonicalM5bFedExJson(m5bFedExZeroEffectBoundaries())) {
-    refuse("decision_artifact_boundary");
-  }
-  const dispositions = array(artifact.proposalDispositions, "decisionArtifact.proposalDispositions");
-  if (dispositions.length < 2 || dispositions.length > 3) refuse("decision_artifact_dispositions");
-  const seen = new Set<string>();
-  const derived = { accept: [] as string[], reject: [] as string[], pending: [] as string[] };
-  for (const [index, value] of dispositions.entries()) {
-    const disposition = record(value, `decisionArtifact.proposalDispositions[${index}]`);
-    exactKeys(disposition, ["proposalId", "disposition"], `decision_artifact_disposition_${index}`);
-    const proposalId = string(disposition.proposalId, `decisionArtifact.proposalDispositions[${index}].proposalId`);
-    if (seen.has(proposalId) || !["accept", "reject", "pending"].includes(disposition.disposition as string)) {
-      refuse("decision_artifact_dispositions");
-    }
-    seen.add(proposalId);
-    derived[disposition.disposition as "accept" | "reject" | "pending"].push(proposalId);
-  }
-  const accepted = array(artifact.acceptedProposalIds, "decisionArtifact.acceptedProposalIds");
-  const rejected = array(artifact.rejectedProposalIds, "decisionArtifact.rejectedProposalIds");
-  const pending = array(artifact.pendingProposalIds, "decisionArtifact.pendingProposalIds");
-  if ([accepted, rejected, pending].some((ids) => ids.some((id) => typeof id !== "string")) ||
-      canonicalM5bFedExJson(accepted) !== canonicalM5bFedExJson(derived.accept) ||
-      canonicalM5bFedExJson(rejected) !== canonicalM5bFedExJson(derived.reject) ||
-      canonicalM5bFedExJson(pending) !== canonicalM5bFedExJson(derived.pending) ||
-      artifact.allProposalsDecided !== (derived.pending.length === 0) ||
-      artifact.allProposalsAccepted !== (derived.pending.length === 0 && derived.reject.length === 0)) {
-    refuse("decision_artifact_summary");
-  }
-  return Object.freeze(artifact);
-}
-
-export function applyM5bFedExIndividualReviewDecisions(packetInput: unknown, packInput: unknown,
-  decisionsInput: unknown): Readonly<M5bFedExReviewDecisionArtifact> {
-  const packet = verifyM5bFedExReviewPacket(packetInput, packInput);
-  const decisions = array(snapshotM5bFedExOwnData(decisionsInput, "decisions"), "decisions");
-  const allowed = new Set(packet.proposals.map((proposal) => proposal.proposalId));
-  const applied = new Map<string, "accept" | "reject">();
-  for (const [index, item] of decisions.entries()) {
-    const decision = record(item, `decisions[${index}]`);
-    exactKeys(decision, ["proposalId", "disposition"], `decision_${index}`);
-    const proposalId = string(decision.proposalId, `decisions[${index}].proposalId`);
-    if (!allowed.has(proposalId)) refuse("decision_unknown_id");
-    if (applied.has(proposalId)) refuse("decision_duplicate_id");
-    if (decision.disposition !== "accept" && decision.disposition !== "reject") refuse("decision_disposition");
-    applied.set(proposalId, decision.disposition);
-  }
-  const proposalDispositions = packet.proposals.map((proposal) => Object.freeze({ proposalId: proposal.proposalId,
-    disposition: applied.get(proposal.proposalId) ?? "pending" as const }));
-  const accepted = proposalDispositions.filter((item) => item.disposition === "accept").map((item) => item.proposalId);
-  const rejected = proposalDispositions.filter((item) => item.disposition === "reject").map((item) => item.proposalId);
-  const pending = proposalDispositions.filter((item) => item.disposition === "pending").map((item) => item.proposalId);
-  const content: M5bFedExReviewDecisionArtifactContent = Object.freeze({ kind: "m5b-fedex-individual-review-decisions",
-    schemaVersion: "1", sourcePacketSha256: packet.packetSha256, sourcePackSha256: packet.sourcePackSha256,
-    proposalDispositions: Object.freeze(proposalDispositions), acceptedProposalIds: Object.freeze(accepted),
-    rejectedProposalIds: Object.freeze(rejected), pendingProposalIds: Object.freeze(pending), allProposalsDecided: pending.length === 0,
-    allProposalsAccepted: pending.length === 0 && rejected.length === 0, retentionDecision: "pending",
-    retentionDecisionSeparate: true, unarmed: true, boundaries: m5bFedExZeroEffectBoundaries() });
-  return Object.freeze({ ...content, decisionArtifactSha256: sha256M5bFedExCanonical(content) });
-}
-
-export function applyM5bFedExRetentionDecision(decisionArtifactInput: unknown,
-  disposition: "accept" | "reject"): Readonly<M5bFedExReviewDecisionArtifact> {
-  const artifact = verifyM5bFedExReviewDecisionArtifact(decisionArtifactInput);
-  const { decisionArtifactSha256: _priorHash, ...priorContent } = artifact;
-  if (artifact.retentionDecision !== "pending" ||
-      (disposition !== "accept" && disposition !== "reject")) refuse("retention_decision_artifact");
-  const content: M5bFedExReviewDecisionArtifactContent = Object.freeze({ ...priorContent, retentionDecision: disposition });
-  return Object.freeze({ ...content, decisionArtifactSha256: sha256M5bFedExCanonical(content) });
 }
 
 export interface M5bFedExModelProposalRequest {
@@ -1101,94 +931,10 @@ export function validateM5bFedExOptionalModelOutput(requestInput: unknown,
   const expectedText = kind === "signal" ? request.allowedSignalText : request.allowedPlayText;
   if (expectedText === null || item.text !== expectedText || item.provenanceStatus !== "unverified") refuse("model_item_content");
   const cited = array(item.citedExcerptIds, `modelOutput.${kind}.citedExcerptIds`);
-  if (cited.length === 0 || cited.some((id) => typeof id !== "string" || !request.allowedExcerptIds.includes(id))) {
-    refuse("model_invented_excerpt");
+  if (canonicalM5bFedExJson(cited) !== canonicalM5bFedExJson(["exc_fedex_latest_filing_metadata"])) {
+    refuse("model_filing_citation_exact");
   }
   const result = Object.freeze({ text: expectedText, citedExcerptIds: Object.freeze(cited as string[]),
     provenanceStatus: "unverified" as const });
   return kind === "signal" ? Object.freeze({ signal: result, play: null }) : Object.freeze({ signal: null, play: result });
-}
-
-export interface M5bFedExUnarmedFutureComposition {
-  readonly kind: "m5b-fedex-unarmed-future-effect-composition";
-  readonly schemaVersion: "1";
-  readonly sourcePackSha256: string;
-  readonly reviewPacketSha256: string;
-  readonly reviewDecisionSha256: string;
-  readonly candidateContentSha256: string;
-  readonly acceptedProposalIds: readonly string[];
-  readonly boundaryReferences: {
-    readonly draftedApproval: "src/workshop/proposal-durable-graph-write-approval-packet.ts";
-    readonly exactContentBinding: "src/workshop/m5a-curated-proposal-flow-execution.ts#M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256";
-    readonly oneShotArming: "src/workshop/m5a-curated-proposal-flow-operator-arming.ts";
-    readonly sharedWriterLock: "src/db/graph-snapshot-write-lock.ts";
-    readonly durableWrite: "src/workshop/proposal-durable-graph-write-execution.ts";
-    readonly readBack: "src/workshop/durable-graph-snapshots-reader.ts";
-    readonly render: "src/workshop/durable-state-render.ts";
-  };
-  readonly futureLimits: { readonly exactLaterApprovalRequired: true; readonly oneShotArmingRequired: true;
-    readonly durableWritesMaximum: 1; readonly readBacks: 1; readonly renders: 1; readonly retries: 0 };
-  readonly containsDbPath: false;
-  readonly containsWriterCallback: false;
-  readonly containsExecutionMethod: false;
-  readonly containsWriteCapableClosure: false;
-  readonly armed: false;
-  readonly effectAuthority: false;
-  readonly privateCustodyReadDecisionSeparate: true;
-  readonly providerCallDecisionSeparate: true;
-  readonly durableWriteDecisionSeparate: true;
-  readonly boundaries: M5bFedExZeroEffectBoundaries;
-  readonly compositionSha256: string;
-}
-
-export function composeM5bFedExUnarmedFutureEffect(packInput: unknown, packetInput: unknown,
-  decisionInput: unknown): Readonly<M5bFedExUnarmedFutureComposition> {
-  const pack = verifyM5bFedExSanitizedSourcePack(packInput);
-  // This seam is reserved for a canonically hash-bound serialized record of
-  // exact outer-custody byte admission. It deliberately has no object-identity
-  // prerequisite, so honest JSON serialization between review stages is safe.
-  if (!hasExactSerializedProductionAdmission(pack) ||
-      pack.source.url !== M5B_FEDEX_PRODUCTION_PINS.sourceUrl ||
-      pack.source.acquiredAt !== M5B_FEDEX_PRODUCTION_PINS.acquiredAt ||
-      pack.source.upstreamResponseSha256 !== M5B_FEDEX_PRODUCTION_PINS.responseSha256 ||
-      pack.source.originalCustodyRetentionDeadline !== M5B_FEDEX_PRODUCTION_PINS.originalCustodyRetentionDeadline) {
-    refuse("future_composition_production_admission");
-  }
-  const packet = verifyM5bFedExReviewPacket(packetInput, pack);
-  const decision = verifyM5bFedExReviewDecisionArtifact(decisionInput);
-  const expectedProposalIds = packet.proposals.map((proposal) => proposal.proposalId);
-  if (decision.sourcePacketSha256 !== packet.packetSha256 || decision.sourcePackSha256 !== pack.sourcePackSha256 ||
-      decision.allProposalsAccepted !== true || decision.retentionDecision !== "accept" || decision.unarmed !== true) {
-    refuse("future_composition_review");
-  }
-  if (canonicalM5bFedExJson(decision.acceptedProposalIds) !== canonicalM5bFedExJson(expectedProposalIds) ||
-      decision.rejectedProposalIds.length !== 0 || decision.pendingProposalIds.length !== 0 ||
-      decision.proposalDispositions.some((item, index) => item.proposalId !== expectedProposalIds[index] ||
-        item.disposition !== "accept")) refuse("future_composition_proposals");
-  const content = Object.freeze({ kind: "m5b-fedex-unarmed-future-effect-composition" as const, schemaVersion: "1" as const,
-    sourcePackSha256: pack.sourcePackSha256, reviewPacketSha256: packet.packetSha256,
-    reviewDecisionSha256: decision.decisionArtifactSha256, candidateContentSha256: packet.candidateContentSha256,
-    acceptedProposalIds: decision.acceptedProposalIds, boundaryReferences: Object.freeze({
-      draftedApproval: "src/workshop/proposal-durable-graph-write-approval-packet.ts" as const,
-      exactContentBinding: "src/workshop/m5a-curated-proposal-flow-execution.ts#M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256" as const,
-      oneShotArming: "src/workshop/m5a-curated-proposal-flow-operator-arming.ts" as const,
-      sharedWriterLock: "src/db/graph-snapshot-write-lock.ts" as const,
-      durableWrite: "src/workshop/proposal-durable-graph-write-execution.ts" as const,
-      readBack: "src/workshop/durable-graph-snapshots-reader.ts" as const,
-      render: "src/workshop/durable-state-render.ts" as const }),
-    futureLimits: Object.freeze({ exactLaterApprovalRequired: true as const, oneShotArmingRequired: true as const,
-      durableWritesMaximum: 1 as const, readBacks: 1 as const, renders: 1 as const, retries: 0 as const }),
-    containsDbPath: false as const, containsWriterCallback: false as const, containsExecutionMethod: false as const,
-    containsWriteCapableClosure: false as const, armed: false as const, effectAuthority: false as const,
-    privateCustodyReadDecisionSeparate: true as const, providerCallDecisionSeparate: true as const,
-    durableWriteDecisionSeparate: true as const, boundaries: m5bFedExZeroEffectBoundaries() });
-  return Object.freeze({ ...content, compositionSha256: sha256M5bFedExCanonical(content) });
-}
-
-export function refuseM5bFedExPreEffectExecution(_composition: unknown): Readonly<{
-  outcome: "refused_pre_effect"; reason: "later-exact-approval-and-one-shot-arming-required";
-  privateReads: 0; providerCalls: 0; graphWrites: 0; acquisitions: 0; deployments: 0; effects: 0;
-}> {
-  return Object.freeze({ outcome: "refused_pre_effect", reason: "later-exact-approval-and-one-shot-arming-required",
-    privateReads: 0, providerCalls: 0, graphWrites: 0, acquisitions: 0, deployments: 0, effects: 0 });
 }

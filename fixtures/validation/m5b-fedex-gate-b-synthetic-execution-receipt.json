@@ -1,0 +1,63 @@
+{
+  "kind": "m5b-fedex-gate-b-sanitized-execution-receipt",
+  "schemaVersion": "1",
+  "executionMode": "committed-synthetic-fixture",
+  "outcome": "synthetic-fixture-generated",
+  "phase": "synthetic_fixture_generation",
+  "refusalCode": null,
+  "recordedAt": "2026-07-14T18:41:11.214Z",
+  "authorizationId": null,
+  "oneShotConsumptionId": null,
+  "authorizationArtifactSha256": null,
+  "implementationBaseCommit": "81661693bd0c858a4e0c9400ff68c28cb0b277f3",
+  "implementationBaseTree": "e40ff4b3d1a0c394145b9b63ddb5efeaab785a5e",
+  "reviewedExecutorCommit": null,
+  "reviewedExecutorTree": null,
+  "productionPins": {
+    "custodyArtifactSha256": "c368ea513220a207ef839b30dd527522a6a76304705c88d7243b64bb6f13eb1f",
+    "decodedResponseBytes": 160901,
+    "responseSha256": "ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d",
+    "targetPolicySha256": "a8ecbbe0706d65db12189a6e4e5c5383fdf1e6071c59e1f0931009aa67eca32a",
+    "capabilityDescriptorSha256": "0abd3c555771006749eaa59604c69e37090d32ea738eeb588dbb36423d1a2fb5",
+    "sourceUrl": "https://data.sec.gov/submissions/CIK0001048911.json",
+    "cik": "0001048911",
+    "acquiredAt": "2026-07-14T18:41:11.214Z",
+    "originalCustodyRetentionDeadline": "2026-08-13T18:41:11.277Z"
+  },
+  "oneShotConsumptionState": "not_created",
+  "outputHashes": {
+    "sourcePackSha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208",
+    "candidateContentSha256": "36333595c556d85b52ec48d8a0ecd5372fbb48a2eda5641fe9b4762e33693310",
+    "reviewPacketSha256": "a07cd8f400022ed1594c18f667b2c131e6a74e31b6d56e37f669a7203ecbf8c6",
+    "workshopHtmlSha256": "fdba41a27b99699cf7884a3a32868f044ae80d465875ff572444047b29450d0c"
+  },
+  "accounting": {
+    "authorizationArtifactReads": 0,
+    "custodyReadAttempts": 0,
+    "custodyReadsCompleted": 0,
+    "custodyBytesRead": 0,
+    "retries": 0,
+    "providerCalls": 0,
+    "acquisitions": 0,
+    "graphOrDbReads": 0,
+    "graphOrDbWrites": 0,
+    "deployments": 0,
+    "externalProductEffects": 0,
+    "localSyntheticOutputsWritten": 5
+  },
+  "trust": {
+    "sourceTrustStatus": "source-backed-not-independently-verified",
+    "independentlyVerifiedObjects": 0,
+    "reviewRatificationState": "unratified-draft",
+    "humanRatificationSatisfied": false
+  },
+  "sanitization": {
+    "privatePathOmitted": true,
+    "custodyBytesOmitted": true,
+    "encodedResponseOmitted": true,
+    "contactOmitted": true,
+    "credentialsOmitted": true,
+    "resolvedIpOmitted": true
+  },
+  "receiptSha256": "175e07308beebdecf5f53d6a5b36ac5be5b0549de86e8912309298359a871a4a"
+}

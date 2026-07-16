@@ -1,0 +1,182 @@
+{
+  "kind": "m5b-fedex-prewrite-graph-candidate",
+  "schemaVersion": "2",
+  "fixtureClassification": "synthetic/committed-public pre-effect fixture; exact private source admission not completed",
+  "origin": "simulated-fixture",
+  "reviewState": "pending human review",
+  "sourcePackSha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208",
+  "bundle": {
+    "sources": [
+      {
+        "id": "src_fedex_sec_submissions",
+        "team_id": "team_atliera_workshop",
+        "account_id": "acc_fedex_corp",
+        "url": "https://data.sec.gov/submissions/CIK0001048911.json",
+        "canonical_url": "https://data.sec.gov/submissions/CIK0001048911.json",
+        "title": "SEC submissions — FEDEX CORP",
+        "publisher": "U.S. Securities and Exchange Commission",
+        "source_type": "simulated_fixture_sec_submissions_bounded_projection",
+        "fetched_at": "2026-07-14T18:41:11.214Z",
+        "accessed_at": "2026-07-14T18:41:11.214Z",
+        "content_hash": "sha256:b83f0447214a05fde756044336418d2f196175a9b85c85f36157a39d121a9217",
+        "raw_text": "[{\"jsonPointer\":\"/name\",\"literal\":\"FEDEX CORP\"},{\"jsonPointer\":\"/cik\",\"literal\":1048911},{\"jsonPointer\":\"/tickers\",\"literal\":[\"FDX\"]},{\"jsonPointer\":\"/exchanges\",\"literal\":[\"NYSE\"]}]\n[{\"jsonPointer\":\"/sic\",\"literal\":\"4513\"},{\"jsonPointer\":\"/sicDescription\",\"literal\":\"Air Courier Services\"}]",
+        "reliability": "unknown",
+        "status": "active"
+      }
+    ],
+    "excerpts": [
+      {
+        "id": "exc_fedex_registrant_identity",
+        "source_document_id": "src_fedex_sec_submissions",
+        "text": "[{\"jsonPointer\":\"/name\",\"literal\":\"FEDEX CORP\"},{\"jsonPointer\":\"/cik\",\"literal\":1048911},{\"jsonPointer\":\"/tickers\",\"literal\":[\"FDX\"]},{\"jsonPointer\":\"/exchanges\",\"literal\":[\"NYSE\"]}]",
+        "kind": "literal",
+        "char_start": 0,
+        "char_end": 182,
+        "captured_at": "2026-07-14T18:41:11.214Z",
+        "validation_status": "proposed",
+        "rejection_reason": null
+      },
+      {
+        "id": "exc_fedex_industry_classification",
+        "source_document_id": "src_fedex_sec_submissions",
+        "text": "[{\"jsonPointer\":\"/sic\",\"literal\":\"4513\"},{\"jsonPointer\":\"/sicDescription\",\"literal\":\"Air Courier Services\"}]",
+        "kind": "literal",
+        "char_start": 183,
+        "char_end": 291,
+        "captured_at": "2026-07-14T18:41:11.214Z",
+        "validation_status": "proposed",
+        "rejection_reason": null
+      }
+    ],
+    "claims": [
+      {
+        "id": "clm_fedex_registrant_identity",
+        "team_id": "team_atliera_workshop",
+        "account_id": "acc_fedex_corp",
+        "claim_type": "sec_registrant_identity",
+        "text": "The SEC submissions record identifies FEDEX CORP, CIK 0001048911, with ticker FDX on NYSE.",
+        "normalized_subject": "fedex_corp:sec_registrant_identity",
+        "confidence": "medium",
+        "provenance_status": "unverified",
+        "status": "active",
+        "created_by": "system",
+        "created_at": "2026-07-14T18:41:11.214Z"
+      },
+      {
+        "id": "clm_fedex_industry_classification",
+        "team_id": "team_atliera_workshop",
+        "account_id": "acc_fedex_corp",
+        "claim_type": "sec_industry_classification",
+        "text": "The SEC classifies the registrant under SIC 4513, “Air Courier Services.”",
+        "normalized_subject": "fedex_corp:sec_sic_4513",
+        "confidence": "medium",
+        "provenance_status": "unverified",
+        "status": "active",
+        "created_by": "system",
+        "created_at": "2026-07-14T18:41:11.214Z"
+      }
+    ],
+    "claim_evidence": [
+      {
+        "id": "cev_fedex_registrant_identity",
+        "claim_id": "clm_fedex_registrant_identity",
+        "evidence_excerpt_id": "exc_fedex_registrant_identity",
+        "relationship": "supports",
+        "rationale": "Unratified bounded projection preserves the cited SEC identity literals and pointers.",
+        "confidence": "medium",
+        "created_at": "2026-07-14T18:41:11.214Z"
+      },
+      {
+        "id": "cev_fedex_industry_classification",
+        "claim_id": "clm_fedex_industry_classification",
+        "evidence_excerpt_id": "exc_fedex_industry_classification",
+        "relationship": "supports",
+        "rationale": "Unratified bounded projection preserves the cited SEC SIC literals and pointers.",
+        "confidence": "medium",
+        "created_at": "2026-07-14T18:41:11.214Z"
+      }
+    ],
+    "account_objects": [
+      {
+        "id": "obj_fedex_registrant_identity",
+        "team_id": "team_atliera_workshop",
+        "account_id": "acc_fedex_corp",
+        "object_type": "account_snapshot",
+        "title": "SEC registrant identity",
+        "summary": "The SEC submissions record identifies FEDEX CORP, CIK 0001048911, with ticker FDX on NYSE.",
+        "payload_json": {
+          "review_state": "pending human review",
+          "origin": "simulated-fixture",
+          "source_pack_sha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208",
+          "json_pointers": [
+            "/name",
+            "/cik",
+            "/tickers",
+            "/exchanges"
+          ]
+        },
+        "confidence": "medium",
+        "provenance_status": "unverified",
+        "status": "active",
+        "created_by": "system",
+        "created_at": "2026-07-14T18:41:11.214Z",
+        "updated_at": "2026-07-14T18:41:11.214Z"
+      },
+      {
+        "id": "obj_fedex_industry_classification",
+        "team_id": "team_atliera_workshop",
+        "account_id": "acc_fedex_corp",
+        "object_type": "account_snapshot",
+        "title": "SEC industry classification",
+        "summary": "The SEC classifies the registrant under SIC 4513, “Air Courier Services.”",
+        "payload_json": {
+          "review_state": "pending human review",
+          "origin": "simulated-fixture",
+          "source_pack_sha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208",
+          "json_pointers": [
+            "/sic",
+            "/sicDescription"
+          ],
+          "scope_caveat": "SEC SIC label only; not a comprehensive description of the registrant's current business."
+        },
+        "confidence": "medium",
+        "provenance_status": "unverified",
+        "status": "active",
+        "created_by": "system",
+        "created_at": "2026-07-14T18:41:11.214Z",
+        "updated_at": "2026-07-14T18:41:11.214Z"
+      }
+    ],
+    "account_object_claims": [
+      {
+        "id": "oclm_fedex_registrant_identity",
+        "account_object_id": "obj_fedex_registrant_identity",
+        "claim_id": "clm_fedex_registrant_identity",
+        "relationship": "primary"
+      },
+      {
+        "id": "oclm_fedex_industry_classification",
+        "account_object_id": "obj_fedex_industry_classification",
+        "claim_id": "clm_fedex_industry_classification",
+        "relationship": "primary"
+      }
+    ],
+    "research_runs": [],
+    "run_artifacts": [],
+    "audit_events": []
+  },
+  "candidateContentSha256": "36333595c556d85b52ec48d8a0ecd5372fbb48a2eda5641fe9b4762e33693310",
+  "boundaries": {
+    "current_effective_authorization": "none",
+    "prewrite": true,
+    "writePerformed": false,
+    "privateReads": 0,
+    "providerCalls": 0,
+    "graphDurableWrites": 0,
+    "acquisitions": 0,
+    "deployments": 0,
+    "retries": 0,
+    "externalProductEffects": 0,
+    "verifiedObjects": 0
+  }
+}

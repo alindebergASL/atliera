@@ -1,0 +1,85 @@
+{
+  "kind": "m5b-fedex-sanitized-source-pack",
+  "schemaVersion": "2",
+  "fixtureClassification": "synthetic/committed-public pre-effect fixture; exact private source admission not completed",
+  "exactProductionCustodyAdmissionCompleted": false,
+  "productionAdmissionEvidence": null,
+  "origin": "simulated-fixture",
+  "trustStatus": "source-backed-not-independently-verified",
+  "source": {
+    "url": "https://data.sec.gov/submissions/CIK0001048911.json",
+    "acquiredAt": "2026-07-14T18:41:11.214Z",
+    "sourceType": "simulated_fixture_sec_submissions_bounded_projection",
+    "sourceSha256": "b83f0447214a05fde756044336418d2f196175a9b85c85f36157a39d121a9217",
+    "originalCustodyRetentionDeadline": "2026-08-13T18:41:11.277Z"
+  },
+  "fields": [
+    {
+      "jsonPointer": "/name",
+      "literal": "FEDEX CORP"
+    },
+    {
+      "jsonPointer": "/cik",
+      "literal": 1048911
+    },
+    {
+      "jsonPointer": "/tickers",
+      "literal": [
+        "FDX"
+      ]
+    },
+    {
+      "jsonPointer": "/exchanges",
+      "literal": [
+        "NYSE"
+      ]
+    },
+    {
+      "jsonPointer": "/sic",
+      "literal": "4513"
+    },
+    {
+      "jsonPointer": "/sicDescription",
+      "literal": "Air Courier Services"
+    }
+  ],
+  "selectedIdentity": {
+    "name": "FEDEX CORP",
+    "cik": "0001048911",
+    "ticker": "FDX",
+    "exchange": "NYSE",
+    "sic": "4513",
+    "sicDescription": "Air Courier Services"
+  },
+  "filing": null,
+  "filingAlignment": "empty",
+  "transformations": [
+    {
+      "id": "normalize-cik-to-sec-10-digit-display",
+      "inputs": [
+        "/cik"
+      ],
+      "output": "0001048911",
+      "description": "Zero-pad the exact SEC numeric identity to the official 10-digit CIK display; retain the source literal separately."
+    },
+    {
+      "id": "select-aligned-fdx-nyse-pair",
+      "inputs": [
+        "/tickers",
+        "/exchanges"
+      ],
+      "output": "index 0: FDX / NYSE",
+      "description": "Select the exact same-index ticker/exchange pair; do not reorder either source array."
+    }
+  ],
+  "fixtureInputSha256": "b83f0447214a05fde756044336418d2f196175a9b85c85f36157a39d121a9217",
+  "exclusions": {
+    "rawResponseOmitted": true,
+    "encodedResponseOmitted": true,
+    "privatePathOmitted": true,
+    "contactOmitted": true,
+    "resolvedIpOmitted": true,
+    "credentialsOmitted": true
+  },
+  "sourcePackSha256": "a8006e24fefb21a1bcfd3d77c272053069f2a4d4a76972524221a508209f8208"
+}

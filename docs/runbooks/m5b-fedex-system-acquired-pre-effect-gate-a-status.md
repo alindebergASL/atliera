@@ -1,6 +1,6 @@
 # M5b FedEx System-Acquired Source Pre-Effect — Gate A Status
 
-Status: active, in progress, unarmed pre-effect
+Status: historical Gate A record; superseded for current accounting by the unarmed Gate B scope
 
 This runbook records the implemented M5b Gate A candidate for the eventual page “FedEx — source-backed account snapshot.” It is substantive runtime code plus deterministic review artifacts, not a plan and not a shipped M5b loop. It authorizes and performs no private custody read, provider/model call, acquisition, graph ingestion, durable write, deployment, recurrence, identity work, or production effect.
 
@@ -22,15 +22,15 @@ Boundary markers after completion:
 - deployments: 0
 - external_product_effects: 0
 - retries: 0
-- local_deterministic_fixture_outputs_written: 3
+- local_deterministic_fixture_outputs_written: 3 (historical Gate A only)
 - independently_verified_objects: 0
 - readiness_claim: false
 - shipped_claim: false
 - next_private_read_gate_authorized: false
-- pr_289_approval_on_then_current_exact_head_required: true
-- pr_289_merge_required: true
-- successful_post_merge_ci_required: true
-- resulting_merge_commit_sha_and_tree_binding_required: true
+- pr_289_approval_on_then_current_exact_head_required: false (satisfied historically)
+- pr_289_merge_required: false (satisfied historically)
+- successful_post_merge_ci_required: false (satisfied by run 29435522041)
+- resulting_merge_commit_sha_and_tree_binding_required: false (base fixed below; future reviewed executor identity is separate)
 - exact_custody_artifact_identity_required: true
 - separately_supplied_private_path_required: true
 - execution_before_2026-08-13T18:41:11.277Z_required_unless_separately_ratified_bounded_retention_exists: true
@@ -75,6 +75,8 @@ Future composition does not trust serialized admission content. It requires call
 
 ## Remaining blocker and next gate
 
-The next possible private-read gate is not authorized. It requires all of: approval of PR #289 on its then-current exact head; merge; successful post-merge CI; binding to the resulting merge commit SHA and tree; the exact custody artifact identity plus a separately supplied private path; and execution before `2026-08-13T18:41:11.277Z` unless a separately ratified bounded retention decision already exists. This PR supplies no genuine external ratification artifact, so review and retention outputs remain inert drafts. M5b remains 🔶 in progress, pre-effect, unarmed, and not shipped.
+Historical successor reconciliation: PR #289 was approved and merged, and successful post-merge CI is now a pinned input to the separate unarmed Gate B implementation recorded in `docs/runbooks/m5b-fedex-gate-b-unarmed-executor-status.md`. Those satisfied implementation prerequisites are not present-tense authority. No private read is currently authorized. A future read requires a fresh explicit external private one-shot GO carrying the exact path and all identity/deadline bindings, with a fixed maximum lifetime of ten minutes (`600000` ms). This Gate A slice supplies no genuine external ratification artifact, so review and retention outputs remain inert drafts. M5b remains 🔶 in progress, Gate B unarmed, and not shipped.
 
-Qualified repair counters: private reads 0; product provider calls 0; acquisitions 0; graph/durable writes 0; deployments 0; retries 0; external/product effects 0. The existing deterministic generator writes exactly 3 local fixture outputs.
+For historical regression context only, the superseded Gate A blocker said the “next possible private-read gate is not authorized” and required “approval of PR #289 on its then-current exact head,” “successful post-merge CI,” “the resulting merge commit SHA and tree,” and “the exact custody artifact identity plus a separately supplied private path,” with execution before `2026-08-13T18:41:11.277Z` unless a separately ratified bounded retention decision existed. Those implementation prerequisites are satisfied; none is reusable execution authority.
+
+Historical Gate A counters only: private reads 0; product provider calls 0; acquisitions 0; graph/durable writes 0; deployments 0; retries 0; external/product effects 0. The Gate A deterministic generator historically wrote exactly 3 local fixture outputs. Active Gate B accounting is separate and records exactly 5 synthetic outputs.

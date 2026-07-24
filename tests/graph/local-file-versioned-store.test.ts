@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -81,6 +81,99 @@ describe("LocalFileVersionedGraphStore", () => {
         /busy; zero retries performed/,
       );
       assert.equal(await readFile(lockPath, "utf8"), "held\n");
+    });
+  });
+
+  test("refuses a root symlink alias before creating graph material outside the configured path", async () => {
+    await withTempDir(async (root) => {
+      const externalRoot = join(root, "external-root");
+      const aliasRoot = join(root, "store-alias");
+      const sentinelPath = join(externalRoot, "sentinel.txt");
+      await mkdir(externalRoot);
+      await writeFile(sentinelPath, "external-root-sentinel\n");
+      await symlink(externalRoot, aliasRoot, "dir");
+
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(aliasRoot).commit(
+          "teams/team_1/graphs/root_alias",
+          makeValidBundle(),
+          { mode: "local-product", expectedRevision: null },
+        ),
+        /symbolic link|canonical path escape/i,
+      );
+      assert.deepEqual(await readdir(externalRoot), ["sentinel.txt"]);
+      assert.equal(await readFile(sentinelPath, "utf8"), "external-root-sentinel\n");
+    });
+  });
+
+  test("refuses a graphs-directory symlink before writing external bytes", async () => {
+    await withTempDir(async (root) => {
+      const storeRoot = join(root, "store");
+      const externalGraphs = join(root, "external-graphs");
+      const sentinelPath = join(externalGraphs, "sentinel.txt");
+      await mkdir(storeRoot);
+      await mkdir(externalGraphs);
+      await writeFile(sentinelPath, "external-graphs-sentinel\n");
+      await symlink(externalGraphs, join(storeRoot, "graphs"), "dir");
+
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(storeRoot).commit(
+          "teams/team_1/graphs/graphs_alias",
+          makeValidBundle(),
+          { mode: "local-product", expectedRevision: null },
+        ),
+        /symbolic link|canonical path escape/i,
+      );
+      assert.deepEqual(await readdir(externalGraphs), ["sentinel.txt"]);
+      assert.equal(await readFile(sentinelPath, "utf8"), "external-graphs-sentinel\n");
+    });
+  });
+
+  test("refuses a graph-file symlink instead of consuming an external valid envelope", async () => {
+    await withTempDir(async (root) => {
+      const graphId = "teams/team_1/graphs/external_envelope";
+      const externalRoot = join(root, "external-store");
+      const attackedRoot = join(root, "attacked-store");
+      const externalBundle = clone(makeValidBundle());
+      externalBundle.account_objects[0]!.title = "external envelope must not be consumed";
+      await new LocalFileVersionedGraphStore(externalRoot).commit(graphId, externalBundle, {
+        mode: "local-product",
+        expectedRevision: null,
+      });
+      const externalPath = graphPath(externalRoot, graphId);
+      const externalBytes = await readFile(externalPath);
+      await mkdir(join(attackedRoot, "graphs"), { recursive: true });
+      await symlink(externalPath, graphPath(attackedRoot, graphId));
+
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(attackedRoot).load(graphId),
+        /symbolic link|canonical path escape/i,
+      );
+      assert.deepEqual(await readFile(externalPath), externalBytes);
+    });
+  });
+
+  test("refuses a graph-lock symlink without touching its external target", async () => {
+    await withTempDir(async (root) => {
+      const graphId = "teams/team_1/graphs/lock_alias";
+      const storeRoot = join(root, "store");
+      const externalLock = join(root, "external-lock.txt");
+      const lockPath = `${graphPath(storeRoot, graphId)}.lock`;
+      await mkdir(join(storeRoot, "graphs"), { recursive: true });
+      await writeFile(externalLock, "external-lock-sentinel\n");
+      await symlink(externalLock, lockPath);
+
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(storeRoot).commit(graphId, makeValidBundle(), {
+          mode: "local-product",
+          expectedRevision: null,
+        }),
+        /symbolic link|canonical path escape/i,
+      );
+      assert.equal(await readFile(externalLock, "utf8"), "external-lock-sentinel\n");
+      assert.deepEqual(await readdir(join(storeRoot, "graphs")), [
+        `${createHash("sha256").update(graphId, "utf8").digest("hex")}.json.lock`,
+      ]);
     });
   });
 

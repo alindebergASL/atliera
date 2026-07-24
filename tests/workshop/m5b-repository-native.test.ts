@@ -343,6 +343,74 @@ describe("M5b repository-native product completion", () => {
     }
   });
 
+  test("recovers read-only from a final output publication failure after rev_1 commits", {
+    concurrency: false,
+  }, async () => {
+    const root = scenarioRoot();
+    const originalCommit = LocalFileVersionedGraphStore.prototype.commit;
+    let commitCalls = 0;
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const ratificationFile = await writeRatification(
+        join(root, "ratification", "human.json"),
+        ratificationFor(prepare),
+      );
+      const graphStoreRoot = join(root, "graph-store");
+      const outputDir = join(root, "applied");
+      const options = applyOptions(preparedDir, ratificationFile, graphStoreRoot, outputDir);
+
+      LocalFileVersionedGraphStore.prototype.commit = async function (
+        this: LocalFileVersionedGraphStore,
+        ...args: Parameters<typeof originalCommit>
+      ) {
+        commitCalls += 1;
+        const committed = await originalCommit.call(this, ...args);
+        await mkdir(outputDir, { mode: 0o700 });
+        await writeFile(join(outputDir, "publication-blocker"), "block final rename\n", {
+          flag: "wx",
+          mode: 0o600,
+        });
+        return committed;
+      };
+
+      await assert.rejects(
+        () => applyM5bRepositoryNative(options),
+        (error: unknown) => {
+          const code = (error as NodeJS.ErrnoException).code;
+          assert.ok(code === "EEXIST" || code === "ENOTEMPTY");
+          return true;
+        },
+      );
+      assert.equal(commitCalls, 1);
+      assert.equal(await readFile(join(outputDir, "publication-blocker"), "utf8"), "block final rename\n");
+      await assert.rejects(() => stat(join(outputDir, "workshop-final.html")), /ENOENT/);
+
+      const graphFiles = await readdir(join(graphStoreRoot, "graphs"));
+      assert.equal(graphFiles.length, 1);
+      const graphFilePath = join(graphStoreRoot, "graphs", graphFiles[0]!);
+      const graphBytesAfterFailure = await readFile(graphFilePath);
+      const durableAfterFailure = await new LocalFileVersionedGraphStore(graphStoreRoot).load(
+        `accounts/acc_fedex_corp/m5b/${prepare.candidateContentSha256}`,
+      );
+      assert.equal(durableAfterFailure?.revision, "rev_1");
+
+      await rm(outputDir, { recursive: true });
+      const recovered = await applyM5bRepositoryNative(options);
+      const durableAfterRecovery = await new LocalFileVersionedGraphStore(graphStoreRoot).load(recovered.graphId);
+
+      assert.equal(commitCalls, 1);
+      assert.equal(recovered.graphCommitDisposition, "existing-exact-finalized-without-write");
+      assert.equal(recovered.accounting.durableLocalGraphWrites, 0);
+      assert.equal(recovered.accounting.durableLocalGraphReads, 1);
+      assert.deepEqual(durableAfterRecovery, durableAfterFailure);
+      assert.deepEqual(await readFile(graphFilePath), graphBytesAfterFailure);
+      assert.equal((await stat(join(outputDir, "workshop-final.html"))).isFile(), true);
+    } finally {
+      LocalFileVersionedGraphStore.prototype.commit = originalCommit;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("refuses a differing bundle or ratification binding at an existing graph", async () => {
     const root = scenarioRoot();
     try {

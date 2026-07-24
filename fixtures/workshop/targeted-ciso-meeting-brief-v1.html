@@ -30,11 +30,13 @@
     .team-label { margin: 0 0 9px; color: #604100; background: #ffefbd; }
     .mapping-caution, .gaps-panel { border-left: 4px solid #d7795c; }
     .mapping-caution { padding: 10px 12px; background: #fff4ef; color: #65301f; }
+    .mapping-state { margin: 0 0 9px; color: #65301f; font-weight: 750; }
     details { margin-top: 20px; }
     summary { cursor: pointer; color: #0f536a; font-weight: 750; }
     summary:focus-visible, a:focus-visible { outline: 3px solid #e0a31a; outline-offset: 3px; border-radius: 3px; }
     .evidence-provenance > summary { font-size: 1.12rem; }
     .assertion-evidence { border-top: 1px solid #dce5ee; padding-top: 12px; }
+    .evidence-intro { break-inside: avoid; }
     .evidence-packet { margin-top: 12px; border-left: 3px solid #5596aa; padding: 4px 0 4px 14px; break-inside: avoid; }
     .evidence-contradicts { border-left-color: #c65f40; }
     .evidence-label { color: #45546b; font-weight: 750; }
@@ -71,6 +73,8 @@
       .evidence-provenance > summary { display: none !important; }
       .print-only { display: block; }
       h1, h2, h3, h4, summary { break-after: avoid; }
+      .assertion-evidence > summary { break-inside: avoid-page; break-after: avoid-page; }
+      .evidence-intro { break-inside: avoid-page; }
       section, article, .evidence-packet, dl, blockquote { break-inside: avoid; }
       a[href]::after { content: " (" attr(href) ")"; overflow-wrap: anywhere; }
       .next-action, .mapping-caution, .gaps-panel { border-color: #333; }
@@ -142,8 +146,9 @@
       <h2 class="print-only">Evidence and provenance</h2>
       <details class="assertion-evidence">
       <summary aria-label="Evidence for assertion: Acme Robotics launched a logistics platform on March 1, 2026.">Evidence for: Acme Robotics launched a logistics platform on March 1, 2026.</summary>
-      <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_signal_launch</code> · claims <code>clm_acme_launch</code></p>
-      <div class="evidence-packet evidence-supports">
+      <div class="evidence-intro">
+        <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_signal_launch</code> · claims <code>clm_acme_launch</code></p>
+        <div class="evidence-packet evidence-supports">
           <p class="evidence-label">Supporting evidence · Active current record · accepted literal excerpt</p>
           <dl>
             <dt>Claim under review</dt><dd>Acme Robotics launched a logistics platform on March 1, 2026.</dd>
@@ -155,12 +160,15 @@
             <dt>Internal references</dt><dd>Claim <code>clm_acme_launch</code> · excerpt <code>exc_acme_launch_001</code> · source <code>src_acme_press_001</code></dd>
           </dl>
         </div>
+      </div>
+
 
     </details>
 <details class="assertion-evidence">
       <summary aria-label="Evidence for assertion: Warehouse modernization is a 2026 priority for Acme Robotics.">Evidence for: Warehouse modernization is a 2026 priority for Acme Robotics.</summary>
-      <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_map_modernization</code> · claims <code>clm_acme_modernization</code></p>
-      <div class="evidence-packet evidence-supports">
+      <div class="evidence-intro">
+        <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_map_modernization</code> · claims <code>clm_acme_modernization</code></p>
+        <div class="evidence-packet evidence-supports">
           <p class="evidence-label">Supporting evidence · Active current record · accepted literal excerpt</p>
           <dl>
             <dt>Claim under review</dt><dd>Warehouse modernization is a 2026 priority for Acme Robotics.</dd>
@@ -172,6 +180,8 @@
             <dt>Internal references</dt><dd>Claim <code>clm_acme_modernization</code> · excerpt <code>exc_acme_modernization_001</code> · source <code>src_acme_ops_roadmap_001</code></dd>
           </dl>
         </div>
+      </div>
+
 
     </details>
 

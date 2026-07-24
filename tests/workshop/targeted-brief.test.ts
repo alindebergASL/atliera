@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { describe, test } from "node:test";
 
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
@@ -836,8 +836,128 @@ describe("Workshop targeted brief V1", () => {
             ],
           },
         }),
-      /has no governed supporting relationship/,
+      /object obj_acme_play_integration_expansion has no governed primary\/supporting pair|claim clm_acme_launch has no governed primary\/supporting pair/,
     );
+
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+            ],
+          },
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              account_object_ids: [
+                "obj_acme_play_integration_expansion",
+                "obj_acme_signal_launch",
+              ],
+            }],
+          },
+        }),
+      /object obj_acme_signal_launch has no governed primary\/supporting pair/,
+      "an extra selected but unrelated object must fail closed",
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              claim_ids: ["clm_acme_integration_play", "clm_acme_launch"],
+            }],
+          },
+        }),
+      /claim clm_acme_launch has no governed primary\/supporting pair/,
+      "an extra unrelated claim must fail closed",
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+            ],
+          },
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              account_object_ids: [
+                "obj_acme_play_integration_expansion",
+                "obj_acme_signal_launch",
+              ],
+              claim_ids: ["clm_acme_integration_play", "clm_acme_modernization"],
+            }],
+          },
+        }),
+      /object obj_acme_signal_launch has no governed primary\/supporting pair|claim clm_acme_modernization has no governed primary\/supporting pair/,
+      "a mixed mapping with only partial governed pairing must fail closed",
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: ["obj_acme_missing"],
+          },
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              account_object_ids: ["obj_acme_missing"],
+            }],
+          },
+        }),
+      /object obj_acme_missing does not resolve exactly once/,
+      "an unresolved object reference must fail closed",
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              claim_ids: ["clm_acme_missing"],
+            }],
+          },
+        }),
+      /claim clm_acme_missing does not resolve exactly once/,
+      "an unresolved claim reference must fail closed",
+    );
+    for (const duplicateField of ["account_object_ids", "claim_ids"] as const) {
+      const duplicated = baseMapping[duplicateField][0]!;
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(bundle, {
+            ...PROPOSAL_REQUEST,
+            response: {
+              ...PROPOSAL_REQUEST.response,
+              requirement_mappings: [{
+                ...baseMapping,
+                [duplicateField]: [duplicated, duplicated],
+              }],
+            },
+          }),
+        /references must not contain duplicates/,
+        `ambiguous ${duplicateField} references must fail closed`,
+      );
+    }
 
     const reversedMappingRequest: TargetedProposalRfxRequest = {
       ...PROPOSAL_REQUEST,
@@ -877,12 +997,103 @@ describe("Workshop targeted brief V1", () => {
     assert.match(missingMapping.next_safe_action, /Add the first requirement mapping/);
     assert.doesNotMatch(missingHtml, /<h2>Requirement mappings<\/h2>/);
 
-    const proposalHtml = renderTargetedBriefHtml(
-      buildTargetedBrief(loaded, PROPOSAL_REQUEST),
+    const proposalBrief = buildTargetedBrief(loaded, PROPOSAL_REQUEST);
+    const proposalHtml = renderTargetedBriefHtml(proposalBrief);
+    assert.equal(proposalBrief.rfx_mappings[0]!.evidence_state, "supported");
+    assert.deepEqual(proposalBrief.rfx_mappings[0]!.governed_pairs, [{
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_integration_play",
+    }]);
+    assert.match(
+      proposalHtml,
+      /RFP-INT-04 governed pairs: <code>obj_acme_play_integration_expansion<\/code> → <code>clm_acme_integration_play<\/code>/,
     );
+    assert.doesNotMatch(proposalHtml, /RFP-INT-04: objects .* · claims /);
     assert.match(proposalHtml, /A related capability is not a compliance claim/);
     assert.match(proposalHtml, /does not establish requirement compliance/);
     assert.doesNotMatch(proposalHtml, /requirement (?:is )?compliant|satisfies the requirement/i);
+  });
+
+  test("renders unsupported RFx mapping text only as team-proposed and unvalidated", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(MIXED_TRUST);
+    const brief = buildTargetedBrief(loaded, {
+      kind: "proposal_rfx",
+      authority: { team_id: ATLIERA_TEAM },
+      account_id: VERTEX_ACCOUNT,
+      response: {
+        type: "RFP",
+        requirement_context: "Team-supplied competitor-risk response context.",
+        objective: "Identify whether the proposed response point has usable proof.",
+        requirement_mappings: [{
+          requirement_ref: "RFP-RISK-09",
+          requirement_text: "Describe competitive displacement evidence.",
+          supported_response_point: "Vertex is actively evaluating a competing vendor.",
+          available_evidence: "A forum post speculates about vendor strategy.",
+          gap_or_limitation: "No active accepted literal evidence supports this proposed point.",
+          account_object_ids: ["obj_vertex_risk_competitor"],
+          claim_ids: ["clm_vertex_competitor_risk"],
+        }],
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: ["obj_vertex_risk_competitor"],
+      },
+    });
+    const html = renderTargetedBriefHtml(brief);
+
+    assert.equal(brief.rfx_mappings[0]!.evidence_state, "needs_evidence");
+    assert.match(html, /Needs evidence · do not use as supported/);
+    assert.match(html, /Team-proposed, unvalidated response point/);
+    assert.match(html, /Team-provided evidence note · not validated proof/);
+    assert.doesNotMatch(html, /<dt>Supported response point<\/dt>/);
+    assert.doesNotMatch(html, /<dt>Available evidence \/ proof<\/dt>/);
+
+  });
+
+  test("renders contested RFx mapping text only as team-proposed and unvalidated", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    addLaunchContradiction(bundle);
+    const fixtureDirectory = await mkdtemp("fixtures/targeted-brief-contested-");
+    const fixturePath = `${fixtureDirectory}/graph.json`;
+    try {
+      await writeFile(fixturePath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+      const brief = buildTargetedBrief(
+        await loadCommittedTargetedBriefFixture(fixturePath),
+        {
+          kind: "proposal_rfx",
+          authority: { team_id: ATLIERA_TEAM },
+          account_id: ACME_ACCOUNT,
+          response: {
+            type: "RFI",
+            requirement_context: "Team-supplied launch response context.",
+            objective: "Identify whether the proposed launch response point is uncontested.",
+            requirement_mappings: [{
+              requirement_ref: "RFI-LAUNCH-02",
+              requirement_text: "Describe evidence of the platform launch.",
+              supported_response_point: "Acme launched the logistics platform on March 1, 2026.",
+              available_evidence: "The launch announcement is accompanied by a conflicting correction.",
+              gap_or_limitation: "The accepted correction contests the launch assertion.",
+              account_object_ids: ["obj_acme_signal_launch"],
+              claim_ids: ["clm_acme_launch"],
+            }],
+          },
+          selection: {
+            governance: "human_selected",
+            account_object_ids: ["obj_acme_signal_launch"],
+          },
+        },
+      );
+      const html = renderTargetedBriefHtml(brief);
+
+      assert.equal(brief.rfx_mappings[0]!.evidence_state, "contested");
+      assert.match(html, /Contested · do not use as supported/);
+      assert.match(html, /Team-proposed, unvalidated response point/);
+      assert.match(html, /Team-provided evidence note · contested, not validated proof/);
+      assert.doesNotMatch(html, /<dt>Supported response point<\/dt>/);
+      assert.doesNotMatch(html, /<dt>Available evidence \/ proof<\/dt>/);
+    } finally {
+      await rm(fixtureDirectory, { recursive: true, force: true });
+    }
   });
 
   test("does not render empty brief sections", async () => {
@@ -1142,6 +1353,8 @@ describe("Workshop targeted brief V1", () => {
       assert.match(html, /@media print/);
       assert.match(html, /details:not\(\[open\]\) > \* \{ display: block !important; \}/);
       assert.match(html, /details::details-content \{ content-visibility: visible !important; \}/);
+      assert.match(html, /\.assertion-evidence > summary \{ break-inside: avoid-page; break-after: avoid-page; \}/);
+      assert.match(html, /\.evidence-intro \{ break-inside: avoid; \}/);
       assert.match(html, /h1, h2, h3, h4, summary \{ break-after: avoid; \}/);
       assert.match(html, /break-inside: avoid/);
       assert.match(html, /a\[href\]::after \{ content: " \(" attr\(href\) "\)"/);

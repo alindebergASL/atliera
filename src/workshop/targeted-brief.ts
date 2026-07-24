@@ -71,6 +71,21 @@ export interface TargetedRfxRequirementMapping {
   readonly claim_ids: readonly string[];
 }
 
+export interface TargetedRfxGovernedPair {
+  readonly account_object_id: string;
+  readonly claim_id: string;
+}
+
+export type TargetedRfxMappingEvidenceState =
+  | "supported"
+  | "needs_evidence"
+  | "contested";
+
+export interface TargetedBriefRfxMapping extends TargetedRfxRequirementMapping {
+  readonly governed_pairs: readonly TargetedRfxGovernedPair[];
+  readonly evidence_state: TargetedRfxMappingEvidenceState;
+}
+
 export interface TargetedProposalRfxRequest {
   readonly kind: "proposal_rfx";
   readonly authority: TargetedBriefAuthority;
@@ -191,7 +206,7 @@ export interface TargetedBrief {
   readonly assertions: readonly TargetedBriefAssertion[];
   readonly sections: readonly TargetedBriefSection[];
   readonly meeting_contexts: readonly TargetedCisoFactContext[];
-  readonly rfx_mappings: readonly TargetedRfxRequirementMapping[];
+  readonly rfx_mappings: readonly TargetedBriefRfxMapping[];
   readonly preparation_gaps: readonly string[];
   readonly evidence_gaps: readonly TargetedBriefEvidenceGap[];
   readonly boundary: {
@@ -880,6 +895,62 @@ function objectIsRenderable(
   return renderable;
 }
 
+function governedRfxPairs(
+  bundle: GraphBundle,
+  mapping: TargetedRfxRequirementMapping,
+): TargetedRfxGovernedPair[] {
+  for (const objectId of mapping.account_object_ids) {
+    if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
+      throw new Error(
+        `requirement mapping ${mapping.requirement_ref} object ${objectId} does not resolve exactly once`,
+      );
+    }
+  }
+  for (const claimId of mapping.claim_ids) {
+    if (bundle.claims.filter((claim) => claim.id === claimId).length !== 1) {
+      throw new Error(
+        `requirement mapping ${mapping.requirement_ref} claim ${claimId} does not resolve exactly once`,
+      );
+    }
+  }
+
+  const objectIds = new Set(mapping.account_object_ids);
+  const claimIds = new Set(mapping.claim_ids);
+  const pairs = bundle.account_object_claims
+    .filter(
+      (relationship) =>
+        (relationship.relationship === "primary" ||
+          relationship.relationship === "supporting") &&
+        objectIds.has(relationship.account_object_id) &&
+        claimIds.has(relationship.claim_id),
+    )
+    .map((relationship) => ({
+      account_object_id: relationship.account_object_id,
+      claim_id: relationship.claim_id,
+    }))
+    .sort(
+      (left, right) =>
+        left.account_object_id.localeCompare(right.account_object_id) ||
+        left.claim_id.localeCompare(right.claim_id),
+    );
+
+  for (const objectId of mapping.account_object_ids) {
+    if (!pairs.some((pair) => pair.account_object_id === objectId)) {
+      throw new Error(
+        `requirement mapping ${mapping.requirement_ref} object ${objectId} has no governed primary/supporting pair with its mapped claims`,
+      );
+    }
+  }
+  for (const claimId of mapping.claim_ids) {
+    if (!pairs.some((pair) => pair.claim_id === claimId)) {
+      throw new Error(
+        `requirement mapping ${mapping.requirement_ref} claim ${claimId} has no governed primary/supporting pair with its mapped account objects`,
+      );
+    }
+  }
+  return pairs;
+}
+
 function assertGovernedRequestReferences(
   bundle: GraphBundle,
   target: TargetedBriefRequest,
@@ -919,17 +990,7 @@ function assertGovernedRequestReferences(
     for (const objectId of mapping.account_object_ids) {
       assertObject(objectId, `requirement mapping ${mapping.requirement_ref}`);
     }
-    for (const claimId of mapping.claim_ids) {
-      if (
-        !mapping.account_object_ids.some((objectId) =>
-          supportingLinks.has(`${objectId}\0${claimId}`),
-        )
-      ) {
-        throw new Error(
-          `requirement mapping ${mapping.requirement_ref} claim ${claimId} has no governed supporting relationship to its mapped account objects`,
-        );
-      }
-    }
+    governedRfxPairs(bundle, mapping);
   }
 }
 
@@ -1143,21 +1204,72 @@ function meetingPreparation(
   return { gaps, nextAction };
 }
 
-function rfxPreparation(
+function buildRfxMappings(
+  bundle: GraphBundle,
   request: TargetedProposalRfxRequest,
   assertions: readonly TargetedBriefAssertion[],
+): TargetedBriefRfxMapping[] {
+  return (request.response.requirement_mappings ?? []).map((mapping) => {
+    const governedPairs = governedRfxPairs(bundle, mapping);
+    const pairAssertions = governedPairs.map((pair) =>
+      assertions.find(
+        (assertion) =>
+          assertion.id === pair.account_object_id &&
+          assertion.claim_ids.includes(pair.claim_id),
+      ),
+    );
+    const evidenceState: TargetedRfxMappingEvidenceState = pairAssertions.some(
+      (assertion) => !assertion,
+    )
+      ? "needs_evidence"
+      : pairAssertions.some((assertion) => assertion?.state === "contested")
+        ? "contested"
+        : "supported";
+    return {
+      ...mapping,
+      governed_pairs: governedPairs,
+      evidence_state: evidenceState,
+    };
+  });
+}
+
+interface TargetedRfxMappingPresentation {
+  readonly state_label: string;
+  readonly response_point_label: string;
+  readonly evidence_label: string;
+}
+
+function targetedRfxMappingPresentation(
+  state: TargetedRfxMappingEvidenceState,
+): TargetedRfxMappingPresentation {
+  if (state === "supported") {
+    return {
+      state_label: "Evidence-backed mapping",
+      response_point_label: "Supported response point",
+      evidence_label: "Available evidence / proof",
+    };
+  }
+  if (state === "contested") {
+    return {
+      state_label: "Contested · do not use as supported",
+      response_point_label: "Team-proposed, unvalidated response point",
+      evidence_label: "Team-provided evidence note · contested, not validated proof",
+    };
+  }
+  return {
+    state_label: "Needs evidence · do not use as supported",
+    response_point_label: "Team-proposed, unvalidated response point",
+    evidence_label: "Team-provided evidence note · not validated proof",
+  };
+}
+
+function rfxPreparation(
+  mappings: readonly TargetedBriefRfxMapping[],
   evidenceGaps: readonly TargetedBriefEvidenceGap[],
 ): {
   readonly gaps: readonly string[];
   readonly nextAction: string;
 } {
-  const mappings = request.response.requirement_mappings ?? [];
-  const renderedClaims = new Set(assertions.flatMap((assertion) => assertion.claim_ids));
-  const contestedClaims = new Set(
-    assertions
-      .filter((assertion) => assertion.state === "contested")
-      .flatMap((assertion) => assertion.claim_ids),
-  );
   const gaps: string[] = [];
   let nextAction: string | null = null;
   if (mappings.length === 0) {
@@ -1165,16 +1277,14 @@ function rfxPreparation(
     nextAction = "Add the first requirement mapping with its governed claim and account-object references.";
   }
   for (const mapping of mappings) {
-    const missingEvidence = mapping.claim_ids.some((claimId) => !renderedClaims.has(claimId));
-    if (missingEvidence) {
+    if (mapping.evidence_state === "needs_evidence") {
       gaps.push(
-        `${mapping.requirement_ref} maps to a claim that lacks active accepted support and cannot establish the response point.`,
+        `${mapping.requirement_ref} lacks active accepted support for every governed object-to-claim pair and cannot establish the proposed response point.`,
       );
       nextAction ??= `Add active accepted proof or narrow the response point for ${mapping.requirement_ref}.`;
-    }
-    if (mapping.claim_ids.some((claimId) => contestedClaims.has(claimId))) {
+    } else if (mapping.evidence_state === "contested") {
       gaps.push(
-        `${mapping.requirement_ref} relies on a contested assertion and needs clarification before drafting.`,
+        `${mapping.requirement_ref} relies on a contested assertion and must not be used as supported before clarification.`,
       );
       nextAction ??= `Resolve the contested assertion mapped to ${mapping.requirement_ref}.`;
     }
@@ -1205,25 +1315,25 @@ function buildBrief(
         .map((assertion) => assertion.id),
     }))
     .filter((section) => section.assertion_ids.length > 0);
-  const preparation = kind === "ciso_meeting"
-    ? meetingPreparation(
-        selection.request as TargetedCisoMeetingRequest,
-        selection.assertions,
-        selection.evidence_gaps,
-      )
-    : rfxPreparation(
-        selection.request as TargetedProposalRfxRequest,
-        selection.assertions,
-        selection.evidence_gaps,
-      );
   const meetingContexts =
     selection.request.kind === "ciso_meeting"
       ? selection.request.meeting.fact_contexts ?? []
       : [];
   const rfxMappings =
     selection.request.kind === "proposal_rfx"
-      ? selection.request.response.requirement_mappings ?? []
+      ? buildRfxMappings(
+          state.bundle,
+          selection.request,
+          selection.assertions,
+        )
       : [];
+  const preparation = kind === "ciso_meeting"
+    ? meetingPreparation(
+        selection.request as TargetedCisoMeetingRequest,
+        selection.assertions,
+        selection.evidence_gaps,
+      )
+    : rfxPreparation(rfxMappings, selection.evidence_gaps);
   const brief = deepFreeze<TargetedBrief>({
     schema_version: TARGETED_BRIEF_SCHEMA_VERSION,
     kind,
@@ -1414,18 +1524,20 @@ function renderRfxMappings(brief: TargetedBrief): string {
       <h2>Requirement mappings</h2>
       <p class="mapping-caution">A related capability is not a compliance claim. Treat requirement satisfaction as unconfirmed unless the governed evidence directly establishes it.</p>
       ${brief.rfx_mappings
-        .map(
-          (mapping) => `<article class="mapping-card">
+        .map((mapping) => {
+          const presentation = targetedRfxMappingPresentation(mapping.evidence_state);
+          return `<article class="mapping-card mapping-${escapeHtml(mapping.evidence_state)}">
         <p class="team-label">Team-provided mapping · not a discovered account fact</p>
+        <p class="mapping-state">${escapeHtml(presentation.state_label)}</p>
         <h3>${escapeHtml(mapping.requirement_ref)}</h3>
         <dl>
           <dt>Supplied requirement</dt><dd>${escapeHtml(mapping.requirement_text)}</dd>
-          <dt>Supported response point</dt><dd>${escapeHtml(mapping.supported_response_point)}</dd>
-          <dt>Available evidence / proof</dt><dd>${escapeHtml(mapping.available_evidence)}</dd>
+          <dt>${escapeHtml(presentation.response_point_label)}</dt><dd>${escapeHtml(mapping.supported_response_point)}</dd>
+          <dt>${escapeHtml(presentation.evidence_label)}</dt><dd>${escapeHtml(mapping.available_evidence)}</dd>
           ${mapping.gap_or_limitation ? `<dt>Gap, limitation, or clarification needed</dt><dd>${escapeHtml(mapping.gap_or_limitation)}</dd>` : ""}
         </dl>
-      </article>`,
-        )
+      </article>`;
+        })
         .join("\n")}
     </section>`;
 }
@@ -1459,7 +1571,8 @@ function renderPurpose(brief: TargetedBrief): string {
 }
 
 function renderAssertionEvidence(assertion: TargetedBriefAssertion): string {
-  const activeEvidence = assertion.evidence.map(renderSource).join("\n");
+  const activeEvidence = assertion.evidence.map(renderSource);
+  const [firstActiveEvidence = "", ...remainingActiveEvidence] = activeEvidence;
   const inactiveEvidence = assertion.inactive_evidence.length > 0
     ? `<section class="inactive-provenance">
           <h4>Inactive material retained as provenance only</h4>
@@ -1469,8 +1582,11 @@ function renderAssertionEvidence(assertion: TargetedBriefAssertion): string {
     : "";
   return `<details class="assertion-evidence">
       <summary aria-label="Evidence for assertion: ${escapeHtml(assertion.statement)}">Evidence for: ${escapeHtml(assertion.statement)}</summary>
-      <p class="ownership-note">Governed assertion binding · team <code>${escapeHtml(assertion.ownership.team_id)}</code> · account <code>${escapeHtml(assertion.ownership.account_id)}</code> · object <code>${escapeHtml(assertion.id)}</code> · claims ${assertion.claim_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(" ")}</p>
-      ${activeEvidence}
+      <div class="evidence-intro">
+        <p class="ownership-note">Governed assertion binding · team <code>${escapeHtml(assertion.ownership.team_id)}</code> · account <code>${escapeHtml(assertion.ownership.account_id)}</code> · object <code>${escapeHtml(assertion.id)}</code> · claims ${assertion.claim_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(" ")}</p>
+        ${firstActiveEvidence}
+      </div>
+      ${remainingActiveEvidence.join("\n")}
       ${inactiveEvidence}
     </details>`;
 }
@@ -1495,7 +1611,7 @@ function renderEvidenceAndProvenance(brief: TargetedBrief): string {
     : brief.rfx_mappings
         .map(
           (mapping) =>
-            `<li>${escapeHtml(mapping.requirement_ref)}: objects ${mapping.account_object_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(" ")} · claims ${mapping.claim_ids.map((id) => `<code>${escapeHtml(id)}</code>`).join(" ")}</li>`,
+            `<li>${escapeHtml(mapping.requirement_ref)} governed pairs: ${mapping.governed_pairs.map((pair) => `<code>${escapeHtml(pair.account_object_id)}</code> → <code>${escapeHtml(pair.claim_id)}</code>`).join("; ")}</li>`,
         )
         .join("\n");
   return `<details class="evidence-provenance">
@@ -1565,11 +1681,13 @@ export function renderTargetedBriefHtml(brief: TargetedBrief): string {
     .team-label { margin: 0 0 9px; color: #604100; background: #ffefbd; }
     .mapping-caution, .gaps-panel { border-left: 4px solid #d7795c; }
     .mapping-caution { padding: 10px 12px; background: #fff4ef; color: #65301f; }
+    .mapping-state { margin: 0 0 9px; color: #65301f; font-weight: 750; }
     details { margin-top: 20px; }
     summary { cursor: pointer; color: #0f536a; font-weight: 750; }
     summary:focus-visible, a:focus-visible { outline: 3px solid #e0a31a; outline-offset: 3px; border-radius: 3px; }
     .evidence-provenance > summary { font-size: 1.12rem; }
     .assertion-evidence { border-top: 1px solid #dce5ee; padding-top: 12px; }
+    .evidence-intro { break-inside: avoid; }
     .evidence-packet { margin-top: 12px; border-left: 3px solid #5596aa; padding: 4px 0 4px 14px; break-inside: avoid; }
     .evidence-contradicts { border-left-color: #c65f40; }
     .evidence-label { color: #45546b; font-weight: 750; }
@@ -1606,6 +1724,8 @@ export function renderTargetedBriefHtml(brief: TargetedBrief): string {
       .evidence-provenance > summary { display: none !important; }
       .print-only { display: block; }
       h1, h2, h3, h4, summary { break-after: avoid; }
+      .assertion-evidence > summary { break-inside: avoid-page; break-after: avoid-page; }
+      .evidence-intro { break-inside: avoid-page; }
       section, article, .evidence-packet, dl, blockquote { break-inside: avoid; }
       a[href]::after { content: " (" attr(href) ")"; overflow-wrap: anywhere; }
       .next-action, .mapping-caution, .gaps-panel { border-color: #333; }

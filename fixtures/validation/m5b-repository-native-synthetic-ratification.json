@@ -1,0 +1,19 @@
+{
+  "fixtureOnly": true,
+  "fixtureAuthority": "none",
+  "ratifierId": "synthetic_reviewer",
+  "ratifiedAt": "2026-07-24T00:00:00.000Z",
+  "retentionDisposition": "reject",
+  "decisions": [
+    {
+      "proposalId": "m5b-fedex-registrant-identity",
+      "disposition": "accept",
+      "reasonCode": "source_fields_match"
+    },
+    {
+      "proposalId": "m5b-fedex-industry-classification",
+      "disposition": "reject",
+      "reasonCode": "synthetic_fixture_rejection_proof"
+    }
+  ]
+}

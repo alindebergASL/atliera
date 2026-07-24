@@ -4,9 +4,12 @@
 // are deterministic, no-spend, no-network. `model` is reserved for an
 // explicit, budgeted future provider mode and must fail closed until
 // activated by a separate phase. `validation` is a read-only mode used
-// by validators and CI.
+// by validators and CI. `local-product` is an explicit local durable-write
+// mode: it is not default-safe, does not activate providers, and exists so a
+// human-ratified product command can use the versioned graph-store boundary
+// without pretending to be model mode.
 
-export type RuntimeMode = "validation" | "fixture" | "fake" | "model";
+export type RuntimeMode = "validation" | "fixture" | "fake" | "model" | "local-product";
 
 export const SAFE_MODES: ReadonlySet<RuntimeMode> = new Set([
   "validation",

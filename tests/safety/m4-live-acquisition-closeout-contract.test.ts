@@ -279,7 +279,7 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.ok(m4.includes(WORKSHOP_PATH));
   assert.ok(m4.includes(PROOF_PATH));
   assert.ok(m4.includes(RETRO_PATH));
-  assert.ok(m5b.includes("🔶 in progress — Gate A pre-effect, unarmed, not shipped"));
+  assert.ok(m5b.includes("🔶 in progress — repository-native product path implemented for review; real execution unauthorized"));
 
   for (const document of [RETRO, RUNBOOK, ROADMAP, INDEX]) {
     assert.equal(markerValue(document, "current_effective_authorization"), "none");

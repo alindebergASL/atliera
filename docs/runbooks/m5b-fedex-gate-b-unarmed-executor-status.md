@@ -2,9 +2,9 @@
 
 ## Status
 
-This runbook records an internal exact-purpose Gate B core and approval surface for a later, separately authorized one-shot read of the successful M4 FedEx custody artifact. PR #289 Gate A is merged. M5b remains in progress, Gate B implementation is unarmed, and `current_effective_authorization` remains `none`. The core is absent from `src/index.ts`; there is no package script, public route, callable production wrapper, signing, or PKI surface.
+Historical/superseded status: this runbook records the former internal exact-purpose host Gate B core. The host-local v2-r3 result is frozen unqualified provenance only, host forensic qualification is closed, and no v2-r4 is authorized. M5b remains in progress through the repository-native product path in `docs/runbooks/m5b-repository-native-product-completion.md`; the host core is not an active acceptance or execution path. `current_effective_authorization` remains `none`.
 
-The implementation session did not read the private custody artifact and did not invoke the future core. It used only the committed synthetic FedEx fixture. A future private read still requires a fresh explicit GO expressed as an external private authorization artifact, with a fixed maximum lifetime of ten minutes (`600000` ms), and a later reviewed arming wrapper. Neither this source, the public non-executable template, nor any serialized hash is present-tense authority.
+The historical implementation session did not read the private custody artifact and did not invoke the core. Its source, public non-executable template, hashes, archive, and evidence are provenance only and are not present-tense authority. Future real source execution and human ratification must use the explicit repository-native decision boundary; control-plane recovery, archive qualification, V4 reconciliation, and further host qualification are closed for M5b.
 
 ## Exact bindings
 

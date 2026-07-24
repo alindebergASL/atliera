@@ -29,7 +29,7 @@ test("Gate B remains unarmed: no public/package execution route, executable GO, 
   assert.deepEqual(authorizationArtifacts, ["m5b-fedex-gate-b-authorization-template.json"]);
 });
 
-test("later arming must supply literal GO, executor/seal, owner, and fixed replay-root pins", () => {
+test("historical host executor retains literal GO, executor/seal, owner, and replay-root pins", () => {
   for (const binding of [
     "expectedAuthorizationSha256",
     "trustedReplayRoot",
@@ -43,7 +43,7 @@ test("later arming must supply literal GO, executor/seal, owner, and fixed repla
   assert.doesNotMatch(SOURCE, /readonly repositoryRoot:/);
   assert.match(SOURCE, /expectedAuthorizationSha256[^\n]*|state\.authorizationSha256/);
   assert.match(SOURCE, /state\.authorizationSha256 !== trustedPins\.expectedAuthorizationSha256/);
-  assert.match(STATUS, /later reviewed arming wrapper/i);
+  assert.match(STATUS, /historical\/superseded status/i);
 });
 
 test("repository and implementation identity use one immutable HEAD snapshot plus clean sealed revalidation", () => {
@@ -165,21 +165,24 @@ test("synthetic receipt and all five outputs preserve zero effects and honest tr
   assert.doesNotMatch(workshopHtml, /fixture outputs written by the generator: 3/);
 });
 
-test("roadmap and runbooks keep Gate B unarmed with five active outputs and three only historical Gate A", () => {
+test("roadmap and runbooks supersede host qualification with the unauthorized repository-native path", () => {
   const roadmap = read("docs/strategy/roadmap.md");
   const index = read("docs/runbooks/INDEX.md");
   const blockers = read("docs/BLOCKERS.md");
   const gateA = read("docs/runbooks/m5b-fedex-system-acquired-pre-effect-gate-a-status.md");
+  const repositoryNative = read("docs/runbooks/m5b-repository-native-product-completion.md");
   const row = roadmap.split("\n").find((line) => line.startsWith("| **M5b —"));
-  assert.equal(row?.split("|")[2]?.trim(), "🔶 in progress — Gate B implementation unarmed, not shipped");
-  for (const document of [STATUS, index, blockers, gateA]) {
-    assert.match(document, /PR #289[^\n]*(approved and merged|Gate A is merged|Gate A: merged)/i);
-    assert.match(document, /(current_effective_authorization|current effective authorization)[^\n]*none/i);
-    assert.match(document, /fresh explicit/i);
-    assert.match(document, /ten minutes|600000/);
+  assert.equal(row?.split("|")[2]?.trim(),
+    "🔶 in progress — repository-native product path implemented for review; real execution unauthorized");
+  for (const document of [roadmap, index, blockers, repositoryNative]) {
+    assert.match(document, /repository-native/i);
+    assert.match(document,
+      /(current_effective_authorization|current effective authorization)[^\n]*none|real execution remains unauthorized/i);
+    assert.match(document, /human[- ]ratification|human-ratified/i);
   }
-  for (const document of [STATUS, index, roadmap, blockers]) {
-    assert.match(document, /(?:exactly |writes |generator: `?)5/i);
-  }
+  assert.match(STATUS, /historical\/superseded status/i);
+  assert.match(STATUS, /no v2-r4 is authorized/i);
+  assert.match(index, /m5b-fedex-gate-b-unarmed-executor-status\.md` \| superseded/);
+  assert.match(index, /m5b-repository-native-product-completion\.md` \| active/);
   assert.match(gateA, /historical[^\n]*3|3[^\n]*historical/i);
 });

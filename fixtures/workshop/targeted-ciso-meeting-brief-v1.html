@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Targeted CISO meeting brief · Atliera</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f4f7fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(1040px, 100%); margin: 0 auto; padding: 32px 22px 56px; }
+    .hero { background: linear-gradient(135deg, #13243f, #1f4a5d); color: #f7fbff; border-radius: 24px; padding: 30px; box-shadow: 0 18px 55px rgba(19, 36, 63, .16); }
+    .hero h1 { margin: 8px 0; max-width: 760px; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.04; }
+    .hero .summary { max-width: 700px; font-size: 1.08rem; color: #e4f0f7; }
+    .kicker { margin: 0 0 6px; color: #52617a; font-size: .76rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .hero .kicker { color: #b9e2e9; }
+    .next-action { margin: 18px 0 0; padding: 14px 16px; border-left: 4px solid #85d7c4; background: rgba(255,255,255,.1); }
+    .purpose-panel, .brief-section, .support-panel, .evidence-provenance { margin-top: 20px; border: 1px solid #ccd8e5; border-radius: 20px; padding: 20px; background: #fff; }
+    .brief-section > header { border-bottom: 1px solid #e1e8f0; padding-bottom: 12px; }
+    h2 { margin: 0; font-size: 1.35rem; }
+    h3 { line-height: 1.35; }
+    .assertion, .context-card, .mapping-card { margin-top: 14px; border: 1px solid #d5e0ea; border-radius: 16px; padding: 16px; background: #fbfdff; break-inside: avoid; }
+    .assertion-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+    .assertion h3, .context-card h3, .mapping-card h3 { margin: 0; font-size: 1.08rem; }
+    .trust, .team-label { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: .78rem; font-weight: 750; }
+    .trust { flex: 0 0 auto; }
+    .trust-verified { color: #0b573f; background: #dff6ed; }
+    .trust-source_document_only { color: #174a6e; background: #e0f0fb; }
+    .trust-contested { color: #762c16; background: #ffe2d7; }
+    .team-label { margin: 0 0 9px; color: #604100; background: #ffefbd; }
+    .mapping-caution, .gaps-panel { border-left: 4px solid #d7795c; }
+    .mapping-caution { padding: 10px 12px; background: #fff4ef; color: #65301f; }
+    .mapping-state { margin: 0 0 9px; color: #65301f; font-weight: 750; }
+    details { margin-top: 20px; }
+    summary { cursor: pointer; color: #0f536a; font-weight: 750; }
+    summary:focus-visible, a:focus-visible { outline: 3px solid #e0a31a; outline-offset: 3px; border-radius: 3px; }
+    .evidence-provenance > summary { font-size: 1.12rem; }
+    .assertion-evidence { border-top: 1px solid #dce5ee; padding-top: 12px; }
+    .evidence-intro { break-inside: avoid; }
+    .evidence-packet { margin-top: 12px; border-left: 3px solid #5596aa; padding: 4px 0 4px 14px; break-inside: avoid; }
+    .evidence-contradicts { border-left-color: #c65f40; }
+    .evidence-label { color: #45546b; font-weight: 750; }
+    .inactive-provenance { margin-top: 16px; padding: 12px; border: 1px dashed #7b8798; background: #f4f5f7; }
+    .ownership-note { color: #52617a; }
+    dl { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: 8px 14px; }
+    dt { color: #52617a; font-weight: 750; }
+    dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+    blockquote { margin: 0; }
+    code { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 5px; border-radius: 5px; background: #e9eff5; overflow-wrap: anywhere; }
+    a { color: #0f536a; }
+    .unsafe-url { color: #942f2f; }
+    ul { margin: 12px 0 0; padding-left: 20px; }
+    li + li { margin-top: 10px; }
+    .print-only { display: none; }
+    footer { margin-top: 22px; color: #52617a; font-size: .86rem; text-align: center; }
+    @media (max-width: 760px) {
+      main { padding: 16px 14px 36px; }
+      .hero { padding: 22px 18px; border-radius: 18px; }
+      .assertion-heading { flex-direction: column; }
+      dl { grid-template-columns: 1fr; }
+      dt { margin-top: 6px; }
+    }
+    @media print {
+      :root { background: #fff; color: #000; }
+      main { width: 100%; padding: 0; }
+      .hero, .purpose-panel, .brief-section, .support-panel, .evidence-provenance { box-shadow: none; border-color: #777; }
+      .hero { background: #fff; color: #000; }
+      .hero .summary, .hero .kicker { color: #222; }
+      details, details:not([open]), details[open] { display: block; }
+      details > *, details:not([open]) > * { display: block !important; }
+      details::details-content { content-visibility: visible !important; }
+      summary { display: block !important; color: #000; list-style: none; break-after: avoid; }
+      .evidence-provenance > summary { display: none !important; }
+      .print-only { display: block; }
+      h1, h2, h3, h4, summary { break-after: avoid; }
+      .assertion-evidence > summary { break-inside: avoid-page; break-after: avoid-page; }
+      .evidence-intro { break-inside: avoid-page; }
+      section, article, .evidence-packet, dl, blockquote { break-inside: avoid; }
+      a[href]::after { content: " (" attr(href) ")"; overflow-wrap: anywhere; }
+      .next-action, .mapping-caution, .gaps-panel { border-color: #333; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <p class="kicker">Atliera · targeted preparation</p>
+      <h1>Targeted CISO meeting brief</h1>
+      <p class="summary">2 selected evidence-backed points for meeting preparation.</p>
+      <p class="next-action"><strong>Next safe action:</strong> Add the desired meeting outcome for the selected fact: Warehouse modernization is a 2026 priority for Acme Robotics.</p>
+    </section>
+    <section class="purpose-panel">
+      <p class="kicker">Purpose · team-provided, not an account fact</p>
+      <h2>Prepare a focused security conversation around the selected account developments.</h2>
+      <p><strong>Audience:</strong> Chief Information Security Officer and security architecture team</p>
+    </section>
+    <section class="brief-section">
+      <header><div><p class="kicker">Selected evidence-backed developments to understand first.</p><h2>What changed</h2></div></header>
+      <article class="assertion">
+      <div class="assertion-heading">
+        <div>
+          <p class="kicker">Selected evidence-backed fact</p>
+          <h3>Acme Robotics launched a logistics platform on March 1, 2026.</h3>
+        </div>
+        <span class="trust trust-verified">Verified</span>
+      </div>
+    </article>
+    </section>
+<section class="brief-section">
+      <header><div><p class="kicker">Selected supported account context for the conversation.</p><h2>Operating context</h2></div></header>
+      <article class="assertion">
+      <div class="assertion-heading">
+        <div>
+          <p class="kicker">Selected evidence-backed fact</p>
+          <h3>Warehouse modernization is a 2026 priority for Acme Robotics.</h3>
+        </div>
+        <span class="trust trust-verified">Verified</span>
+      </div>
+    </article>
+    </section>
+    <section class="support-panel">
+      <p class="kicker">Prepare for the conversation</p>
+      <h2>Meeting questions and outcomes</h2>
+      <article class="context-card">
+        <p class="team-label">Team-provided meeting context · not a discovered account fact</p>
+        <h3>Warehouse modernization is a 2026 priority for Acme Robotics.</h3>
+        <dl><dt>Why it matters for this meeting</dt><dd>The team wants to connect the modernization priority to the CISO&#39;s review calendar.</dd>
+<dt>Question to ask</dt><dd>Which modernization milestones need security architecture involvement?</dd></dl>
+      </article>
+<article class="context-card">
+        <p class="team-label">Team-provided meeting context · not a discovered account fact</p>
+        <h3>Acme Robotics launched a logistics platform on March 1, 2026.</h3>
+        <dl><dt>Why it matters for this meeting</dt><dd>The team wants to understand whether the new platform changes the security review surface.</dd>
+<dt>Question to ask</dt><dd>What identity, data-handling, and resilience reviews are required for the new platform?</dd>
+<dt>Desired meeting outcome</dt><dd>Agree which security review owners and follow-ups are needed.</dd></dl>
+      </article>
+    </section>
+
+    <section class="support-panel gaps-panel">
+      <p class="kicker">What still needs attention</p>
+      <h2>Material gaps</h2>
+      <ul><li>The team has not supplied a desired outcome for: Warehouse modernization is a 2026 priority for Acme Robotics.</li></ul>
+    </section>
+    <details class="evidence-provenance">
+      <summary aria-label="Evidence and provenance for selected assertions: Acme Robotics launched a logistics platform on March 1, 2026.; Warehouse modernization is a 2026 priority for Acme Robotics.">Evidence and provenance</summary>
+      <h2 class="print-only">Evidence and provenance</h2>
+      <details class="assertion-evidence">
+      <summary aria-label="Evidence for assertion: Acme Robotics launched a logistics platform on March 1, 2026.">Evidence for: Acme Robotics launched a logistics platform on March 1, 2026.</summary>
+      <div class="evidence-intro">
+        <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_signal_launch</code> · claims <code>clm_acme_launch</code></p>
+        <div class="evidence-packet evidence-supports">
+          <p class="evidence-label">Supporting evidence · Active current record · accepted literal excerpt</p>
+          <dl>
+            <dt>Claim under review</dt><dd>Acme Robotics launched a logistics platform on March 1, 2026.</dd>
+            <dt>Accepted excerpt</dt><dd><blockquote>Acme Robotics announced a new logistics platform on March 1, 2026.</blockquote></dd>
+            <dt>Source</dt><dd><a href="https://example.invalid/acme/press/001" rel="noreferrer noopener">Acme Robotics launches logistics platform</a> · Acme Robotics · high reliability · active record</dd>
+            <dt>Source record timestamp</dt><dd>2026-03-02T12:00:00Z</dd>
+            <dt>Evidence current through</dt><dd>Not supplied by source</dd>
+            <dt>Ownership binding</dt><dd>Team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code></dd>
+            <dt>Internal references</dt><dd>Claim <code>clm_acme_launch</code> · excerpt <code>exc_acme_launch_001</code> · source <code>src_acme_press_001</code></dd>
+          </dl>
+        </div>
+      </div>
+
+
+    </details>
+<details class="assertion-evidence">
+      <summary aria-label="Evidence for assertion: Warehouse modernization is a 2026 priority for Acme Robotics.">Evidence for: Warehouse modernization is a 2026 priority for Acme Robotics.</summary>
+      <div class="evidence-intro">
+        <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_map_modernization</code> · claims <code>clm_acme_modernization</code></p>
+        <div class="evidence-packet evidence-supports">
+          <p class="evidence-label">Supporting evidence · Active current record · accepted literal excerpt</p>
+          <dl>
+            <dt>Claim under review</dt><dd>Warehouse modernization is a 2026 priority for Acme Robotics.</dd>
+            <dt>Accepted excerpt</dt><dd><blockquote>Acme Robotics lists warehouse modernization as a 2026 priority</blockquote></dd>
+            <dt>Source</dt><dd><a href="https://example.invalid/acme/ops/roadmap" rel="noreferrer noopener">Acme Robotics operations roadmap</a> · Acme Robotics · high reliability · active record</dd>
+            <dt>Source record timestamp</dt><dd>2026-03-03T09:00:00Z</dd>
+            <dt>Evidence current through</dt><dd>Not supplied by source</dd>
+            <dt>Ownership binding</dt><dd>Team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code></dd>
+            <dt>Internal references</dt><dd>Claim <code>clm_acme_modernization</code> · excerpt <code>exc_acme_modernization_001</code> · source <code>src_acme_ops_roadmap_001</code></dd>
+          </dl>
+        </div>
+      </div>
+
+
+    </details>
+
+      <section class="provenance-metadata">
+        <h3>Authority and governed selection</h3>
+        <dl>
+          <dt>Team / workspace authority</dt><dd><code>team_atliera_lab</code></dd>
+          <dt>Account</dt><dd><code>acc_acme_robotics</code></dd>
+          <dt>Selected account objects</dt><dd><code>obj_acme_map_modernization</code> <code>obj_acme_signal_launch</code></dd>
+        </dl>
+        <ul><li>Meeting context: object <code>obj_acme_map_modernization</code> · claims <code>clm_acme_modernization</code></li>
+<li>Meeting context: object <code>obj_acme_signal_launch</code> · claims <code>clm_acme_launch</code></li></ul>
+        <h3>Validated local fixture identity</h3>
+        <p>Validated local fixture bytes only. Authoritative tracked-blob identity was not proven in this environment.</p>
+        <dl>
+          <dt>Repository-relative local path</dt><dd><code>fixtures/graph/valid/workshop-three-lane.json</code></dd>
+          <dt>Loaded bytes SHA-256</dt><dd><code>cc5ddbecf1b4062185eb861f76e4621b53d7ad2ed61abc404786f987697d9011</code></dd>
+          <dt>Loaded byte length</dt><dd>9880</dd>
+          <dt>GraphBundle validation</dt><dd>passed</dd>
+          <dt>Tracked-blob proof</dt><dd>unavailable</dd>
+        </dl>
+        <h3>Generation boundary</h3>
+        <p>Read-only generation. No provider call, network acquisition, production write, submission, or external action.</p>
+      </section>
+    </details>
+    <footer>Prepared for human use from selected, evidence-backed content.</footer>
+  </main>
+</body>
+</html>

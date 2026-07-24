@@ -80,6 +80,7 @@ export * from "./validation/proposal-materialization.ts";
 export * from "./workshop/lens-usefulness.ts";
 export * from "./workshop/lens-richness.ts";
 export * from "./workshop/fixture-smoke.ts";
+export * from "./workshop/targeted-brief.ts";
 export * from "./workshop/proposal-preview.ts";
 export * from "./workshop/proposal-review-decision.ts";
 export * from "./workshop/proposal-ratification-plan.ts";

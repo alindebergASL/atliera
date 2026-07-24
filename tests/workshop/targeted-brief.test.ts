@@ -773,6 +773,129 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
+  test("rejects an RFx selected object that no requirement mapping directly uses", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const relationship = bundle.account_object_claims.find(
+      (candidate) =>
+        candidate.account_object_id === "obj_acme_signal_launch" &&
+        candidate.claim_id === "clm_acme_launch" &&
+        (candidate.relationship === "primary" ||
+          candidate.relationship === "supporting"),
+    );
+    const acceptedSupport = bundle.claim_evidence.find(
+      (candidate) =>
+        candidate.claim_id === "clm_acme_launch" &&
+        candidate.relationship === "supports" &&
+        bundle.excerpts.some(
+          (excerpt) =>
+            excerpt.id === candidate.evidence_excerpt_id &&
+            excerpt.validation_status === "accepted",
+        ),
+    );
+    assert.ok(relationship, "the unused selected object has a valid governed relationship");
+    assert.ok(acceptedSupport, "the unused selected object has accepted supporting evidence");
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+            ],
+          },
+        }),
+      /selected account object obj_acme_signal_launch is not used by any requirement mapping/,
+    );
+  });
+
+  test("accepts only the order-independent exact union of RFx mapping objects", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const integrationMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    const launchMapping = {
+      requirement_ref: "RFP-LAUNCH-05",
+      requirement_text: "Describe the verified platform launch.",
+      supported_response_point: "The selected evidence supports discussing the platform launch.",
+      available_evidence: "An active accepted launch excerpt supports the selected launch signal.",
+      gap_or_limitation: "The evidence establishes the launch fact only.",
+      account_object_ids: ["obj_acme_signal_launch"],
+      claim_ids: ["clm_acme_launch"],
+    };
+    const exactUnionRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [integrationMapping, launchMapping],
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_signal_launch",
+        ],
+      },
+    };
+    const exactUnion = evaluateTargetedBriefSelection(bundle, exactUnionRequest);
+    assert.deepEqual(
+      exactUnion.assertions.map((assertion) => assertion.id).sort(),
+      ["obj_acme_play_integration_expansion", "obj_acme_signal_launch"],
+    );
+
+    const reversedRequest: TargetedProposalRfxRequest = {
+      ...exactUnionRequest,
+      response: {
+        ...exactUnionRequest.response,
+        requirement_mappings: [...exactUnionRequest.response.requirement_mappings!].reverse(),
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [...exactUnionRequest.selection.account_object_ids].reverse(),
+      },
+    };
+    assert.deepEqual(
+      evaluateTargetedBriefSelection(bundle, reversedRequest),
+      exactUnion,
+      "mapping and selection order must not affect an exact-union request",
+    );
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...exactUnionRequest,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+              "obj_acme_map_modernization",
+            ],
+          },
+        }),
+      /selected account object obj_acme_map_modernization is not used by any requirement mapping/,
+      "multiple valid mappings plus one unused selected object must fail closed",
+    );
+
+    assert.doesNotThrow(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [
+              integrationMapping,
+              {
+                ...integrationMapping,
+                requirement_ref: "RFP-INT-05",
+              },
+            ],
+          },
+        }),
+      "one selected object may be reused by multiple valid mappings",
+    );
+  });
+
   test("validates deterministic governed RFx mappings and rejects ambiguous or unrelated references", async () => {
     const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
     const requiredTextFields = [
@@ -863,7 +986,7 @@ describe("Workshop targeted brief V1", () => {
           },
         }),
       /object obj_acme_signal_launch has no governed primary\/supporting pair/,
-      "an extra selected but unrelated object must fail closed",
+      "an object added to both selection and one mapping without a governed pair must fail closed",
     );
     assert.throws(
       () =>
@@ -991,6 +1114,11 @@ describe("Workshop targeted brief V1", () => {
       },
     });
     const missingHtml = renderTargetedBriefHtml(missingMapping);
+    assert.equal(
+      createHash("sha256").update(missingHtml).digest("hex"),
+      "e62b652b485fc997b5a65cd90c3095108e8d69183ca4d5227013097fe2c40e6d",
+      "zero-mapping RFx HTML must remain byte-identical",
+    );
     assert.deepEqual(missingMapping.preparation_gaps, [
       "The response team has not supplied a governed requirement mapping.",
     ]);

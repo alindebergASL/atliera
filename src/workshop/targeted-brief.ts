@@ -986,11 +986,23 @@ function assertGovernedRequestReferences(
     return;
   }
 
-  for (const mapping of target.response.requirement_mappings ?? []) {
+  const requirementMappings = target.response.requirement_mappings ?? [];
+  const mappedObjectIds = new Set<string>();
+  for (const mapping of requirementMappings) {
     for (const objectId of mapping.account_object_ids) {
       assertObject(objectId, `requirement mapping ${mapping.requirement_ref}`);
+      mappedObjectIds.add(objectId);
     }
     governedRfxPairs(bundle, mapping);
+  }
+  if (requirementMappings.length > 0) {
+    for (const objectId of selectedObjectIds) {
+      if (!mappedObjectIds.has(objectId)) {
+        throw new Error(
+          `selected account object ${objectId} is not used by any requirement mapping`,
+        );
+      }
+    }
   }
 }
 

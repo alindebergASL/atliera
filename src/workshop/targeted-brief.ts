@@ -227,6 +227,10 @@ export interface TargetedBriefSelectionResult {
   readonly request: TargetedBriefRequest;
   readonly assertions: readonly TargetedBriefAssertion[];
   readonly evidence_gaps: readonly TargetedBriefEvidenceGap[];
+  readonly rfx_projection: {
+    readonly omitted_selected_object_count: number;
+    readonly omitted_related_claim_count: number;
+  } | null;
 }
 
 interface LoadedFixtureState {
@@ -951,11 +955,25 @@ function governedRfxPairs(
   return pairs;
 }
 
+interface GovernedRfxProjection {
+  readonly request: TargetedProposalRfxRequest;
+  readonly claim_ids_by_object: ReadonlyMap<string, readonly string[]>;
+  readonly omitted_selected_object_count: number;
+  readonly omitted_related_claim_count: number;
+}
+
 function assertGovernedRequestReferences(
   bundle: GraphBundle,
   target: TargetedBriefRequest,
-): void {
+): GovernedRfxProjection | null {
   const selectedObjectIds = new Set(target.selection.account_object_ids);
+  for (const objectId of selectedObjectIds) {
+    if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
+      throw new Error(
+        `selected account_object_id ${objectId} does not resolve exactly once`,
+      );
+    }
+  }
   const supportingLinks = new Set(
     bundle.account_object_claims
       .filter(
@@ -983,15 +1001,60 @@ function assertGovernedRequestReferences(
         assertPair(context.account_object_id, claimId, "meeting fact context");
       }
     }
-    return;
+    return null;
   }
 
+  const governedPairs: TargetedRfxGovernedPair[] = [];
   for (const mapping of target.response.requirement_mappings ?? []) {
     for (const objectId of mapping.account_object_ids) {
       assertObject(objectId, `requirement mapping ${mapping.requirement_ref}`);
     }
-    governedRfxPairs(bundle, mapping);
+    governedPairs.push(...governedRfxPairs(bundle, mapping));
   }
+  const governedPairKeys = new Set(
+    governedPairs.map(
+      (pair) => `${pair.account_object_id}\0${pair.claim_id}`,
+    ),
+  );
+  const claimIdsByObject = new Map<string, Set<string>>();
+  for (const pair of governedPairs) {
+    const claimIds = claimIdsByObject.get(pair.account_object_id) ?? new Set<string>();
+    claimIds.add(pair.claim_id);
+    claimIdsByObject.set(pair.account_object_id, claimIds);
+  }
+  const projectedObjectIds = uniqueSorted([...claimIdsByObject.keys()]);
+  const omittedRelatedPairKeys = new Set(
+    bundle.account_object_claims
+      .filter(
+        (relationship) =>
+          claimIdsByObject.has(relationship.account_object_id) &&
+          (relationship.relationship === "primary" ||
+            relationship.relationship === "supporting"),
+      )
+      .map(
+        (relationship) =>
+          `${relationship.account_object_id}\0${relationship.claim_id}`,
+      )
+      .filter((key) => !governedPairKeys.has(key)),
+  );
+  return {
+    request: deepFreeze({
+      ...target,
+      selection: {
+        governance: "human_selected",
+        account_object_ids: projectedObjectIds,
+      },
+    }),
+    claim_ids_by_object: new Map(
+      [...claimIdsByObject].map(([objectId, claimIds]) => [
+        objectId,
+        uniqueSorted([...claimIds]),
+      ]),
+    ),
+    omitted_selected_object_count:
+      target.selection.account_object_ids.length - projectedObjectIds.length,
+    omitted_related_claim_count: omittedRelatedPairKeys.size,
+  };
 }
 
 export function evaluateTargetedBriefSelection(
@@ -1009,7 +1072,8 @@ export function evaluateTargetedBriefSelection(
     target.account_id,
     target.authority.team_id,
   );
-  assertGovernedRequestReferences(bundle, target);
+  const rfxProjection = assertGovernedRequestReferences(bundle, target);
+  const projectedTarget = rfxProjection?.request ?? target;
 
   const objectById = new Map(bundle.account_objects.map((object) => [object.id, object]));
   const claimById = new Map(bundle.claims.map((claim) => [claim.id, claim]));
@@ -1018,7 +1082,7 @@ export function evaluateTargetedBriefSelection(
   const gaps = new Map<TargetedBriefGapReason, GapAccumulator>();
   const assertions: TargetedBriefAssertion[] = [];
 
-  for (const objectId of target.selection.account_object_ids) {
+  for (const objectId of projectedTarget.selection.account_object_ids) {
     const object = objectById.get(objectId);
     if (!object) {
       throw new Error(`selected account_object_id ${objectId} does not resolve in the loaded fixture`);
@@ -1028,16 +1092,18 @@ export function evaluateTargetedBriefSelection(
     }
 
     const renderableObject = objectIsRenderable(object, gaps);
-    const claimIds = uniqueSorted(
-      bundle.account_object_claims
-        .filter(
-          (relationship) =>
-            relationship.account_object_id === object.id &&
-            (relationship.relationship === "primary" ||
-              relationship.relationship === "supporting"),
-        )
-        .map((relationship) => relationship.claim_id),
-    );
+    const claimIds = rfxProjection
+      ? rfxProjection.claim_ids_by_object.get(object.id) ?? []
+      : uniqueSorted(
+          bundle.account_object_claims
+            .filter(
+              (relationship) =>
+                relationship.account_object_id === object.id &&
+                (relationship.relationship === "primary" ||
+                  relationship.relationship === "supporting"),
+            )
+            .map((relationship) => relationship.claim_id),
+        );
     if (claimIds.length === 0) addGap(gaps, "missing_accepted_evidence", object.id);
 
     const acceptedClaims: Claim[] = [];
@@ -1125,9 +1191,17 @@ export function evaluateTargetedBriefSelection(
       left.id.localeCompare(right.id),
   );
   return deepFreeze({
-    request: target,
+    request: projectedTarget,
     assertions,
     evidence_gaps: finalizedGaps(gaps),
+    rfx_projection: rfxProjection
+      ? {
+          omitted_selected_object_count:
+            rfxProjection.omitted_selected_object_count,
+          omitted_related_claim_count:
+            rfxProjection.omitted_related_claim_count,
+        }
+      : null,
   });
 }
 
@@ -1211,18 +1285,35 @@ function buildRfxMappings(
 ): TargetedBriefRfxMapping[] {
   return (request.response.requirement_mappings ?? []).map((mapping) => {
     const governedPairs = governedRfxPairs(bundle, mapping);
-    const pairAssertions = governedPairs.map((pair) =>
-      assertions.find(
+    const pairStates = governedPairs.map((pair) => {
+      const assertion = assertions.find(
         (assertion) =>
           assertion.id === pair.account_object_id &&
           assertion.claim_ids.includes(pair.claim_id),
-      ),
-    );
-    const evidenceState: TargetedRfxMappingEvidenceState = pairAssertions.some(
-      (assertion) => !assertion,
+      );
+      if (
+        !assertion ||
+        !assertion.evidence.some(
+          (evidence) =>
+            evidence.claim.id === pair.claim_id &&
+            evidence.relationship === "supports",
+        )
+      ) {
+        return "needs_evidence";
+      }
+      return assertion.evidence.some(
+        (evidence) =>
+          evidence.claim.id === pair.claim_id &&
+          evidence.relationship === "contradicts",
+      )
+        ? "contested"
+        : "supported";
+    });
+    const evidenceState: TargetedRfxMappingEvidenceState = pairStates.includes(
+      "needs_evidence",
     )
       ? "needs_evidence"
-      : pairAssertions.some((assertion) => assertion?.state === "contested")
+      : pairStates.includes("contested")
         ? "contested"
         : "supported";
     return {
@@ -1266,6 +1357,7 @@ function targetedRfxMappingPresentation(
 function rfxPreparation(
   mappings: readonly TargetedBriefRfxMapping[],
   evidenceGaps: readonly TargetedBriefEvidenceGap[],
+  projection: TargetedBriefSelectionResult["rfx_projection"],
 ): {
   readonly gaps: readonly string[];
   readonly nextAction: string;
@@ -1296,6 +1388,20 @@ function rfxPreparation(
     } else {
       nextAction ??= `Resolve the stated limitation for ${mapping.requirement_ref}: ${mapping.gap_or_limitation}`;
     }
+  }
+  if (
+    mappings.length > 0 &&
+    projection &&
+    (
+      projection.omitted_selected_object_count > 0 ||
+      projection.omitted_related_claim_count > 0
+    )
+  ) {
+    gaps.push(
+      "Selected account material outside governed requirement mappings was omitted rather than presented as relevant.",
+    );
+    nextAction ??=
+      "Add an explicit governed requirement mapping before treating the omitted account material as relevant.";
   }
   nextAction ??= evidenceGapAction(evidenceGaps);
   nextAction ??= "Add a governed requirement mapping before drafting a response point.";
@@ -1333,7 +1439,11 @@ function buildBrief(
         selection.assertions,
         selection.evidence_gaps,
       )
-    : rfxPreparation(rfxMappings, selection.evidence_gaps);
+    : rfxPreparation(
+        rfxMappings,
+        selection.evidence_gaps,
+        selection.rfx_projection,
+      );
   const brief = deepFreeze<TargetedBrief>({
     schema_version: TARGETED_BRIEF_SCHEMA_VERSION,
     kind,

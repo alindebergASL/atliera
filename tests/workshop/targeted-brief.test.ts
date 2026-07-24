@@ -6,6 +6,7 @@ import { describe, test } from "node:test";
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
 import type { Claim, GraphBundle } from "../../src/graph/types.ts";
 import {
+  assertTargetedBriefSingleAccountIsolation,
   buildTargetedBrief,
   buildTargetedBriefPair,
   evaluateTargetedBriefSelection,
@@ -25,13 +26,35 @@ const CISO_SNAPSHOT = "fixtures/workshop/targeted-ciso-meeting-brief-v1.html";
 const PROPOSAL_SNAPSHOT = "fixtures/workshop/targeted-proposal-rfx-brief-v1.html";
 const ACME_ACCOUNT = "acc_acme_robotics";
 const VERTEX_ACCOUNT = "acc_vertex_manufacturing";
+const ATLIERA_TEAM = "team_atliera_lab";
 
 const CISO_REQUEST: TargetedCisoMeetingRequest = {
   kind: "ciso_meeting",
+  authority: { team_id: ATLIERA_TEAM },
   account_id: ACME_ACCOUNT,
   meeting: {
     audience: "Chief Information Security Officer and security architecture team",
-    objective: "Review selected evidence and identify security questions that require human follow-up.",
+    objective: "Prepare a focused security conversation around the selected account developments.",
+    fact_contexts: [
+      {
+        account_object_id: "obj_acme_signal_launch",
+        claim_ids: ["clm_acme_launch"],
+        why_it_matters:
+          "The team wants to understand whether the new platform changes the security review surface.",
+        question_to_ask:
+          "What identity, data-handling, and resilience reviews are required for the new platform?",
+        desired_outcome:
+          "Agree which security review owners and follow-ups are needed.",
+      },
+      {
+        account_object_id: "obj_acme_map_modernization",
+        claim_ids: ["clm_acme_modernization"],
+        why_it_matters:
+          "The team wants to connect the modernization priority to the CISO's review calendar.",
+        question_to_ask:
+          "Which modernization milestones need security architecture involvement?",
+      },
+    ],
   },
   selection: {
     governance: "human_selected",
@@ -41,11 +64,27 @@ const CISO_REQUEST: TargetedCisoMeetingRequest = {
 
 const PROPOSAL_REQUEST: TargetedProposalRfxRequest = {
   kind: "proposal_rfx",
+  authority: { team_id: ATLIERA_TEAM },
   account_id: ACME_ACCOUNT,
   response: {
     type: "RFP",
     requirement_context: "Integration delivery and measurable deployment-outcome requirements supplied by the response team.",
     objective: "Ground the selected response theme in accepted evidence for human drafting.",
+    requirement_mappings: [
+      {
+        requirement_ref: "RFP-INT-04",
+        requirement_text:
+          "Describe the approach to shortening enterprise integration cycles and demonstrating deployment outcomes.",
+        supported_response_point:
+          "The selected account evidence supports discussing integration-cycle speed and demonstrable deployment outcomes as priorities.",
+        available_evidence:
+          "An active accepted excerpt supports the selected partner-priority statement.",
+        gap_or_limitation:
+          "The evidence shows a related priority; it does not establish requirement compliance, delivery method, timing, or measured results.",
+        account_object_ids: ["obj_acme_play_integration_expansion"],
+        claim_ids: ["clm_acme_integration_play"],
+      },
+    ],
   },
   selection: {
     governance: "human_selected",
@@ -60,6 +99,71 @@ const PAIR_REQUESTS: TargetedBriefPairRequest = {
 
 function cloneBundle(bundle: GraphBundle): GraphBundle {
   return JSON.parse(JSON.stringify(bundle)) as GraphBundle;
+}
+
+function narrowedCisoRequest(
+  accountObjectId: string,
+  claimId: string,
+): TargetedCisoMeetingRequest {
+  return {
+    ...CISO_REQUEST,
+    meeting: {
+      ...CISO_REQUEST.meeting,
+      fact_contexts: CISO_REQUEST.meeting.fact_contexts?.filter(
+        (context) =>
+          context.account_object_id === accountObjectId &&
+          context.claim_ids.includes(claimId),
+      ),
+    },
+    selection: {
+      governance: "human_selected",
+      account_object_ids: [accountObjectId],
+    },
+  };
+}
+
+function addLaunchContradiction(
+  bundle: GraphBundle,
+  status: GraphBundle["sources"][number]["status"] = "active",
+): void {
+  const contraryText =
+    "Acme Robotics stated that the logistics platform did not launch on March 1, 2026.";
+  bundle.sources.push({
+    id: "src_acme_launch_correction",
+    team_id: ATLIERA_TEAM,
+    account_id: ACME_ACCOUNT,
+    url: "https://example.invalid/acme/press/correction",
+    canonical_url: "https://example.invalid/acme/press/correction",
+    title: "Acme Robotics launch correction source record",
+    publisher: "Acme Robotics",
+    source_type: "press_release",
+    fetched_at: "2026-03-05T12:00:00Z",
+    accessed_at: "2026-03-05T12:00:00Z",
+    content_hash: "sha256:hostile-contradiction-fixture",
+    raw_text: contraryText,
+    reliability: "high",
+    status,
+  });
+  bundle.excerpts.push({
+    id: "exc_acme_launch_correction",
+    source_document_id: "src_acme_launch_correction",
+    text: contraryText,
+    kind: "literal",
+    char_start: 0,
+    char_end: contraryText.length,
+    captured_at: "2026-03-05T12:00:01Z",
+    validation_status: "accepted",
+    rejection_reason: null,
+  });
+  bundle.claim_evidence.push({
+    id: "cev_acme_launch_contradiction",
+    claim_id: "clm_acme_launch",
+    evidence_excerpt_id: "exc_acme_launch_correction",
+    relationship: "contradicts",
+    rationale: "Accepted correction is retained alongside the supporting launch source.",
+    confidence: "high",
+    created_at: "2026-03-05T12:00:02Z",
+  });
 }
 
 function reverseBundle(bundle: GraphBundle): GraphBundle {
@@ -82,6 +186,7 @@ function proposalRequest(
 ): TargetedProposalRfxRequest {
   return {
     kind: "proposal_rfx",
+    authority: { team_id: ATLIERA_TEAM },
     account_id: accountId,
     response: {
       type: "proposal",
@@ -151,25 +256,22 @@ describe("Workshop targeted brief V1", () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const pair = buildTargetedBriefPair(loaded, PAIR_REQUESTS);
 
-    assert.deepEqual(pair.ciso_meeting.target, {
-      ...CISO_REQUEST,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: ["obj_acme_map_modernization", "obj_acme_signal_launch"],
-      },
+    assert.equal(pair.ciso_meeting.target.kind, "ciso_meeting");
+    assert.deepEqual(pair.ciso_meeting.target.authority, { team_id: ATLIERA_TEAM });
+    assert.deepEqual(pair.ciso_meeting.target.selection, {
+      governance: "human_selected",
+      account_object_ids: ["obj_acme_map_modernization", "obj_acme_signal_launch"],
     });
     assert.deepEqual(pair.proposal_rfx.target, PROPOSAL_REQUEST);
     assert.equal(pair.ciso_meeting.account_id, ACME_ACCOUNT);
     assert.equal(pair.proposal_rfx.account_id, ACME_ACCOUNT);
     assert.deepEqual(pair.ciso_meeting.target_relevance, {
       status: "caller_workflow_context_only",
-      evidence_gap:
-        "Evidence gap: the graph supports the selected account facts but does not establish that they are CISO-specific. CISO relevance is caller-provided human workflow context and requires review.",
+      evidence_gap: null,
     });
     assert.deepEqual(pair.proposal_rfx.target_relevance, {
       status: "caller_workflow_context_only",
-      evidence_gap:
-        "Evidence gap: the graph supports the selected account facts but does not establish that they satisfy this RFx requirement context. RFx relevance is caller-provided human workflow context and requires review.",
+      evidence_gap: null,
     });
     assert.deepEqual(
       pair.ciso_meeting.assertions.map((assertion) => assertion.id),
@@ -187,7 +289,7 @@ describe("Workshop targeted brief V1", () => {
     assertEveryAssertionIsEvidenceBound(pair.ciso_meeting);
     assertEveryAssertionIsEvidenceBound(pair.proposal_rfx);
 
-    assert.equal(pair.ciso_meeting.input.class, "committed_fixture");
+    assert.equal(pair.ciso_meeting.input.class, "validated_local_fixture");
     assert.equal(pair.ciso_meeting.input.ref, THREE_LANE);
     assert.equal(
       pair.ciso_meeting.input.sha256,
@@ -195,21 +297,33 @@ describe("Workshop targeted brief V1", () => {
     );
     assert.equal(pair.ciso_meeting.input.byte_length, fixtureBytes.byteLength);
     assert.equal(pair.ciso_meeting.input.validation, "passed");
+    assert.equal(pair.ciso_meeting.input.tracked_blob_proof, "unavailable");
 
     const cisoHtml = renderTargetedBriefHtml(pair.ciso_meeting);
     const proposalHtml = renderTargetedBriefHtml(pair.proposal_rfx);
-    assert.match(cisoHtml, /Caller \/ human workflow context · not account facts/);
+    const cisoInitialView = cisoHtml.split('<details class="evidence-provenance">')[0]!;
+    const proposalInitialView = proposalHtml.split('<details class="evidence-provenance">')[0]!;
+    assert.match(cisoHtml, /Purpose · team-provided, not an account fact/);
     assert.match(cisoHtml, /Chief Information Security Officer and security architecture team/);
-    assert.match(cisoHtml, /Human-governed workspace selection · not account facts/);
-    assert.match(cisoHtml, /Target-relevance evidence gap/);
-    assert.match(cisoHtml, /does not establish that they are CISO-specific/);
-    assert.match(proposalHtml, /Requirement context · caller-provided, not an account fact/);
+    assert.match(cisoHtml, /Team-provided meeting context · not a discovered account fact/);
+    assert.match(cisoHtml, /Question to ask/);
+    assert.match(cisoHtml, /Desired meeting outcome/);
+    assert.match(cisoHtml, /The team has not supplied a desired outcome/);
+    assert.match(proposalHtml, /Team-provided mapping · not a discovered account fact/);
     assert.match(proposalHtml, /Integration delivery and measurable deployment-outcome requirements/);
-    assert.match(proposalHtml, /does not establish that they satisfy this RFx requirement context/);
+    assert.match(proposalHtml, /RFP-INT-04/);
+    assert.match(proposalHtml, /does not establish requirement compliance/);
     assert.match(cisoHtml, new RegExp(pair.ciso_meeting.input.sha256));
     assert.match(cisoHtml, /fixtures\/graph\/valid\/workshop-three-lane\.json/);
+    assert.doesNotMatch(cisoInitialView, /fixtures\/graph\/valid\/workshop-three-lane\.json/);
+    assert.doesNotMatch(cisoInitialView, new RegExp(pair.ciso_meeting.input.sha256));
+    assert.doesNotMatch(cisoInitialView, /obj_acme_/);
     assert.doesNotMatch(cisoHtml, /prioritize partners that shorten enterprise integration cycles/i);
     assert.doesNotMatch(proposalHtml, /launched a logistics platform on March 1, 2026/i);
+    assert.doesNotMatch(proposalInitialView, /obj_acme_/);
+    assert.notEqual(pair.ciso_meeting.next_safe_action, "Review the evidence behind the most important point.");
+    assert.match(pair.ciso_meeting.next_safe_action, /desired meeting outcome/i);
+    assert.match(pair.proposal_rfx.next_safe_action, /RFP-INT-04/);
 
     assert.equal(pair.ciso_meeting.boundary.provider_calls, false);
     assert.equal(pair.ciso_meeting.boundary.network_acquisition, false);
@@ -278,7 +392,7 @@ describe("Workshop targeted brief V1", () => {
 
     assert.throws(
       () => evaluateTargetedBriefSelection(bundle, CISO_REQUEST),
-      /single-account isolation failed/,
+      /team\/account ownership isolation failed/,
     );
 
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
@@ -286,17 +400,217 @@ describe("Workshop targeted brief V1", () => {
     assert.doesNotMatch(html, /Account reference not supplied/);
   });
 
+  test("requires nonempty team/workspace authority and resolves every ownership-bearing collection", async () => {
+    const base = await loadGraphBundleFile(THREE_LANE);
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(
+          cloneBundle(base),
+          { ...CISO_REQUEST, authority: undefined } as unknown as TargetedCisoMeetingRequest,
+        ),
+      /requires explicit team\/workspace generation authority/,
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(cloneBundle(base), {
+          ...CISO_REQUEST,
+          authority: { team_id: "" },
+        }),
+      /team_id must be non-empty/,
+    );
+    assert.throws(
+      () => assertTargetedBriefSingleAccountIsolation(cloneBundle(base), ACME_ACCOUNT, "   "),
+      /requires explicit team\/workspace authority/,
+    );
+
+    const directCollections = [
+      "sources",
+      "claims",
+      "account_objects",
+      "research_runs",
+    ] as const;
+    for (const collection of directCollections) {
+      const crossTeam = cloneBundle(base);
+      crossTeam[collection][0]!.team_id = "team_hostile_other";
+      assert.throws(
+        () =>
+          assertTargetedBriefSingleAccountIsolation(
+            crossTeam,
+            ACME_ACCOUNT,
+            ATLIERA_TEAM,
+          ),
+        /team\/account ownership isolation failed/,
+        `${collection} must reject same-account cross-team content`,
+      );
+
+      const crossAccount = cloneBundle(base);
+      crossAccount[collection][0]!.account_id = "acc_hostile_other";
+      assert.throws(
+        () =>
+          assertTargetedBriefSingleAccountIsolation(
+            crossAccount,
+            ACME_ACCOUNT,
+            ATLIERA_TEAM,
+          ),
+        /team\/account ownership isolation failed/,
+        `${collection} must reject cross-account content`,
+      );
+    }
+  });
+
+  test("fails closed on ambiguous IDs, hostile relationship endpoints, inherited records, and receipts", async () => {
+    const base = await loadGraphBundleFile(THREE_LANE);
+    const isolate = (bundle: GraphBundle): void =>
+      assertTargetedBriefSingleAccountIsolation(bundle, ACME_ACCOUNT, ATLIERA_TEAM);
+
+    const duplicateEntityId = cloneBundle(base);
+    duplicateEntityId.claims[0]!.id = duplicateEntityId.sources[0]!.id;
+    assert.throws(() => isolate(duplicateEntityId), /ambiguous ownership/);
+
+    const crossTeamClaimEndpoint = cloneBundle(base);
+    crossTeamClaimEndpoint.claims[0]!.team_id = "team_hostile_other";
+    assert.throws(
+      () => isolate(crossTeamClaimEndpoint),
+      /claim-evidence .* crosses team\/account ownership/,
+    );
+
+    const crossAccountObjectEndpoint = cloneBundle(base);
+    crossAccountObjectEndpoint.account_objects[0]!.account_id = "acc_hostile_other";
+    assert.throws(
+      () => isolate(crossAccountObjectEndpoint),
+      /account-object claim .* crosses team\/account ownership/,
+    );
+
+    const unresolvedExcerpt = cloneBundle(base);
+    unresolvedExcerpt.excerpts[0]!.source_document_id = "src_missing_owner";
+    assert.throws(() => isolate(unresolvedExcerpt), /excerpt .* unresolved source reference/);
+
+    const unresolvedClaimEvidence = cloneBundle(base);
+    unresolvedClaimEvidence.claim_evidence[0]!.evidence_excerpt_id = "exc_missing_owner";
+    assert.throws(
+      () => isolate(unresolvedClaimEvidence),
+      /claim-evidence .* unresolved excerpt endpoint/,
+    );
+
+    const unresolvedObjectClaim = cloneBundle(base);
+    unresolvedObjectClaim.account_object_claims[0]!.claim_id = "clm_missing_owner";
+    assert.throws(
+      () => isolate(unresolvedObjectClaim),
+      /account-object claim .* unresolved claim endpoint/,
+    );
+
+    const unresolvedArtifact = cloneBundle(base);
+    unresolvedArtifact.run_artifacts[0]!.research_run_id = "run_missing_owner";
+    assert.throws(
+      () => isolate(unresolvedArtifact),
+      /run artifact .* unresolved research-run reference/,
+    );
+
+    const hostileAuditTeam = cloneBundle(base);
+    hostileAuditTeam.audit_events[0]!.team_id = "team_hostile_other";
+    assert.throws(
+      () => isolate(hostileAuditTeam),
+      /audit receipt .* declares team .* target resolves to team/,
+    );
+
+    const unresolvedAudit = cloneBundle(base);
+    unresolvedAudit.audit_events[0]!.target_id = "run_missing_owner";
+    assert.throws(() => isolate(unresolvedAudit), /audit targets do not resolve locally/);
+  });
+
+  test("requires CISO context references to stay selected and explicitly governed", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...CISO_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: ["obj_acme_signal_launch"],
+          },
+        }),
+      /meeting fact context references account object .* outside the human selection/,
+    );
+
+    const nonGoverned = cloneBundle(bundle);
+    nonGoverned.account_object_claims.find(
+      (relationship) =>
+        relationship.account_object_id === "obj_acme_signal_launch" &&
+        relationship.claim_id === "clm_acme_launch",
+    )!.relationship = "context";
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(
+          nonGoverned,
+          narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+        ),
+      /without an explicit supporting assertion relationship/,
+    );
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+          meeting: {
+            ...CISO_REQUEST.meeting,
+            fact_contexts: [
+              {
+                account_object_id: "obj_acme_signal_launch",
+                claim_ids: ["clm_acme_modernization"],
+                why_it_matters: "Hostile unrelated context.",
+              },
+            ],
+          },
+        }),
+      /without an explicit supporting assertion relationship/,
+    );
+  });
+
+  test("turns missing CISO context and fields into concise preparation gaps and a specific action", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const withoutContext = buildTargetedBrief(loaded, {
+      ...narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+      meeting: {
+        audience: CISO_REQUEST.meeting.audience,
+        objective: CISO_REQUEST.meeting.objective,
+      },
+    });
+    const withoutContextHtml = renderTargetedBriefHtml(withoutContext);
+    assert.deepEqual(withoutContext.preparation_gaps, [
+      "Team-provided meeting context is missing for: Acme Robotics launched a logistics platform on March 1, 2026.",
+    ]);
+    assert.match(withoutContext.next_safe_action, /Add why the selected fact matters/);
+    assert.notEqual(
+      withoutContext.next_safe_action,
+      "Review the evidence behind the most important point.",
+    );
+    assert.doesNotMatch(withoutContextHtml, /Meeting questions and outcomes/);
+
+    const missingFields = buildTargetedBrief(loaded, {
+      ...narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+      meeting: {
+        ...CISO_REQUEST.meeting,
+        fact_contexts: [
+          {
+            account_object_id: "obj_acme_signal_launch",
+            claim_ids: ["clm_acme_launch"],
+          },
+        ],
+      },
+    });
+    assert.equal(missingFields.preparation_gaps.length, 3);
+    assert.match(missingFields.next_safe_action, /Add why the selected fact matters/);
+    assert.doesNotMatch(renderTargetedBriefHtml(missingFields), /<dl>\s*<\/dl>/);
+  });
+
   test("never promotes AccountObject.title to evidence-backed factual prose", async () => {
     const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
     bundle.account_objects[0]!.title =
       "FABRICATED OBJECT TITLE: Acme suffered a critical unrelated breach";
-    const selection = evaluateTargetedBriefSelection(bundle, {
-      ...CISO_REQUEST,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: ["obj_acme_signal_launch"],
-      },
-    });
+    const selection = evaluateTargetedBriefSelection(
+      bundle,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
 
     assert.doesNotMatch(JSON.stringify(selection.assertions), /FABRICATED OBJECT TITLE/);
     assert.equal(
@@ -342,52 +656,12 @@ describe("Workshop targeted brief V1", () => {
 
   test("renders accepted supporting and contradicting evidence as a contested assertion", async () => {
     const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
-    const contraryText =
-      "Acme Robotics stated that the logistics platform did not launch on March 1, 2026.";
-    bundle.sources.push({
-      id: "src_acme_launch_correction",
-      team_id: "team_atliera_lab",
-      account_id: ACME_ACCOUNT,
-      url: "https://example.invalid/acme/press/correction",
-      canonical_url: "https://example.invalid/acme/press/correction",
-      title: "Acme Robotics launch correction source record",
-      publisher: "Acme Robotics",
-      source_type: "press_release",
-      fetched_at: "2026-03-05T12:00:00Z",
-      accessed_at: "2026-03-05T12:00:00Z",
-      content_hash: "sha256:hostile-contradiction-fixture",
-      raw_text: contraryText,
-      reliability: "high",
-      status: "active",
-    });
-    bundle.excerpts.push({
-      id: "exc_acme_launch_correction",
-      source_document_id: "src_acme_launch_correction",
-      text: contraryText,
-      kind: "literal",
-      char_start: 0,
-      char_end: contraryText.length,
-      captured_at: "2026-03-05T12:00:01Z",
-      validation_status: "accepted",
-      rejection_reason: null,
-    });
-    bundle.claim_evidence.push({
-      id: "cev_acme_launch_contradiction",
-      claim_id: "clm_acme_launch",
-      evidence_excerpt_id: "exc_acme_launch_correction",
-      relationship: "contradicts",
-      rationale: "Accepted correction is retained alongside the supporting launch source.",
-      confidence: "high",
-      created_at: "2026-03-05T12:00:02Z",
-    });
+    addLaunchContradiction(bundle);
 
-    const selection = evaluateTargetedBriefSelection(bundle, {
-      ...CISO_REQUEST,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: ["obj_acme_signal_launch"],
-      },
-    });
+    const selection = evaluateTargetedBriefSelection(
+      bundle,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
     const assertion = selection.assertions[0]!;
     assert.equal(assertion.state, "contested");
     assert.equal(assertion.provenance_status, "contested");
@@ -401,6 +675,13 @@ describe("Workshop targeted brief V1", () => {
         (evidence) =>
           evidence.relationship === "contradicts" &&
           evidence.excerpt.id === "exc_acme_launch_correction",
+      ),
+    );
+    assert.ok(
+      selection.evidence_gaps.some(
+        (gap) =>
+          gap.reason === "accepted_contradiction" &&
+          gap.message.includes("remains contested"),
       ),
     );
   });
@@ -462,13 +743,10 @@ describe("Workshop targeted brief V1", () => {
       },
     );
 
-    const selection = evaluateTargetedBriefSelection(bundle, {
-      ...CISO_REQUEST,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: ["obj_acme_signal_launch"],
-      },
-    });
+    const selection = evaluateTargetedBriefSelection(
+      bundle,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
     assert.equal(selection.assertions.length, 1);
     assert.deepEqual(selection.assertions[0]!.claim_ids, ["clm_acme_launch"]);
     assert.doesNotMatch(selection.assertions[0]!.statement, /hostile claim/i);
@@ -495,6 +773,215 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
+  test("validates deterministic governed RFx mappings and rejects ambiguous or unrelated references", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const requiredTextFields = [
+      "requirement_ref",
+      "requirement_text",
+      "supported_response_point",
+      "available_evidence",
+    ] as const;
+    for (const field of requiredTextFields) {
+      const mapping = { ...PROPOSAL_REQUEST.response.requirement_mappings![0]!, [field]: "" };
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(bundle, {
+            ...PROPOSAL_REQUEST,
+            response: {
+              ...PROPOSAL_REQUEST.response,
+              requirement_mappings: [mapping],
+            },
+          }),
+        /must be non-empty, bounded, and single-line/,
+        `${field} must be nonempty`,
+      );
+    }
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [
+              PROPOSAL_REQUEST.response.requirement_mappings![0]!,
+              PROPOSAL_REQUEST.response.requirement_mappings![0]!,
+            ],
+          },
+        }),
+      /requirement_ref .* is ambiguous/,
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: ["obj_acme_signal_launch"],
+          },
+        }),
+      /outside the human selection/,
+    );
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [
+              {
+                ...PROPOSAL_REQUEST.response.requirement_mappings![0]!,
+                claim_ids: ["clm_acme_launch"],
+              },
+            ],
+          },
+        }),
+      /has no governed supporting relationship/,
+    );
+
+    const reversedMappingRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [
+          {
+            ...PROPOSAL_REQUEST.response.requirement_mappings![0]!,
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+            ],
+            claim_ids: ["clm_acme_integration_play"],
+          },
+        ].reverse(),
+      },
+    };
+    assert.deepEqual(
+      evaluateTargetedBriefSelection(bundle, reversedMappingRequest),
+      evaluateTargetedBriefSelection(reverseBundle(bundle), PROPOSAL_REQUEST),
+    );
+  });
+
+  test("makes missing RFx mappings actionable and never upgrades a related capability to compliance", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const missingMapping = buildTargetedBrief(loaded, {
+      ...PROPOSAL_REQUEST,
+      response: {
+        type: PROPOSAL_REQUEST.response.type,
+        requirement_context: PROPOSAL_REQUEST.response.requirement_context,
+        objective: PROPOSAL_REQUEST.response.objective,
+      },
+    });
+    const missingHtml = renderTargetedBriefHtml(missingMapping);
+    assert.deepEqual(missingMapping.preparation_gaps, [
+      "The response team has not supplied a governed requirement mapping.",
+    ]);
+    assert.match(missingMapping.next_safe_action, /Add the first requirement mapping/);
+    assert.doesNotMatch(missingHtml, /<h2>Requirement mappings<\/h2>/);
+
+    const proposalHtml = renderTargetedBriefHtml(
+      buildTargetedBrief(loaded, PROPOSAL_REQUEST),
+    );
+    assert.match(proposalHtml, /A related capability is not a compliance claim/);
+    assert.match(proposalHtml, /does not establish requirement compliance/);
+    assert.doesNotMatch(proposalHtml, /requirement (?:is )?compliant|satisfies the requirement/i);
+  });
+
+  test("does not render empty brief sections", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(MIXED_TRUST);
+    const html = renderTargetedBriefHtml(
+      buildTargetedBrief(
+        loaded,
+        proposalRequest(VERTEX_ACCOUNT, ["obj_vertex_snapshot"]),
+      ),
+    );
+    assert.doesNotMatch(html, /empty-section|<section[^>]*>\s*<\/section>/);
+    assert.doesNotMatch(html, /<h2>(?:Why now|Account context|Response themes)<\/h2>/);
+  });
+
+  test("treats inactive evidence only as provenance and never as current support or contradiction", async () => {
+    const base = await loadGraphBundleFile(THREE_LANE);
+    const inactiveContradiction = cloneBundle(base);
+    addLaunchContradiction(inactiveContradiction, "stale");
+    const retained = evaluateTargetedBriefSelection(
+      inactiveContradiction,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
+    assert.equal(retained.assertions[0]!.state, "supported");
+    assert.equal(retained.assertions[0]!.provenance_status, "verified");
+    assert.equal(retained.assertions[0]!.evidence.length, 1);
+    assert.ok(
+      retained.assertions[0]!.inactive_evidence.some(
+        (evidence) =>
+          evidence.relationship === "contradicts" &&
+          evidence.activity === "inactive_provenance",
+      ),
+    );
+    assert.equal(
+      retained.evidence_gaps.some((gap) => gap.reason === "accepted_contradiction"),
+      false,
+    );
+
+    const inactiveSupport = cloneBundle(base);
+    inactiveSupport.sources.find((source) => source.id === "src_acme_press_001")!.status =
+      "stale";
+    const unsupported = evaluateTargetedBriefSelection(
+      inactiveSupport,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
+    assert.equal(unsupported.assertions.length, 0);
+    assert.ok(
+      unsupported.evidence_gaps.some(
+        (gap) =>
+          gap.reason === "missing_accepted_evidence" &&
+          gap.retained_evidence.some(
+            (evidence) => evidence.activity === "inactive_provenance",
+          ),
+      ),
+    );
+  });
+
+  test("promotes claim text only through primary or supporting object relationships", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const hostileText = "Acme Robotics is fully compliant with every security requirement.";
+    bundle.claims.push({
+      id: "clm_acme_context_only_hostile",
+      team_id: ATLIERA_TEAM,
+      account_id: ACME_ACCOUNT,
+      claim_type: "context_only",
+      text: hostileText,
+      normalized_subject: "acme:context-only-hostile",
+      confidence: "low",
+      provenance_status: "source_document_only",
+      status: "active",
+      created_by: "user",
+      created_at: "2026-03-05T14:00:00Z",
+    });
+    bundle.claim_evidence.push({
+      id: "cev_acme_context_only_hostile",
+      claim_id: "clm_acme_context_only_hostile",
+      evidence_excerpt_id: "exc_acme_launch_001",
+      relationship: "supports",
+      rationale: "Hostile relationship-shape regression.",
+      confidence: "low",
+      created_at: "2026-03-05T14:00:01Z",
+    });
+    bundle.account_object_claims.push({
+      id: "oclm_acme_context_only_hostile",
+      account_object_id: "obj_acme_signal_launch",
+      claim_id: "clm_acme_context_only_hostile",
+      relationship: "context",
+    });
+
+    const selection = evaluateTargetedBriefSelection(
+      bundle,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
+    assert.equal(
+      selection.assertions[0]!.statement,
+      "Acme Robotics launched a logistics platform on March 1, 2026.",
+    );
+    assert.doesNotMatch(JSON.stringify(selection.assertions), /fully compliant/i);
+  });
+
   test("caller strings cannot forge committed-fixture validation or mismatched byte identity", async () => {
     const arbitraryBytes = await readFile(MIXED_TRUST);
     const forged = {
@@ -505,12 +992,40 @@ describe("Workshop targeted brief V1", () => {
         byte_length: arbitraryBytes.byteLength,
         validation: "passed",
       },
-    } as LoadedTargetedBriefFixture;
+    } as unknown as LoadedTargetedBriefFixture;
 
     assert.throws(
       () => buildTargetedBriefPair(forged, PAIR_REQUESTS),
       /must come from loadCommittedTargetedBriefFixture/,
     );
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const legitimate = buildTargetedBrief(loaded, CISO_REQUEST);
+    const copiedLoaded = {
+      input: {
+        ...loaded.input,
+        ref: "fixtures/caller-forged-label.json",
+        sha256: "f".repeat(64),
+      },
+    } as LoadedTargetedBriefFixture;
+    assert.throws(
+      () => buildTargetedBrief(copiedLoaded, CISO_REQUEST),
+      /must come from loadCommittedTargetedBriefFixture/,
+    );
+    assert.throws(
+      () =>
+        renderTargetedBriefHtml({
+          ...legitimate,
+          input: {
+            ...legitimate.input,
+            ref: "fixtures/caller-forged-label.json",
+            sha256: "f".repeat(64),
+          },
+        }),
+      /only a brief built from a validated local fixture may be rendered/,
+    );
+    const legitimateHtml = renderTargetedBriefHtml(legitimate);
+    assert.match(legitimateHtml, /Validated local fixture bytes only/);
+    assert.doesNotMatch(legitimateHtml, /committed fixture/i);
     await assert.rejects(
       () => loadCommittedTargetedBriefFixture("../fixtures/graph/valid/workshop-three-lane.json"),
       /exact repository-relative fixtures\/ path/,
@@ -542,22 +1057,44 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
-  test("escapes caller text, refuses unsafe source links, and keeps evidence one disclosure away", async () => {
+  test("escapes caller text and keeps assertion-specific evidence within two disclosures", async () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const brief = buildTargetedBrief(loaded, {
       ...CISO_REQUEST,
       meeting: {
         audience: '<img src=x onerror="alert(1)">',
-        objective: "Review selected evidence safely.",
+        objective: "<script>alert(2)</script>",
+        fact_contexts: CISO_REQUEST.meeting.fact_contexts?.map((context, index) => ({
+          ...context,
+          why_it_matters:
+            index === 0 ? "<form>unsafe context</form>" : context.why_it_matters,
+          question_to_ask:
+            index === 1 ? "<button>unsafe question</button>" : context.question_to_ask,
+        })),
       },
     });
     const html = renderTargetedBriefHtml(brief);
+    const evidenceArea = html.indexOf('<details class="evidence-provenance">');
 
+    assert.ok(evidenceArea > 0);
+    assert.equal(html.slice(0, evidenceArea).includes("Accepted excerpt"), false);
+    assert.equal(html.split('<details class="assertion-evidence">').length - 1, brief.assertions.length);
     assert.equal(
-      html.split("<summary>View supporting evidence</summary>").length - 1,
+      html.split('<summary aria-label="Evidence for assertion: ').length - 1,
       brief.assertions.length,
     );
+    for (const assertion of brief.assertions) {
+      const accessibleSummary =
+        `<summary aria-label="Evidence for assertion: ${assertion.statement}">Evidence for: ${assertion.statement}</summary>`;
+      assert.ok(
+        html.indexOf(accessibleSummary) > evidenceArea,
+        `${assertion.id} needs an assertion-specific nested evidence summary`,
+      );
+    }
     assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+    assert.match(html, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+    assert.match(html, /&lt;form&gt;unsafe context&lt;\/form&gt;/);
+    assert.match(html, /&lt;button&gt;unsafe question&lt;\/button&gt;/);
     assert.doesNotMatch(html, /<img\b/i);
     assert.doesNotMatch(html, /<script\b/i);
     assert.doesNotMatch(html, /<form\b/i);
@@ -572,6 +1109,43 @@ describe("Workshop targeted brief V1", () => {
       safeTargetedBriefSourceUrl("https://example.invalid/source"),
       "https://example.invalid/source",
     );
+  });
+
+  test("keeps the initial view useful while isolating provenance controls and supports screen, mobile, and print access", async () => {
+    const pair = buildTargetedBriefPair(
+      await loadCommittedTargetedBriefFixture(THREE_LANE),
+      PAIR_REQUESTS,
+    );
+    for (const brief of [pair.ciso_meeting, pair.proposal_rfx]) {
+      const html = renderTargetedBriefHtml(brief);
+      const initialView = html.split('<details class="evidence-provenance">')[0]!;
+      assert.match(initialView, /Purpose · team-provided, not an account fact/);
+      assert.match(initialView, /Next safe action:/);
+      assert.match(initialView, /Selected evidence-backed fact/);
+      if (brief.preparation_gaps.length + brief.evidence_gaps.length > 0) {
+        assert.match(initialView, /What still needs attention/);
+      }
+      if (brief.kind === "ciso_meeting") {
+        assert.match(initialView, /Meeting questions and outcomes/);
+      } else {
+        assert.match(initialView, /Requirement mappings/);
+      }
+      assert.doesNotMatch(
+        initialView,
+        /fixtures\/|SHA-256|byte length|team_atliera_lab|acc_acme_|obj_acme_|clm_acme_|human_selected|tracked-blob|Read-only generation|provider call/i,
+      );
+      assert.match(html, /summary aria-label="Evidence and provenance for selected assertions:/);
+      assert.match(html, /summary aria-label="Evidence for assertion:/);
+      assert.match(html, /summary:focus-visible, a:focus-visible/);
+      assert.match(html, /@media \(max-width: 760px\)/);
+      assert.match(html, /\.assertion-heading \{ flex-direction: column; \}/);
+      assert.match(html, /@media print/);
+      assert.match(html, /details:not\(\[open\]\) > \* \{ display: block !important; \}/);
+      assert.match(html, /details::details-content \{ content-visibility: visible !important; \}/);
+      assert.match(html, /h1, h2, h3, h4, summary \{ break-after: avoid; \}/);
+      assert.match(html, /break-inside: avoid/);
+      assert.match(html, /a\[href\]::after \{ content: " \(" attr\(href\) "\)"/);
+    }
   });
 
   test("renders the corrected committed customer-visible brief snapshots exactly", async () => {

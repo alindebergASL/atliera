@@ -8,139 +8,160 @@
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f4f7fb; }
     * { box-sizing: border-box; }
     body { margin: 0; }
-    main { width: min(1120px, 100%); margin: 0 auto; padding: 32px 22px 56px; }
+    main { width: min(1040px, 100%); margin: 0 auto; padding: 32px 22px 56px; }
     .hero { background: linear-gradient(135deg, #13243f, #1f4a5d); color: #f7fbff; border-radius: 24px; padding: 30px; box-shadow: 0 18px 55px rgba(19, 36, 63, .16); }
     .hero h1 { margin: 8px 0; max-width: 760px; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.04; }
-    .hero .summary { max-width: 700px; font-size: 1.08rem; color: #dbeaf4; }
-    .kicker { margin: 0 0 6px; color: #627089; font-size: .76rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
-    .hero .kicker { color: #a9d6df; }
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
-    .chips span { border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: 6px 10px; background: rgba(255,255,255,.08); }
-    .next-action { margin: 18px 0 0; padding: 14px 16px; border-left: 4px solid #85d7c4; background: rgba(255,255,255,.08); }
-    .target-panel, .input-panel, .brief-section, .support-panel { margin-top: 20px; border: 1px solid #d8e1ec; border-radius: 20px; padding: 20px; background: #fff; }
-    .brief-section > header { display: flex; justify-content: space-between; gap: 16px; align-items: start; border-bottom: 1px solid #e7edf4; padding-bottom: 12px; }
+    .hero .summary { max-width: 700px; font-size: 1.08rem; color: #e4f0f7; }
+    .kicker { margin: 0 0 6px; color: #52617a; font-size: .76rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .hero .kicker { color: #b9e2e9; }
+    .next-action { margin: 18px 0 0; padding: 14px 16px; border-left: 4px solid #85d7c4; background: rgba(255,255,255,.1); }
+    .purpose-panel, .brief-section, .support-panel, .evidence-provenance { margin-top: 20px; border: 1px solid #ccd8e5; border-radius: 20px; padding: 20px; background: #fff; }
+    .brief-section > header { border-bottom: 1px solid #e1e8f0; padding-bottom: 12px; }
     h2 { margin: 0; font-size: 1.35rem; }
-    .assertion { margin-top: 14px; border: 1px solid #dce5ee; border-radius: 16px; padding: 16px; background: #fbfdff; }
+    h3 { line-height: 1.35; }
+    .assertion, .context-card, .mapping-card { margin-top: 14px; border: 1px solid #d5e0ea; border-radius: 16px; padding: 16px; background: #fbfdff; break-inside: avoid; }
     .assertion-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
-    .assertion h3 { margin: 0; font-size: 1.08rem; }
-    .trust, .template-label { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: .78rem; font-weight: 700; }
+    .assertion h3, .context-card h3, .mapping-card h3 { margin: 0; font-size: 1.08rem; }
+    .trust, .team-label { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: .78rem; font-weight: 750; }
+    .trust { flex: 0 0 auto; }
     .trust-verified { color: #0b573f; background: #dff6ed; }
     .trust-source_document_only { color: #174a6e; background: #e0f0fb; }
-    .trust-contested { color: #7a2f18; background: #ffe6dc; }
-    details { margin-top: 12px; border-top: 1px solid #e3e9f0; padding-top: 10px; }
-    summary { cursor: pointer; color: #155c73; font-weight: 750; }
-    .evidence-packet { margin-top: 12px; border-left: 3px solid #7db9c8; padding: 4px 0 4px 14px; }
-    .evidence-contradicts { border-left-color: #d7795c; }
-    .evidence-label { color: #506078; font-weight: 750; }
-    dl { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: 7px 14px; }
-    dt { color: #627089; font-weight: 700; }
+    .trust-contested { color: #762c16; background: #ffe2d7; }
+    .team-label { margin: 0 0 9px; color: #604100; background: #ffefbd; }
+    .mapping-caution, .gaps-panel { border-left: 4px solid #d7795c; }
+    .mapping-caution { padding: 10px 12px; background: #fff4ef; color: #65301f; }
+    details { margin-top: 20px; }
+    summary { cursor: pointer; color: #0f536a; font-weight: 750; }
+    summary:focus-visible, a:focus-visible { outline: 3px solid #e0a31a; outline-offset: 3px; border-radius: 3px; }
+    .evidence-provenance > summary { font-size: 1.12rem; }
+    .assertion-evidence { border-top: 1px solid #dce5ee; padding-top: 12px; }
+    .evidence-packet { margin-top: 12px; border-left: 3px solid #5596aa; padding: 4px 0 4px 14px; break-inside: avoid; }
+    .evidence-contradicts { border-left-color: #c65f40; }
+    .evidence-label { color: #45546b; font-weight: 750; }
+    .inactive-provenance { margin-top: 16px; padding: 12px; border: 1px dashed #7b8798; background: #f4f5f7; }
+    .ownership-note { color: #52617a; }
+    dl { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: 8px 14px; }
+    dt { color: #52617a; font-weight: 750; }
     dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
     blockquote { margin: 0; }
-    code { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 5px; border-radius: 5px; background: #eef3f8; overflow-wrap: anywhere; }
-    a { color: #155c73; }
-    .unsafe-url { color: #a33a3a; }
-    .support-grid, .identity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    code { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 5px; border-radius: 5px; background: #e9eff5; overflow-wrap: anywhere; }
+    a { color: #0f536a; }
+    .unsafe-url { color: #942f2f; }
     ul { margin: 12px 0 0; padding-left: 20px; }
-    li + li { margin-top: 12px; }
-    .template-label { color: #5b3d09; background: #fff1c9; margin-bottom: 4px; }
-    .empty-section, .workspace-records { color: #627089; }
-    .workspace-records { margin-top: 6px; font-size: .86rem; }
-    .target-relevance-gap { margin: 16px 0 0; border-left: 4px solid #d7795c; padding: 10px 12px; background: #fff4ef; color: #65301f; }
-    footer { margin-top: 22px; color: #627089; font-size: .86rem; text-align: center; }
+    li + li { margin-top: 10px; }
+    .print-only { display: none; }
+    footer { margin-top: 22px; color: #52617a; font-size: .86rem; text-align: center; }
     @media (max-width: 760px) {
       main { padding: 16px 14px 36px; }
       .hero { padding: 22px 18px; border-radius: 18px; }
-      .support-grid, .identity-grid { grid-template-columns: 1fr; gap: 0; }
-      .brief-section > header, .assertion-heading { flex-direction: column; }
+      .assertion-heading { flex-direction: column; }
       dl { grid-template-columns: 1fr; }
       dt { margin-top: 6px; }
+    }
+    @media print {
+      :root { background: #fff; color: #000; }
+      main { width: 100%; padding: 0; }
+      .hero, .purpose-panel, .brief-section, .support-panel, .evidence-provenance { box-shadow: none; border-color: #777; }
+      .hero { background: #fff; color: #000; }
+      .hero .summary, .hero .kicker { color: #222; }
+      details, details:not([open]), details[open] { display: block; }
+      details > *, details:not([open]) > * { display: block !important; }
+      details::details-content { content-visibility: visible !important; }
+      summary { display: block !important; color: #000; list-style: none; break-after: avoid; }
+      .evidence-provenance > summary { display: none !important; }
+      .print-only { display: block; }
+      h1, h2, h3, h4, summary { break-after: avoid; }
+      section, article, .evidence-packet, dl, blockquote { break-inside: avoid; }
+      a[href]::after { content: " (" attr(href) ")"; overflow-wrap: anywhere; }
+      .next-action, .mapping-caution, .gaps-panel { border-color: #333; }
     }
   </style>
 </head>
 <body>
   <main>
     <section class="hero">
-      <p class="kicker">Atliera · Account reference acc_acme_robotics</p>
+      <p class="kicker">Atliera · targeted preparation</p>
       <h1>Proposal / RFI / RFP targeted brief</h1>
-      <p class="summary">1 selected evidence-backed point ready for human review.</p>
-      <div class="chips" aria-label="Brief boundaries">
-        <span>Read-only · no automatic action</span>
-        <span>Explicit human selection only</span>
-        <span>Evidence-bound assertions only</span>
-        <span>Human review required</span>
-      </div>
-      <p class="next-action"><strong>Next safe action:</strong> Review the evidence behind the most important point.</p>
+      <p class="summary">1 selected evidence-backed point for response planning.</p>
+      <p class="next-action"><strong>Next safe action:</strong> Resolve the stated limitation for RFP-INT-04: The evidence shows a related priority; it does not establish requirement compliance, delivery method, timing, or measured results.</p>
     </section>
-    <div class="identity-grid">
-      <section class="target-panel">
-      <p class="kicker">Caller / human workflow context · not account facts</p>
-      <h2>Response target</h2>
-      <dl><dt>Response type · caller-provided, not an account fact</dt><dd>RFP</dd>
-          <dt>Requirement context · caller-provided, not an account fact</dt><dd>Integration delivery and measurable deployment-outcome requirements supplied by the response team.</dd>
-          <dt>Objective · caller-provided, not an account fact</dt><dd>Ground the selected response theme in accepted evidence for human drafting.</dd>
-          <dt>Human-governed workspace selection · not account facts</dt>
-          <dd><code>obj_acme_play_integration_expansion</code></dd>
-      </dl>
-      <p class="target-relevance-gap"><strong>Target-relevance evidence gap:</strong> Evidence gap: the graph supports the selected account facts but does not establish that they satisfy this RFx requirement context. RFx relevance is caller-provided human workflow context and requires review.</p>
+    <section class="purpose-panel">
+      <p class="kicker">Purpose · team-provided, not an account fact</p>
+      <h2>Ground the selected response theme in accepted evidence for human drafting.</h2>
+      <p><strong>RFP context:</strong> Integration delivery and measurable deployment-outcome requirements supplied by the response team.</p>
     </section>
-      <section class="input-panel">
-      <p class="kicker">Deterministic input identity · workspace metadata, not an account fact</p>
-      <h2>Validated committed fixture</h2>
-      <dl>
-        <dt>Repository-relative input ref</dt><dd><code>fixtures/graph/valid/workshop-three-lane.json</code></dd>
-        <dt>Loaded bytes SHA-256</dt><dd><code>cc5ddbecf1b4062185eb861f76e4621b53d7ad2ed61abc404786f987697d9011</code></dd>
-        <dt>Loaded byte length</dt><dd>9880</dd>
-        <dt>GraphBundle validation</dt><dd>passed</dd>
-      </dl>
-    </section>
-    </div>
-    <section class="brief-section" data-section="signals">
-      <header><div><p class="kicker">Selected supported developments that may shape the response.</p><h2>Why now</h2></div><span>0 selected and supported</span></header>
-      <p class="empty-section"><strong>Selection note:</strong> No supported items were selected for this section.</p>
-    </section>
-<section class="brief-section" data-section="maps">
-      <header><div><p class="kicker">Selected supported context to ground response language.</p><h2>Account context</h2></div><span>0 selected and supported</span></header>
-      <p class="empty-section"><strong>Selection note:</strong> No supported items were selected for this section.</p>
-    </section>
-<section class="brief-section" data-section="plays">
-      <header><div><p class="kicker">Selected evidence-backed themes for human drafting and review.</p><h2>Response themes</h2></div><span>1 selected and supported</span></header>
-      <article class="assertion" data-assertion-id="obj_acme_play_integration_expansion">
+    <section class="brief-section">
+      <header><div><p class="kicker">Selected evidence-backed themes for human drafting and review.</p><h2>Response themes</h2></div></header>
+      <article class="assertion">
       <div class="assertion-heading">
         <div>
-          <p class="kicker">play · evidence-bound claim text</p>
+          <p class="kicker">Selected evidence-backed fact</p>
           <h3>Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.</h3>
         </div>
         <span class="trust trust-verified">Verified</span>
       </div>
-      <details>
-        <summary>View supporting evidence</summary>
-        <div class="evidence-packet evidence-supports">
-          <p class="evidence-label">Supporting evidence · accepted literal excerpt</p>
+    </article>
+    </section>
+
+    <section class="support-panel">
+      <p class="kicker">Team-provided response planning</p>
+      <h2>Requirement mappings</h2>
+      <p class="mapping-caution">A related capability is not a compliance claim. Treat requirement satisfaction as unconfirmed unless the governed evidence directly establishes it.</p>
+      <article class="mapping-card">
+        <p class="team-label">Team-provided mapping · not a discovered account fact</p>
+        <h3>RFP-INT-04</h3>
+        <dl>
+          <dt>Supplied requirement</dt><dd>Describe the approach to shortening enterprise integration cycles and demonstrating deployment outcomes.</dd>
+          <dt>Supported response point</dt><dd>The selected account evidence supports discussing integration-cycle speed and demonstrable deployment outcomes as priorities.</dd>
+          <dt>Available evidence / proof</dt><dd>An active accepted excerpt supports the selected partner-priority statement.</dd>
+          <dt>Gap, limitation, or clarification needed</dt><dd>The evidence shows a related priority; it does not establish requirement compliance, delivery method, timing, or measured results.</dd>
+        </dl>
+      </article>
+    </section>
+
+    <details class="evidence-provenance">
+      <summary aria-label="Evidence and provenance for selected assertions: Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.">Evidence and provenance</summary>
+      <h2 class="print-only">Evidence and provenance</h2>
+      <details class="assertion-evidence">
+      <summary aria-label="Evidence for assertion: Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.">Evidence for: Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.</summary>
+      <p class="ownership-note">Governed assertion binding · team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code> · object <code>obj_acme_play_integration_expansion</code> · claims <code>clm_acme_integration_play</code></p>
+      <div class="evidence-packet evidence-supports">
+          <p class="evidence-label">Supporting evidence · Active current record · accepted literal excerpt</p>
           <dl>
             <dt>Claim under review</dt><dd>Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.</dd>
             <dt>Accepted excerpt</dt><dd><blockquote>prioritize partners that can shorten enterprise integration cycles and demonstrate measurable deployment outcomes</blockquote></dd>
-            <dt>Source record · workspace metadata</dt><dd><a href="https://example.invalid/acme/interviews/cfo" rel="noreferrer noopener">Acme Robotics CFO interview</a> · Industrial Automation Weekly · medium reliability · active record</dd>
+            <dt>Source</dt><dd><a href="https://example.invalid/acme/interviews/cfo" rel="noreferrer noopener">Acme Robotics CFO interview</a> · Industrial Automation Weekly · medium reliability · active record</dd>
             <dt>Source record timestamp</dt><dd>2026-03-04T15:00:00Z</dd>
             <dt>Evidence current through</dt><dd>Not supplied by source</dd>
+            <dt>Ownership binding</dt><dd>Team <code>team_atliera_lab</code> · account <code>acc_acme_robotics</code></dd>
+            <dt>Internal references</dt><dd>Claim <code>clm_acme_integration_play</code> · excerpt <code>exc_acme_integration_play_001</code> · source <code>src_acme_cfo_interview_001</code></dd>
           </dl>
         </div>
-      </details>
-    </article>
-    </section>
-    <div class="support-grid">
-      <section class="support-panel">
-      <p class="kicker">Use in the room</p>
-      <h2>Open questions</h2>
-      <ul><li><span class="template-label">Response prompt · not an account fact</span><br />Which requirements, evaluation criteria, timeline, and procurement constraints should be confirmed?</li>
-<li><span class="template-label">Response prompt · not an account fact</span><br />Which response statements need additional evidence before inclusion?</li></ul>
-    </section>
-      <section class="support-panel">
-      <p class="kicker">Honest limits</p>
-      <h2>Evidence gaps</h2>
-      <ul><li>No unsupported or unbound selected factual material entered this brief.</li></ul>
-    </section>
-    </div>
-    <footer>Prepared from the exact loaded committed-fixture bytes identified above. No provider call, network acquisition, production write, submission, or external action occurred.</footer>
+
+    </details>
+
+      <section class="provenance-metadata">
+        <h3>Authority and governed selection</h3>
+        <dl>
+          <dt>Team / workspace authority</dt><dd><code>team_atliera_lab</code></dd>
+          <dt>Account</dt><dd><code>acc_acme_robotics</code></dd>
+          <dt>Selected account objects</dt><dd><code>obj_acme_play_integration_expansion</code></dd>
+        </dl>
+        <ul><li>RFP-INT-04: objects <code>obj_acme_play_integration_expansion</code> · claims <code>clm_acme_integration_play</code></li></ul>
+        <h3>Validated local fixture identity</h3>
+        <p>Validated local fixture bytes only. Authoritative tracked-blob identity was not proven in this environment.</p>
+        <dl>
+          <dt>Repository-relative local path</dt><dd><code>fixtures/graph/valid/workshop-three-lane.json</code></dd>
+          <dt>Loaded bytes SHA-256</dt><dd><code>cc5ddbecf1b4062185eb861f76e4621b53d7ad2ed61abc404786f987697d9011</code></dd>
+          <dt>Loaded byte length</dt><dd>9880</dd>
+          <dt>GraphBundle validation</dt><dd>passed</dd>
+          <dt>Tracked-blob proof</dt><dd>unavailable</dd>
+        </dl>
+        <h3>Generation boundary</h3>
+        <p>Read-only generation. No provider call, network acquisition, production write, submission, or external action.</p>
+      </section>
+    </details>
+    <footer>Prepared for human use from selected, evidence-backed content.</footer>
   </main>
 </body>
 </html>

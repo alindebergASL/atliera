@@ -201,17 +201,19 @@ describe("writeRunArtifactManifest", () => {
     });
   });
 
-  test("refuses writes in safe modes", async () => {
+  test("refuses safe, local-product, and unknown modes for run artifact writes", async () => {
     await withTempDir(async (outputRoot) => {
-      await assert.rejects(
-        () => writeRunArtifactManifest({
-          bundle: makeValidBundle(),
-          outputRoot,
-          runSlug: "fixture-mode",
-          mode: "fixture",
-        }),
-        /production writes are forbidden/,
-      );
+      for (const mode of ["fixture", "local-product", "unknown-runtime-mode"] as const) {
+        await assert.rejects(
+          () => writeRunArtifactManifest({
+            bundle: makeValidBundle(),
+            outputRoot,
+            runSlug: `${mode}-mode`,
+            mode: mode as never,
+          }),
+          /production writes are forbidden/,
+        );
+      }
     });
   });
 

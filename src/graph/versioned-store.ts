@@ -90,7 +90,7 @@ export class InMemoryVersionedGraphStore implements VersionedGraphStore {
     bundle: GraphBundle,
     options: VersionedGraphCommitOptions,
   ): Promise<VersionedGraphSnapshot> {
-    assertProductionWriteAllowed(options.mode);
+    assertProductionWriteAllowed(options.mode, "in-memory-versioned-graph-store");
     assertSafeGraphId(graphId);
 
     const current = this.graphs.get(graphId);

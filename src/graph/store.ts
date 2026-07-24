@@ -38,7 +38,7 @@ export class InMemoryGraphStore implements GraphStore {
   // Write path used by the production code path. Refuses to run in
   // validation / fixture / fake mode.
   commit(bundle: GraphBundle, mode: RuntimeMode): void {
-    assertProductionWriteAllowed(mode);
+    assertProductionWriteAllowed(mode, "in-memory-graph-store");
     this.committed = bundle;
   }
 }

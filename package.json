@@ -29,6 +29,8 @@
     "workshop:m5a-capstone": "tsx scripts/generate-m5a-curated-proposal-flow-capstone.mts",
     "workshop:m5b-fedex-prewrite": "node --import tsx scripts/generate-m5b-fedex-system-acquired-prewrite.mts",
     "workshop:m5b-fedex-gate-b-synthetic": "node --import tsx scripts/generate-m5b-fedex-gate-b-synthetic-prewrite.mts",
+    "m5b:prepare": "tsx src/cli/m5b-repository-native.ts prepare",
+    "m5b:apply": "tsx src/cli/m5b-repository-native.ts apply",
     "h2:echo-proof": "tsx scripts/generate-h2-echo-mediation-proof.mts",
     "h2:echo-proof:write": "tsx scripts/generate-h2-echo-mediation-proof.mts --write",
     "m4:public-http-fetch-proof": "node --import tsx scripts/generate-m4-public-http-fetch-proof.mts",

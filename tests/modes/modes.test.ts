@@ -30,6 +30,7 @@ describe("runtime modes", () => {
     assert.equal(isSafeMode("fixture"), true);
     assert.equal(isSafeMode("fake"), true);
     assert.equal(isSafeMode("model"), false);
+    assert.equal(isSafeMode("local-product"), false);
   });
 
   it("refuses production writes from a safe mode", () => {
@@ -91,9 +92,18 @@ describe("runtime modes", () => {
   });
 
   it("assertProductionWriteAllowed permits non-safe modes (forward-compat)", () => {
-    // `model` is not a write-safe mode either in Phase 1, but the guard
-    // is scoped to *safe* modes — production write authorization is a
-    // separate later gate. This test simply documents the contract.
-    assert.doesNotThrow(() => assertProductionWriteAllowed("model"));
+    assert.doesNotThrow(() => assertProductionWriteAllowed("model", "in-memory-graph-store"));
+  });
+
+  it("local-product and unknown modes cannot enable the general in-memory writer", () => {
+    const store = new InMemoryGraphStore();
+    assert.throws(
+      () => store.commit(makeValidBundle(), "local-product"),
+      ProductionWriteForbiddenError,
+    );
+    assert.throws(
+      () => store.commit(makeValidBundle(), "unknown-runtime-mode" as never),
+      ProductionWriteForbiddenError,
+    );
   });
 });

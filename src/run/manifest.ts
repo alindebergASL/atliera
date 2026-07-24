@@ -436,7 +436,7 @@ function ledgerStatusToModelRunStatus(status: ModelCostLedgerStatus | undefined)
 export async function writeRunArtifactManifest(
   options: WriteRunArtifactManifestOptions,
 ): Promise<WriteRunArtifactManifestResult> {
-  assertProductionWriteAllowed(options.mode);
+  assertProductionWriteAllowed(options.mode, "run-artifact-manifest");
   assertSafeRunSlug(options.runSlug);
 
   const modelProviderValidationReport = snapshotModelProviderValidationReport(

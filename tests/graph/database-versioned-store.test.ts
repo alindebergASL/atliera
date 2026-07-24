@@ -12,6 +12,7 @@ import {
   GraphStoreValidationError,
   type VersionedGraphStore,
 } from "../../src/graph/versioned-store.ts";
+import { ProductionWriteForbiddenError } from "../../src/modes/index.ts";
 import { makeValidBundle, clone } from "../fixtures/valid-graph.ts";
 
 class RecordingDatabaseGraphClient implements DatabaseGraphStoreClient {
@@ -66,6 +67,23 @@ class RecordingDatabaseGraphClient implements DatabaseGraphStoreClient {
 }
 
 describe("DatabaseVersionedGraphStore", () => {
+  it("refuses local-product and unknown modes before invoking the database client", async () => {
+    const client = new RecordingDatabaseGraphClient();
+    const store = new DatabaseVersionedGraphStore({ table: "graph_snapshots", client });
+
+    for (const mode of ["local-product", "unknown-runtime-mode"] as const) {
+      await assert.rejects(
+        () => store.commit(`teams/team_1/graphs/${mode}`, makeValidBundle(), {
+          expectedRevision: null,
+          mode: mode as never,
+        }),
+        ProductionWriteForbiddenError,
+      );
+    }
+    assert.deepEqual(client.inserts, []);
+    assert.deepEqual(client.updates, []);
+  });
+
   it("commits and loads graph snapshots through an injected database client", async () => {
     const client = new RecordingDatabaseGraphClient();
     const store: VersionedGraphStore = new DatabaseVersionedGraphStore({

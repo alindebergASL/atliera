@@ -1,34 +1,52 @@
 # M5b Repository-Native Product Completion
 
-Status: implementation prepared for independent review; no real source execution, human ratification, durable real graph write, provider call, acquisition, deployment, or GO is authorized by this document.
+Status: implementation prepared for independent review. This document authorizes no real source execution, human ratification, durable real graph write, provider/model call, acquisition, deployment, or customer-readiness claim.
 
-- current_effective_authorization: none
-- real_source_reads: 0
-- real_graph_durable_writes: 0
+- M5B_STATUS=IN_PROGRESS
+- CURRENT_EFFECTIVE_AUTHORIZATION=NONE
+- REAL_SOURCE_READS=0
+- REAL_GRAPH_WRITES=0
+- REAL_RATIFICATIONS=0
 - provider_calls: 0
 - acquisitions: 0
 - deployments: 0
 
-## Product boundary
+## Milestone acceptance remains customer-facing
 
-The active M5b path is repository-native:
+M5b is still the does-its-job-once customer outcome:
 
 ```text
-explicit source input
+one real account
+  -> the system fetches public sources through M4
+  -> validation and human ratification
+  -> durable graph state
+  -> a shareable Workshop account page
+  -> every claim traceable to a stored source
+  -> every unverified item visibly labeled
+```
+
+Repository-native prepare/apply is the current implementation mechanism for the validation, ratification, durable-state, and rendering portion of that outcome. It is not a substitute milestone and does not retroactively turn a committed fixture into a real customer result. M5b remains in progress until the real shareable page exists and has been evaluated against the acceptance framing above.
+
+The former host Gate B/v2-r3 material is frozen historical provenance only. Host forensic qualification is closed; no v2-r4 is authorized. Archive qualification, V4 reconciliation, host investigation, and the quarantined shared control plane are not acceptance dependencies and are nonblocking.
+
+## Repository-native mechanism
+
+```text
+explicit already-available source input
   -> exact source validation
   -> sanitized source pack
   -> Graph candidate and review packet
   -> pre-ratification Workshop page
   -> external human ratification
-  -> one local versioned graph write and read-back
-  -> final Workshop page rendered from durable state
+  -> one local versioned graph commit/read-back, or exact rev_1 finalization
+  -> final Workshop page
 ```
 
-The host-local v2-r3 archive is frozen unqualified provenance only. Host forensic qualification is closed. Archive qualification, control-plane recovery, V4 reconciliation, global worktree investigation, evidence packaging, and a v2-r4 candidate are outside this product path. The quarantined shared control plane is nonblocking and is never consulted.
+Neither command fetches a source, invokes a provider/model, deploys, uses AWS, consults host/control-plane state, or selects its own authority.
 
-## Commands
+## Prepare command
 
-`prepare` has no defaults. Every location and identity is explicit:
+`prepare` has no defaults:
 
 ```sh
 npm run m5b:prepare -- \
@@ -42,9 +60,9 @@ npm run m5b:prepare -- \
   --execution-tree <exact-40-hex-reviewed-tree>
 ```
 
-The only alternate source kind is `committed-synthetic-fixture`; it exists for committed tests and carries the existing fixture trust label. `exact-production-custody` additionally must pass the existing M5b exact production-custody admission contract. The command never acquires a source.
+The only alternate source kind is `committed-synthetic-fixture`, which exists for committed synthetic tests. `exact-production-custody` must additionally pass the existing exact production-custody admission contract. The command never acquires a source.
 
-A successful prepare atomically publishes a new directory containing:
+A successful invocation performs one source-content read during that invocation and atomically publishes:
 
 - `source-pack.json`
 - `candidate.json`
@@ -52,7 +70,9 @@ A successful prepare atomically publishes a new directory containing:
 - `workshop-pre-ratification.html`
 - `prepare-result.json`
 
-`prepare-result.json` binds the exact source size/hash, source pack, candidate, review packet, owner authorization, commit, tree, output identities, and zero-effect accounting.
+The `explicitSourceReads: 1` counter proves the content-read count for one invocation. It does not prevent a later invocation from reading the same path again. Cross-invocation one-shot authority belongs to a separate owner execution decision; this implementation deliberately adds no host replay root, shared ledger, boot identity, or control-plane dependency.
+
+## Apply command and externally pinned authority
 
 `apply` also has no defaults:
 
@@ -61,64 +81,86 @@ npm run m5b:apply -- \
   --prepared <prepared-output-directory> \
   --ratification <external-human-ratification.json> \
   --graph-store <explicit-local-graph-store-root> \
-  --output <new-apply-output-directory>
+  --output <new-apply-output-directory> \
+  --expected-ratification-sha256 <sha256-of-exact-file-bytes> \
+  --expected-owner-authorization-id <external-owner-authorization-id> \
+  --expected-execution-commit <exact-40-hex-reviewed-commit> \
+  --expected-execution-tree <exact-40-hex-reviewed-tree>
 ```
 
-Apply requires lexically disjoint prepared, ratification, graph-store, and output locations. It rereads and rehashes all prepared artifacts, validates the source pack/candidate/review packet, validates the ratification artifact and every binding, commits one `rev_1` graph through `VersionedGraphStore`, reads the graph back, compares its canonical hash, and renders `workshop-final.html` from the read-back bundle. A graph-scoped create-only first revision and exact graph ID make replay fail closed without a second write. There are zero retries.
+All four authority pins are required and enforced inside `applyM5bRepositoryNative`, not only by the CLI. Apply reads the ratification file bytes exactly once, verifies the SHA-256 of those exact bytes before JSON parsing, then verifies the canonical self-hash and every typed-data binding to the prepare result, source, source pack, candidate, review packet, owner authorization, commit, and tree.
 
-## External human-ratification artifact
+`ratificationArtifactSha256` is an internal canonical content-integrity digest. It detects semantic drift after parsing, but it is not independent authority, a signature, PKI, DSSE, executable seal, GO artifact, or host/boot identity. The externally supplied raw-byte SHA-256 is the pin that names the reviewed ratification file.
 
-The artifact is external typed data, not something either command can create or infer. It must contain exactly:
+The commit/tree fields are exact declared bindings, not host attestation of the running checkout. A future owner execution decision must independently verify the checkout commit/tree before authorizing either real command; this path does not add host forensics to make that decision.
 
-- kind `m5b-repository-native-human-ratification`, schema version `1`;
-- prepare-result, source, source-pack, candidate, and review-packet hashes/sizes;
-- the same owner-authorization ID and exact execution commit/tree;
-- ratifier ID and canonical UTC ratification time;
-- an explicit retention disposition;
-- one ordered accept/reject decision and sanitized reason code for every review-packet proposal; accepted and rejected decisions are preserved as `AuditEvent` records;
-- `currentEffectiveAuthorization: one-shot-local-durable-graph-write`;
-- exactly one authorized durable local write, zero retries, and explicit false values for provider, acquisition, network, and deployment authority;
-- `ratificationArtifactSha256`, computed over the canonical content without that hash field using `verifyM5bRepositoryNativeRatificationArtifactHash`.
+Prepared directory, ratification file, graph-store root, source path, and output directory are checked using canonical existing paths or canonical nearest-existing parents. Symlinked roots/components are rejected. Apply locations must be mutually non-nested and non-aliasing.
 
-A content hash detects drift; it is not a signature and does not prove who made the human decision.
+## Commit, recovery, and output closure
 
-## Future owner decisions still required
+Apply validates every input and fully stages `workshop-final.html` plus `apply-result.json` in the destination parent before the graph commit. A missing output parent therefore fails before any graph commit.
 
-No decision below exists yet.
+For a new graph, apply makes one create-only `rev_1` commit attempt with zero retries, loads it back, verifies the canonical durable bundle, independently re-renders from the read-back state, and publishes the already-staged output only after the render matches. There is no second graph write.
 
-1. **Real prepare/source-read decision.** Supply and authorize one explicit source path, exact source kind, SHA-256, byte size, new prepared-output path, owner-authorization ID, and exact independently reviewed execution commit/tree. The decision must authorize exactly one prepare source read and no acquisition, network, provider/model, deployment, graph write, retry, or control-plane use.
-2. **Human ratification and apply decision.** After reviewing the exact prepared Workshop page, candidate, and review packet, an identified human must supply the fully bound artifact above, including every proposal disposition and retention disposition. A separate owner execution decision must name that artifact by exact SHA-256, the prepared directory, explicit local graph-store root, new apply-output directory, and the same commit/tree; it may authorize exactly one local durable graph write/read-back/render and zero retries.
+If `rev_1` already exists, apply permits read-only finalization only when the stored canonical bundle is exactly the same and its dedicated retention event binds the same raw-byte and canonical ratification digests. The result reports one of:
 
-Creating the first decision does not imply the second. Preparing artifacts does not ratify them. Human ratification does not authorize acquisition, providers, deployment, AWS, or any further graph write.
+- `newly-created`; or
+- `existing-exact-finalized-without-write`.
 
-## Security tradeoff
+A different revision, bundle, decision, ratifier, or ratification binding refuses. This permits recovery after a post-commit output publication failure without writing `rev_2`.
 
-The former host executor bound boot identity, inode ownership, worktree registries, archive seals, and a host replay root. Those properties protected a particular host execution package but are not portable product requirements. The curated M3 executor is likewise bound to its own proposal artifacts and JSONL snapshot contract; this path reuses its accept/reject semantics, `source_document_only` trust treatment, rejection preservation, and `AuditEvent` records without pretending M5b inputs are M3 curated proposals.
+## Human decisions and original-custody retention
 
-The repository-native equivalent instead binds explicit source bytes, owner authorization, exact Git commit/tree declarations, prepared artifact hashes, external human decisions, and one local versioned graph ID. The `local-product` runtime mode permits only the already-guarded local versioned-store write path; it does not activate providers and is deliberately absent from default safe modes.
+Reject-all is valid. It produces a durable terminal graph with the stored source and decision audit trail, zero promoted account objects, and every rejection/reason code preserved. Mixed and all-accept outcomes use the same ordered decision contract.
 
-Two limits remain explicit:
+`retentionDisposition` answers exactly the review packet’s existing retention draft: whether retention of the original custody artifact beyond `retentionDraft.deadline` is approved.
 
-- The command content-binds caller-supplied commit/tree values but does not host-attest the running checkout. The future owner must independently verify the checkout commit/tree before authorizing execution.
-- The local JSON graph store uses a graph-scoped single-attempt lock and atomic file replacement, not a distributed transaction or multi-host lock.
+Every apply result preserves the disposition, retention-draft ID, deadline, outcome, `originalCustodyDeleted: false`, and whether external custody cleanup remains required. A dedicated `source.retention_decided` `AuditEvent` records:
 
-These are reviewable product-level boundaries rather than host-forensic claims.
+- the ratifier;
+- exact raw-byte and canonical ratification bindings;
+- review-packet binding;
+- retention-draft ID and deadline;
+- accept/reject disposition and outcome;
+- `original_custody_deleted: false`; and
+- the external-cleanup requirement.
 
-## Committed proof
+Apply has no original custody path and no deletion authority:
 
-`tests/workshop/m5b-repository-native.test.ts` uses only committed synthetic fixtures to prove:
+- accept means beyond-deadline retention is approved;
+- reject means beyond-deadline retention is not authorized and external custody cleanup remains required;
+- neither outcome claims that deletion occurred.
 
-- exact source admission and prepared artifact production;
-- candidate/review and human-ratification binding;
-- one durable local write plus read-back;
-- final Workshop rendering from durable state;
-- source, prepared-artifact, and ratification tamper refusal;
-- replay refusal at revision `rev_1`;
-- zero acquisition, network, provider, deployment, and retry effects.
+## Source provenance in the final page
 
-Use existing repository CI only:
+Final rendering is selected from the prepare result’s bound source kind:
 
-```sh
-npm ci
-npm run ci
-```
+- `exact-production-custody` renders `System-acquired public source` and the durable system-acquired boundary;
+- `committed-synthetic-fixture` renders `Durable synthetic fixture` and never renders `System-acquired public source`.
+
+The source pack’s production-admission state must agree with that source kind.
+
+## Local store truth and limits
+
+`LocalFileVersionedGraphStore` is the only writer whose positive allowlist accepts `local-product`. That mode does not enable the database store, either in-memory graph store, the general graph-file writer, run-manifest writer, providers/models, or unknown runtime modes. Normal `model`-mode behavior on existing writer surfaces is unchanged.
+
+Each stored local graph envelope includes a canonical SHA-256 integrity digest covering graph ID, revision, schema, and bundle. Every load verifies it, including when substituted content is otherwise schema-valid. The digest detects corruption or drift; it is not a signature and proves neither writer identity nor authority.
+
+Replacement writes use a same-directory temp file, sync the temp file before rename, rename atomically under a graph-scoped single-attempt lock, and sync the containing directory after rename. Failed attempts clean temp files. Locks are never retried. Stale-lock recovery remains an operational limitation: this path does not perform boot/PID forensics and does not unsafely auto-remove an existing lock.
+
+## Committed synthetic proof
+
+The focused tests use only committed synthetic fixtures and temporary directories. They cover:
+
+- prepare and apply CLI argument contracts, including missing/duplicate/unknown arguments and malformed sizes/hashes;
+- all four external apply pins and raw-byte hash-before-parse behavior;
+- all-accept, mixed, reject-all, retention-accept, and retention-reject outcomes;
+- exact-revision recovery without a second graph write;
+- output-parent preflight before commit;
+- canonical path nesting and symlink-alias refusal;
+- exact production versus synthetic rendering labels;
+- positive per-writer `local-product` confinement;
+- local-store locking, conflicts, malformed content, schema-valid digest mismatch, atomic failure cleanup, and read-back;
+- zero acquisition, network, provider/model, deployment, AWS, and retry effects.
+
+Use existing repository CI only. This document does not authorize running either product command against real inputs.

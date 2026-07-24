@@ -114,12 +114,11 @@ test("authority docs advance past reconciliation without authorizing a next slic
   assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
 
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
-  assert.match(blockers, /PR #289 remains an unarmed M5b Gate A pre-effect repair; it authorizes no next step/i);
-  assert.match(blockers, /next possible M5b private-read gate is blocked and requires all of/i);
-  assert.match(blockers, /successful post-merge CI/i);
-  assert.match(blockers, /resulting merge commit SHA and tree/i);
-  assert.match(blockers, /separately supplied private path/i);
-  assert.match(blockers, /unratified drafts and cannot satisfy future arming/i);
+  assert.match(blockers, /M5b acceptance remains customer-facing: one real account, public sources fetched through M4/i);
+  assert.match(blockers, /external human-ratification file named by its exact raw-byte SHA-256/i);
+  assert.match(blockers, /CURRENT_EFFECTIVE_AUTHORIZATION=NONE/i);
+  assert.match(blockers, /unratified drafts and cannot satisfy the repository-native ratification boundary/i);
+  assert.doesNotMatch(blockers, /next possible M5b private-read gate/i);
   assert.match(blockers, /Any later Gate 3 expansion still requires a fresh explicit operator decision/i);
 
   assert.match(plan, /Gate 3 reconciliation completed without side effects/i);

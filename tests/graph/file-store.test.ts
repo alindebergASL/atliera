@@ -139,6 +139,20 @@ describe("file-backed graph store", () => {
     });
   });
 
+  test("refuses local-product and unknown modes for the general graph file writer", async () => {
+    await withTempDir(async (dir) => {
+      for (const mode of ["local-product", "unknown-runtime-mode"] as const) {
+        await assert.rejects(
+          () => saveGraphBundleFile(join(dir, `${mode}.json`), makeValidBundle(), {
+            mode: mode as never,
+            outputRoot: dir,
+          }),
+          ProductionWriteForbiddenError,
+        );
+      }
+    });
+  });
+
   test("FileGraphStore wraps the load/save helpers", async () => {
     await withTempDir(async (dir) => {
       const path = join(dir, "graph.json");

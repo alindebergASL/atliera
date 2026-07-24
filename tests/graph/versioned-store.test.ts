@@ -126,6 +126,19 @@ describe("VersionedGraphStore contract", () => {
     }
   });
 
+  it("refuses local-product and unknown modes for the in-memory versioned writer", async () => {
+    const store = new InMemoryVersionedGraphStore();
+    for (const mode of ["local-product", "unknown-runtime-mode"] as const) {
+      await assert.rejects(
+        () => store.commit(`team-1/account-1/${mode}`, makeValidBundle(), {
+          mode: mode as never,
+          expectedRevision: null,
+        }),
+        ProductionWriteForbiddenError,
+      );
+    }
+  });
+
   it("does not read process.env while defining, committing, or loading graphs", async () => {
     const originalEnv = process.env;
     const reads: string[] = [];

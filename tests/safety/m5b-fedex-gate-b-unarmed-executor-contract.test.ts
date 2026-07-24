@@ -120,7 +120,8 @@ test("production core returns in-memory outputs and imports no provider/network/
   ]) assert.equal(SOURCE.includes(forbidden), false, forbidden);
   assert.match(SOURCE, /ok: true[;,\s]+outputs:/);
   assert.doesNotMatch(SOURCE, /output(?:File|Path|Directory)/);
-  assert.match(STATUS, /no provider\/model call[^\n]*or output-file write/i);
+  assert.match(STATUS, /sanitized, unratified, unverified in-memory outputs only/i);
+  assert.match(STATUS, /zero external\/product effects/i);
 });
 
 test("synthetic receipt and all five outputs preserve zero effects and honest trust", () => {
@@ -173,15 +174,23 @@ test("roadmap and runbooks supersede host qualification with the unauthorized re
   const repositoryNative = read("docs/runbooks/m5b-repository-native-product-completion.md");
   const row = roadmap.split("\n").find((line) => line.startsWith("| **M5b —"));
   assert.equal(row?.split("|")[2]?.trim(),
-    "🔶 in progress — repository-native product path implemented for review; real execution unauthorized");
+    "🔶 in progress — mechanism implemented for review; real page not yet executed or evaluated");
   for (const document of [roadmap, index, blockers, repositoryNative]) {
     assert.match(document, /repository-native/i);
     assert.match(document,
       /(current_effective_authorization|current effective authorization)[^\n]*none|real execution remains unauthorized/i);
     assert.match(document, /human[- ]ratification|human-ratified/i);
+    assert.match(document, /M5B_STATUS=IN_PROGRESS/);
+    assert.match(document, /REAL_SOURCE_READS=0/);
+    assert.match(document, /REAL_GRAPH_WRITES=0/);
+    assert.match(document, /REAL_RATIFICATIONS=0/);
+    assert.doesNotMatch(document, /fresh explicit (?:external )?GO|arming wrapper|fresh-GO boundary/i);
   }
   assert.match(STATUS, /historical\/superseded status/i);
-  assert.match(STATUS, /no v2-r4 is authorized/i);
+  assert.match(STATUS, /v2-r4[^\n]*not authorized/i);
+  assert.match(roadmap, /one real account → system fetches public sources through M4/i);
+  assert.match(repositoryNative, /every claim traceable to a stored source/i);
+  assert.match(repositoryNative, /every unverified item visibly labeled/i);
   assert.match(index, /m5b-fedex-gate-b-unarmed-executor-status\.md` \| superseded/);
   assert.match(index, /m5b-repository-native-product-completion\.md` \| active/);
   assert.match(gateA, /historical[^\n]*3|3[^\n]*historical/i);

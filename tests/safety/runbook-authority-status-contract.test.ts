@@ -102,10 +102,10 @@ test("BLOCKERS exposes per-gate status and the Gate 3/Gate 4 imbalance", () => {
   assert.match(blockers, /Gate 3\s*\|\s*underbuilt/i);
   assert.match(blockers, /Gate 4\s*\|\s*fixture-only/i);
   assert.match(blockers, /no launch-ready claim/i);
-  assert.match(blockers, /PR #289 remains an unarmed M5b Gate A pre-effect repair; it authorizes no next step/i);
-  assert.match(
-    blockers,
-    /The next possible M5b private-read gate is blocked and requires all of: PR #289 approval on its then-current exact head; merge; successful post-merge CI; binding to the resulting merge commit SHA and tree; exact custody artifact identity plus a separately supplied private path; and execution before `2026-08-13T18:41:11\.277Z` unless a separately ratified bounded retention decision already exists/i,
-  );
+  assert.match(blockers, /M5b acceptance remains customer-facing: one real account, public sources fetched through M4/i);
+  assert.match(blockers, /external human-ratification file named by its exact raw-byte SHA-256/i);
+  assert.match(blockers, /M5B_STATUS=IN_PROGRESS/i);
+  assert.match(blockers, /CURRENT_EFFECTIVE_AUTHORIZATION=NONE/i);
+  assert.doesNotMatch(blockers, /next possible M5b private-read gate/i);
   assertNoBroadening("BLOCKERS", blockers);
 });

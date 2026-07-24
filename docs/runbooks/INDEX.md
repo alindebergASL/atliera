@@ -7,6 +7,11 @@ This index is the human-facing authority map for `docs/runbooks/`. It does not s
 Boundary markers:
 
 - current_effective_authorization: none
+- M5B_STATUS=IN_PROGRESS
+- CURRENT_EFFECTIVE_AUTHORIZATION=NONE
+- REAL_SOURCE_READS=0
+- REAL_GRAPH_WRITES=0
+- REAL_RATIFICATIONS=0
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
 - next recommended work: independent review of the repository-native M5b prepare/apply surface; real source execution and external human ratification remain separately unauthorized
@@ -24,9 +29,9 @@ Boundary markers:
 - external_product_effects: 0
 - local_deterministic_gate_b_synthetic_outputs_written: 5
 
-Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. Host-local v2-r3, its former Gate B executor, archive, and evidence are provenance only. Host qualification is closed and no v2-r4 is authorized. The active repository-native path requires a separately authorized explicit real source read and then an external human-ratification artifact plus a separate one-shot local apply decision. No serialized public hash, template, fixture, environment variable, or historical GO is present authority or human ratification.
+Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. Host-local v2-r3, its former Gate B executor, archive, and evidence are frozen provenance only. Host/archive qualification and V4 reconciliation are closed; no v2-r4 is authorized. The shared control plane is quarantined and nonblocking. The repository-native mechanism requires a separately authorized explicit real source read and then an externally raw-byte-pinned human-ratification file plus a separate one-shot local apply decision.
 
-Superseded M4 closeout markers retained verbatim for historical regression checks only—not as current recommendations: “next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, resulting merge commit SHA and tree, exact custody artifact identity plus a separately supplied private path, and execution before 2026-08-13T18:41:11.277Z unless a separately ratified bounded retention decision exists.” The older compact form was: “next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, merge commit SHA/tree binding, exact custody identity plus a separately supplied private path, and execution before 2026-08-13T18:41:11.277Z unless a separately ratified bounded retention decision exists.” Both are superseded by the fresh-GO boundary above.
+M5b acceptance remains one real account whose public sources are fetched through M4, validated and human-ratified into durable state, then rendered as a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Repository-native prepare/apply is the current implementation mechanism, not a replacement for that outcome. No real evaluated page exists yet.
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -53,7 +58,7 @@ Status vocabulary:
 | `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | active | Shipped M4 closeout: attempt 1 remains a truthful consumed failure, PR #287 supplied the Node 22 repair, and separately authorized attempt 2 succeeded once with exact private custody plus a public unverified Workshop excerpt. Current effective authority is none; the next recommendation is only a separate explicit M5b decision. |
 | `m5b-fedex-system-acquired-pre-effect-gate-a-status.md` | superseded | Historical M5b Gate A unarmed pre-effect repair for the FedEx source-backed account snapshot: proportional hostile-input bounds; simulated fixture origin/source type; exact candidate-bound unratified review and retention drafts; exact filing-only model citations with no call; and future composition that re-admits caller-supplied custody bytes, rebuilds the production pack, and requires exact equality. Serialized public constants and caller-mintable hashes are identity, never authority or human ratification. The committed fixture preserves two Maps, empty Signals/Plays, and cannot compose with fixture bytes. At that historical boundary M5b was in progress and its deterministic generator wrote exactly 3 local fixture outputs. The repository-native path is now active. |
 | `m5b-fedex-gate-b-unarmed-executor-status.md` | superseded | Historical host Gate B core retained for provenance and regression checks only. It is not the active M5b acceptance or execution path. |
-| `m5b-repository-native-product-completion.md` | active | Repository-native explicit prepare/apply product path: exact source and commit/tree binding, external human ratification, one local versioned graph write/read-back, final Workshop rendering, replay/tamper refusal, and zero acquisition/provider/network/deployment effects. Real execution remains unauthorized. |
+| `m5b-repository-native-product-completion.md` | active | Current mechanism for M5b validation/ratification/durable rendering: external raw-byte authority pins, exact source/commit/tree binding, one local versioned graph commit or exact read-only finalization, and truthful production-versus-synthetic labels. It is not the customer milestone outcome; real execution remains unauthorized. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |
 | `local-bearer-auth-seam-status.md` | active | Current local bearer-token auth seam for fake-mode Workshop serving; it is no-spend and does not claim deployment readiness. |

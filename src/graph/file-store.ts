@@ -106,7 +106,7 @@ export async function saveGraphBundleFile(
   bundle: GraphBundle,
   options: SaveGraphBundleFileOptions,
 ): Promise<SaveGraphBundleFileResult> {
-  assertProductionWriteAllowed(options.mode);
+  assertProductionWriteAllowed(options.mode, "graph-bundle-file");
 
   const guarded = await guardOutputPath({
     outputRoot: options.outputRoot,

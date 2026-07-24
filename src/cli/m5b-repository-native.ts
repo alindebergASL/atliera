@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+
 import {
   applyM5bRepositoryNative,
   prepareM5bRepositoryNative,
@@ -30,8 +32,8 @@ function assertOnly(args: ReadonlyMap<string, string>, allowed: readonly string[
   }
 }
 
-async function main(): Promise<void> {
-  const [command, ...rest] = process.argv.slice(2);
+async function execute(values: readonly string[]): Promise<string> {
+  const [command, ...rest] = values;
   const args = parseArgs(rest);
   if (command === "prepare") {
     const allowed = ["--source", "--output", "--source-kind", "--expected-source-sha256",
@@ -52,28 +54,55 @@ async function main(): Promise<void> {
       executionCommit: requireArg(args, "--execution-commit"),
       executionTree: requireArg(args, "--execution-tree"),
     });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return;
+    return `${JSON.stringify(result, null, 2)}\n`;
   }
   if (command === "apply") {
-    const allowed = ["--prepared", "--ratification", "--graph-store", "--output"];
+    const allowed = ["--prepared", "--ratification", "--graph-store", "--output",
+      "--expected-ratification-sha256", "--expected-owner-authorization-id",
+      "--expected-execution-commit", "--expected-execution-tree"];
     assertOnly(args, allowed);
     const result = await applyM5bRepositoryNative({
       preparedDir: requireArg(args, "--prepared"),
       ratificationPath: requireArg(args, "--ratification"),
       graphStoreRoot: requireArg(args, "--graph-store"),
       outputDir: requireArg(args, "--output"),
+      expectedRatificationSha256: requireArg(args, "--expected-ratification-sha256"),
+      expectedOwnerAuthorizationId: requireArg(args, "--expected-owner-authorization-id"),
+      expectedExecutionCommit: requireArg(args, "--expected-execution-commit"),
+      expectedExecutionTree: requireArg(args, "--expected-execution-tree"),
     });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    return;
+    return `${JSON.stringify(result, null, 2)}\n`;
   }
   throw new Error("usage: m5b-repository-native <prepare|apply> with explicit arguments");
 }
 
-main().catch((error: unknown) => {
-  const name = error instanceof Error ? error.name : "Error";
-  const code = typeof error === "object" && error !== null && "code" in error &&
-    typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : "invalid_request";
-  process.stderr.write(`${JSON.stringify({ ok: false, name, code })}\n`);
-  process.exitCode = 1;
-});
+export interface M5bRepositoryNativeCliResult {
+  readonly exitCode: 0 | 1;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+export async function invokeM5bRepositoryNativeCli(
+  values: readonly string[],
+): Promise<M5bRepositoryNativeCliResult> {
+  try {
+    return Object.freeze({ exitCode: 0, stdout: await execute(values), stderr: "" });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "Error";
+    const code = typeof error === "object" && error !== null && "code" in error &&
+      typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : "invalid_request";
+    return Object.freeze({
+      exitCode: 1,
+      stdout: "",
+      stderr: `${JSON.stringify({ ok: false, name, code })}\n`,
+    });
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  invokeM5bRepositoryNativeCli(process.argv.slice(2)).then((result) => {
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    process.exitCode = result.exitCode;
+  });
+}

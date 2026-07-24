@@ -1,27 +1,26 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 
 import { LocalFileVersionedGraphStore } from "../../src/graph/local-file-versioned-store.ts";
-import {
-  assertProductionWriteAllowed,
-  assertProviderAllowed,
-  isSafeMode,
-  ModelModeNotActivatedError,
-} from "../../src/modes/index.ts";
+import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
+import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import {
   M5B_REPOSITORY_NATIVE_RATIFICATION_KIND,
   M5bRepositoryNativeRefusal,
   applyM5bRepositoryNative,
+  m5bRepositoryNativePreviewModeForSourceKind,
   prepareM5bRepositoryNative,
   verifyM5bRepositoryNativeRatificationArtifactHash,
+  type M5bRepositoryNativeApplyOptions,
   type M5bRepositoryNativeRatification,
   type M5bRepositoryNativeRatificationContent,
 } from "../../src/workshop/m5b-repository-native.ts";
+import { makeValidBundle } from "../fixtures/valid-graph.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const SOURCE = join(ROOT, "fixtures/validation/m5b-fedex-system-acquired-demo-source.json");
@@ -52,13 +51,35 @@ async function preparedScenario(root: string) {
   return { preparedDir, result };
 }
 
-function ratificationFor(prepare: Awaited<ReturnType<typeof prepareM5bRepositoryNative>>): M5bRepositoryNativeRatification {
+type DecisionMode = "all-accept" | "mixed" | "reject-all";
+
+function ratificationFor(
+  prepare: Awaited<ReturnType<typeof prepareM5bRepositoryNative>>,
+  options: {
+    decisionMode?: DecisionMode;
+    retentionDisposition?: "accept" | "reject";
+    ratifierId?: string;
+  } = {},
+): M5bRepositoryNativeRatification {
   const fixture = JSON.parse(readFileSync(RATIFICATION_FIXTURE, "utf8")) as {
     ratifierId: string;
     ratifiedAt: string;
     retentionDisposition: "accept" | "reject";
     decisions: Array<{ proposalId: string; disposition: "accept" | "reject"; reasonCode: string }>;
   };
+  const decisionMode = options.decisionMode ?? "mixed";
+  const decisions = fixture.decisions.map((decision, index) => {
+    const disposition = decisionMode === "all-accept"
+      ? "accept" as const
+      : decisionMode === "reject-all"
+        ? "reject" as const
+        : decision.disposition;
+    return {
+      proposalId: decision.proposalId,
+      disposition,
+      reasonCode: disposition === "accept" ? `accepted_source_binding_${index}` : `rejected_human_decision_${index}`,
+    };
+  });
   const content: M5bRepositoryNativeRatificationContent = {
     kind: M5B_REPOSITORY_NATIVE_RATIFICATION_KIND,
     schemaVersion: "1",
@@ -71,10 +92,10 @@ function ratificationFor(prepare: Awaited<ReturnType<typeof prepareM5bRepository
     ownerAuthorizationId: prepare.ownerAuthorizationId,
     executionCommit: prepare.executionCommit,
     executionTree: prepare.executionTree,
-    ratifierId: fixture.ratifierId,
+    ratifierId: options.ratifierId ?? fixture.ratifierId,
     ratifiedAt: fixture.ratifiedAt,
-    retentionDisposition: fixture.retentionDisposition,
-    decisions: fixture.decisions,
+    retentionDisposition: options.retentionDisposition ?? fixture.retentionDisposition,
+    decisions,
     currentEffectiveAuthorization: "one-shot-local-durable-graph-write",
     authorizesDurableLocalWrite: true,
     maximumDurableLocalWrites: 1,
@@ -87,10 +108,32 @@ function ratificationFor(prepare: Awaited<ReturnType<typeof prepareM5bRepository
   return { ...content, ratificationArtifactSha256: verifyM5bRepositoryNativeRatificationArtifactHash(content) };
 }
 
-async function writeRatification(root: string, ratification: M5bRepositoryNativeRatification): Promise<string> {
-  const path = join(root, "human-ratification.json");
-  await writeFile(path, `${JSON.stringify(ratification, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-  return path;
+async function writeRatification(
+  path: string,
+  ratification: M5bRepositoryNativeRatification,
+): Promise<{ path: string; rawSha256: string }> {
+  const bytes = Buffer.from(`${JSON.stringify(ratification, null, 2)}\n`, "utf8");
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, bytes, { flag: "wx", mode: 0o600 });
+  return { path, rawSha256: hash(bytes) };
+}
+
+function applyOptions(
+  preparedDir: string,
+  ratification: { path: string; rawSha256: string },
+  graphStoreRoot: string,
+  outputDir: string,
+): M5bRepositoryNativeApplyOptions {
+  return {
+    preparedDir,
+    ratificationPath: ratification.path,
+    graphStoreRoot,
+    outputDir,
+    expectedRatificationSha256: ratification.rawSha256,
+    expectedOwnerAuthorizationId: OWNER_AUTHORIZATION,
+    expectedExecutionCommit: COMMIT,
+    expectedExecutionTree: TREE,
+  };
 }
 
 function assertRefusalCode(error: unknown, code: string): boolean {
@@ -100,7 +143,7 @@ function assertRefusalCode(error: unknown, code: string): boolean {
 }
 
 describe("M5b repository-native product completion", () => {
-  test("prepares exact explicit input and writes only the inspectable pre-ratification surface", async () => {
+  test("prepares one exact content read and only the inspectable pre-ratification surface", async () => {
     const root = scenarioRoot();
     try {
       const { preparedDir, result } = await preparedScenario(root);
@@ -127,86 +170,241 @@ describe("M5b repository-native product completion", () => {
       const html = readFileSync(join(preparedDir, "workshop-pre-ratification.html"), "utf8");
       assert.match(html, /Pending human review/);
       assert.match(html, /Current effective authorization: <strong>none<\/strong>/);
-      assert.equal(statSync(join(preparedDir, "prepare-result.json")).isFile(), true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("applies one externally bound ratification, reads durable state back, and renders final Workshop", async () => {
+  test("all-accept creates durable objects, records accepted retention, and labels the fixture truthfully", async () => {
     const root = scenarioRoot();
     try {
       const { preparedDir, result: prepare } = await preparedScenario(root);
-      const ratification = ratificationFor(prepare);
-      const ratificationPath = await writeRatification(root, ratification);
+      const ratification = ratificationFor(prepare, {
+        decisionMode: "all-accept",
+        retentionDisposition: "accept",
+      });
+      const ratificationFile = await writeRatification(join(root, "ratification", "human.json"), ratification);
       const graphStoreRoot = join(root, "graph-store");
       const outputDir = join(root, "applied");
-      const result = await applyM5bRepositoryNative({ preparedDir, ratificationPath, graphStoreRoot, outputDir });
-      assert.equal(result.revision, "rev_1");
+      const result = await applyM5bRepositoryNative(
+        applyOptions(preparedDir, ratificationFile, graphStoreRoot, outputDir),
+      );
+
+      assert.equal(result.graphCommitDisposition, "newly-created");
+      assert.equal(result.ratificationRawSha256, ratificationFile.rawSha256);
       assert.equal(result.durableBundleSha256, result.readBackBundleSha256);
-      assert.deepEqual(result.acceptedProposalIds,
-        ratification.decisions.filter((item) => item.disposition === "accept").map((item) => item.proposalId));
-      assert.deepEqual(result.rejectedProposalIds,
-        ratification.decisions.filter((item) => item.disposition === "reject").map((item) => item.proposalId));
-      assert.deepEqual(result.accounting, {
-        explicitPreparedArtifactReads: 5,
-        explicitRatificationReads: 1,
-        durableLocalGraphReads: 3,
-        durableLocalGraphWrites: 1,
-        durableLocalGraphReadBacks: 1,
-        workshopPagesRendered: 1,
-        outputFilesWritten: 2,
-        providerCalls: 0,
-        acquisitions: 0,
-        networkCalls: 0,
-        deployments: 0,
-        retries: 0,
+      assert.deepEqual(result.decisions, ratification.decisions);
+      assert.deepEqual(result.acceptedProposalIds, ratification.decisions.map((item) => item.proposalId));
+      assert.deepEqual(result.rejectedProposalIds, []);
+      assert.deepEqual(result.retentionDecision, {
+        retentionDraftId: "m5b-fedex-source-retention-beyond-original-deadline",
+        deadline: "2026-08-13T18:41:11.277Z",
+        disposition: "accept",
+        outcome: "beyond-deadline-retention-approved",
+        originalCustodyDeleted: false,
+        externalCustodyCleanupRequired: false,
       });
-      const store = new LocalFileVersionedGraphStore(graphStoreRoot);
-      const durable = await store.load(result.graphId);
-      if (!durable) throw new Error("durable graph read-back missing");
-      assert.equal(durable.revision, "rev_1");
-      assert.equal(durable.bundle.audit_events.length, ratification.decisions.length);
-      assert.equal(durable.bundle.account_objects.length, 1);
-      assert.deepEqual(durable.bundle.audit_events.map((event) => event.event_type),
-        ["claim.ratified", "claim.rejected"]);
-      assert.equal(durable.bundle.audit_events[1]?.payload_json.reason_code,
-        "synthetic_fixture_rejection_proof");
-      assert.ok(durable.bundle.excerpts.every((item) => item.validation_status === "accepted"));
-      assert.ok(durable.bundle.claims.every((item) => item.provenance_status === "source_document_only"));
-      assert.ok(durable.bundle.account_objects.every((item) => item.provenance_status === "source_document_only"));
-      const html = readFileSync(join(outputDir, "workshop-final.html"), "utf8");
-      assert.match(html, /Durable system-acquired preview \(local graph\)/);
-      assert.match(html, /System-acquired public source/);
-      assert.match(html, /SEC registrant identity/);
-      assert.doesNotMatch(html, /SEC industry classification/);
+      assert.equal(result.accounting.durableLocalGraphWrites, 1);
+      assert.equal(result.accounting.retries, 0);
+
+      const durable = await new LocalFileVersionedGraphStore(graphStoreRoot).load(result.graphId);
+      assert.equal(durable?.bundle.account_objects.length, 2);
+      assert.deepEqual(durable?.bundle.audit_events.map((event) => event.event_type), [
+        "claim.ratified",
+        "claim.ratified",
+        "source.retention_decided",
+      ]);
+      const retention = durable?.bundle.audit_events[2];
+      assert.equal(retention?.actor_id, ratification.ratifierId);
+      assert.equal(retention?.payload_json.ratification_raw_sha256, ratificationFile.rawSha256);
+      assert.equal(retention?.payload_json.original_custody_deleted, false);
+
+      const html = await readFile(join(outputDir, "workshop-final.html"), "utf8");
+      assert.match(html, /Durable synthetic-fixture preview \(local graph\)/);
+      assert.match(html, /Durable synthetic fixture/);
+      assert.doesNotMatch(html, /System-acquired public source/);
       assert.doesNotMatch(html, /pending human review/i);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("refuses exact replay without a second graph revision or output", async () => {
+  test("mixed decisions preserve rejection reasons and rejected retention without claiming deletion", async () => {
     const root = scenarioRoot();
     try {
       const { preparedDir, result: prepare } = await preparedScenario(root);
-      const ratificationPath = await writeRatification(root, ratificationFor(prepare));
-      const graphStoreRoot = join(root, "graph-store");
-      const first = await applyM5bRepositoryNative({
-        preparedDir, ratificationPath, graphStoreRoot, outputDir: join(root, "applied-first"),
+      const ratification = ratificationFor(prepare, {
+        decisionMode: "mixed",
+        retentionDisposition: "reject",
       });
-      await assert.rejects(() => applyM5bRepositoryNative({
-        preparedDir, ratificationPath, graphStoreRoot, outputDir: join(root, "applied-replay"),
-      }), (error) => assertRefusalCode(error, "apply_replay"));
-      const durable = await new LocalFileVersionedGraphStore(graphStoreRoot).load(first.graphId);
-      assert.equal(durable?.revision, "rev_1");
-      await assert.rejects(() => stat(join(root, "applied-replay")), /ENOENT/);
+      const ratificationFile = await writeRatification(join(root, "ratification", "human.json"), ratification);
+      const graphStoreRoot = join(root, "graph-store");
+      const result = await applyM5bRepositoryNative(
+        applyOptions(preparedDir, ratificationFile, graphStoreRoot, join(root, "applied")),
+      );
+      const durable = await new LocalFileVersionedGraphStore(graphStoreRoot).load(result.graphId);
+
+      assert.equal(durable?.bundle.account_objects.length, 1);
+      assert.equal(durable?.bundle.audit_events[1]?.event_type, "claim.rejected");
+      assert.equal(durable?.bundle.audit_events[1]?.payload_json.reason_code, "rejected_human_decision_1");
+      assert.equal(result.retentionDecision.disposition, "reject");
+      assert.equal(result.retentionDecision.externalCustodyCleanupRequired, true);
+      assert.equal(result.retentionDecision.originalCustodyDeleted, false);
+      assert.match(result.retentionDecision.outcome, /not-authorized-external-custody-cleanup-required/);
+      assert.equal(durable?.bundle.audit_events[2]?.payload_json.external_custody_cleanup_required, true);
+      assert.equal(durable?.bundle.audit_events[2]?.payload_json.original_custody_deleted, false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test("refuses source, prepared-artifact, and ratification tampering before durable state", async () => {
+  test("reject-all is a durable terminal outcome with zero promoted account objects", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const ratification = ratificationFor(prepare, { decisionMode: "reject-all" });
+      const ratificationFile = await writeRatification(join(root, "ratification", "human.json"), ratification);
+      const graphStoreRoot = join(root, "graph-store");
+      const outputDir = join(root, "applied");
+      const result = await applyM5bRepositoryNative(
+        applyOptions(preparedDir, ratificationFile, graphStoreRoot, outputDir),
+      );
+      const durable = await new LocalFileVersionedGraphStore(graphStoreRoot).load(result.graphId);
+
+      assert.deepEqual(result.acceptedProposalIds, []);
+      assert.equal(result.rejectedProposalIds.length, 2);
+      assert.deepEqual(result.decisions, ratification.decisions);
+      assert.equal(durable?.bundle.account_objects.length, 0);
+      assert.equal(durable?.bundle.claims.length, 0);
+      assert.equal(durable?.bundle.excerpts.length, 0);
+      assert.equal(durable?.bundle.audit_events.length, 3);
+      assert.ok(durable?.bundle.audit_events.slice(0, 2).every((event) => event.event_type === "claim.rejected"));
+      const html = await readFile(join(outputDir, "workshop-final.html"), "utf8");
+      assert.match(html, /No graph-backed intelligence yet/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("preflights a missing output parent before graph commit", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const ratificationFile = await writeRatification(
+        join(root, "ratification", "human.json"),
+        ratificationFor(prepare),
+      );
+      const graphStoreRoot = join(root, "graph-store");
+      await assert.rejects(
+        () => applyM5bRepositoryNative(applyOptions(
+          preparedDir,
+          ratificationFile,
+          graphStoreRoot,
+          join(root, "absent-parent", "applied"),
+        )),
+        (error) => assertRefusalCode(error, "output_parent_missing"),
+      );
+      await assert.rejects(() => stat(graphStoreRoot), /ENOENT/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("finalizes an exact existing rev_1 without a second graph write", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const ratificationFile = await writeRatification(
+        join(root, "ratification", "human.json"),
+        ratificationFor(prepare),
+      );
+      const graphStoreRoot = join(root, "graph-store");
+      const outputDir = join(root, "applied");
+      const first = await applyM5bRepositoryNative(
+        applyOptions(preparedDir, ratificationFile, graphStoreRoot, outputDir),
+      );
+      const [graphFile] = await readdir(join(graphStoreRoot, "graphs"));
+      const graphBytesBefore = await readFile(join(graphStoreRoot, "graphs", graphFile!));
+      await rm(outputDir, { recursive: true });
+
+      const recovered = await applyM5bRepositoryNative(
+        applyOptions(preparedDir, ratificationFile, graphStoreRoot, outputDir),
+      );
+      const durable = await new LocalFileVersionedGraphStore(graphStoreRoot).load(first.graphId);
+
+      assert.equal(recovered.graphCommitDisposition, "existing-exact-finalized-without-write");
+      assert.equal(recovered.accounting.durableLocalGraphWrites, 0);
+      assert.equal(recovered.accounting.durableLocalGraphReads, 1);
+      assert.equal(durable?.revision, "rev_1");
+      assert.deepEqual(await readFile(join(graphStoreRoot, "graphs", graphFile!)), graphBytesBefore);
+      assert.equal((await stat(join(outputDir, "workshop-final.html"))).isFile(), true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses a differing bundle or ratification binding at an existing graph", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const firstRatification = await writeRatification(
+        join(root, "ratification", "first.json"),
+        ratificationFor(prepare, { decisionMode: "mixed" }),
+      );
+      const graphStoreRoot = join(root, "graph-store");
+      await applyM5bRepositoryNative(
+        applyOptions(preparedDir, firstRatification, graphStoreRoot, join(root, "first-output")),
+      );
+      const secondRatification = await writeRatification(
+        join(root, "ratification", "second.json"),
+        ratificationFor(prepare, { decisionMode: "mixed", ratifierId: "different_reviewer" }),
+      );
+
+      await assert.rejects(
+        () => applyM5bRepositoryNative(
+          applyOptions(preparedDir, secondRatification, graphStoreRoot, join(root, "second-output")),
+        ),
+        (error) => assertRefusalCode(error, "existing_graph_mismatch"),
+      );
+      const graphFiles = await import("node:fs/promises").then((fs) => fs.readdir(join(graphStoreRoot, "graphs")));
+      assert.equal(graphFiles.length, 1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("enforces raw ratification hash, owner, commit, and tree pins inside apply", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const ratificationFile = await writeRatification(
+        join(root, "ratification", "human.json"),
+        ratificationFor(prepare),
+      );
+      const base = applyOptions(preparedDir, ratificationFile, join(root, "graph-store"), join(root, "output"));
+      const cases: Array<[Partial<M5bRepositoryNativeApplyOptions>, string]> = [
+        [{ expectedRatificationSha256: "f".repeat(64) }, "ratification_raw_sha256"],
+        [{ expectedOwnerAuthorizationId: "different_owner" }, "expected_owner_authorization"],
+        [{ expectedExecutionCommit: "c".repeat(40) }, "expected_execution_commit"],
+        [{ expectedExecutionTree: "d".repeat(40) }, "expected_execution_tree"],
+      ];
+      for (const [override, code] of cases) {
+        await assert.rejects(
+          () => applyM5bRepositoryNative({ ...base, ...override }),
+          (error) => assertRefusalCode(error, code),
+        );
+      }
+      await assert.rejects(
+        () => applyM5bRepositoryNative({ ...base, expectedRatificationSha256: "bad" }),
+        (error) => assertRefusalCode(error, "expected_ratification_sha256"),
+      );
+      await assert.rejects(() => stat(base.graphStoreRoot), /ENOENT/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("refuses source, prepared artifact, and internally rehashed ratification tampering", async () => {
     const sourceBytes = readFileSync(SOURCE);
     const wrongSourceRoot = scenarioRoot();
     try {
@@ -222,63 +420,209 @@ describe("M5b repository-native product completion", () => {
       rmSync(wrongSourceRoot, { recursive: true, force: true });
     }
 
-    const preparedTamperRoot = scenarioRoot();
+    const root = scenarioRoot();
     try {
-      const { preparedDir, result: prepare } = await preparedScenario(preparedTamperRoot);
+      const { preparedDir, result: prepare } = await preparedScenario(root);
       await writeFile(join(preparedDir, "candidate.json"), "{}\n");
-      const ratificationPath = await writeRatification(preparedTamperRoot, ratificationFor(prepare));
-      await assert.rejects(() => applyM5bRepositoryNative({
-        preparedDir,
-        ratificationPath,
-        graphStoreRoot: join(preparedTamperRoot, "graph-store"),
-        outputDir: join(preparedTamperRoot, "applied"),
-      }), (error) => assertRefusalCode(error, "prepared_artifact_tamper"));
-      await assert.rejects(() => stat(join(preparedTamperRoot, "graph-store")), /ENOENT/);
+      const ratificationFile = await writeRatification(
+        join(root, "ratification", "human.json"),
+        ratificationFor(prepare),
+      );
+      await assert.rejects(
+        () => applyM5bRepositoryNative(
+          applyOptions(preparedDir, ratificationFile, join(root, "graph-store"), join(root, "output")),
+        ),
+        (error) => assertRefusalCode(error, "prepared_artifact_tamper"),
+      );
     } finally {
-      rmSync(preparedTamperRoot, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
     }
 
-    const ratificationTamperRoot = scenarioRoot();
+    const ratificationRoot = scenarioRoot();
     try {
-      const { preparedDir, result: prepare } = await preparedScenario(ratificationTamperRoot);
+      const { preparedDir, result: prepare } = await preparedScenario(ratificationRoot);
       const valid = ratificationFor(prepare);
-      const validRatificationPath = await writeRatification(ratificationTamperRoot, valid);
-      await assert.rejects(() => applyM5bRepositoryNative({
-        preparedDir,
-        ratificationPath: validRatificationPath,
-        graphStoreRoot: preparedDir,
-        outputDir: join(ratificationTamperRoot, "overlap-output"),
-      }), (error: unknown) => assertRefusalCode(error, "explicit_path_overlap"));
       const { ratificationArtifactSha256: _old, ...content } = valid;
       const tamperedContent = { ...content, executionTree: "c".repeat(40) };
-      const tampered = { ...tamperedContent,
-        ratificationArtifactSha256: verifyM5bRepositoryNativeRatificationArtifactHash(tamperedContent) };
-      const ratificationPath = join(ratificationTamperRoot, "tampered-ratification.json");
-      writeFileSync(ratificationPath, `${JSON.stringify(tampered, null, 2)}\n`);
-      await assert.rejects(() => applyM5bRepositoryNative({
-        preparedDir,
-        ratificationPath,
-        graphStoreRoot: join(ratificationTamperRoot, "graph-store"),
-        outputDir: join(ratificationTamperRoot, "applied"),
-      }), (error) => assertRefusalCode(error, "ratification_binding"));
-      await assert.rejects(() => stat(join(ratificationTamperRoot, "graph-store")), /ENOENT/);
+      const tampered = {
+        ...tamperedContent,
+        ratificationArtifactSha256: verifyM5bRepositoryNativeRatificationArtifactHash(tamperedContent),
+      };
+      const ratificationFile = await writeRatification(
+        join(ratificationRoot, "ratification", "tampered.json"),
+        tampered,
+      );
+      await assert.rejects(
+        () => applyM5bRepositoryNative(
+          applyOptions(preparedDir, ratificationFile, join(ratificationRoot, "graph-store"), join(ratificationRoot, "output")),
+        ),
+        (error) => assertRefusalCode(error, "ratification_binding"),
+      );
     } finally {
-      rmSync(ratificationTamperRoot, { recursive: true, force: true });
+      rmSync(ratificationRoot, { recursive: true, force: true });
     }
   });
 
+  test("rejects nested apply locations across prepared, ratification, graph-store, and output", async () => {
+    const cases: Array<(input: {
+      root: string;
+      preparedDir: string;
+      ratificationFile: { path: string; rawSha256: string };
+    }) => Promise<M5bRepositoryNativeApplyOptions>> = [
+      async ({ root, preparedDir, ratificationFile }) => {
+        const nested = join(preparedDir, "nested-ratification.json");
+        await writeFile(nested, await readFile(ratificationFile.path));
+        return applyOptions(preparedDir, { path: nested, rawSha256: ratificationFile.rawSha256 },
+          join(root, "graph-store"), join(root, "output"));
+      },
+      async ({ root, preparedDir, ratificationFile }) =>
+        applyOptions(preparedDir, ratificationFile, join(preparedDir, "graph-store"), join(root, "output")),
+      async ({ root, preparedDir, ratificationFile }) =>
+        applyOptions(preparedDir, ratificationFile, join(root, "graph-store"), join(preparedDir, "output")),
+      async ({ root, preparedDir, ratificationFile }) => {
+        const graph = dirname(ratificationFile.path);
+        return applyOptions(preparedDir, ratificationFile, graph, join(root, "output"));
+      },
+      async ({ root, preparedDir, ratificationFile }) =>
+        applyOptions(preparedDir, ratificationFile, join(root, "graph-store"), join(ratificationFile.path, "output")),
+      async ({ root, preparedDir, ratificationFile }) => {
+        const graph = join(root, "graph-store");
+        await mkdir(graph);
+        return applyOptions(preparedDir, ratificationFile, graph, join(graph, "output"));
+      },
+    ];
+
+    for (const buildCase of cases) {
+      const root = scenarioRoot();
+      try {
+        const { preparedDir, result: prepare } = await preparedScenario(root);
+        const ratificationFile = await writeRatification(
+          join(root, "ratification", "human.json"),
+          ratificationFor(prepare),
+        );
+        const options = await buildCase({ root, preparedDir, ratificationFile });
+        await assert.rejects(
+          () => applyM5bRepositoryNative(options),
+          (error) => error instanceof M5bRepositoryNativeRefusal,
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("rejects a prepare output nested through the source-file path", async () => {
+    const root = scenarioRoot();
+    try {
+      const sourceBytes = readFileSync(SOURCE);
+      await assert.rejects(
+        () => prepareM5bRepositoryNative({
+          sourcePath: SOURCE,
+          outputDir: join(SOURCE, "nested-output"),
+          expectedSource: {
+            kind: "committed-synthetic-fixture",
+            sha256: hash(sourceBytes),
+            size: sourceBytes.byteLength,
+          },
+          ownerAuthorizationId: OWNER_AUTHORIZATION,
+          executionCommit: COMMIT,
+          executionTree: TREE,
+        }),
+        (error) => error instanceof M5bRepositoryNativeRefusal,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects symlink aliases for source, prepared, ratification, graph-store, and output components", async () => {
+    const sourceRoot = scenarioRoot();
+    try {
+      const sourceAlias = join(sourceRoot, "source-alias.json");
+      await symlink(SOURCE, sourceAlias);
+      const sourceBytes = readFileSync(SOURCE);
+      await assert.rejects(
+        () => prepareM5bRepositoryNative({
+          sourcePath: sourceAlias,
+          outputDir: join(sourceRoot, "prepared"),
+          expectedSource: {
+            kind: "committed-synthetic-fixture",
+            sha256: hash(sourceBytes),
+            size: sourceBytes.byteLength,
+          },
+          ownerAuthorizationId: OWNER_AUTHORIZATION,
+          executionCommit: COMMIT,
+          executionTree: TREE,
+        }),
+        (error) => assertRefusalCode(error, "symlink_path"),
+      );
+    } finally {
+      rmSync(sourceRoot, { recursive: true, force: true });
+    }
+
+    for (const aliasKind of ["prepared", "ratification", "graph-store", "output-parent"] as const) {
+      const root = scenarioRoot();
+      try {
+        const { preparedDir, result: prepare } = await preparedScenario(root);
+        const ratificationFile = await writeRatification(
+          join(root, "ratification", "human.json"),
+          ratificationFor(prepare),
+        );
+        const graphStoreRoot = join(root, "graph-store");
+        let options = applyOptions(preparedDir, ratificationFile, graphStoreRoot, join(root, "output"));
+        if (aliasKind === "prepared") {
+          const alias = join(root, "prepared-alias");
+          await symlink(preparedDir, alias, "dir");
+          options = { ...options, preparedDir: alias };
+        } else if (aliasKind === "ratification") {
+          const alias = join(root, "ratification-alias.json");
+          await symlink(ratificationFile.path, alias);
+          options = { ...options, ratificationPath: alias };
+        } else if (aliasKind === "graph-store") {
+          await mkdir(graphStoreRoot);
+          const alias = join(root, "graph-store-alias");
+          await symlink(graphStoreRoot, alias, "dir");
+          options = { ...options, graphStoreRoot: alias };
+        } else {
+          const actualParent = join(root, "actual-output-parent");
+          const aliasParent = join(root, "output-parent-alias");
+          await mkdir(actualParent);
+          await symlink(actualParent, aliasParent, "dir");
+          options = { ...options, outputDir: join(aliasParent, "output") };
+        }
+        await assert.rejects(
+          () => applyM5bRepositoryNative(options),
+          (error) => assertRefusalCode(error, "symlink_path"),
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("maps bound source kinds to exact positive and negative final provenance labels", () => {
+    const vm = buildWorkshopViewModel(makeValidBundle());
+    const production = renderWorkshopHtml(vm, {
+      previewMode: m5bRepositoryNativePreviewModeForSourceKind("exact-production-custody"),
+    });
+    assert.match(production, /System-acquired public source/);
+    assert.doesNotMatch(production, /Durable synthetic fixture/);
+
+    const synthetic = renderWorkshopHtml(vm, {
+      previewMode: m5bRepositoryNativePreviewModeForSourceKind("committed-synthetic-fixture"),
+    });
+    assert.match(synthetic, /Durable synthetic fixture/);
+    assert.doesNotMatch(synthetic, /System-acquired public source/);
+  });
+
   test("keeps the product surface repository-native and effect-closed", async () => {
-    assert.equal(isSafeMode("local-product"), false);
-    assert.doesNotThrow(() => assertProductionWriteAllowed("local-product"));
-    assert.throws(() => assertProviderAllowed("local-product"), ModelModeNotActivatedError);
     const source = await readFile(join(ROOT, "src/workshop/m5b-repository-native.ts"), "utf8");
     const cli = await readFile(join(ROOT, "src/cli/m5b-repository-native.ts"), "utf8");
+    const barrel = await readFile(join(ROOT, "src/index.ts"), "utf8");
     for (const text of [source, cli]) {
       assert.doesNotMatch(text, /\/home\/|\.hermes|maintenance.?lock|worktree.?registry|gateway|kanban/i);
       assert.doesNotMatch(text, /\bfetch\s*\(|node:https|node:http|child_process|provider\.invoke|\bdeploy\s*\(/i);
     }
-    assert.match(cli, /missing required argument/);
-    assert.match(source, /LocalFileVersionedGraphStore/);
-    assert.match(source, /renderWorkshopHtml/);
+    assert.doesNotMatch(barrel, /m5b-repository-native|local-file-versioned-store/);
   });
 });

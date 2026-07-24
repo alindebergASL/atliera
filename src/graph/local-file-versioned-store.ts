@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { assertProductionWriteAllowed } from "../modes/index.ts";
@@ -16,14 +16,19 @@ import {
   type VersionedGraphStore,
 } from "./versioned-store.ts";
 
-interface StoredVersionedGraphSnapshot {
+interface StoredVersionedGraphSnapshotContent {
   readonly kind: "atliera-local-versioned-graph";
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly graphId: string;
   readonly revision: GraphRevision;
   readonly bundle: GraphBundle;
 }
 
+interface StoredVersionedGraphSnapshot extends StoredVersionedGraphSnapshotContent {
+  readonly integritySha256: string;
+}
+
+const HASH = /^[a-f0-9]{64}$/;
 const REVISION = /^rev_([1-9][0-9]*)$/;
 
 function graphFileName(graphId: string): string {
@@ -49,6 +54,24 @@ function nextRevision(current: GraphRevision | null): GraphRevision {
   return `rev_${value + 1}` as GraphRevision;
 }
 
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean" ||
+      (typeof value === "number" && Number.isFinite(value))) {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  throw new Error("local versioned graph store canonical JSON contains a non-JSON value");
+}
+
+function integritySha256(content: StoredVersionedGraphSnapshotContent): string {
+  return createHash("sha256").update(canonicalJson(content), "utf8").digest("hex");
+}
+
 function parseStoredSnapshot(text: string, expectedGraphId: string): VersionedGraphSnapshot {
   let raw: unknown;
   try {
@@ -61,19 +84,30 @@ function parseStoredSnapshot(text: string, expectedGraphId: string): VersionedGr
   }
   const record = raw as Record<string, unknown>;
   const keys = Object.keys(record).sort();
-  const expectedKeys = ["bundle", "graphId", "kind", "revision", "schemaVersion"].sort();
+  const expectedKeys = ["bundle", "graphId", "integritySha256", "kind", "revision", "schemaVersion"].sort();
   if (keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
     throw new Error("local versioned graph store contains an invalid envelope");
   }
-  if (record.kind !== "atliera-local-versioned-graph" || record.schemaVersion !== "1" ||
-      record.graphId !== expectedGraphId || typeof record.revision !== "string" || !REVISION.test(record.revision)) {
+  if (record.kind !== "atliera-local-versioned-graph" || record.schemaVersion !== "2" ||
+      record.graphId !== expectedGraphId || typeof record.revision !== "string" || !REVISION.test(record.revision) ||
+      typeof record.integritySha256 !== "string" || !HASH.test(record.integritySha256)) {
     throw new Error("local versioned graph store identity mismatch");
   }
   const parsed = parseGraphBundle(record.bundle);
   if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
     throw new GraphStoreValidationError(expectedGraphId);
   }
-  return { graphId: expectedGraphId, revision: record.revision as GraphRevision, bundle: cloneBundle(parsed.value) };
+  const content: StoredVersionedGraphSnapshotContent = {
+    kind: "atliera-local-versioned-graph",
+    schemaVersion: "2",
+    graphId: expectedGraphId,
+    revision: record.revision as GraphRevision,
+    bundle: parsed.value,
+  };
+  if (integritySha256(content) !== record.integritySha256) {
+    throw new Error("local versioned graph store integrity digest mismatch");
+  }
+  return { graphId: expectedGraphId, revision: content.revision, bundle: cloneBundle(parsed.value) };
 }
 
 /**
@@ -83,6 +117,9 @@ function parseStoredSnapshot(text: string, expectedGraphId: string): VersionedGr
  * that root; no repository, home-directory, control-plane, or gateway path is
  * consulted. A graph-scoped exclusive lock serializes one atomic temp+rename
  * commit. Lock acquisition and all other operations are single-attempt only.
+ *
+ * The stored canonical digest detects corruption or drift. It is not a
+ * signature and supplies no writer identity or write authority.
  */
 export class LocalFileVersionedGraphStore implements VersionedGraphStore {
   private readonly root: string;
@@ -101,6 +138,19 @@ export class LocalFileVersionedGraphStore implements VersionedGraphStore {
     return join(this.graphsRoot, graphFileName(graphId));
   }
 
+  protected async replaceGraphFile(tempPath: string, path: string): Promise<void> {
+    await rename(tempPath, path);
+  }
+
+  private async syncGraphsDirectory(): Promise<void> {
+    const directory = await open(this.graphsRoot, "r");
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close();
+    }
+  }
+
   async load(graphId: string): Promise<VersionedGraphSnapshot | undefined> {
     const path = this.graphPath(graphId);
     let text: string;
@@ -115,10 +165,13 @@ export class LocalFileVersionedGraphStore implements VersionedGraphStore {
 
   async commit(graphId: string, bundle: GraphBundle,
     options: VersionedGraphCommitOptions): Promise<VersionedGraphSnapshot> {
-    assertProductionWriteAllowed(options.mode);
+    assertProductionWriteAllowed(options.mode, "local-file-versioned-graph-store");
     assertSafeGraphId(graphId);
-    const report = validateGraphBundleRaw(bundle, { mode: "fixture" });
-    if (!report.ok) throw new GraphStoreValidationError(graphId);
+    const parsed = parseGraphBundle(bundle);
+    if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
+      throw new GraphStoreValidationError(graphId);
+    }
+    const validatedBundle = cloneBundle(parsed.value);
 
     await mkdir(this.graphsRoot, { recursive: true, mode: 0o700 });
     const path = this.graphPath(graphId);
@@ -134,6 +187,7 @@ export class LocalFileVersionedGraphStore implements VersionedGraphStore {
     }
 
     const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+    let temp: Awaited<ReturnType<typeof open>> | undefined;
     try {
       const current = await this.load(graphId);
       const actualRevision = current?.revision ?? null;
@@ -141,17 +195,27 @@ export class LocalFileVersionedGraphStore implements VersionedGraphStore {
         throw new GraphStoreConflictError(graphId, options.expectedRevision, actualRevision);
       }
       const revision = nextRevision(actualRevision);
-      const stored: StoredVersionedGraphSnapshot = {
+      const content: StoredVersionedGraphSnapshotContent = {
         kind: "atliera-local-versioned-graph",
-        schemaVersion: "1",
+        schemaVersion: "2",
         graphId,
         revision,
-        bundle: cloneBundle(bundle),
+        bundle: validatedBundle,
       };
-      await writeFile(tempPath, `${JSON.stringify(stored, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
-      await rename(tempPath, path);
-      return cloneSnapshot({ graphId, revision, bundle });
+      const stored: StoredVersionedGraphSnapshot = {
+        ...content,
+        integritySha256: integritySha256(content),
+      };
+      temp = await open(tempPath, "wx", 0o600);
+      await temp.writeFile(`${JSON.stringify(stored, null, 2)}\n`, "utf8");
+      await temp.sync();
+      await temp.close();
+      temp = undefined;
+      await this.replaceGraphFile(tempPath, path);
+      await this.syncGraphsDirectory();
+      return cloneSnapshot({ graphId, revision, bundle: validatedBundle });
     } finally {
+      await temp?.close().catch(() => undefined);
       await rm(tempPath, { force: true }).catch(() => undefined);
       await lock.close().catch(() => undefined);
       await rm(lockPath, { force: true }).catch(() => undefined);

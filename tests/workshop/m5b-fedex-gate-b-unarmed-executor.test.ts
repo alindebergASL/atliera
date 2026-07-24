@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   linkSync,
@@ -404,10 +404,18 @@ test("canonical repository identity is module/Git-derived and implementation sna
     assert.equal(actual.baseCommit, M5B_FEDEX_GATE_B_IMPLEMENTATION_BASE_COMMIT);
     assert.equal(actual.baseTree, M5B_FEDEX_GATE_B_IMPLEMENTATION_BASE_TREE);
     assert.equal(typeof actual.baseIsAncestor, "boolean");
-    if (actual.commit !== M5B_FEDEX_GATE_B_IMPLEMENTATION_BASE_COMMIT) {
-      assert.equal(actual.baseIsAncestor, true,
-        "the reviewed executor must be a single commit directly atop the pinned base");
-    }
+    const commitHeaders = execFileSync("git", ["cat-file", "commit", actual.commit], {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+    });
+    const parents = commitHeaders.split("\n")
+      .filter((header) => header.startsWith("parent "))
+      .map((header) => header.slice("parent ".length));
+    assert.equal(
+      actual.baseIsAncestor,
+      parents.length === 1 && parents[0] === M5B_FEDEX_GATE_B_IMPLEMENTATION_BASE_COMMIT,
+      "baseIsAncestor must mean exactly one direct parent equal to the pinned implementation base",
+    );
   } finally {
     process.chdir(originalWorkingDirectory);
   }

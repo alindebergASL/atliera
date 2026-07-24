@@ -110,7 +110,7 @@ export class DatabaseVersionedGraphStore implements VersionedGraphStore {
     bundle: GraphBundle,
     options: VersionedGraphCommitOptions,
   ): Promise<VersionedGraphSnapshot> {
-    assertProductionWriteAllowed(options.mode);
+    assertProductionWriteAllowed(options.mode, "database-versioned-graph-store");
     assertSafeGraphId(graphId);
     assertValidBundle(graphId, bundle);
 

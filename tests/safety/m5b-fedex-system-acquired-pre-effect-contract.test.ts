@@ -48,7 +48,8 @@ test("M5b Gate A status cannot drift to authorization, shipping, or effects", ()
     "readiness_claim: false",
     "shipped_claim: false",
   ]) assert.ok(status.includes(marker), marker);
-  assert.match(roadmapRow(roadmap), /🔶 in progress — repository-native product path implemented for review; real execution unauthorized/);
+  assert.match(roadmapRow(roadmap),
+    /🔶 in progress — mechanism implemented for review; real page not yet executed or evaluated/);
   assert.doesNotMatch(roadmapRow(roadmap), /✅ shipped/);
   assert.match(index, /m5b-fedex-system-acquired-pre-effect-gate-a-status\.md/);
   assert.match(index, /repository-native[^\n]*M5b|M5b[^\n]*repository-native/i);

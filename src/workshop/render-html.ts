@@ -19,7 +19,12 @@ const LENS_TITLES: Record<WorkshopLens, string> = {
  * tell apart the default fake-mode preview from a preview produced for
  * validation review of a candidate GraphBundle.
  */
-export type WorkshopPreviewMode = "fake" | "validation" | "durable-curated" | "durable-system-acquired";
+export type WorkshopPreviewMode =
+  | "fake"
+  | "validation"
+  | "durable-curated"
+  | "durable-system-acquired"
+  | "durable-synthetic-fixture";
 
 export interface RenderWorkshopHtmlOptions {
   /** Defaults to "fake" to preserve the existing fake-mode preview label. */
@@ -39,12 +44,15 @@ const PREVIEW_MODE_LABELS: Record<WorkshopPreviewMode, string> = {
   validation: "Validation preview (non-production)",
   "durable-curated": "Durable curated preview (local only)",
   "durable-system-acquired": "Durable system-acquired preview (local graph)",
+  "durable-synthetic-fixture": "Durable synthetic-fixture preview (local graph)",
 };
 
 export const WORKSHOP_CURATED_PUBLIC_SOURCE_LABEL = "Curated public source" as const;
 export const WORKSHOP_CURATED_PUBLIC_SOURCE_ORIGIN = "hand-curated-public" as const;
 export const WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_LABEL = "System-acquired public source" as const;
 export const WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_ORIGIN = "system-acquired-public" as const;
+export const WORKSHOP_DURABLE_SYNTHETIC_FIXTURE_LABEL = "Durable synthetic fixture" as const;
+export const WORKSHOP_DURABLE_SYNTHETIC_FIXTURE_ORIGIN = "committed-synthetic-fixture" as const;
 
 function escapeHtml(value: string): string {
   return value
@@ -108,18 +116,26 @@ function renderLensItem(item: WorkshopLensItemViewModel, previewMode: WorkshopPr
   const reviewBadge = reviewDecorated
     ? `\n      <span class="review-pill">${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</span>`
     : "";
-  const durableSource = previewMode === "durable-curated" || previewMode === "durable-system-acquired";
+  const durableSource = previewMode === "durable-curated" ||
+    previewMode === "durable-system-acquired" ||
+    previewMode === "durable-synthetic-fixture";
   const durableSourceOrigin = previewMode === "durable-curated"
     ? WORKSHOP_CURATED_PUBLIC_SOURCE_ORIGIN
-    : WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_ORIGIN;
+    : previewMode === "durable-system-acquired"
+      ? WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_ORIGIN
+      : WORKSHOP_DURABLE_SYNTHETIC_FIXTURE_ORIGIN;
   const durableSourceLabel = previewMode === "durable-curated"
     ? WORKSHOP_CURATED_PUBLIC_SOURCE_LABEL
-    : WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_LABEL;
+    : previewMode === "durable-system-acquired"
+      ? WORKSHOP_SYSTEM_ACQUIRED_PUBLIC_SOURCE_LABEL
+      : WORKSHOP_DURABLE_SYNTHETIC_FIXTURE_LABEL;
   const curatedAttribute = previewMode === "durable-curated"
     ? ` data-curated-provenance="${durableSourceOrigin}"`
     : previewMode === "durable-system-acquired"
       ? ` data-durable-source-origin="${durableSourceOrigin}"`
-      : "";
+      : previewMode === "durable-synthetic-fixture"
+        ? ` data-durable-fixture-origin="${durableSourceOrigin}"`
+        : "";
   const curatedBadge = durableSource
     ? `\n      <span class="curated-pill">${escapeHtml(durableSourceLabel)}</span>`
     : "";
@@ -171,7 +187,9 @@ export function renderWorkshopHtml(vm: WorkshopViewModel, options: RenderWorksho
   const accountLabel = vm.account_id
     ? `<span>Account ${escapeHtml(vm.account_id)}</span>`
     : `<span>Account not set</span>`;
-  const curatedStyles = previewMode === "durable-curated" || previewMode === "durable-system-acquired"
+  const curatedStyles = previewMode === "durable-curated" ||
+    previewMode === "durable-system-acquired" ||
+    previewMode === "durable-synthetic-fixture"
     ? "    .curated-pill { border: 1px solid #38bdf8; border-radius: 999px; padding: 3px 9px; background: #082f49; color: #bae6fd; }\n"
     : "";
 

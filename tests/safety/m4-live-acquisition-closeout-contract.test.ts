@@ -279,7 +279,7 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.ok(m4.includes(WORKSHOP_PATH));
   assert.ok(m4.includes(PROOF_PATH));
   assert.ok(m4.includes(RETRO_PATH));
-  assert.ok(m5b.includes("🔶 in progress — repository-native product path implemented for review; real execution unauthorized"));
+  assert.ok(m5b.includes("🔶 in progress — mechanism implemented for review; real page not yet executed or evaluated"));
 
   for (const document of [RETRO, RUNBOOK, ROADMAP, INDEX]) {
     assert.equal(markerValue(document, "current_effective_authorization"), "none");
@@ -289,16 +289,15 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.equal(markerValue(RETRO, "implementation_work_authorized"), "none");
   assert.equal(markerValue(RETRO, "next_recommended_work"), "separate explicit M5b decision");
   assert.equal(markerValue(RUNBOOK, "next_recommended_work"), "separate explicit M5b decision");
-  assert.match(
-    INDEX,
-    /next recommended work: no M5b private read is authorized; a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, merge commit SHA\/tree binding, exact custody identity plus a separately supplied private path, and execution before 2026-08-13T18:41:11\.277Z unless a separately ratified bounded retention decision exists/,
-  );
+  assert.match(INDEX, /M5b acceptance remains one real account/i);
+  assert.match(INDEX, /Repository-native prepare\/apply is the current implementation mechanism/i);
   assert.equal(PROOF.boundaries.current_effective_authorization, "none");
   assert.equal(PROOF.boundaries.next_recommended_work, "separate_explicit_M5b_decision");
   assert.match(
     read(BLOCKERS_PATH),
-    /The next possible M5b private-read gate is blocked and requires all of: PR #289 approval on its then-current exact head; merge; successful post-merge CI; binding to the resulting merge commit SHA and tree; exact custody artifact identity plus a separately supplied private path; and execution before `2026-08-13T18:41:11\.277Z` unless a separately ratified bounded retention decision already exists/i,
+    /The next M5b effects are blocked because `CURRENT_EFFECTIVE_AUTHORIZATION=NONE`/i,
   );
+  assert.match(read(BLOCKERS_PATH), /M5b acceptance remains customer-facing: one real account/i);
   assert.match(
     read(GATE3_PATH),
     /The repaired M5b Gate A frontier supersedes that queue position but authorizes no private read: a possible gate requires PR #289 approval on its then-current exact head, merge, successful post-merge CI, binding to the resulting merge commit SHA and tree, exact custody artifact identity plus a separately supplied private path, and execution before `2026-08-13T18:41:11\.277Z` unless a separately ratified bounded retention decision already exists/i,

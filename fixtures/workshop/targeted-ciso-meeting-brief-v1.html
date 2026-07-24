@@ -17,7 +17,7 @@
     .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
     .chips span { border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: 6px 10px; background: rgba(255,255,255,.08); }
     .next-action { margin: 18px 0 0; padding: 14px 16px; border-left: 4px solid #85d7c4; background: rgba(255,255,255,.08); }
-    .brief-section, .support-panel { margin-top: 20px; border: 1px solid #d8e1ec; border-radius: 20px; padding: 20px; background: #fff; }
+    .target-panel, .input-panel, .brief-section, .support-panel { margin-top: 20px; border: 1px solid #d8e1ec; border-radius: 20px; padding: 20px; background: #fff; }
     .brief-section > header { display: flex; justify-content: space-between; gap: 16px; align-items: start; border-bottom: 1px solid #e7edf4; padding-bottom: 12px; }
     h2 { margin: 0; font-size: 1.35rem; }
     .assertion { margin-top: 14px; border: 1px solid #dce5ee; border-radius: 16px; padding: 16px; background: #fbfdff; }
@@ -26,25 +26,31 @@
     .trust, .template-label { display: inline-block; border-radius: 999px; padding: 4px 9px; font-size: .78rem; font-weight: 700; }
     .trust-verified { color: #0b573f; background: #dff6ed; }
     .trust-source_document_only { color: #174a6e; background: #e0f0fb; }
+    .trust-contested { color: #7a2f18; background: #ffe6dc; }
     details { margin-top: 12px; border-top: 1px solid #e3e9f0; padding-top: 10px; }
     summary { cursor: pointer; color: #155c73; font-weight: 750; }
     .evidence-packet { margin-top: 12px; border-left: 3px solid #7db9c8; padding: 4px 0 4px 14px; }
-    dl { display: grid; grid-template-columns: minmax(150px, .35fr) minmax(0, 1fr); gap: 7px 14px; }
+    .evidence-contradicts { border-left-color: #d7795c; }
+    .evidence-label { color: #506078; font-weight: 750; }
+    dl { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: 7px 14px; }
     dt { color: #627089; font-weight: 700; }
     dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
     blockquote { margin: 0; }
+    code { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 5px; border-radius: 5px; background: #eef3f8; overflow-wrap: anywhere; }
     a { color: #155c73; }
     .unsafe-url { color: #a33a3a; }
-    .support-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .support-grid, .identity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
     ul { margin: 12px 0 0; padding-left: 20px; }
     li + li { margin-top: 12px; }
     .template-label { color: #5b3d09; background: #fff1c9; margin-bottom: 4px; }
-    .empty-section { color: #627089; }
+    .empty-section, .workspace-records { color: #627089; }
+    .workspace-records { margin-top: 6px; font-size: .86rem; }
+    .target-relevance-gap { margin: 16px 0 0; border-left: 4px solid #d7795c; padding: 10px 12px; background: #fff4ef; color: #65301f; }
     footer { margin-top: 22px; color: #627089; font-size: .86rem; text-align: center; }
     @media (max-width: 760px) {
       main { padding: 16px 14px 36px; }
       .hero { padding: 22px 18px; border-radius: 18px; }
-      .support-grid { grid-template-columns: 1fr; gap: 0; }
+      .support-grid, .identity-grid { grid-template-columns: 1fr; gap: 0; }
       .brief-section > header, .assertion-heading { flex-direction: column; }
       dl { grid-template-columns: 1fr; }
       dt { margin-top: 6px; }
@@ -56,32 +62,55 @@
     <section class="hero">
       <p class="kicker">Atliera · Account reference acc_acme_robotics</p>
       <h1>Targeted CISO meeting brief</h1>
-      <p class="summary">3 evidence-backed points ready for human review.</p>
+      <p class="summary">2 selected evidence-backed points ready for human review.</p>
       <div class="chips" aria-label="Brief boundaries">
         <span>Read-only · no automatic action</span>
+        <span>Explicit human selection only</span>
         <span>Evidence-bound assertions only</span>
         <span>Human review required</span>
       </div>
       <p class="next-action"><strong>Next safe action:</strong> Review the evidence behind the most important point.</p>
     </section>
+    <div class="identity-grid">
+      <section class="target-panel">
+      <p class="kicker">Caller / human workflow context · not account facts</p>
+      <h2>Meeting target</h2>
+      <dl><dt>Audience · caller-provided, not an account fact</dt><dd>Chief Information Security Officer and security architecture team</dd>
+          <dt>Objective · caller-provided, not an account fact</dt><dd>Review selected evidence and identify security questions that require human follow-up.</dd>
+          <dt>Human-governed workspace selection · not account facts</dt>
+          <dd><code>obj_acme_map_modernization</code> <code>obj_acme_signal_launch</code></dd>
+      </dl>
+      <p class="target-relevance-gap"><strong>Target-relevance evidence gap:</strong> Evidence gap: the graph supports the selected account facts but does not establish that they are CISO-specific. CISO relevance is caller-provided human workflow context and requires review.</p>
+    </section>
+      <section class="input-panel">
+      <p class="kicker">Deterministic input identity · workspace metadata, not an account fact</p>
+      <h2>Validated committed fixture</h2>
+      <dl>
+        <dt>Repository-relative input ref</dt><dd><code>fixtures/graph/valid/workshop-three-lane.json</code></dd>
+        <dt>Loaded bytes SHA-256</dt><dd><code>cc5ddbecf1b4062185eb861f76e4621b53d7ad2ed61abc404786f987697d9011</code></dd>
+        <dt>Loaded byte length</dt><dd>9880</dd>
+        <dt>GraphBundle validation</dt><dd>passed</dd>
+      </dl>
+    </section>
+    </div>
     <section class="brief-section" data-section="signals">
-      <header><div><p class="kicker">Evidence-backed developments to understand first.</p><h2>What changed</h2></div><span>1 supported</span></header>
+      <header><div><p class="kicker">Selected evidence-backed developments to understand first.</p><h2>What changed</h2></div><span>1 selected and supported</span></header>
       <article class="assertion" data-assertion-id="obj_acme_signal_launch">
       <div class="assertion-heading">
         <div>
-          <p class="kicker">signal</p>
-          <h3>New logistics platform launch</h3>
+          <p class="kicker">signal · evidence-bound claim text</p>
+          <h3>Acme Robotics launched a logistics platform on March 1, 2026.</h3>
         </div>
         <span class="trust trust-verified">Verified</span>
       </div>
-      <p>Acme Robotics launched a logistics platform on March 1, 2026.</p>
       <details>
-        <summary>View evidence</summary>
-        <div class="evidence-packet">
+        <summary>View supporting evidence</summary>
+        <div class="evidence-packet evidence-supports">
+          <p class="evidence-label">Supporting evidence · accepted literal excerpt</p>
           <dl>
-            <dt>Claim</dt><dd>Acme Robotics launched a logistics platform on March 1, 2026.</dd>
+            <dt>Claim under review</dt><dd>Acme Robotics launched a logistics platform on March 1, 2026.</dd>
             <dt>Accepted excerpt</dt><dd><blockquote>Acme Robotics announced a new logistics platform on March 1, 2026.</blockquote></dd>
-            <dt>Source</dt><dd><a href="https://example.invalid/acme/press/001" rel="noreferrer noopener">Acme Robotics launches logistics platform</a> · Acme Robotics · high reliability</dd>
+            <dt>Source record · workspace metadata</dt><dd><a href="https://example.invalid/acme/press/001" rel="noreferrer noopener">Acme Robotics launches logistics platform</a> · Acme Robotics · high reliability · active record</dd>
             <dt>Source record timestamp</dt><dd>2026-03-02T12:00:00Z</dd>
             <dt>Evidence current through</dt><dd>Not supplied by source</dd>
           </dl>
@@ -90,23 +119,23 @@
     </article>
     </section>
 <section class="brief-section" data-section="maps">
-      <header><div><p class="kicker">Supported account context for the conversation.</p><h2>Operating context</h2></div><span>1 supported</span></header>
+      <header><div><p class="kicker">Selected supported account context for the conversation.</p><h2>Operating context</h2></div><span>1 selected and supported</span></header>
       <article class="assertion" data-assertion-id="obj_acme_map_modernization">
       <div class="assertion-heading">
         <div>
-          <p class="kicker">initiative</p>
-          <h3>Warehouse modernization initiative</h3>
+          <p class="kicker">initiative · evidence-bound claim text</p>
+          <h3>Warehouse modernization is a 2026 priority for Acme Robotics.</h3>
         </div>
         <span class="trust trust-verified">Verified</span>
       </div>
-      <p>Warehouse modernization is a 2026 priority for Acme Robotics.</p>
       <details>
-        <summary>View evidence</summary>
-        <div class="evidence-packet">
+        <summary>View supporting evidence</summary>
+        <div class="evidence-packet evidence-supports">
+          <p class="evidence-label">Supporting evidence · accepted literal excerpt</p>
           <dl>
-            <dt>Claim</dt><dd>Warehouse modernization is a 2026 priority for Acme Robotics.</dd>
+            <dt>Claim under review</dt><dd>Warehouse modernization is a 2026 priority for Acme Robotics.</dd>
             <dt>Accepted excerpt</dt><dd><blockquote>Acme Robotics lists warehouse modernization as a 2026 priority</blockquote></dd>
-            <dt>Source</dt><dd><a href="https://example.invalid/acme/ops/roadmap" rel="noreferrer noopener">Acme Robotics operations roadmap</a> · Acme Robotics · high reliability</dd>
+            <dt>Source record · workspace metadata</dt><dd><a href="https://example.invalid/acme/ops/roadmap" rel="noreferrer noopener">Acme Robotics operations roadmap</a> · Acme Robotics · high reliability · active record</dd>
             <dt>Source record timestamp</dt><dd>2026-03-03T09:00:00Z</dd>
             <dt>Evidence current through</dt><dd>Not supplied by source</dd>
           </dl>
@@ -115,29 +144,8 @@
     </article>
     </section>
 <section class="brief-section" data-section="plays">
-      <header><div><p class="kicker">Supported themes to discuss, not automatic actions.</p><h2>Suggested conversation</h2></div><span>1 supported</span></header>
-      <article class="assertion" data-assertion-id="obj_acme_play_integration_expansion">
-      <div class="assertion-heading">
-        <div>
-          <p class="kicker">play</p>
-          <h3>Prioritize integration-led expansion play</h3>
-        </div>
-        <span class="trust trust-verified">Verified</span>
-      </div>
-      <p>Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.</p>
-      <details>
-        <summary>View evidence</summary>
-        <div class="evidence-packet">
-          <dl>
-            <dt>Claim</dt><dd>Acme Robotics will prioritize partners that shorten enterprise integration cycles and demonstrate deployment outcomes.</dd>
-            <dt>Accepted excerpt</dt><dd><blockquote>prioritize partners that can shorten enterprise integration cycles and demonstrate measurable deployment outcomes</blockquote></dd>
-            <dt>Source</dt><dd><a href="https://example.invalid/acme/interviews/cfo" rel="noreferrer noopener">Acme Robotics CFO interview</a> · Industrial Automation Weekly · medium reliability</dd>
-            <dt>Source record timestamp</dt><dd>2026-03-04T15:00:00Z</dd>
-            <dt>Evidence current through</dt><dd>Not supplied by source</dd>
-          </dl>
-        </div>
-      </details>
-    </article>
+      <header><div><p class="kicker">Selected supported themes to discuss, not automatic actions.</p><h2>Suggested conversation</h2></div><span>0 selected and supported</span></header>
+      <p class="empty-section"><strong>Selection note:</strong> No supported items were selected for this section.</p>
     </section>
     <div class="support-grid">
       <section class="support-panel">
@@ -149,10 +157,10 @@
       <section class="support-panel">
       <p class="kicker">Honest limits</p>
       <h2>Evidence gaps</h2>
-      <ul><li>No unsupported or unbound factual material entered this brief.</li></ul>
+      <ul><li>No unsupported or unbound selected factual material entered this brief.</li></ul>
     </section>
     </div>
-    <footer>Prepared from a committed fixture. No provider call, network acquisition, production write, submission, or external action occurred.</footer>
+    <footer>Prepared from the exact loaded committed-fixture bytes identified above. No provider call, network acquisition, production write, submission, or external action occurred.</footer>
   </main>
 </body>
 </html>

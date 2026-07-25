@@ -75,9 +75,9 @@ const PROPOSAL_REQUEST: TargetedProposalRfxRequest = {
         requirement_ref: "RFP-INT-04",
         requirement_text:
           "Describe the approach to shortening enterprise integration cycles and demonstrating deployment outcomes.",
-        supported_response_point:
+        team_provided_response_draft:
           "The selected account evidence supports discussing integration-cycle speed and demonstrable deployment outcomes as priorities.",
-        available_evidence:
+        team_provided_evidence_note:
           "An active accepted excerpt supports the selected partner-priority statement.",
         gap_or_limitation:
           "The evidence shows a related priority; it does not establish requirement compliance, delivery method, timing, or measured results.",
@@ -281,7 +281,17 @@ describe("Workshop targeted brief V1", () => {
       governance: "human_selected",
       account_object_ids: ["obj_acme_map_modernization", "obj_acme_signal_launch"],
     });
-    assert.deepEqual(pair.proposal_rfx.target, PROPOSAL_REQUEST);
+    assert.deepEqual(pair.proposal_rfx.target, {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [{
+          ...PROPOSAL_REQUEST.response.requirement_mappings![0]!,
+          response_draft_validation: "unvalidated",
+          evidence_note_validation: "unvalidated_not_proof",
+        }],
+      },
+    });
     assert.equal(pair.ciso_meeting.account_id, ACME_ACCOUNT);
     assert.equal(pair.proposal_rfx.account_id, ACME_ACCOUNT);
     assert.deepEqual(pair.ciso_meeting.target_relevance, {
@@ -328,7 +338,10 @@ describe("Workshop targeted brief V1", () => {
     assert.match(cisoHtml, /Question to ask/);
     assert.match(cisoHtml, /Desired meeting outcome/);
     assert.match(cisoHtml, /The team has not supplied a desired outcome/);
-    assert.match(proposalHtml, /Team-provided mapping · not a discovered account fact/);
+    assert.match(
+      proposalHtml,
+      /Team-provided requirement mapping · unvalidated drafting context/,
+    );
     assert.match(proposalHtml, /Integration delivery and measurable deployment-outcome requirements/);
     assert.match(proposalHtml, /RFP-INT-04/);
     assert.match(proposalHtml, /does not establish requirement compliance/);
@@ -797,8 +810,8 @@ describe("Workshop targeted brief V1", () => {
     const requiredTextFields = [
       "requirement_ref",
       "requirement_text",
-      "supported_response_point",
-      "available_evidence",
+      "team_provided_response_draft",
+      "team_provided_evidence_note",
     ] as const;
     for (const field of requiredTextFields) {
       const mapping = { ...PROPOSAL_REQUEST.response.requirement_mappings![0]!, [field]: "" };
@@ -1069,7 +1082,10 @@ describe("Workshop targeted brief V1", () => {
         "clm_acme_integration_play",
       ]);
       assert.equal(brief.assertions[0]!.state, "supported");
-      assert.equal(brief.rfx_mappings[0]!.evidence_state, "supported");
+      assert.equal(
+        brief.rfx_mappings[0]!.governed_account_fact_evidence_state,
+        "supported",
+      );
       assert.match(
         brief.preparation_gaps.join(" "),
         /outside governed requirement mappings was omitted/i,
@@ -1114,7 +1130,15 @@ describe("Workshop targeted brief V1", () => {
 
     const proposalBrief = buildTargetedBrief(loaded, PROPOSAL_REQUEST);
     const proposalHtml = renderTargetedBriefHtml(proposalBrief);
-    assert.equal(proposalBrief.rfx_mappings[0]!.evidence_state, "supported");
+    assert.equal(
+      proposalBrief.rfx_mappings[0]!.governed_account_fact_evidence_state,
+      "supported",
+    );
+    assert.equal(proposalBrief.rfx_mappings[0]!.response_draft_validation, "unvalidated");
+    assert.equal(
+      proposalBrief.rfx_mappings[0]!.evidence_note_validation,
+      "unvalidated_not_proof",
+    );
     assert.deepEqual(proposalBrief.rfx_mappings[0]!.governed_pairs, [{
       account_object_id: "obj_acme_play_integration_expansion",
       claim_id: "clm_acme_integration_play",
@@ -1124,13 +1148,90 @@ describe("Workshop targeted brief V1", () => {
       /RFP-INT-04 governed pairs: <code>obj_acme_play_integration_expansion<\/code> → <code>clm_acme_integration_play<\/code>/,
     );
     assert.doesNotMatch(proposalHtml, /RFP-INT-04: objects .* · claims /);
-    assert.match(proposalHtml, /A related capability is not a compliance claim/);
+    assert.match(proposalHtml, /Only the exact governed account fact receives the evidence state/);
     assert.match(proposalHtml, /does not establish requirement compliance/);
-    assert.match(proposalHtml, /Evidence-backed mapping/);
-    assert.match(proposalHtml, /<dt>Supported response point<\/dt>/);
-    assert.match(proposalHtml, /<dt>Available evidence \/ proof<\/dt>/);
-    assert.doesNotMatch(proposalHtml, /Team-proposed, unvalidated response point/);
+    assert.match(
+      proposalHtml,
+      /Governed account fact · active accepted evidence exists for this exact fact/,
+    );
+    assert.match(proposalHtml, /Team-provided response draft · unvalidated/);
+    assert.match(proposalHtml, /Team-provided evidence note · unvalidated, not proof/);
+    assert.doesNotMatch(
+      proposalHtml,
+      /Evidence-backed mapping|<dt>Supported response point<\/dt>|<dt>Available evidence \/ proof<\/dt>/,
+    );
     assert.doesNotMatch(proposalHtml, /requirement (?:is )?compliant|satisfies the requirement/i);
+  });
+
+  test("scopes affirmative evidence treatment to the exact governed fact and never transfers it to hostile team drafting", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const adversarialRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [{
+          requirement_ref: "RFP-COMP-ISO-01",
+          requirement_text: "Provide proof of ISO certification and compliance.",
+          team_provided_response_draft:
+            "Atliera is ISO 27001 certified, fully compliant, and proven to satisfy every certification requirement.",
+          team_provided_evidence_note:
+            "Certificate ISO-FAKE-999 proves current certification and compliance.",
+          gap_or_limitation:
+            "The governed integration-priority fact does not establish certification or compliance.",
+          account_object_ids: ["obj_acme_play_integration_expansion"],
+          claim_ids: ["clm_acme_integration_play"],
+        }],
+      },
+    };
+    const brief = buildTargetedBrief(loaded, adversarialRequest);
+    const mapping = brief.rfx_mappings[0]!;
+    const html = renderTargetedBriefHtml(brief);
+    const footer = html.match(/<footer>(.*?)<\/footer>/s)?.[1];
+
+    assert.equal(mapping.governed_account_fact_evidence_state, "supported");
+    assert.equal(
+      mapping.team_provided_response_draft,
+      "Atliera is ISO 27001 certified, fully compliant, and proven to satisfy every certification requirement.",
+    );
+    assert.equal(mapping.response_draft_validation, "unvalidated");
+    assert.equal(
+      mapping.team_provided_evidence_note,
+      "Certificate ISO-FAKE-999 proves current certification and compliance.",
+    );
+    assert.equal(mapping.evidence_note_validation, "unvalidated_not_proof");
+    assert.equal(
+      brief.target.kind === "proposal_rfx"
+        ? brief.target.response.requirement_mappings![0]!.response_draft_validation
+        : undefined,
+      "unvalidated",
+    );
+    assert.equal(
+      brief.target.kind === "proposal_rfx"
+        ? brief.target.response.requirement_mappings![0]!.evidence_note_validation
+        : undefined,
+      "unvalidated_not_proof",
+    );
+    assert.doesNotMatch(
+      JSON.stringify(mapping),
+      /"evidence_state"|"supported_response_point"|"available_evidence"/,
+    );
+    assert.match(
+      html,
+      /Governed account fact · active accepted evidence exists for this exact fact/,
+    );
+    assert.match(html, /Team-provided response draft · unvalidated/);
+    assert.match(html, /Team-provided evidence note · unvalidated, not proof/);
+    assert.match(html, /Atliera is ISO 27001 certified, fully compliant/);
+    assert.match(html, /Certificate ISO-FAKE-999 proves current certification/);
+    assert.doesNotMatch(
+      html,
+      /Evidence-backed mapping|<dt>Supported response point<\/dt>|<dt>Available evidence \/ proof<\/dt>/,
+    );
+    assert.equal(
+      footer,
+      "Governed account facts retain their displayed evidence state; team-provided response drafts and evidence notes are unvalidated drafting material.",
+    );
+    assert.doesNotMatch(footer!, /evidence-backed|\bproof\b|prepared .* from selected/i);
   });
 
   test("renders unsupported RFx mapping text only as team-proposed and unvalidated", async () => {
@@ -1146,8 +1247,8 @@ describe("Workshop targeted brief V1", () => {
         requirement_mappings: [{
           requirement_ref: "RFP-RISK-09",
           requirement_text: "Describe competitive displacement evidence.",
-          supported_response_point: "Vertex is actively evaluating a competing vendor.",
-          available_evidence: "A forum post speculates about vendor strategy.",
+          team_provided_response_draft: "Vertex is actively evaluating a competing vendor.",
+          team_provided_evidence_note: "A forum post speculates about vendor strategy.",
           gap_or_limitation: "No active accepted literal evidence supports this proposed point.",
           account_object_ids: ["obj_vertex_risk_competitor"],
           claim_ids: ["clm_vertex_competitor_risk"],
@@ -1160,13 +1261,25 @@ describe("Workshop targeted brief V1", () => {
     });
     const html = renderTargetedBriefHtml(brief);
 
-    assert.equal(brief.rfx_mappings[0]!.evidence_state, "needs_evidence");
-    assert.match(html, /Needs evidence · do not use as supported/);
-    assert.match(html, /Team-proposed, unvalidated response point/);
-    assert.match(html, /Team-provided evidence note · not validated proof/);
-    assert.doesNotMatch(html, /Evidence-backed mapping|Contested · do not use as supported/);
-    assert.doesNotMatch(html, /<dt>Supported response point<\/dt>/);
-    assert.doesNotMatch(html, /<dt>Available evidence \/ proof<\/dt>/);
+    assert.equal(
+      brief.rfx_mappings[0]!.governed_account_fact_evidence_state,
+      "needs_evidence",
+    );
+    assert.equal(brief.rfx_mappings[0]!.response_draft_validation, "unvalidated");
+    assert.equal(
+      brief.rfx_mappings[0]!.evidence_note_validation,
+      "unvalidated_not_proof",
+    );
+    assert.match(
+      html,
+      /Governed account fact · active accepted supporting evidence is missing for this exact fact/,
+    );
+    assert.match(html, /Team-provided response draft · unvalidated/);
+    assert.match(html, /Team-provided evidence note · unvalidated, not proof/);
+    assert.doesNotMatch(
+      html,
+      /Evidence-backed mapping|<dt>Supported response point<\/dt>|<dt>Available evidence \/ proof<\/dt>/,
+    );
 
   });
 
@@ -1190,8 +1303,8 @@ describe("Workshop targeted brief V1", () => {
             requirement_mappings: [{
               requirement_ref: "RFI-LAUNCH-02",
               requirement_text: "Describe evidence of the platform launch.",
-              supported_response_point: "Acme launched the logistics platform on March 1, 2026.",
-              available_evidence: "The launch announcement is accompanied by a conflicting correction.",
+              team_provided_response_draft: "Acme launched the logistics platform on March 1, 2026.",
+              team_provided_evidence_note: "The launch announcement is accompanied by a conflicting correction.",
               gap_or_limitation: "The accepted correction contests the launch assertion.",
               account_object_ids: ["obj_acme_signal_launch"],
               claim_ids: ["clm_acme_launch"],
@@ -1205,13 +1318,25 @@ describe("Workshop targeted brief V1", () => {
       );
       const html = renderTargetedBriefHtml(brief);
 
-      assert.equal(brief.rfx_mappings[0]!.evidence_state, "contested");
-      assert.match(html, /Contested · do not use as supported/);
-      assert.match(html, /Team-proposed, unvalidated response point/);
-      assert.match(html, /Team-provided evidence note · contested, not validated proof/);
-      assert.doesNotMatch(html, /Evidence-backed mapping|Needs evidence · do not use as supported/);
-      assert.doesNotMatch(html, /<dt>Supported response point<\/dt>/);
-      assert.doesNotMatch(html, /<dt>Available evidence \/ proof<\/dt>/);
+      assert.equal(
+        brief.rfx_mappings[0]!.governed_account_fact_evidence_state,
+        "contested",
+      );
+      assert.equal(brief.rfx_mappings[0]!.response_draft_validation, "unvalidated");
+      assert.equal(
+        brief.rfx_mappings[0]!.evidence_note_validation,
+        "unvalidated_not_proof",
+      );
+      assert.match(
+        html,
+        /Governed account fact · active accepted evidence both supports and contradicts this exact fact/,
+      );
+      assert.match(html, /Team-provided response draft · unvalidated/);
+      assert.match(html, /Team-provided evidence note · unvalidated, not proof/);
+      assert.doesNotMatch(
+        html,
+        /Evidence-backed mapping|<dt>Supported response point<\/dt>|<dt>Available evidence \/ proof<\/dt>/,
+      );
     } finally {
       await rm(fixtureDirectory, { recursive: true, force: true });
     }

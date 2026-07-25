@@ -64,8 +64,10 @@ export type TargetedRfxResponseType = "proposal" | "RFI" | "RFP";
 export interface TargetedRfxRequirementMapping {
   readonly requirement_ref: string;
   readonly requirement_text: string;
-  readonly supported_response_point: string;
-  readonly available_evidence: string;
+  readonly team_provided_response_draft: string;
+  readonly response_draft_validation?: "unvalidated";
+  readonly team_provided_evidence_note: string;
+  readonly evidence_note_validation?: "unvalidated_not_proof";
   readonly gap_or_limitation?: string;
   readonly account_object_ids: readonly string[];
   readonly claim_ids: readonly string[];
@@ -76,14 +78,17 @@ export interface TargetedRfxGovernedPair {
   readonly claim_id: string;
 }
 
-export type TargetedRfxMappingEvidenceState =
+export type TargetedRfxGovernedAccountFactEvidenceState =
   | "supported"
   | "needs_evidence"
   | "contested";
 
 export interface TargetedBriefRfxMapping extends TargetedRfxRequirementMapping {
   readonly governed_pairs: readonly TargetedRfxGovernedPair[];
-  readonly evidence_state: TargetedRfxMappingEvidenceState;
+  readonly governed_account_fact_evidence_state:
+    TargetedRfxGovernedAccountFactEvidenceState;
+  readonly response_draft_validation: "unvalidated";
+  readonly evidence_note_validation: "unvalidated_not_proof";
 }
 
 export interface TargetedProposalRfxRequest {
@@ -545,13 +550,13 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
         2_048,
       );
       assertBoundedCallerText(
-        mapping.supported_response_point,
-        `response requirement_mappings[${index}].supported_response_point`,
+        mapping.team_provided_response_draft,
+        `response requirement_mappings[${index}].team_provided_response_draft`,
         2_048,
       );
       assertBoundedCallerText(
-        mapping.available_evidence,
-        `response requirement_mappings[${index}].available_evidence`,
+        mapping.team_provided_evidence_note,
+        `response requirement_mappings[${index}].team_provided_evidence_note`,
         2_048,
       );
       if (
@@ -587,8 +592,10 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
       return {
         requirement_ref: mapping.requirement_ref,
         requirement_text: mapping.requirement_text,
-        supported_response_point: mapping.supported_response_point,
-        available_evidence: mapping.available_evidence,
+        team_provided_response_draft: mapping.team_provided_response_draft,
+        response_draft_validation: "unvalidated" as const,
+        team_provided_evidence_note: mapping.team_provided_evidence_note,
+        evidence_note_validation: "unvalidated_not_proof" as const,
         gap_or_limitation: normalizedOptionalCallerText(
           mapping.gap_or_limitation,
           `response requirement_mappings[${index}].gap_or_limitation`,
@@ -1309,48 +1316,46 @@ function buildRfxMappings(
         ? "contested"
         : "supported";
     });
-    const evidenceState: TargetedRfxMappingEvidenceState = pairStates.includes(
-      "needs_evidence",
-    )
-      ? "needs_evidence"
-      : pairStates.includes("contested")
-        ? "contested"
-        : "supported";
+    const governedAccountFactEvidenceState:
+      TargetedRfxGovernedAccountFactEvidenceState = pairStates.includes(
+        "needs_evidence",
+      )
+        ? "needs_evidence"
+        : pairStates.includes("contested")
+          ? "contested"
+          : "supported";
     return {
       ...mapping,
       governed_pairs: governedPairs,
-      evidence_state: evidenceState,
+      governed_account_fact_evidence_state: governedAccountFactEvidenceState,
+      response_draft_validation: "unvalidated",
+      evidence_note_validation: "unvalidated_not_proof",
     };
   });
 }
 
 interface TargetedRfxMappingPresentation {
-  readonly state_label: string;
-  readonly response_point_label: string;
-  readonly evidence_label: string;
+  readonly governed_fact_state_label: string;
 }
 
 function targetedRfxMappingPresentation(
-  state: TargetedRfxMappingEvidenceState,
+  state: TargetedRfxGovernedAccountFactEvidenceState,
 ): TargetedRfxMappingPresentation {
   if (state === "supported") {
     return {
-      state_label: "Evidence-backed mapping",
-      response_point_label: "Supported response point",
-      evidence_label: "Available evidence / proof",
+      governed_fact_state_label:
+        "Governed account fact · active accepted evidence exists for this exact fact",
     };
   }
   if (state === "contested") {
     return {
-      state_label: "Contested · do not use as supported",
-      response_point_label: "Team-proposed, unvalidated response point",
-      evidence_label: "Team-provided evidence note · contested, not validated proof",
+      governed_fact_state_label:
+        "Governed account fact · active accepted evidence both supports and contradicts this exact fact",
     };
   }
   return {
-    state_label: "Needs evidence · do not use as supported",
-    response_point_label: "Team-proposed, unvalidated response point",
-    evidence_label: "Team-provided evidence note · not validated proof",
+    governed_fact_state_label:
+      "Governed account fact · active accepted supporting evidence is missing for this exact fact",
   };
 }
 
@@ -1369,14 +1374,14 @@ function rfxPreparation(
     nextAction = "Add the first requirement mapping with its governed claim and account-object references.";
   }
   for (const mapping of mappings) {
-    if (mapping.evidence_state === "needs_evidence") {
+    if (mapping.governed_account_fact_evidence_state === "needs_evidence") {
       gaps.push(
-        `${mapping.requirement_ref} lacks active accepted support for every governed object-to-claim pair and cannot establish the proposed response point.`,
+        `${mapping.requirement_ref} lacks active accepted support for every governed object-to-claim pair; the team-provided response draft remains unvalidated.`,
       );
-      nextAction ??= `Add active accepted proof or narrow the response point for ${mapping.requirement_ref}.`;
-    } else if (mapping.evidence_state === "contested") {
+      nextAction ??= `Add active accepted evidence for the exact governed fact or narrow the response draft for ${mapping.requirement_ref}.`;
+    } else if (mapping.governed_account_fact_evidence_state === "contested") {
       gaps.push(
-        `${mapping.requirement_ref} relies on a contested assertion and must not be used as supported before clarification.`,
+        `${mapping.requirement_ref} references a contested governed account fact; its team-provided response draft remains unvalidated.`,
       );
       nextAction ??= `Resolve the contested assertion mapped to ${mapping.requirement_ref}.`;
     }
@@ -1632,18 +1637,20 @@ function renderRfxMappings(brief: TargetedBrief): string {
   return `<section class="support-panel">
       <p class="kicker">Team-provided response planning</p>
       <h2>Requirement mappings</h2>
-      <p class="mapping-caution">A related capability is not a compliance claim. Treat requirement satisfaction as unconfirmed unless the governed evidence directly establishes it.</p>
+      <p class="mapping-caution">Only the exact governed account fact receives the evidence state shown below. Team-provided response drafts and evidence notes are unvalidated drafting material; an evidence note is not proof of any response, compliance, certification, or requirement claim.</p>
       ${brief.rfx_mappings
         .map((mapping) => {
-          const presentation = targetedRfxMappingPresentation(mapping.evidence_state);
-          return `<article class="mapping-card mapping-${escapeHtml(mapping.evidence_state)}">
-        <p class="team-label">Team-provided mapping · not a discovered account fact</p>
-        <p class="mapping-state">${escapeHtml(presentation.state_label)}</p>
+          const presentation = targetedRfxMappingPresentation(
+            mapping.governed_account_fact_evidence_state,
+          );
+          return `<article class="mapping-card governed-fact-${escapeHtml(mapping.governed_account_fact_evidence_state)}">
+        <p class="team-label">Team-provided requirement mapping · unvalidated drafting context</p>
+        <p class="mapping-state">${escapeHtml(presentation.governed_fact_state_label)}</p>
         <h3>${escapeHtml(mapping.requirement_ref)}</h3>
         <dl>
           <dt>Supplied requirement</dt><dd>${escapeHtml(mapping.requirement_text)}</dd>
-          <dt>${escapeHtml(presentation.response_point_label)}</dt><dd>${escapeHtml(mapping.supported_response_point)}</dd>
-          <dt>${escapeHtml(presentation.evidence_label)}</dt><dd>${escapeHtml(mapping.available_evidence)}</dd>
+          <dt>Team-provided response draft · unvalidated</dt><dd>${escapeHtml(mapping.team_provided_response_draft)}</dd>
+          <dt>Team-provided evidence note · unvalidated, not proof</dt><dd>${escapeHtml(mapping.team_provided_evidence_note)}</dd>
           ${mapping.gap_or_limitation ? `<dt>Gap, limitation, or clarification needed</dt><dd>${escapeHtml(mapping.gap_or_limitation)}</dd>` : ""}
         </dl>
       </article>`;
@@ -1856,7 +1863,9 @@ export function renderTargetedBriefHtml(brief: TargetedBrief): string {
     ${renderRfxMappings(brief)}
     ${renderMaterialGaps(brief)}
     ${renderEvidenceAndProvenance(brief)}
-    <footer>Prepared for human use from selected, evidence-backed content.</footer>
+    <footer>${brief.kind === "proposal_rfx"
+      ? "Governed account facts retain their displayed evidence state; team-provided response drafts and evidence notes are unvalidated drafting material."
+      : "Prepared for human use from selected, evidence-backed content."}</footer>
   </main>
 </body>
 </html>`.replace(/[ \t]+$/gm, "");

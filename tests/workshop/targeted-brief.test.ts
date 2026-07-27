@@ -805,8 +805,412 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
-  test("validates deterministic governed RFx mappings and rejects ambiguous or unrelated references", async () => {
+  test("rejects an RFx selected object that no requirement mapping directly uses", async () => {
     const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const relationship = bundle.account_object_claims.find(
+      (candidate) =>
+        candidate.account_object_id === "obj_acme_signal_launch" &&
+        candidate.claim_id === "clm_acme_launch" &&
+        (candidate.relationship === "primary" ||
+          candidate.relationship === "supporting"),
+    );
+    const acceptedSupport = bundle.claim_evidence.find(
+      (candidate) =>
+        candidate.claim_id === "clm_acme_launch" &&
+        candidate.relationship === "supports" &&
+        bundle.excerpts.some(
+          (excerpt) =>
+            excerpt.id === candidate.evidence_excerpt_id &&
+            excerpt.validation_status === "accepted",
+        ),
+    );
+    assert.ok(relationship, "the unused selected object has a valid governed relationship");
+    assert.ok(acceptedSupport, "the unused selected object has accepted supporting evidence");
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+            ],
+          },
+        }),
+      /selected account object obj_acme_signal_launch is not used by any requirement mapping/,
+    );
+  });
+
+  test("accepts only the order-independent exact union of RFx mapping objects", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const integrationMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    const launchMapping = {
+      requirement_ref: "RFP-LAUNCH-05",
+      requirement_text: "Describe the verified platform launch.",
+      team_provided_response_draft:
+        "The selected evidence supports discussing the platform launch.",
+      team_provided_evidence_note:
+        "An active accepted launch excerpt supports the selected launch signal.",
+      gap_or_limitation: "The evidence establishes the launch fact only.",
+      account_object_ids: ["obj_acme_signal_launch"],
+      claim_ids: ["clm_acme_launch"],
+    };
+    const exactUnionRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [integrationMapping, launchMapping],
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_signal_launch",
+        ],
+      },
+    };
+    const exactUnion = evaluateTargetedBriefSelection(bundle, exactUnionRequest);
+    assert.deepEqual(
+      exactUnion.assertions.map((assertion) => assertion.id).sort(),
+      ["obj_acme_play_integration_expansion", "obj_acme_signal_launch"],
+    );
+
+    const reversedRequest: TargetedProposalRfxRequest = {
+      ...exactUnionRequest,
+      response: {
+        ...exactUnionRequest.response,
+        requirement_mappings: [...exactUnionRequest.response.requirement_mappings!].reverse(),
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [...exactUnionRequest.selection.account_object_ids].reverse(),
+      },
+    };
+    assert.deepEqual(
+      evaluateTargetedBriefSelection(bundle, reversedRequest),
+      exactUnion,
+      "mapping and selection order must not affect an exact-union request",
+    );
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...exactUnionRequest,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: [
+              "obj_acme_play_integration_expansion",
+              "obj_acme_signal_launch",
+              "obj_acme_map_modernization",
+            ],
+          },
+        }),
+      /selected account object obj_acme_map_modernization is not used by any requirement mapping/,
+      "multiple valid mappings plus one unused selected object must fail closed",
+    );
+
+    assert.doesNotThrow(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [
+              integrationMapping,
+              {
+                ...integrationMapping,
+                requirement_ref: "RFP-INT-05",
+              },
+            ],
+          },
+        }),
+      "one selected object may be reused by multiple valid mappings",
+    );
+  });
+
+  test("supports object and exact-pair reuse while isolating mapped facts from graph cross-links", async () => {
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    bundle.account_object_claims.push({
+      id: "oclm_acme_play_launch_cross_link_for_reuse",
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_launch",
+      relationship: "supporting",
+    });
+    const launchOnReusedObject = {
+      requirement_ref: "RFP-LAUNCH-ON-PLAY-05",
+      requirement_text: "Describe the verified platform launch.",
+      team_provided_response_draft:
+        "The selected evidence supports discussing the platform launch.",
+      team_provided_evidence_note:
+        "An active accepted launch excerpt supports the selected launch fact.",
+      gap_or_limitation: "The evidence establishes the launch fact only.",
+      account_object_ids: ["obj_acme_play_integration_expansion"],
+      claim_ids: ["clm_acme_launch"],
+    };
+    const reusedObject = evaluateTargetedBriefSelection(bundle, {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [baseMapping, launchOnReusedObject],
+      },
+    });
+    assert.deepEqual(reusedObject.request.selection.account_object_ids, [
+      "obj_acme_play_integration_expansion",
+    ]);
+    assert.equal(reusedObject.assertions.length, 1);
+    assert.deepEqual(reusedObject.assertions[0]!.claim_ids, [
+      "clm_acme_integration_play",
+      "clm_acme_launch",
+    ]);
+
+    const reusedExactPair = evaluateTargetedBriefSelection(bundle, {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [
+          baseMapping,
+          {
+            ...baseMapping,
+            requirement_ref: "RFP-INT-05",
+          },
+        ],
+      },
+    });
+    assert.deepEqual(reusedExactPair.request.selection.account_object_ids, [
+      "obj_acme_play_integration_expansion",
+    ]);
+    assert.deepEqual(reusedExactPair.assertions[0]!.claim_ids, [
+      "clm_acme_integration_play",
+    ]);
+
+    bundle.account_object_claims.push({
+      id: "oclm_acme_launch_integration_cross_link_for_isolation",
+      account_object_id: "obj_acme_signal_launch",
+      claim_id: "clm_acme_integration_play",
+      relationship: "supporting",
+    });
+    const crossLinkedSets = evaluateTargetedBriefSelection(bundle, {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [
+          baseMapping,
+          {
+            ...launchOnReusedObject,
+            requirement_ref: "RFP-LAUNCH-05",
+            account_object_ids: ["obj_acme_signal_launch"],
+          },
+        ],
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_signal_launch",
+        ],
+      },
+    });
+    assert.deepEqual(
+      Object.fromEntries(
+        crossLinkedSets.assertions.map((assertion) => [
+          assertion.id,
+          assertion.claim_ids,
+        ]),
+      ),
+      {
+        obj_acme_signal_launch: ["clm_acme_launch"],
+        obj_acme_play_integration_expansion: ["clm_acme_integration_play"],
+      },
+      "cross-links between the mapped object and claim sets must not enter either assertion",
+    );
+  });
+
+  test("rejects zero, duplicate, and multiple raw object or claim references at the V1 boundary", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    const cases = [
+      {
+        label: "zero object references",
+        field: "account_object_ids",
+        values: [],
+      },
+      {
+        label: "duplicate object references",
+        field: "account_object_ids",
+        values: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_play_integration_expansion",
+        ],
+      },
+      {
+        label: "multiple object references",
+        field: "account_object_ids",
+        values: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_signal_launch",
+        ],
+      },
+      {
+        label: "zero claim references",
+        field: "claim_ids",
+        values: [],
+      },
+      {
+        label: "duplicate claim references",
+        field: "claim_ids",
+        values: [
+          "clm_acme_integration_play",
+          "clm_acme_integration_play",
+        ],
+      },
+      {
+        label: "multiple claim references",
+        field: "claim_ids",
+        values: [
+          "clm_acme_integration_play",
+          "clm_acme_launch",
+        ],
+      },
+    ] as const;
+    for (const { label, field, values } of cases) {
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(bundle, {
+            ...PROPOSAL_REQUEST,
+            response: {
+              ...PROPOSAL_REQUEST.response,
+              requirement_mappings: [{
+                ...baseMapping,
+                [field]: values,
+              }],
+            },
+          }),
+        new RegExp(
+          `${field} must contain exactly one raw entry for the Targeted Brief v1 one-object/one-claim boundary; received ${values.length}; zero, duplicate, and multiple references are invalid and are never deduplicated`,
+        ),
+        label,
+      );
+    }
+  });
+
+  test("keeps missing and ambiguous exact relationship failures distinct without row deduplication", async () => {
+    const baseBundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(baseBundle, {
+          ...PROPOSAL_REQUEST,
+          response: {
+            ...PROPOSAL_REQUEST.response,
+            requirement_mappings: [{
+              ...baseMapping,
+              claim_ids: ["clm_acme_launch"],
+            }],
+          },
+        }),
+      /is missing an exact primary\/supporting account_object_claims relationship for the Targeted Brief v1 one-object\/one-claim pair obj_acme_play_integration_expansion\/clm_acme_launch/,
+      "a missing exact relationship must not be confused with ambiguity",
+    );
+
+    const duplicateSameKind = cloneBundle(baseBundle);
+    duplicateSameKind.account_object_claims.push({
+      id: "oclm_acme_play_integration_duplicate_primary",
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_integration_play",
+      relationship: "primary",
+    });
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(duplicateSameKind, PROPOSAL_REQUEST),
+      /has an ambiguous exact primary\/supporting account_object_claims relationship.*found 2 raw qualifying rows/,
+      "two same-kind rows with different relationship IDs must remain ambiguous",
+    );
+
+    const primaryPlusSupporting = cloneBundle(baseBundle);
+    primaryPlusSupporting.account_object_claims.push({
+      id: "oclm_acme_play_integration_supporting",
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_integration_play",
+      relationship: "supporting",
+    });
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(primaryPlusSupporting, PROPOSAL_REQUEST),
+      /has an ambiguous exact primary\/supporting account_object_claims relationship.*found 2 raw qualifying rows/,
+      "primary-plus-supporting rows for the exact pair must remain ambiguous",
+    );
+  });
+
+  test("rejects multi-pair mappings before supported, contested, or needs-evidence states can be combined", async () => {
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
+    const assertTwoClaimMappingRejected = (
+      bundle: GraphBundle,
+      secondClaimId: string,
+      label: string,
+    ): void => {
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(bundle, {
+            ...PROPOSAL_REQUEST,
+            response: {
+              ...PROPOSAL_REQUEST.response,
+              requirement_mappings: [{
+                ...baseMapping,
+                claim_ids: ["clm_acme_integration_play", secondClaimId],
+              }],
+            },
+          }),
+        /claim_ids must contain exactly one raw entry for the Targeted Brief v1 one-object\/one-claim boundary; received 2/,
+        label,
+      );
+    };
+
+    const twoSupported = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    twoSupported.account_object_claims.push({
+      id: "oclm_acme_play_launch_cross_link",
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_launch",
+      relationship: "supporting",
+    });
+    assertTwoClaimMappingRejected(
+      twoSupported,
+      "clm_acme_launch",
+      "two supported pairs in one mapping must reject",
+    );
+
+    const supportedPlusContested = cloneBundle(twoSupported);
+    addLaunchContradiction(supportedPlusContested);
+    assertTwoClaimMappingRejected(
+      supportedPlusContested,
+      "clm_acme_launch",
+      "supported plus contested pairs in one mapping must reject",
+    );
+
+    const supportedPlusNeedsEvidence = cloneBundle(
+      await loadGraphBundleFile(THREE_LANE),
+    );
+    supportedPlusNeedsEvidence.account_object_claims.push({
+      id: "oclm_acme_play_modernization_cross_link",
+      account_object_id: "obj_acme_play_integration_expansion",
+      claim_id: "clm_acme_modernization",
+      relationship: "supporting",
+    });
+    supportedPlusNeedsEvidence.sources.find(
+      (source) => source.id === "src_acme_ops_roadmap_001",
+    )!.status = "stale";
+    assertTwoClaimMappingRejected(
+      supportedPlusNeedsEvidence,
+      "clm_acme_modernization",
+      "supported plus needs-evidence pairs in one mapping must reject",
+    );
+  });
+
+  test("validates RFx text, unique refs, and exact object and claim resolution", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
     const requiredTextFields = [
       "requirement_ref",
       "requirement_text",
@@ -814,7 +1218,7 @@ describe("Workshop targeted brief V1", () => {
       "team_provided_evidence_note",
     ] as const;
     for (const field of requiredTextFields) {
-      const mapping = { ...PROPOSAL_REQUEST.response.requirement_mappings![0]!, [field]: "" };
+      const mapping = { ...baseMapping, [field]: "" };
       assert.throws(
         () =>
           evaluateTargetedBriefSelection(bundle, {
@@ -835,108 +1239,10 @@ describe("Workshop targeted brief V1", () => {
           ...PROPOSAL_REQUEST,
           response: {
             ...PROPOSAL_REQUEST.response,
-            requirement_mappings: [
-              PROPOSAL_REQUEST.response.requirement_mappings![0]!,
-              PROPOSAL_REQUEST.response.requirement_mappings![0]!,
-            ],
+            requirement_mappings: [baseMapping, baseMapping],
           },
         }),
       /requirement_ref .* is ambiguous/,
-    );
-    assert.throws(
-      () =>
-        evaluateTargetedBriefSelection(bundle, {
-          ...PROPOSAL_REQUEST,
-          selection: {
-            governance: "human_selected",
-            account_object_ids: ["obj_acme_signal_launch"],
-          },
-        }),
-      /outside the human selection/,
-    );
-    assert.throws(
-      () =>
-        evaluateTargetedBriefSelection(bundle, {
-          ...PROPOSAL_REQUEST,
-          response: {
-            ...PROPOSAL_REQUEST.response,
-            requirement_mappings: [
-              {
-                ...PROPOSAL_REQUEST.response.requirement_mappings![0]!,
-                claim_ids: ["clm_acme_launch"],
-              },
-            ],
-          },
-        }),
-      /object obj_acme_play_integration_expansion has no governed primary\/supporting pair|claim clm_acme_launch has no governed primary\/supporting pair/,
-    );
-
-    const baseMapping = PROPOSAL_REQUEST.response.requirement_mappings![0]!;
-    assert.throws(
-      () =>
-        evaluateTargetedBriefSelection(bundle, {
-          ...PROPOSAL_REQUEST,
-          selection: {
-            governance: "human_selected",
-            account_object_ids: [
-              "obj_acme_play_integration_expansion",
-              "obj_acme_signal_launch",
-            ],
-          },
-          response: {
-            ...PROPOSAL_REQUEST.response,
-            requirement_mappings: [{
-              ...baseMapping,
-              account_object_ids: [
-                "obj_acme_play_integration_expansion",
-                "obj_acme_signal_launch",
-              ],
-            }],
-          },
-        }),
-      /object obj_acme_signal_launch has no governed primary\/supporting pair/,
-      "an extra selected but unrelated object must fail closed",
-    );
-    assert.throws(
-      () =>
-        evaluateTargetedBriefSelection(bundle, {
-          ...PROPOSAL_REQUEST,
-          response: {
-            ...PROPOSAL_REQUEST.response,
-            requirement_mappings: [{
-              ...baseMapping,
-              claim_ids: ["clm_acme_integration_play", "clm_acme_launch"],
-            }],
-          },
-        }),
-      /claim clm_acme_launch has no governed primary\/supporting pair/,
-      "an extra unrelated claim must fail closed",
-    );
-    assert.throws(
-      () =>
-        evaluateTargetedBriefSelection(bundle, {
-          ...PROPOSAL_REQUEST,
-          selection: {
-            governance: "human_selected",
-            account_object_ids: [
-              "obj_acme_play_integration_expansion",
-              "obj_acme_signal_launch",
-            ],
-          },
-          response: {
-            ...PROPOSAL_REQUEST.response,
-            requirement_mappings: [{
-              ...baseMapping,
-              account_object_ids: [
-                "obj_acme_play_integration_expansion",
-                "obj_acme_signal_launch",
-              ],
-              claim_ids: ["clm_acme_integration_play", "clm_acme_modernization"],
-            }],
-          },
-        }),
-      /object obj_acme_signal_launch has no governed primary\/supporting pair|claim clm_acme_modernization has no governed primary\/supporting pair/,
-      "a mixed mapping with only partial governed pairing must fail closed",
     );
     assert.throws(
       () =>
@@ -954,7 +1260,7 @@ describe("Workshop targeted brief V1", () => {
             }],
           },
         }),
-      /(?:object|selected account_object_id) obj_acme_missing does not resolve exactly once/,
+      /selected account_object_id obj_acme_missing does not resolve exactly once/,
       "an unresolved object reference must fail closed",
     );
     assert.throws(
@@ -984,27 +1290,9 @@ describe("Workshop targeted brief V1", () => {
             }],
           },
         }),
-      /claim clm_acme_missing does not resolve exactly once/,
+      /Targeted Brief v1 claim clm_acme_missing does not resolve exactly once/,
       "an unresolved claim reference must fail closed",
     );
-    for (const duplicateField of ["account_object_ids", "claim_ids"] as const) {
-      const duplicated = baseMapping[duplicateField][0]!;
-      assert.throws(
-        () =>
-          evaluateTargetedBriefSelection(bundle, {
-            ...PROPOSAL_REQUEST,
-            response: {
-              ...PROPOSAL_REQUEST.response,
-              requirement_mappings: [{
-                ...baseMapping,
-                [duplicateField]: [duplicated, duplicated],
-              }],
-            },
-          }),
-        /references must not contain duplicates/,
-        `ambiguous ${duplicateField} references must fail closed`,
-      );
-    }
 
     const reversedMappingRequest: TargetedProposalRfxRequest = {
       ...PROPOSAL_REQUEST,
@@ -1027,35 +1315,18 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
-  test("projects RFx assertions to governed requirement pairs and omits extra selected objects", async () => {
-    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
-    const brief = buildTargetedBrief(loaded, {
-      ...PROPOSAL_REQUEST,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: [
-          "obj_acme_play_integration_expansion",
-          "obj_acme_signal_launch",
-        ],
-      },
-    });
-    const html = renderTargetedBriefHtml(brief);
-
-    assert.deepEqual(brief.target.selection.account_object_ids, [
-      "obj_acme_play_integration_expansion",
-    ]);
-    assert.deepEqual(
-      brief.assertions.map((assertion) => assertion.id),
-      ["obj_acme_play_integration_expansion"],
-    );
-    assert.match(
-      brief.preparation_gaps.join(" "),
-      /outside governed requirement mappings was omitted/i,
-    );
-    assert.doesNotMatch(JSON.stringify(brief), /obj_acme_signal_launch|clm_acme_launch/);
-    assert.doesNotMatch(
-      html,
-      /obj_acme_signal_launch|clm_acme_launch|Acme Robotics launched a logistics platform on March 1, 2026/,
+  test("rejects mapped-but-unselected RFx objects instead of rewriting the selection", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(bundle, {
+          ...PROPOSAL_REQUEST,
+          selection: {
+            governance: "human_selected",
+            account_object_ids: ["obj_acme_signal_launch"],
+          },
+        }),
+      /requires selected account object IDs to exactly equal the union referenced by all requirement mappings; mapped account object obj_acme_play_integration_expansion is not selected/,
     );
   });
 
@@ -1086,7 +1357,7 @@ describe("Workshop targeted brief V1", () => {
         brief.rfx_mappings[0]!.governed_account_fact_evidence_state,
         "supported",
       );
-      assert.match(
+      assert.doesNotMatch(
         brief.preparation_gaps.join(" "),
         /outside governed requirement mappings was omitted/i,
       );
@@ -1103,6 +1374,87 @@ describe("Workshop targeted brief V1", () => {
     }
   });
 
+  test("keeps supported, contested, and needs-evidence states independent per one-pair mapping", async () => {
+    const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
+    addLaunchContradiction(bundle);
+    bundle.sources.find(
+      (source) => source.id === "src_acme_ops_roadmap_001",
+    )!.status = "stale";
+    const mappingFor = (
+      requirementRef: string,
+      accountObjectId: string,
+      claimId: string,
+    ) => ({
+      requirement_ref: requirementRef,
+      requirement_text: `Supplied requirement for ${requirementRef}.`,
+      team_provided_response_draft: `Team draft for ${requirementRef}.`,
+      team_provided_evidence_note: `Team evidence note for ${requirementRef}.`,
+      gap_or_limitation: `Exact-fact limitation for ${requirementRef}.`,
+      account_object_ids: [accountObjectId],
+      claim_ids: [claimId],
+    });
+    const request: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        ...PROPOSAL_REQUEST.response,
+        requirement_mappings: [
+          mappingFor(
+            "RFP-SUPPORTED-01",
+            "obj_acme_play_integration_expansion",
+            "clm_acme_integration_play",
+          ),
+          mappingFor(
+            "RFP-CONTESTED-02",
+            "obj_acme_signal_launch",
+            "clm_acme_launch",
+          ),
+          mappingFor(
+            "RFP-NEEDS-EVIDENCE-03",
+            "obj_acme_map_modernization",
+            "clm_acme_modernization",
+          ),
+        ],
+      },
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [
+          "obj_acme_play_integration_expansion",
+          "obj_acme_signal_launch",
+          "obj_acme_map_modernization",
+        ],
+      },
+    };
+    const fixtureDirectory = await mkdtemp("fixtures/targeted-brief-independent-states-");
+    const fixturePath = `${fixtureDirectory}/graph.json`;
+    try {
+      await writeFile(fixturePath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+      const brief = buildTargetedBrief(
+        await loadCommittedTargetedBriefFixture(fixturePath),
+        request,
+      );
+      assert.deepEqual(
+        Object.fromEntries(
+          brief.rfx_mappings.map((mapping) => [
+            mapping.requirement_ref,
+            mapping.governed_account_fact_evidence_state,
+          ]),
+        ),
+        {
+          "RFP-CONTESTED-02": "contested",
+          "RFP-NEEDS-EVIDENCE-03": "needs_evidence",
+          "RFP-SUPPORTED-01": "supported",
+        },
+      );
+      for (const mapping of brief.rfx_mappings) {
+        assert.equal(mapping.governed_pairs.length, 1);
+        assert.equal(mapping.response_draft_validation, "unvalidated");
+        assert.equal(mapping.evidence_note_validation, "unvalidated_not_proof");
+      }
+    } finally {
+      await rm(fixtureDirectory, { recursive: true, force: true });
+    }
+  });
+
   test("makes missing RFx mappings actionable and never upgrades a related capability to compliance", async () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const missingMapping = buildTargetedBrief(loaded, {
@@ -1114,6 +1466,11 @@ describe("Workshop targeted brief V1", () => {
       },
     });
     const missingHtml = renderTargetedBriefHtml(missingMapping);
+    assert.equal(
+      createHash("sha256").update(missingHtml).digest("hex"),
+      "200fc6fe56fdacee567d3eff02b2e5703926ad39737f05c7c51fedc7fa5d0aa5",
+      "zero-mapping RFx HTML must remain byte-identical",
+    );
     assert.deepEqual(missingMapping.preparation_gaps, [
       "The response team has not supplied a governed requirement mapping.",
     ]);

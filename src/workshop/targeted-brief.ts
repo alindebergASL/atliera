@@ -559,13 +559,21 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
         `response requirement_mappings[${index}].team_provided_evidence_note`,
         2_048,
       );
-      if (
-        !Array.isArray(mapping.account_object_ids) ||
-        mapping.account_object_ids.length === 0 ||
-        !Array.isArray(mapping.claim_ids) ||
-        mapping.claim_ids.length === 0
-      ) {
-        throw new Error(`response requirement_mappings[${index}] requires governed account-object and claim references`);
+      if (!Array.isArray(mapping.account_object_ids) || mapping.account_object_ids.length !== 1) {
+        const count = Array.isArray(mapping.account_object_ids)
+          ? mapping.account_object_ids.length
+          : "a non-array value";
+        throw new Error(
+          `response requirement_mappings[${index}].account_object_ids must contain exactly one raw entry for the Targeted Brief v1 one-object/one-claim boundary; received ${count}; zero, duplicate, and multiple references are invalid and are never deduplicated`,
+        );
+      }
+      if (!Array.isArray(mapping.claim_ids) || mapping.claim_ids.length !== 1) {
+        const count = Array.isArray(mapping.claim_ids)
+          ? mapping.claim_ids.length
+          : "a non-array value";
+        throw new Error(
+          `response requirement_mappings[${index}].claim_ids must contain exactly one raw entry for the Targeted Brief v1 one-object/one-claim boundary; received ${count}; zero, duplicate, and multiple references are invalid and are never deduplicated`,
+        );
       }
       for (const objectId of mapping.account_object_ids) {
         assertBoundedCallerText(
@@ -581,14 +589,6 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
           256,
         );
       }
-      const accountObjectIds = uniqueSorted(mapping.account_object_ids);
-      const claimIds = uniqueSorted(mapping.claim_ids);
-      if (
-        accountObjectIds.length !== mapping.account_object_ids.length ||
-        claimIds.length !== mapping.claim_ids.length
-      ) {
-        throw new Error(`response requirement_mappings[${index}] references must not contain duplicates`);
-      }
       return {
         requirement_ref: mapping.requirement_ref,
         requirement_text: mapping.requirement_text,
@@ -601,8 +601,8 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
           `response requirement_mappings[${index}].gap_or_limitation`,
           2_048,
         ),
-        account_object_ids: accountObjectIds,
-        claim_ids: claimIds,
+        account_object_ids: [mapping.account_object_ids[0]!],
+        claim_ids: [mapping.claim_ids[0]!],
       };
     },
   );
@@ -910,56 +910,41 @@ function governedRfxPairs(
   bundle: GraphBundle,
   mapping: TargetedRfxRequirementMapping,
 ): TargetedRfxGovernedPair[] {
-  for (const objectId of mapping.account_object_ids) {
-    if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} object ${objectId} does not resolve exactly once`,
-      );
-    }
-  }
-  for (const claimId of mapping.claim_ids) {
-    if (bundle.claims.filter((claim) => claim.id === claimId).length !== 1) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} claim ${claimId} does not resolve exactly once`,
-      );
-    }
-  }
-
-  const objectIds = new Set(mapping.account_object_ids);
-  const claimIds = new Set(mapping.claim_ids);
-  const pairs = bundle.account_object_claims
-    .filter(
-      (relationship) =>
-        (relationship.relationship === "primary" ||
-          relationship.relationship === "supporting") &&
-        objectIds.has(relationship.account_object_id) &&
-        claimIds.has(relationship.claim_id),
-    )
-    .map((relationship) => ({
-      account_object_id: relationship.account_object_id,
-      claim_id: relationship.claim_id,
-    }))
-    .sort(
-      (left, right) =>
-        left.account_object_id.localeCompare(right.account_object_id) ||
-        left.claim_id.localeCompare(right.claim_id),
+  if (mapping.account_object_ids.length !== 1 || mapping.claim_ids.length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} violates the Targeted Brief v1 one-object/one-claim boundary`,
     );
-
-  for (const objectId of mapping.account_object_ids) {
-    if (!pairs.some((pair) => pair.account_object_id === objectId)) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} object ${objectId} has no governed primary/supporting pair with its mapped claims`,
-      );
-    }
   }
-  for (const claimId of mapping.claim_ids) {
-    if (!pairs.some((pair) => pair.claim_id === claimId)) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} claim ${claimId} has no governed primary/supporting pair with its mapped account objects`,
-      );
-    }
+  const objectId = mapping.account_object_ids[0]!;
+  const claimId = mapping.claim_ids[0]!;
+  if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} Targeted Brief v1 object ${objectId} does not resolve exactly once`,
+    );
   }
-  return pairs;
+  if (bundle.claims.filter((claim) => claim.id === claimId).length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} Targeted Brief v1 claim ${claimId} does not resolve exactly once`,
+    );
+  }
+  const qualifyingRelationships = bundle.account_object_claims.filter(
+    (relationship) =>
+      relationship.account_object_id === objectId &&
+      relationship.claim_id === claimId &&
+      (relationship.relationship === "primary" ||
+        relationship.relationship === "supporting"),
+  );
+  if (qualifyingRelationships.length === 0) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} is missing an exact primary/supporting account_object_claims relationship for the Targeted Brief v1 one-object/one-claim pair ${objectId}/${claimId}`,
+    );
+  }
+  if (qualifyingRelationships.length > 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} has an ambiguous exact primary/supporting account_object_claims relationship for the Targeted Brief v1 one-object/one-claim pair ${objectId}/${claimId}: found ${qualifyingRelationships.length} raw qualifying rows`,
+    );
+  }
+  return [{ account_object_id: objectId, claim_id: claimId }];
 }
 
 interface GovernedRfxProjection {
@@ -1011,56 +996,62 @@ function assertGovernedRequestReferences(
     return null;
   }
 
+  const requirementMappings = target.response.requirement_mappings ?? [];
+  if (requirementMappings.length === 0) {
+    return {
+      request: deepFreeze({
+        ...target,
+        selection: {
+          governance: "human_selected",
+          account_object_ids: [],
+        },
+      }),
+      claim_ids_by_object: new Map(),
+      omitted_selected_object_count: target.selection.account_object_ids.length,
+      omitted_related_claim_count: 0,
+    };
+  }
+
+  const mappedObjectIds = new Set(
+    requirementMappings.map((mapping) => mapping.account_object_ids[0]!),
+  );
   const governedPairs: TargetedRfxGovernedPair[] = [];
-  for (const mapping of target.response.requirement_mappings ?? []) {
-    for (const objectId of mapping.account_object_ids) {
-      assertObject(objectId, `requirement mapping ${mapping.requirement_ref}`);
-    }
+  for (const mapping of requirementMappings) {
     governedPairs.push(...governedRfxPairs(bundle, mapping));
   }
-  const governedPairKeys = new Set(
-    governedPairs.map(
-      (pair) => `${pair.account_object_id}\0${pair.claim_id}`,
-    ),
+  const mappedButUnselected = uniqueSorted(
+    [...mappedObjectIds].filter((objectId) => !selectedObjectIds.has(objectId)),
   );
+  if (mappedButUnselected.length > 0) {
+    throw new Error(
+      `Targeted Brief v1 requires selected account object IDs to exactly equal the union referenced by all requirement mappings; mapped account object ${mappedButUnselected[0]} is not selected`,
+    );
+  }
+  const selectedButUnmapped = uniqueSorted(
+    [...selectedObjectIds].filter((objectId) => !mappedObjectIds.has(objectId)),
+  );
+  if (selectedButUnmapped.length > 0) {
+    throw new Error(
+      `Targeted Brief v1 requires selected account object IDs to exactly equal the union referenced by all requirement mappings; selected account object ${selectedButUnmapped[0]} is not used by any requirement mapping`,
+    );
+  }
+
   const claimIdsByObject = new Map<string, Set<string>>();
   for (const pair of governedPairs) {
     const claimIds = claimIdsByObject.get(pair.account_object_id) ?? new Set<string>();
     claimIds.add(pair.claim_id);
     claimIdsByObject.set(pair.account_object_id, claimIds);
   }
-  const projectedObjectIds = uniqueSorted([...claimIdsByObject.keys()]);
-  const omittedRelatedPairKeys = new Set(
-    bundle.account_object_claims
-      .filter(
-        (relationship) =>
-          claimIdsByObject.has(relationship.account_object_id) &&
-          (relationship.relationship === "primary" ||
-            relationship.relationship === "supporting"),
-      )
-      .map(
-        (relationship) =>
-          `${relationship.account_object_id}\0${relationship.claim_id}`,
-      )
-      .filter((key) => !governedPairKeys.has(key)),
-  );
   return {
-    request: deepFreeze({
-      ...target,
-      selection: {
-        governance: "human_selected",
-        account_object_ids: projectedObjectIds,
-      },
-    }),
+    request: target,
     claim_ids_by_object: new Map(
       [...claimIdsByObject].map(([objectId, claimIds]) => [
         objectId,
         uniqueSorted([...claimIds]),
       ]),
     ),
-    omitted_selected_object_count:
-      target.selection.account_object_ids.length - projectedObjectIds.length,
-    omitted_related_claim_count: omittedRelatedPairKeys.size,
+    omitted_selected_object_count: 0,
+    omitted_related_claim_count: 0,
   };
 }
 
@@ -1292,36 +1283,26 @@ function buildRfxMappings(
 ): TargetedBriefRfxMapping[] {
   return (request.response.requirement_mappings ?? []).map((mapping) => {
     const governedPairs = governedRfxPairs(bundle, mapping);
-    const pairStates = governedPairs.map((pair) => {
-      const assertion = assertions.find(
-        (assertion) =>
-          assertion.id === pair.account_object_id &&
-          assertion.claim_ids.includes(pair.claim_id),
-      );
-      if (
-        !assertion ||
-        !assertion.evidence.some(
-          (evidence) =>
-            evidence.claim.id === pair.claim_id &&
-            evidence.relationship === "supports",
-        )
-      ) {
-        return "needs_evidence";
-      }
-      return assertion.evidence.some(
-        (evidence) =>
-          evidence.claim.id === pair.claim_id &&
-          evidence.relationship === "contradicts",
-      )
-        ? "contested"
-        : "supported";
-    });
+    const governedPair = governedPairs[0]!;
+    const assertion = assertions.find(
+      (candidate) =>
+        candidate.id === governedPair.account_object_id &&
+        candidate.claim_ids.includes(governedPair.claim_id),
+    );
     const governedAccountFactEvidenceState:
-      TargetedRfxGovernedAccountFactEvidenceState = pairStates.includes(
-        "needs_evidence",
+      TargetedRfxGovernedAccountFactEvidenceState =
+      !assertion ||
+      !assertion.evidence.some(
+        (evidence) =>
+          evidence.claim.id === governedPair.claim_id &&
+          evidence.relationship === "supports",
       )
         ? "needs_evidence"
-        : pairStates.includes("contested")
+        : assertion.evidence.some(
+            (evidence) =>
+              evidence.claim.id === governedPair.claim_id &&
+              evidence.relationship === "contradicts",
+          )
           ? "contested"
           : "supported";
     return {
@@ -1362,7 +1343,6 @@ function targetedRfxMappingPresentation(
 function rfxPreparation(
   mappings: readonly TargetedBriefRfxMapping[],
   evidenceGaps: readonly TargetedBriefEvidenceGap[],
-  projection: TargetedBriefSelectionResult["rfx_projection"],
 ): {
   readonly gaps: readonly string[];
   readonly nextAction: string;
@@ -1393,20 +1373,6 @@ function rfxPreparation(
     } else {
       nextAction ??= `Resolve the stated limitation for ${mapping.requirement_ref}: ${mapping.gap_or_limitation}`;
     }
-  }
-  if (
-    mappings.length > 0 &&
-    projection &&
-    (
-      projection.omitted_selected_object_count > 0 ||
-      projection.omitted_related_claim_count > 0
-    )
-  ) {
-    gaps.push(
-      "Selected account material outside governed requirement mappings was omitted rather than presented as relevant.",
-    );
-    nextAction ??=
-      "Add an explicit governed requirement mapping before treating the omitted account material as relevant.";
   }
   nextAction ??= evidenceGapAction(evidenceGaps);
   nextAction ??= "Add a governed requirement mapping before drafting a response point.";
@@ -1447,7 +1413,6 @@ function buildBrief(
     : rfxPreparation(
         rfxMappings,
         selection.evidence_gaps,
-        selection.rfx_projection,
       );
   const brief = deepFreeze<TargetedBrief>({
     schema_version: TARGETED_BRIEF_SCHEMA_VERSION,

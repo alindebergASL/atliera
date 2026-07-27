@@ -64,8 +64,10 @@ export type TargetedRfxResponseType = "proposal" | "RFI" | "RFP";
 export interface TargetedRfxRequirementMapping {
   readonly requirement_ref: string;
   readonly requirement_text: string;
-  readonly supported_response_point: string;
-  readonly available_evidence: string;
+  readonly team_provided_response_draft: string;
+  readonly response_draft_validation?: "unvalidated";
+  readonly team_provided_evidence_note: string;
+  readonly evidence_note_validation?: "unvalidated_not_proof";
   readonly gap_or_limitation?: string;
   readonly account_object_ids: readonly string[];
   readonly claim_ids: readonly string[];
@@ -76,14 +78,17 @@ export interface TargetedRfxGovernedPair {
   readonly claim_id: string;
 }
 
-export type TargetedRfxMappingEvidenceState =
+export type TargetedRfxGovernedAccountFactEvidenceState =
   | "supported"
   | "needs_evidence"
   | "contested";
 
 export interface TargetedBriefRfxMapping extends TargetedRfxRequirementMapping {
   readonly governed_pairs: readonly TargetedRfxGovernedPair[];
-  readonly evidence_state: TargetedRfxMappingEvidenceState;
+  readonly governed_account_fact_evidence_state:
+    TargetedRfxGovernedAccountFactEvidenceState;
+  readonly response_draft_validation: "unvalidated";
+  readonly evidence_note_validation: "unvalidated_not_proof";
 }
 
 export interface TargetedProposalRfxRequest {
@@ -227,6 +232,10 @@ export interface TargetedBriefSelectionResult {
   readonly request: TargetedBriefRequest;
   readonly assertions: readonly TargetedBriefAssertion[];
   readonly evidence_gaps: readonly TargetedBriefEvidenceGap[];
+  readonly rfx_projection: {
+    readonly omitted_selected_object_count: number;
+    readonly omitted_related_claim_count: number;
+  } | null;
 }
 
 interface LoadedFixtureState {
@@ -541,22 +550,30 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
         2_048,
       );
       assertBoundedCallerText(
-        mapping.supported_response_point,
-        `response requirement_mappings[${index}].supported_response_point`,
+        mapping.team_provided_response_draft,
+        `response requirement_mappings[${index}].team_provided_response_draft`,
         2_048,
       );
       assertBoundedCallerText(
-        mapping.available_evidence,
-        `response requirement_mappings[${index}].available_evidence`,
+        mapping.team_provided_evidence_note,
+        `response requirement_mappings[${index}].team_provided_evidence_note`,
         2_048,
       );
-      if (
-        !Array.isArray(mapping.account_object_ids) ||
-        mapping.account_object_ids.length === 0 ||
-        !Array.isArray(mapping.claim_ids) ||
-        mapping.claim_ids.length === 0
-      ) {
-        throw new Error(`response requirement_mappings[${index}] requires governed account-object and claim references`);
+      if (!Array.isArray(mapping.account_object_ids) || mapping.account_object_ids.length !== 1) {
+        const count = Array.isArray(mapping.account_object_ids)
+          ? mapping.account_object_ids.length
+          : "a non-array value";
+        throw new Error(
+          `response requirement_mappings[${index}].account_object_ids must contain exactly one raw entry for the Targeted Brief v1 one-object/one-claim boundary; received ${count}; zero, duplicate, and multiple references are invalid and are never deduplicated`,
+        );
+      }
+      if (!Array.isArray(mapping.claim_ids) || mapping.claim_ids.length !== 1) {
+        const count = Array.isArray(mapping.claim_ids)
+          ? mapping.claim_ids.length
+          : "a non-array value";
+        throw new Error(
+          `response requirement_mappings[${index}].claim_ids must contain exactly one raw entry for the Targeted Brief v1 one-object/one-claim boundary; received ${count}; zero, duplicate, and multiple references are invalid and are never deduplicated`,
+        );
       }
       for (const objectId of mapping.account_object_ids) {
         assertBoundedCallerText(
@@ -572,26 +589,20 @@ function normalizedRequest(request: TargetedBriefRequest): TargetedBriefRequest 
           256,
         );
       }
-      const accountObjectIds = uniqueSorted(mapping.account_object_ids);
-      const claimIds = uniqueSorted(mapping.claim_ids);
-      if (
-        accountObjectIds.length !== mapping.account_object_ids.length ||
-        claimIds.length !== mapping.claim_ids.length
-      ) {
-        throw new Error(`response requirement_mappings[${index}] references must not contain duplicates`);
-      }
       return {
         requirement_ref: mapping.requirement_ref,
         requirement_text: mapping.requirement_text,
-        supported_response_point: mapping.supported_response_point,
-        available_evidence: mapping.available_evidence,
+        team_provided_response_draft: mapping.team_provided_response_draft,
+        response_draft_validation: "unvalidated" as const,
+        team_provided_evidence_note: mapping.team_provided_evidence_note,
+        evidence_note_validation: "unvalidated_not_proof" as const,
         gap_or_limitation: normalizedOptionalCallerText(
           mapping.gap_or_limitation,
           `response requirement_mappings[${index}].gap_or_limitation`,
           2_048,
         ),
-        account_object_ids: accountObjectIds,
-        claim_ids: claimIds,
+        account_object_ids: [mapping.account_object_ids[0]!],
+        claim_ids: [mapping.claim_ids[0]!],
       };
     },
   );
@@ -899,63 +910,62 @@ function governedRfxPairs(
   bundle: GraphBundle,
   mapping: TargetedRfxRequirementMapping,
 ): TargetedRfxGovernedPair[] {
-  for (const objectId of mapping.account_object_ids) {
-    if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} object ${objectId} does not resolve exactly once`,
-      );
-    }
-  }
-  for (const claimId of mapping.claim_ids) {
-    if (bundle.claims.filter((claim) => claim.id === claimId).length !== 1) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} claim ${claimId} does not resolve exactly once`,
-      );
-    }
-  }
-
-  const objectIds = new Set(mapping.account_object_ids);
-  const claimIds = new Set(mapping.claim_ids);
-  const pairs = bundle.account_object_claims
-    .filter(
-      (relationship) =>
-        (relationship.relationship === "primary" ||
-          relationship.relationship === "supporting") &&
-        objectIds.has(relationship.account_object_id) &&
-        claimIds.has(relationship.claim_id),
-    )
-    .map((relationship) => ({
-      account_object_id: relationship.account_object_id,
-      claim_id: relationship.claim_id,
-    }))
-    .sort(
-      (left, right) =>
-        left.account_object_id.localeCompare(right.account_object_id) ||
-        left.claim_id.localeCompare(right.claim_id),
+  if (mapping.account_object_ids.length !== 1 || mapping.claim_ids.length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} violates the Targeted Brief v1 one-object/one-claim boundary`,
     );
+  }
+  const objectId = mapping.account_object_ids[0]!;
+  const claimId = mapping.claim_ids[0]!;
+  if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} Targeted Brief v1 object ${objectId} does not resolve exactly once`,
+    );
+  }
+  if (bundle.claims.filter((claim) => claim.id === claimId).length !== 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} Targeted Brief v1 claim ${claimId} does not resolve exactly once`,
+    );
+  }
+  const qualifyingRelationships = bundle.account_object_claims.filter(
+    (relationship) =>
+      relationship.account_object_id === objectId &&
+      relationship.claim_id === claimId &&
+      (relationship.relationship === "primary" ||
+        relationship.relationship === "supporting"),
+  );
+  if (qualifyingRelationships.length === 0) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} is missing an exact primary/supporting account_object_claims relationship for the Targeted Brief v1 one-object/one-claim pair ${objectId}/${claimId}`,
+    );
+  }
+  if (qualifyingRelationships.length > 1) {
+    throw new Error(
+      `requirement mapping ${mapping.requirement_ref} has an ambiguous exact primary/supporting account_object_claims relationship for the Targeted Brief v1 one-object/one-claim pair ${objectId}/${claimId}: found ${qualifyingRelationships.length} raw qualifying rows`,
+    );
+  }
+  return [{ account_object_id: objectId, claim_id: claimId }];
+}
 
-  for (const objectId of mapping.account_object_ids) {
-    if (!pairs.some((pair) => pair.account_object_id === objectId)) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} object ${objectId} has no governed primary/supporting pair with its mapped claims`,
-      );
-    }
-  }
-  for (const claimId of mapping.claim_ids) {
-    if (!pairs.some((pair) => pair.claim_id === claimId)) {
-      throw new Error(
-        `requirement mapping ${mapping.requirement_ref} claim ${claimId} has no governed primary/supporting pair with its mapped account objects`,
-      );
-    }
-  }
-  return pairs;
+interface GovernedRfxProjection {
+  readonly request: TargetedProposalRfxRequest;
+  readonly claim_ids_by_object: ReadonlyMap<string, readonly string[]>;
+  readonly omitted_selected_object_count: number;
+  readonly omitted_related_claim_count: number;
 }
 
 function assertGovernedRequestReferences(
   bundle: GraphBundle,
   target: TargetedBriefRequest,
-): void {
+): GovernedRfxProjection | null {
   const selectedObjectIds = new Set(target.selection.account_object_ids);
+  for (const objectId of selectedObjectIds) {
+    if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
+      throw new Error(
+        `selected account_object_id ${objectId} does not resolve exactly once`,
+      );
+    }
+  }
   const supportingLinks = new Set(
     bundle.account_object_claims
       .filter(
@@ -983,27 +993,66 @@ function assertGovernedRequestReferences(
         assertPair(context.account_object_id, claimId, "meeting fact context");
       }
     }
-    return;
+    return null;
   }
 
   const requirementMappings = target.response.requirement_mappings ?? [];
-  const mappedObjectIds = new Set<string>();
+  if (requirementMappings.length === 0) {
+    return {
+      request: deepFreeze({
+        ...target,
+        selection: {
+          governance: "human_selected",
+          account_object_ids: [],
+        },
+      }),
+      claim_ids_by_object: new Map(),
+      omitted_selected_object_count: target.selection.account_object_ids.length,
+      omitted_related_claim_count: 0,
+    };
+  }
+
+  const mappedObjectIds = new Set(
+    requirementMappings.map((mapping) => mapping.account_object_ids[0]!),
+  );
+  const governedPairs: TargetedRfxGovernedPair[] = [];
   for (const mapping of requirementMappings) {
-    for (const objectId of mapping.account_object_ids) {
-      assertObject(objectId, `requirement mapping ${mapping.requirement_ref}`);
-      mappedObjectIds.add(objectId);
-    }
-    governedRfxPairs(bundle, mapping);
+    governedPairs.push(...governedRfxPairs(bundle, mapping));
   }
-  if (requirementMappings.length > 0) {
-    for (const objectId of selectedObjectIds) {
-      if (!mappedObjectIds.has(objectId)) {
-        throw new Error(
-          `selected account object ${objectId} is not used by any requirement mapping`,
-        );
-      }
-    }
+  const mappedButUnselected = uniqueSorted(
+    [...mappedObjectIds].filter((objectId) => !selectedObjectIds.has(objectId)),
+  );
+  if (mappedButUnselected.length > 0) {
+    throw new Error(
+      `Targeted Brief v1 requires selected account object IDs to exactly equal the union referenced by all requirement mappings; mapped account object ${mappedButUnselected[0]} is not selected`,
+    );
   }
+  const selectedButUnmapped = uniqueSorted(
+    [...selectedObjectIds].filter((objectId) => !mappedObjectIds.has(objectId)),
+  );
+  if (selectedButUnmapped.length > 0) {
+    throw new Error(
+      `Targeted Brief v1 requires selected account object IDs to exactly equal the union referenced by all requirement mappings; selected account object ${selectedButUnmapped[0]} is not used by any requirement mapping`,
+    );
+  }
+
+  const claimIdsByObject = new Map<string, Set<string>>();
+  for (const pair of governedPairs) {
+    const claimIds = claimIdsByObject.get(pair.account_object_id) ?? new Set<string>();
+    claimIds.add(pair.claim_id);
+    claimIdsByObject.set(pair.account_object_id, claimIds);
+  }
+  return {
+    request: target,
+    claim_ids_by_object: new Map(
+      [...claimIdsByObject].map(([objectId, claimIds]) => [
+        objectId,
+        uniqueSorted([...claimIds]),
+      ]),
+    ),
+    omitted_selected_object_count: 0,
+    omitted_related_claim_count: 0,
+  };
 }
 
 export function evaluateTargetedBriefSelection(
@@ -1021,7 +1070,8 @@ export function evaluateTargetedBriefSelection(
     target.account_id,
     target.authority.team_id,
   );
-  assertGovernedRequestReferences(bundle, target);
+  const rfxProjection = assertGovernedRequestReferences(bundle, target);
+  const projectedTarget = rfxProjection?.request ?? target;
 
   const objectById = new Map(bundle.account_objects.map((object) => [object.id, object]));
   const claimById = new Map(bundle.claims.map((claim) => [claim.id, claim]));
@@ -1030,7 +1080,7 @@ export function evaluateTargetedBriefSelection(
   const gaps = new Map<TargetedBriefGapReason, GapAccumulator>();
   const assertions: TargetedBriefAssertion[] = [];
 
-  for (const objectId of target.selection.account_object_ids) {
+  for (const objectId of projectedTarget.selection.account_object_ids) {
     const object = objectById.get(objectId);
     if (!object) {
       throw new Error(`selected account_object_id ${objectId} does not resolve in the loaded fixture`);
@@ -1040,16 +1090,18 @@ export function evaluateTargetedBriefSelection(
     }
 
     const renderableObject = objectIsRenderable(object, gaps);
-    const claimIds = uniqueSorted(
-      bundle.account_object_claims
-        .filter(
-          (relationship) =>
-            relationship.account_object_id === object.id &&
-            (relationship.relationship === "primary" ||
-              relationship.relationship === "supporting"),
-        )
-        .map((relationship) => relationship.claim_id),
-    );
+    const claimIds = rfxProjection
+      ? rfxProjection.claim_ids_by_object.get(object.id) ?? []
+      : uniqueSorted(
+          bundle.account_object_claims
+            .filter(
+              (relationship) =>
+                relationship.account_object_id === object.id &&
+                (relationship.relationship === "primary" ||
+                  relationship.relationship === "supporting"),
+            )
+            .map((relationship) => relationship.claim_id),
+        );
     if (claimIds.length === 0) addGap(gaps, "missing_accepted_evidence", object.id);
 
     const acceptedClaims: Claim[] = [];
@@ -1137,9 +1189,17 @@ export function evaluateTargetedBriefSelection(
       left.id.localeCompare(right.id),
   );
   return deepFreeze({
-    request: target,
+    request: projectedTarget,
     assertions,
     evidence_gaps: finalizedGaps(gaps),
+    rfx_projection: rfxProjection
+      ? {
+          omitted_selected_object_count:
+            rfxProjection.omitted_selected_object_count,
+          omitted_related_claim_count:
+            rfxProjection.omitted_related_claim_count,
+        }
+      : null,
   });
 }
 
@@ -1223,55 +1283,60 @@ function buildRfxMappings(
 ): TargetedBriefRfxMapping[] {
   return (request.response.requirement_mappings ?? []).map((mapping) => {
     const governedPairs = governedRfxPairs(bundle, mapping);
-    const pairAssertions = governedPairs.map((pair) =>
-      assertions.find(
-        (assertion) =>
-          assertion.id === pair.account_object_id &&
-          assertion.claim_ids.includes(pair.claim_id),
-      ),
+    const governedPair = governedPairs[0]!;
+    const assertion = assertions.find(
+      (candidate) =>
+        candidate.id === governedPair.account_object_id &&
+        candidate.claim_ids.includes(governedPair.claim_id),
     );
-    const evidenceState: TargetedRfxMappingEvidenceState = pairAssertions.some(
-      (assertion) => !assertion,
-    )
-      ? "needs_evidence"
-      : pairAssertions.some((assertion) => assertion?.state === "contested")
-        ? "contested"
-        : "supported";
+    const governedAccountFactEvidenceState:
+      TargetedRfxGovernedAccountFactEvidenceState =
+      !assertion ||
+      !assertion.evidence.some(
+        (evidence) =>
+          evidence.claim.id === governedPair.claim_id &&
+          evidence.relationship === "supports",
+      )
+        ? "needs_evidence"
+        : assertion.evidence.some(
+            (evidence) =>
+              evidence.claim.id === governedPair.claim_id &&
+              evidence.relationship === "contradicts",
+          )
+          ? "contested"
+          : "supported";
     return {
       ...mapping,
       governed_pairs: governedPairs,
-      evidence_state: evidenceState,
+      governed_account_fact_evidence_state: governedAccountFactEvidenceState,
+      response_draft_validation: "unvalidated",
+      evidence_note_validation: "unvalidated_not_proof",
     };
   });
 }
 
 interface TargetedRfxMappingPresentation {
-  readonly state_label: string;
-  readonly response_point_label: string;
-  readonly evidence_label: string;
+  readonly governed_fact_state_label: string;
 }
 
 function targetedRfxMappingPresentation(
-  state: TargetedRfxMappingEvidenceState,
+  state: TargetedRfxGovernedAccountFactEvidenceState,
 ): TargetedRfxMappingPresentation {
   if (state === "supported") {
     return {
-      state_label: "Evidence-backed mapping",
-      response_point_label: "Supported response point",
-      evidence_label: "Available evidence / proof",
+      governed_fact_state_label:
+        "Governed account fact · active accepted evidence exists for this exact fact",
     };
   }
   if (state === "contested") {
     return {
-      state_label: "Contested · do not use as supported",
-      response_point_label: "Team-proposed, unvalidated response point",
-      evidence_label: "Team-provided evidence note · contested, not validated proof",
+      governed_fact_state_label:
+        "Governed account fact · active accepted evidence both supports and contradicts this exact fact",
     };
   }
   return {
-    state_label: "Needs evidence · do not use as supported",
-    response_point_label: "Team-proposed, unvalidated response point",
-    evidence_label: "Team-provided evidence note · not validated proof",
+    governed_fact_state_label:
+      "Governed account fact · active accepted supporting evidence is missing for this exact fact",
   };
 }
 
@@ -1289,14 +1354,14 @@ function rfxPreparation(
     nextAction = "Add the first requirement mapping with its governed claim and account-object references.";
   }
   for (const mapping of mappings) {
-    if (mapping.evidence_state === "needs_evidence") {
+    if (mapping.governed_account_fact_evidence_state === "needs_evidence") {
       gaps.push(
-        `${mapping.requirement_ref} lacks active accepted support for every governed object-to-claim pair and cannot establish the proposed response point.`,
+        `${mapping.requirement_ref} lacks active accepted support for every governed object-to-claim pair; the team-provided response draft remains unvalidated.`,
       );
-      nextAction ??= `Add active accepted proof or narrow the response point for ${mapping.requirement_ref}.`;
-    } else if (mapping.evidence_state === "contested") {
+      nextAction ??= `Add active accepted evidence for the exact governed fact or narrow the response draft for ${mapping.requirement_ref}.`;
+    } else if (mapping.governed_account_fact_evidence_state === "contested") {
       gaps.push(
-        `${mapping.requirement_ref} relies on a contested assertion and must not be used as supported before clarification.`,
+        `${mapping.requirement_ref} references a contested governed account fact; its team-provided response draft remains unvalidated.`,
       );
       nextAction ??= `Resolve the contested assertion mapped to ${mapping.requirement_ref}.`;
     }
@@ -1345,7 +1410,10 @@ function buildBrief(
         selection.assertions,
         selection.evidence_gaps,
       )
-    : rfxPreparation(rfxMappings, selection.evidence_gaps);
+    : rfxPreparation(
+        rfxMappings,
+        selection.evidence_gaps,
+      );
   const brief = deepFreeze<TargetedBrief>({
     schema_version: TARGETED_BRIEF_SCHEMA_VERSION,
     kind,
@@ -1534,18 +1602,20 @@ function renderRfxMappings(brief: TargetedBrief): string {
   return `<section class="support-panel">
       <p class="kicker">Team-provided response planning</p>
       <h2>Requirement mappings</h2>
-      <p class="mapping-caution">A related capability is not a compliance claim. Treat requirement satisfaction as unconfirmed unless the governed evidence directly establishes it.</p>
+      <p class="mapping-caution">Only the exact governed account fact receives the evidence state shown below. Team-provided response drafts and evidence notes are unvalidated drafting material; an evidence note is not proof of any response, compliance, certification, or requirement claim.</p>
       ${brief.rfx_mappings
         .map((mapping) => {
-          const presentation = targetedRfxMappingPresentation(mapping.evidence_state);
-          return `<article class="mapping-card mapping-${escapeHtml(mapping.evidence_state)}">
-        <p class="team-label">Team-provided mapping · not a discovered account fact</p>
-        <p class="mapping-state">${escapeHtml(presentation.state_label)}</p>
+          const presentation = targetedRfxMappingPresentation(
+            mapping.governed_account_fact_evidence_state,
+          );
+          return `<article class="mapping-card governed-fact-${escapeHtml(mapping.governed_account_fact_evidence_state)}">
+        <p class="team-label">Team-provided requirement mapping · unvalidated drafting context</p>
+        <p class="mapping-state">${escapeHtml(presentation.governed_fact_state_label)}</p>
         <h3>${escapeHtml(mapping.requirement_ref)}</h3>
         <dl>
           <dt>Supplied requirement</dt><dd>${escapeHtml(mapping.requirement_text)}</dd>
-          <dt>${escapeHtml(presentation.response_point_label)}</dt><dd>${escapeHtml(mapping.supported_response_point)}</dd>
-          <dt>${escapeHtml(presentation.evidence_label)}</dt><dd>${escapeHtml(mapping.available_evidence)}</dd>
+          <dt>Team-provided response draft · unvalidated</dt><dd>${escapeHtml(mapping.team_provided_response_draft)}</dd>
+          <dt>Team-provided evidence note · unvalidated, not proof</dt><dd>${escapeHtml(mapping.team_provided_evidence_note)}</dd>
           ${mapping.gap_or_limitation ? `<dt>Gap, limitation, or clarification needed</dt><dd>${escapeHtml(mapping.gap_or_limitation)}</dd>` : ""}
         </dl>
       </article>`;
@@ -1758,7 +1828,9 @@ export function renderTargetedBriefHtml(brief: TargetedBrief): string {
     ${renderRfxMappings(brief)}
     ${renderMaterialGaps(brief)}
     ${renderEvidenceAndProvenance(brief)}
-    <footer>Prepared for human use from selected, evidence-backed content.</footer>
+    <footer>${brief.kind === "proposal_rfx"
+      ? "Governed account facts retain their displayed evidence state; team-provided response drafts and evidence notes are unvalidated drafting material."
+      : "Prepared for human use from selected, evidence-backed content."}</footer>
   </main>
 </body>
 </html>`.replace(/[ \t]+$/gm, "");

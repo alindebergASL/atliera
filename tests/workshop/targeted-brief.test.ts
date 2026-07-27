@@ -1455,6 +1455,64 @@ describe("Workshop targeted brief V1", () => {
     }
   });
 
+  test("fails closed when a CISO selected account-object ID does not resolve exactly once", async () => {
+    const bundle = await loadGraphBundleFile(THREE_LANE);
+    const nonexistentId = "obj_acme_syntactically_valid_nonexistent";
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(
+          bundle,
+          cisoSelectionRequest(ACME_ACCOUNT, [nonexistentId]),
+        ),
+      {
+        message: `selected account_object_id ${nonexistentId} does not resolve exactly once`,
+      },
+    );
+  });
+
+  test("validates proposal/RFx selection shape before zero-mapping projection", async () => {
+    const bundle = await loadGraphBundleFile(THREE_LANE);
+    const cases: readonly {
+      readonly name: string;
+      readonly selection: readonly string[];
+      readonly error: string;
+    }[] = [
+      {
+        name: "empty selection",
+        selection: [],
+        error: "targeted brief request requires a non-empty human-selected account-object selection",
+      },
+      {
+        name: "duplicate IDs",
+        selection: ["obj_acme_signal_launch", "obj_acme_signal_launch"],
+        error: "targeted brief account-object selection must not contain duplicates",
+      },
+      {
+        name: "malformed ID",
+        selection: ["obj_acme_invalid\nid"],
+        error: "selected account_object_id must be non-empty, bounded, and single-line",
+      },
+      {
+        name: "oversized ID",
+        selection: [`obj_${"x".repeat(253)}`],
+        error: "selected account_object_id must be non-empty, bounded, and single-line",
+      },
+    ];
+
+    for (const selectionCase of cases) {
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(
+            bundle,
+            proposalRequest(ACME_ACCOUNT, selectionCase.selection),
+          ),
+        { message: selectionCase.error },
+        selectionCase.name,
+      );
+    }
+  });
+
   test("makes missing RFx mappings actionable and never upgrades a related capability to compliance", async () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const missingMapping = buildTargetedBrief(loaded, {
@@ -1518,6 +1576,58 @@ describe("Workshop targeted brief V1", () => {
       /Evidence-backed mapping|<dt>Supported response point<\/dt>|<dt>Available evidence \/ proof<\/dt>/,
     );
     assert.doesNotMatch(proposalHtml, /requirement (?:is )?compliant|satisfies the requirement/i);
+  });
+
+  test("keeps zero-mapping RFx output unchanged for a nonexistent selected ID", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const zeroMappingRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        type: PROPOSAL_REQUEST.response.type,
+        requirement_context: PROPOSAL_REQUEST.response.requirement_context,
+        objective: PROPOSAL_REQUEST.response.objective,
+      },
+    };
+    const existingSelectionBrief = buildTargetedBrief(loaded, zeroMappingRequest);
+    const nonexistentId = "obj_acme_syntactically_valid_nonexistent";
+    const nonexistentSelectionRequest: TargetedProposalRfxRequest = {
+      ...zeroMappingRequest,
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [nonexistentId],
+      },
+    };
+    const selection = evaluateTargetedBriefSelection(
+      await loadGraphBundleFile(THREE_LANE),
+      nonexistentSelectionRequest,
+    );
+    assert.deepEqual(selection.rfx_projection, {
+      omitted_selected_object_count: 1,
+      omitted_related_claim_count: 0,
+    });
+    assert.equal(Object.isFrozen(selection.request), true);
+    const nonexistentSelectionBrief = buildTargetedBrief(
+      loaded,
+      nonexistentSelectionRequest,
+    );
+
+    assert.deepEqual(nonexistentSelectionBrief, existingSelectionBrief);
+    assert.deepEqual(nonexistentSelectionBrief.target.selection.account_object_ids, []);
+    assert.deepEqual(nonexistentSelectionBrief.assertions, []);
+    assert.deepEqual(nonexistentSelectionBrief.sections, []);
+    assert.deepEqual(nonexistentSelectionBrief.rfx_mappings, []);
+
+    const existingSelectionHtml = renderTargetedBriefHtml(existingSelectionBrief);
+    const nonexistentSelectionHtml = renderTargetedBriefHtml(nonexistentSelectionBrief);
+    assert.equal(nonexistentSelectionHtml, existingSelectionHtml);
+    for (const html of [existingSelectionHtml, nonexistentSelectionHtml]) {
+      assert.equal(
+        createHash("sha256").update(html).digest("hex"),
+        "200fc6fe56fdacee567d3eff02b2e5703926ad39737f05c7c51fedc7fa5d0aa5",
+      );
+    }
+    assert.equal(JSON.stringify(nonexistentSelectionBrief).includes(nonexistentId), false);
+    assert.equal(nonexistentSelectionHtml.includes(nonexistentId), false);
   });
 
   test("scopes affirmative evidence treatment to the exact governed fact and never transfers it to hostile team drafting", async () => {

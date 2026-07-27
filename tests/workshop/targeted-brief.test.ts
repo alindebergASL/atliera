@@ -1520,6 +1520,58 @@ describe("Workshop targeted brief V1", () => {
     assert.doesNotMatch(proposalHtml, /requirement (?:is )?compliant|satisfies the requirement/i);
   });
 
+  test("keeps zero-mapping RFx output unchanged for a nonexistent selected ID", async () => {
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const zeroMappingRequest: TargetedProposalRfxRequest = {
+      ...PROPOSAL_REQUEST,
+      response: {
+        type: PROPOSAL_REQUEST.response.type,
+        requirement_context: PROPOSAL_REQUEST.response.requirement_context,
+        objective: PROPOSAL_REQUEST.response.objective,
+      },
+    };
+    const existingSelectionBrief = buildTargetedBrief(loaded, zeroMappingRequest);
+    const nonexistentId = "obj_acme_syntactically_valid_nonexistent";
+    const nonexistentSelectionRequest: TargetedProposalRfxRequest = {
+      ...zeroMappingRequest,
+      selection: {
+        governance: "human_selected",
+        account_object_ids: [nonexistentId],
+      },
+    };
+    const selection = evaluateTargetedBriefSelection(
+      await loadGraphBundleFile(THREE_LANE),
+      nonexistentSelectionRequest,
+    );
+    assert.deepEqual(selection.rfx_projection, {
+      omitted_selected_object_count: 1,
+      omitted_related_claim_count: 0,
+    });
+    assert.equal(Object.isFrozen(selection.request), true);
+    const nonexistentSelectionBrief = buildTargetedBrief(
+      loaded,
+      nonexistentSelectionRequest,
+    );
+
+    assert.deepEqual(nonexistentSelectionBrief, existingSelectionBrief);
+    assert.deepEqual(nonexistentSelectionBrief.target.selection.account_object_ids, []);
+    assert.deepEqual(nonexistentSelectionBrief.assertions, []);
+    assert.deepEqual(nonexistentSelectionBrief.sections, []);
+    assert.deepEqual(nonexistentSelectionBrief.rfx_mappings, []);
+
+    const existingSelectionHtml = renderTargetedBriefHtml(existingSelectionBrief);
+    const nonexistentSelectionHtml = renderTargetedBriefHtml(nonexistentSelectionBrief);
+    assert.equal(nonexistentSelectionHtml, existingSelectionHtml);
+    for (const html of [existingSelectionHtml, nonexistentSelectionHtml]) {
+      assert.equal(
+        createHash("sha256").update(html).digest("hex"),
+        "200fc6fe56fdacee567d3eff02b2e5703926ad39737f05c7c51fedc7fa5d0aa5",
+      );
+    }
+    assert.equal(JSON.stringify(nonexistentSelectionBrief).includes(nonexistentId), false);
+    assert.equal(nonexistentSelectionHtml.includes(nonexistentId), false);
+  });
+
   test("scopes affirmative evidence treatment to the exact governed fact and never transfers it to hostile team drafting", async () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const adversarialRequest: TargetedProposalRfxRequest = {

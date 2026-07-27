@@ -958,6 +958,24 @@ function assertGovernedRequestReferences(
   bundle: GraphBundle,
   target: TargetedBriefRequest,
 ): GovernedRfxProjection | null {
+  if (
+    target.kind === "proposal_rfx" &&
+    (target.response.requirement_mappings ?? []).length === 0
+  ) {
+    return {
+      request: deepFreeze({
+        ...target,
+        selection: {
+          governance: "human_selected",
+          account_object_ids: [],
+        },
+      }),
+      claim_ids_by_object: new Map(),
+      omitted_selected_object_count: target.selection.account_object_ids.length,
+      omitted_related_claim_count: 0,
+    };
+  }
+
   const selectedObjectIds = new Set(target.selection.account_object_ids);
   for (const objectId of selectedObjectIds) {
     if (bundle.account_objects.filter((object) => object.id === objectId).length !== 1) {
@@ -997,21 +1015,6 @@ function assertGovernedRequestReferences(
   }
 
   const requirementMappings = target.response.requirement_mappings ?? [];
-  if (requirementMappings.length === 0) {
-    return {
-      request: deepFreeze({
-        ...target,
-        selection: {
-          governance: "human_selected",
-          account_object_ids: [],
-        },
-      }),
-      claim_ids_by_object: new Map(),
-      omitted_selected_object_count: target.selection.account_object_ids.length,
-      omitted_related_claim_count: 0,
-    };
-  }
-
   const mappedObjectIds = new Set(
     requirementMappings.map((mapping) => mapping.account_object_ids[0]!),
   );

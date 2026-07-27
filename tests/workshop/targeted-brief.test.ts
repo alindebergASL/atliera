@@ -1455,6 +1455,64 @@ describe("Workshop targeted brief V1", () => {
     }
   });
 
+  test("fails closed when a CISO selected account-object ID does not resolve exactly once", async () => {
+    const bundle = await loadGraphBundleFile(THREE_LANE);
+    const nonexistentId = "obj_acme_syntactically_valid_nonexistent";
+
+    assert.throws(
+      () =>
+        evaluateTargetedBriefSelection(
+          bundle,
+          cisoSelectionRequest(ACME_ACCOUNT, [nonexistentId]),
+        ),
+      {
+        message: `selected account_object_id ${nonexistentId} does not resolve exactly once`,
+      },
+    );
+  });
+
+  test("validates proposal/RFx selection shape before zero-mapping projection", async () => {
+    const bundle = await loadGraphBundleFile(THREE_LANE);
+    const cases: readonly {
+      readonly name: string;
+      readonly selection: readonly string[];
+      readonly error: string;
+    }[] = [
+      {
+        name: "empty selection",
+        selection: [],
+        error: "targeted brief request requires a non-empty human-selected account-object selection",
+      },
+      {
+        name: "duplicate IDs",
+        selection: ["obj_acme_signal_launch", "obj_acme_signal_launch"],
+        error: "targeted brief account-object selection must not contain duplicates",
+      },
+      {
+        name: "malformed ID",
+        selection: ["obj_acme_invalid\nid"],
+        error: "selected account_object_id must be non-empty, bounded, and single-line",
+      },
+      {
+        name: "oversized ID",
+        selection: [`obj_${"x".repeat(253)}`],
+        error: "selected account_object_id must be non-empty, bounded, and single-line",
+      },
+    ];
+
+    for (const selectionCase of cases) {
+      assert.throws(
+        () =>
+          evaluateTargetedBriefSelection(
+            bundle,
+            proposalRequest(ACME_ACCOUNT, selectionCase.selection),
+          ),
+        { message: selectionCase.error },
+        selectionCase.name,
+      );
+    }
+  });
+
   test("makes missing RFx mappings actionable and never upgrades a related capability to compliance", async () => {
     const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
     const missingMapping = buildTargetedBrief(loaded, {

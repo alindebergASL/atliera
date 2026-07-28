@@ -395,7 +395,9 @@ export async function prepareM5bRepositoryNative(
   const sourcePack = buildM5bFedExSanitizedSourcePack(bounded);
   const candidate = buildM5bFedExPrewriteCandidate(sourcePack);
   const reviewPacket = buildM5bFedExReviewPacket(sourcePack, candidate);
-  const workshop = renderM5bFedExPrewriteWorkshopHtml(sourcePack, reviewPacket, candidate);
+  const workshop = renderM5bFedExPrewriteWorkshopHtml(sourcePack, reviewPacket, candidate, {
+    kind: "repository-native-prepare",
+  });
 
   const sourcePackBytes = jsonBytes(sourcePack);
   const candidateBytes = jsonBytes(candidate);

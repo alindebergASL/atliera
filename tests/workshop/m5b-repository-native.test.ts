@@ -167,9 +167,23 @@ describe("M5b repository-native product completion", () => {
         "review-packet.json",
         "workshop-pre-ratification.html",
       ]);
+      assert.deepEqual((await readdir(preparedDir)).sort(), [
+        "candidate.json",
+        "prepare-result.json",
+        "review-packet.json",
+        "source-pack.json",
+        "workshop-pre-ratification.html",
+      ]);
       const html = readFileSync(join(preparedDir, "workshop-pre-ratification.html"), "utf8");
       assert.match(html, /Pending human review/);
-      assert.match(html, /Current effective authorization: <strong>none<\/strong>/);
+      assert.match(html,
+        /<strong>Completed prepare accounting:<\/strong> exactly one explicit source-content read · exactly five private prepared files written · exactly one pre-ratification Workshop page\./);
+      assert.match(html,
+        /<strong>Remaining downstream effects:<\/strong> Current effective authorization: <strong>none<\/strong>\. Provider calls 0 · acquisitions 0 · network calls 0 · graph\/database or application-state writes 0 · deployments 0 · retries 0\./);
+      assert.match(html,
+        /<strong>Remaining authority:<\/strong> This page authorizes no additional source read; no proposal decision or ratification; no retention disposition; no m5b:apply; no graph\/database write; no provider, acquisition, deployment, or retry\./);
+      assert.doesNotMatch(html, /Private reads 0/);
+      assert.doesNotMatch(html, /Local deterministic fixture outputs written by the generator: 3\./);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

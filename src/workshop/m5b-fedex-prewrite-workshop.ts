@@ -54,8 +54,12 @@ function renderCard(proposal: M5bFedExReviewProposal): string {
     `<footer><span>Disposition: pending</span><span>Accept or reject individually</span></footer></article>`;
 }
 
+export interface M5bFedExRepositoryNativePrepareRenderContext {
+  readonly kind: "repository-native-prepare";
+}
+
 export function renderM5bFedExPrewriteWorkshopHtml(packInput: unknown, packetInput: unknown,
-  candidateInput: unknown): string {
+  candidateInput: unknown, context?: M5bFedExRepositoryNativePrepareRenderContext): string {
   const pack = verifyM5bFedExSanitizedSourcePack(packInput);
   const candidate = verifyM5bFedExPrewriteCandidate(candidateInput, pack);
   const packet = verifyM5bFedExReviewPacket(packetInput, pack, candidate);
@@ -73,6 +77,17 @@ export function renderM5bFedExPrewriteWorkshopHtml(packInput: unknown, packetInp
   const signalHtml = signals.length === 1 ? signals.map(renderCard).join("") :
     `<div class="empty"><strong>No Signals proposed</strong><span>No uniquely newest aligned filing metadata row is available in this fixture.</span></div>`;
   const playHtml = `<div class="empty"><strong>No Plays proposed</strong><span>No recommendation was fabricated from identity or classification metadata.</span></div>`;
+  const repositoryNativePrepare = context?.kind === "repository-native-prepare";
+  const boundaryHeading = repositoryNativePrepare
+    ? "Repository-native prepare / pre-ratification boundary"
+    : "Pre-write / no-effect boundary";
+  const boundaryAccountingHtml = repositoryNativePrepare
+    ? `<p><strong>Completed prepare accounting:</strong> exactly one explicit source-content read · exactly five private prepared files written · exactly one pre-ratification Workshop page.</p>` +
+      `<p><strong>Remaining downstream effects:</strong> Current effective authorization: <strong>none</strong>. Provider calls 0 · acquisitions 0 · network calls 0 · graph/database or application-state writes 0 · deployments 0 · retries 0.</p>`
+    : `<p>Current effective authorization: <strong>none</strong>. Private reads 0 · provider calls 0 · acquisitions 0 · graph/durable writes 0 · deployments 0 · retries 0 · external/product effects 0.</p>`;
+  const remainingAuthorityHtml = repositoryNativePrepare
+    ? `<p><strong>Remaining authority:</strong> This page authorizes no additional source read; no proposal decision or ratification; no retention disposition; no m5b:apply; no graph/database write; no provider, acquisition, deployment, or retry.</p>`
+    : `<p>Local deterministic fixture outputs written by the generator: 3.</p>`;
   return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
     `<title>FedEx — source-backed account snapshot</title><style>` +
     `:root{color-scheme:light;--ink:#152033;--muted:#617089;--line:#dfe5ed;--paper:#fff;--wash:#f4f6f9;--navy:#182d55;--orange:#d97706;font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}` +
@@ -100,9 +115,9 @@ export function renderM5bFedExPrewriteWorkshopHtml(packInput: unknown, packetInp
     `<section class="section"><div class="section-head"><h2>Maps</h2><span>2 proposed cards</span></div><div class="grid">${maps.map(renderCard).join("")}</div></section>` +
     `<section class="section"><div class="section-head"><h2>Signals</h2><span>${signals.length} proposed cards</span></div><div class="grid">${signalHtml}</div></section>` +
     `<section class="section"><div class="section-head"><h2>Plays</h2><span>0 proposed cards</span></div><div class="grid">${playHtml}</div></section>` +
-    `<section class="boundary"><h2>Pre-write / no-effect boundary</h2><p>Current effective authorization: <strong>none</strong>. Private reads 0 · provider calls 0 · acquisitions 0 · graph/durable writes 0 · deployments 0 · retries 0 · external/product effects 0.</p>` +
+    `<section class="boundary"><h2>${boundaryHeading}</h2>${boundaryAccountingHtml}` +
     `<p>Every excerpt is proposed and every claim/object remains unverified. Review and retention selections are unratified drafts; a later external ratification artifact is required. Retention beyond ${pack.source.originalCustodyRetentionDeadline} is not authorized here.</p>` +
-    `<p>Local deterministic fixture outputs written by the generator: 3.</p>` +
+    remainingAuthorityHtml +
     `<p class="mono">Candidate content SHA-256: ${candidate.candidateContentSha256}</p></section></main></body></html>\n`;
 }
 

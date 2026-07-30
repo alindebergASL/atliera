@@ -5,10 +5,34 @@ import {
   runQualityGate,
   summarizeGateRun,
 } from "../../src/gate/quality-gate.ts";
+import type { GraphBundle } from "../../src/graph/types.ts";
 import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
 
 function reasonCodes(report: ReturnType<typeof runQualityGate>): string[] {
   return report.reasons.map((r) => r.code);
+}
+
+function relabelIntrinsicOwnership(
+  bundle: GraphBundle,
+  value: string,
+): void {
+  for (const record of bundle.sources) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.claims) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.account_objects) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.research_runs) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const audit of bundle.audit_events) audit.team_id = value;
 }
 
 describe("runQualityGate", () => {
@@ -34,6 +58,29 @@ describe("runQualityGate", () => {
     assert.equal(report.ok, false);
     assert.ok(reasonCodes(report).includes("hard_failures_present"));
   });
+
+  for (const [label, value] of [
+    ["blank", ""],
+    ["whitespace-only", " \t\n"],
+  ] as const) {
+    test(`fails coherently ${label} intrinsic ownership through validator hard failures`, () => {
+      const bundle = clone(makeValidBundle());
+      relabelIntrinsicOwnership(bundle, value);
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.status, "fail");
+      assert.equal(report.ok, false);
+      assert.equal(report.validation_report.ok, false);
+      assert.ok(report.validation_report.hard_failures.length > 0);
+      assert.ok(
+        report.validation_report.hard_failures.every(
+          (failure) => failure.code === "subject_scope_mismatch",
+        ),
+      );
+      assert.ok(reasonCodes(report).includes("hard_failures_present"));
+    });
+  }
 
   test("keeps invented ID failures as a launch-quality metric", () => {
     const bundle = clone(makeValidBundle());

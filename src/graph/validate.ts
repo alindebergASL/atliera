@@ -119,6 +119,10 @@ function fail(
   failures.push({ code, message, ...extra });
 }
 
+function isNonBlank(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function checkIdShape(
   failures: HardFailure[],
   id: string,
@@ -263,9 +267,40 @@ export function validateGraphBundle(
   const support = createSupportEvaluator(bundle);
   const subjectInspection = inspectGraphSubject(bundle);
 
+  for (const record of getAccountBearingGraphRecords(bundle)) {
+    for (const field of ["team_id", "account_id"] as const) {
+      if (!isNonBlank(record[field])) {
+        fail(
+          failures,
+          "subject_scope_mismatch",
+          `${record.record_kind} ${record.record_id}.${field} must contain at least one non-whitespace character`,
+          {
+            record_kind: record.record_kind,
+            record_id: record.record_id,
+            field,
+          },
+        );
+      }
+    }
+  }
+  for (const audit of bundle.audit_events) {
+    if (!isNonBlank(audit.team_id)) {
+      fail(
+        failures,
+        "subject_scope_mismatch",
+        `audit_event ${audit.id}.team_id must contain at least one non-whitespace character`,
+        {
+          record_kind: "audit_event",
+          record_id: audit.id,
+          field: "team_id",
+        },
+      );
+    }
+  }
+
   // A raw research-run bundle may contain more than one account, but never
-  // more than one owning team. Audit events are checked only against an
-  // explicit scope or a unique team derived from account-bearing records.
+  // more than one owning team. Beyond their intrinsic nonblank team, audit
+  // events are checked against an explicit scope or a unique bundle team.
   if (subjectInspection.team_ids.length > 1) {
     fail(
       failures,
@@ -277,7 +312,7 @@ export function validateGraphBundle(
   if (options.subject) {
     for (const field of ["team_id", "account_id"] as const) {
       const authority = options.subject[field];
-      if (typeof authority !== "string" || authority.trim().length === 0) {
+      if (!isNonBlank(authority)) {
         fail(
           failures,
           "subject_scope_mismatch",

@@ -40,6 +40,17 @@ function makeEmptyBundle(): GraphBundle {
   };
 }
 
+function relabelAccountBearingField(
+  bundle: GraphBundle,
+  field: "team_id" | "account_id",
+  value: string,
+): void {
+  for (const record of bundle.sources) record[field] = value;
+  for (const record of bundle.claims) record[field] = value;
+  for (const record of bundle.account_objects) record[field] = value;
+  for (const record of bundle.research_runs) record[field] = value;
+}
+
 describe("validateGraphBundle — baseline", () => {
   it("accepts the valid baseline bundle", () => {
     const report = run(makeValidBundle());
@@ -141,6 +152,79 @@ describe("validateGraphBundle — dangling references", () => {
 });
 
 describe("validateGraphBundle — subject ownership", () => {
+  for (const [label, value] of [
+    ["blank", ""],
+    ["whitespace-only", " \t\n"],
+  ] as const) {
+    for (const field of ["team_id", "account_id"] as const) {
+      it(`rejects coherently ${label} intrinsic account-bearing ${field} values without an explicit subject`, () => {
+        const b = clone(makeValidBundle());
+        relabelAccountBearingField(b, field, value);
+        if (field === "team_id") {
+          for (const audit of b.audit_events) audit.team_id = value;
+        }
+
+        const report = run(b);
+        const intrinsicFailures = report.hard_failures.filter(
+          (failure) =>
+            failure.code === "subject_scope_mismatch" &&
+            failure.field === field &&
+            failure.record_kind !== "audit_event",
+        );
+
+        assert.equal(report.ok, false);
+        assert.deepEqual(
+          intrinsicFailures.map((failure) => ({
+            record_kind: failure.record_kind,
+            record_id: failure.record_id,
+            field: failure.field,
+          })),
+          [
+            {
+              record_kind: "source_document",
+              record_id: b.sources[0]!.id,
+              field,
+            },
+            {
+              record_kind: "claim",
+              record_id: b.claims[0]!.id,
+              field,
+            },
+            {
+              record_kind: "account_object",
+              record_id: b.account_objects[0]!.id,
+              field,
+            },
+            {
+              record_kind: "research_run",
+              record_id: b.research_runs[0]!.id,
+              field,
+            },
+          ],
+        );
+      });
+    }
+
+    it(`rejects an intrinsic ${label} audit team without an explicit subject`, () => {
+      const b = makeEmptyBundle();
+      b.audit_events = clone(makeValidBundle()).audit_events;
+      b.audit_events[0]!.team_id = value;
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(report.hard_failures, [
+        {
+          code: "subject_scope_mismatch",
+          message: `audit_event ${b.audit_events[0]!.id}.team_id must contain at least one non-whitespace character`,
+          record_kind: "audit_event",
+          record_id: b.audit_events[0]!.id,
+          field: "team_id",
+        },
+      ]);
+    });
+  }
+
   it("rejects cross-account ClaimEvidence laundering", () => {
     const b = clone(makeValidBundle());
     b.sources[0]!.account_id = "acc_other";

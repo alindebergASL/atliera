@@ -774,15 +774,27 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
       readFileSync(join(ROOT, "fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html"), "utf8"));
   });
 
-  test("leaves characterized M4 and M5a production source bytes unchanged", () => {
+  test("leaves characterized M4 and M5a contract bytes unchanged while M5a projection pins its subject", () => {
     const expected = new Map([
       ["src/capability/m4-sec-extraction.ts", "47ce47151bc43cc89d9147e555e0467312002d9b359ae82b077e6332dfa6e3d2"],
       ["src/capability/m4-target-policy.ts", "446499764aa1592cd526a3be0d3ed1c6898a0a61b35d4b29e8bd5c3d017c0e7a"],
       ["src/workshop/m5a-curated-proposal-flow-contract.ts", "af92b138a702d9bf762ee8c470863af7e580bc30d0b9a5f0c0a22f329eed3db5"],
-      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "abd29063d47448fd1a667e4669467306683881e833a4eebaa07a04c9c36e902b"],
+      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "f033b2b0ed427a66c3a39284ddd374e191edbcb3dd8c1834303354ae64c50159"],
     ]);
     for (const [relative, digest] of expected) {
       assert.equal(hashBytes(readFileSync(join(ROOT, relative))), digest, relative);
     }
+    const executionSource = readFileSync(
+      join(ROOT, "src/workshop/m5a-curated-proposal-flow-execution.ts"),
+      "utf8",
+    );
+    assert.match(
+      executionSource,
+      /M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT/,
+    );
+    assert.match(
+      executionSource,
+      /buildWorkshopViewModel\(\s*bundle,\s*M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT/s,
+    );
   });
 });

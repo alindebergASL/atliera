@@ -6,6 +6,10 @@ import type {
   ProvenanceStatus,
   SourceDocument,
 } from "../graph/types.ts";
+import { createSupportEvaluator } from "../graph/support.ts";
+import type { ValidationReport } from "../graph/report.ts";
+import type { SubjectScope } from "../graph/subject.ts";
+import { validateGraphBundle } from "../graph/validate.ts";
 
 export type WorkshopLens = "signals" | "maps" | "plays";
 
@@ -60,7 +64,7 @@ export interface WorkshopLensItemViewModel {
 export interface WorkshopViewModel {
   product_name: "Atliera";
   surface: "Workshop";
-  account_id: string | null;
+  account_id: string;
   generated_from: "graph_bundle";
   lenses: Record<WorkshopLens, WorkshopLensItemViewModel[]>;
   totals: {
@@ -72,6 +76,18 @@ export interface WorkshopViewModel {
     verified_objects: number;
   };
   empty_state: boolean;
+}
+
+export class WorkshopGraphValidationError extends Error {
+  readonly report: ValidationReport;
+
+  constructor(report: ValidationReport) {
+    super(
+      `Workshop graph validation failed with ${report.hard_failures.length} hard failure${report.hard_failures.length === 1 ? "" : "s"}`,
+    );
+    this.name = "WorkshopGraphValidationError";
+    this.report = report;
+  }
 }
 
 const LENS_BY_OBJECT_TYPE: Record<AccountObject["object_type"], WorkshopLens> = {
@@ -104,8 +120,27 @@ function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
 }
 
-export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
-  const claimById = new Map(bundle.claims.map((claim) => [claim.id, claim]));
+function requiresCurrentSupport(object: AccountObject): boolean {
+  return (
+    object.provenance_status === "verified" ||
+    object.provenance_status === "source_document_only"
+  );
+}
+
+export function buildWorkshopViewModel(
+  bundle: GraphBundle,
+  subject: SubjectScope,
+): WorkshopViewModel {
+  // Projection is a pure validation boundary independent of caller runtime mode.
+  const validation = validateGraphBundle(bundle, {
+    mode: "validation",
+    subject,
+  });
+  if (!validation.ok) {
+    throw new WorkshopGraphValidationError(validation);
+  }
+
+  const support = createSupportEvaluator(bundle);
   const excerptById = new Map(bundle.excerpts.map((excerpt) => [excerpt.id, excerpt]));
   const sourceById = new Map(bundle.sources.map((source) => [source.id, source]));
   const claimEvidenceByClaim = new Map<string, typeof bundle.claim_evidence>();
@@ -114,37 +149,27 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
     existing.push(ce);
     claimEvidenceByClaim.set(ce.claim_id, existing);
   }
-  const objectClaimsByObject = new Map<string, typeof bundle.account_object_claims>();
-  for (const oc of bundle.account_object_claims) {
-    const existing = objectClaimsByObject.get(oc.account_object_id) ?? [];
-    existing.push(oc);
-    objectClaimsByObject.set(oc.account_object_id, existing);
-  }
-
   const lenses: WorkshopViewModel["lenses"] = {
     signals: [],
     maps: [],
     plays: [],
   };
 
-  for (const obj of bundle.account_objects) {
-    const objectClaims = objectClaimsByObject.get(obj.id) ?? [];
-    const claimIds = uniqueSorted(objectClaims.map((oc) => oc.claim_id).filter((id) => claimById.has(id)));
-    const supportingClaimEvidence = claimIds.flatMap((claimId) =>
-      (claimEvidenceByClaim.get(claimId) ?? []).filter((ce) => ce.relationship === "supports"),
+  const currentObjects = bundle.account_objects.filter(
+    (object) =>
+      support.isCurrentAccountObjectEligible(object) &&
+      (!requiresCurrentSupport(object) ||
+        support.hasCurrentSupportingClaim(object.id)),
+  );
+
+  for (const obj of currentObjects) {
+    const currentClaimLinks = support.getCurrentClaimLinks(obj.id);
+    const claimIds = uniqueSorted(
+      currentClaimLinks.map((link) => link.claim.id),
     );
-    const excerptIds = uniqueSorted(
-      supportingClaimEvidence.map((ce) => ce.evidence_excerpt_id).filter((excerptId) => excerptById.has(excerptId)),
+    const currentEvidenceSupport = claimIds.flatMap((claimId) =>
+      support.getCurrentSupportingEvidence(claimId),
     );
-    const sourceIds = uniqueSorted(
-      excerptIds
-        .map((excerptId) => excerptById.get(excerptId)!)
-        .map((excerpt) => excerpt.source_document_id)
-        .filter((sourceId) => sourceById.has(sourceId)),
-    );
-    const acceptedExcerptCount = excerptIds.filter(
-      (excerptId) => excerptById.get(excerptId)?.validation_status === "accepted",
-    ).length;
     const lens = LENS_BY_OBJECT_TYPE[obj.object_type];
     // Review-state decoration is read from the materializer-assigned payload
     // marker and applied only on top of `unverified` provenance, so a bundle
@@ -154,44 +179,81 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
       obj.payload_json["review_state"] === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED
         ? WORKSHOP_REVIEW_STATE_MODEL_PROPOSED
         : null;
-    const evidencePackets: WorkshopEvidencePacket[] = obj.provenance_status === "unsupported"
-      ? []
-      : supportingClaimEvidence.flatMap((ce) => {
-          const claim = claimById.get(ce.claim_id);
-          const excerpt = excerptById.get(ce.evidence_excerpt_id);
-          const source = excerpt ? sourceById.get(excerpt.source_document_id) : undefined;
-          const excerptVisibleForReview =
-            excerpt?.validation_status === "accepted" ||
-            (reviewState === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED && excerpt?.validation_status === "proposed");
-          if (!claim || !excerpt || !source || !excerptVisibleForReview || claim.provenance_status === "unsupported") {
-            return [];
-          }
-          return [
-            {
-              claim: {
-                id: claim.id,
-                text: claim.text,
-                claim_type: claim.claim_type,
-                confidence: claim.confidence,
-                provenance_status: claim.provenance_status,
+
+    // Proposed excerpts remain visible only on the existing explicit
+    // pending-review surface. They are not counted as current support.
+    const reviewEvidenceSupport =
+      reviewState === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED
+        ? currentClaimLinks.flatMap((link) =>
+            (claimEvidenceByClaim.get(link.claim.id) ?? []).flatMap((edge) => {
+              if (edge.relationship !== "supports") return [];
+              const excerpt = excerptById.get(edge.evidence_excerpt_id);
+              const source = excerpt
+                ? sourceById.get(excerpt.source_document_id)
+                : undefined;
+              if (
+                !excerpt ||
+                excerpt.validation_status !== "proposed" ||
+                !source ||
+                !support.isCurrentSourceEligible(source) ||
+                link.claim.team_id !== source.team_id ||
+                link.claim.account_id !== source.account_id
+              ) {
+                return [];
+              }
+              return [{ claim: link.claim, excerpt, source }];
+            }),
+          )
+        : [];
+
+    const visibleEvidence = [
+      ...currentEvidenceSupport.map((support) => ({
+        claim: support.claim,
+        excerpt: support.excerpt,
+        source: support.source,
+      })),
+      ...reviewEvidenceSupport,
+    ];
+    const excerptIds = uniqueSorted(
+      visibleEvidence.map((support) => support.excerpt.id),
+    );
+    const sourceIds = uniqueSorted(
+      visibleEvidence.map((support) => support.source.id),
+    );
+    const acceptedExcerptCount = uniqueSorted(
+      currentEvidenceSupport.map((support) => support.excerpt.id),
+    ).length;
+    const evidencePackets: WorkshopEvidencePacket[] =
+      obj.provenance_status === "unsupported"
+        ? []
+        : visibleEvidence.flatMap(({ claim, excerpt, source }) => {
+            if (claim.provenance_status === "unsupported") return [];
+            return [
+              {
+                claim: {
+                  id: claim.id,
+                  text: claim.text,
+                  claim_type: claim.claim_type,
+                  confidence: claim.confidence,
+                  provenance_status: claim.provenance_status,
+                },
+                excerpt: {
+                  id: excerpt.id,
+                  text: excerpt.text,
+                  validation_status: excerpt.validation_status,
+                  kind: excerpt.kind,
+                },
+                source: {
+                  id: source.id,
+                  title: source.title,
+                  url: source.url,
+                  publisher: source.publisher,
+                  source_type: source.source_type,
+                  reliability: source.reliability,
+                },
               },
-              excerpt: {
-                id: excerpt.id,
-                text: excerpt.text,
-                validation_status: excerpt.validation_status,
-                kind: excerpt.kind,
-              },
-              source: {
-                id: source.id,
-                title: source.title,
-                url: source.url,
-                publisher: source.publisher,
-                source_type: source.source_type,
-                reliability: source.reliability,
-              },
-            },
-          ];
-        });
+            ];
+          });
 
     lenses[lens].push({
       id: obj.id,
@@ -221,17 +283,21 @@ export function buildWorkshopViewModel(bundle: GraphBundle): WorkshopViewModel {
   return {
     product_name: "Atliera",
     surface: "Workshop",
-    account_id: bundle.sources[0]?.account_id ?? bundle.claims[0]?.account_id ?? bundle.account_objects[0]?.account_id ?? null,
+    account_id: subject.account_id,
     generated_from: "graph_bundle",
     lenses,
     totals: {
       sources: bundle.sources.length,
       excerpts: bundle.excerpts.length,
-      accepted_excerpts: bundle.excerpts.filter((excerpt) => excerpt.validation_status === "accepted").length,
+      accepted_excerpts: bundle.excerpts.filter((excerpt) =>
+        support.isCurrentExcerptEligible(excerpt),
+      ).length,
       claims: bundle.claims.length,
-      account_objects: bundle.account_objects.length,
-      verified_objects: bundle.account_objects.filter((obj) => obj.provenance_status === "verified").length,
+      account_objects: currentObjects.length,
+      verified_objects: currentObjects.filter(
+        (obj) => obj.provenance_status === "verified",
+      ).length,
     },
-    empty_state: bundle.account_objects.length === 0,
+    empty_state: currentObjects.length === 0,
   };
 }

@@ -13,12 +13,29 @@ import type {
   WorkshopLensItemViewModel,
   WorkshopViewModel,
 } from "../../src/workshop/view-model.ts";
+import { VALID_GRAPH_SUBJECT } from "../fixtures/valid-graph.ts";
+import type { SubjectScope } from "../../src/graph/subject.ts";
 
 const ONE_LANE_WEAK = "fixtures/graph/render/one-lane-weak.json";
 const MIXED_TRUST = "fixtures/graph/render/mixed-trust.json";
 const THREE_LANE = "fixtures/graph/valid/workshop-three-lane.json";
 
 const RENDER_FIXTURES = [ONE_LANE_WEAK, MIXED_TRUST, THREE_LANE];
+const NORTHWIND_SUBJECT = Object.freeze({
+  team_id: "team_atliera_lab",
+  account_id: "acc_northwind_freight",
+}) satisfies SubjectScope;
+const VERTEX_SUBJECT = Object.freeze({
+  team_id: "team_atliera_lab",
+  account_id: "acc_vertex_manufacturing",
+}) satisfies SubjectScope;
+
+function fixtureSubject(path: string): SubjectScope {
+  if (path === ONE_LANE_WEAK) return NORTHWIND_SUBJECT;
+  if (path === MIXED_TRUST) return VERTEX_SUBJECT;
+  if (path === THREE_LANE) return VALID_GRAPH_SUBJECT;
+  throw new Error(`fixture subject is not pinned for ${path}`);
+}
 
 function allItems(vm: WorkshopViewModel): WorkshopLensItemViewModel[] {
   return [...vm.lenses.signals, ...vm.lenses.maps, ...vm.lenses.plays];
@@ -38,7 +55,7 @@ function countOccurrences(haystack: string, needle: string): number {
 describe("Workshop render — validated richness fixtures", () => {
   test("one-lane-weak reproduces the observed 1-lens (Signals only) weak account", async () => {
     const bundle = await loadGraphBundleFile(ONE_LANE_WEAK);
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, NORTHWIND_SUBJECT);
 
     // Parity with the validated metric shape (e.g. live-product-preview-20260528a:
     // graph_supported_lens_item_counts = {signals:1, maps:0, plays:0}).
@@ -62,7 +79,7 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("three-lane fixture is genuinely 3-lens rich", async () => {
     const bundle = await loadGraphBundleFile(THREE_LANE);
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
 
     assert.deepEqual(summarizeLensRichness(vm), {
       signals: 1,
@@ -83,12 +100,12 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("mixed-trust locks the object_type → lens mapping (incl. risk/open_question → Signals)", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
 
     // Item counts per lane.
     assert.deepEqual(summarizeLensRichness(vm), {
-      signals: 3,
-      maps: 2,
+      signals: 2,
+      maps: 1,
       plays: 2,
     });
 
@@ -96,24 +113,24 @@ describe("Workshop render — validated richness fixtures", () => {
     // open_question route to Signals, not Maps. This test pins that.
     assert.equal(findByObjectType(vm, "signal")?.lens, "signals");
     assert.equal(findByObjectType(vm, "risk")?.lens, "signals");
-    assert.equal(findByObjectType(vm, "open_question")?.lens, "signals");
+    assert.equal(findByObjectType(vm, "open_question"), undefined);
     assert.equal(findByObjectType(vm, "stakeholder")?.lens, "maps");
-    assert.equal(findByObjectType(vm, "account_snapshot")?.lens, "maps");
+    assert.equal(findByObjectType(vm, "account_snapshot"), undefined);
     assert.equal(findByObjectType(vm, "play")?.lens, "plays");
     assert.equal(findByObjectType(vm, "recommendation")?.lens, "plays");
   });
 
   test("mixed-trust renders each trust label and never dresses non-verified as verified", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
     const html = renderWorkshopHtml(vm);
 
-    // Every distinct trust pill class appears.
+    // Historical lifecycle records are not current Workshop output.
     assert.match(html, /trust-pill trust-verified/);
     assert.match(html, /trust-pill trust-unverified/);
     assert.match(html, /trust-pill trust-source_document_only/);
-    assert.match(html, /trust-pill trust-stale/);
     assert.match(html, /trust-pill trust-unsupported/);
+    assert.doesNotMatch(html, /trust-pill trust-stale/);
 
     // The unsupported play renders zero evidence packets, structurally, and
     // carries the explicit do-not-trust message.
@@ -137,7 +154,7 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("soft-trust object with accepted evidence still renders non-verified and is excluded from useful richness", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
 
     // The stakeholder is source_document_only but DOES carry accepted
     // evidence packets — soft trust with evidence, not zero-evidence.
@@ -168,7 +185,7 @@ describe("Workshop render — validated richness fixtures", () => {
   test("no render fixture marks a non-verified object as verified", async () => {
     for (const path of RENDER_FIXTURES) {
       const bundle = await loadGraphBundleFile(path);
-      const vm = buildWorkshopViewModel(bundle);
+      const vm = buildWorkshopViewModel(bundle, fixtureSubject(path));
       const html = renderWorkshopHtml(vm);
 
       // VM level: a non-verified item must not carry a Verified trust label.

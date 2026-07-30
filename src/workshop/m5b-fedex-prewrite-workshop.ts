@@ -12,6 +12,7 @@ import {
   buildM5bFedExReviewPacket,
   verifyM5bFedExPrewriteCandidate,
   verifyM5bFedExReviewPacket,
+  M5B_FEDEX_WORKSHOP_SUBJECT,
   type M5bFedExEvidenceBinding,
   type M5bFedExPrewriteCandidate,
   type M5bFedExReviewPacket,
@@ -63,7 +64,10 @@ export function renderM5bFedExPrewriteWorkshopHtml(packInput: unknown, packetInp
   const pack = verifyM5bFedExSanitizedSourcePack(packInput);
   const candidate = verifyM5bFedExPrewriteCandidate(candidateInput, pack);
   const packet = verifyM5bFedExReviewPacket(packetInput, pack, candidate);
-  const view = buildWorkshopViewModel(candidate.bundle);
+  const view = buildWorkshopViewModel(
+    candidate.bundle,
+    M5B_FEDEX_WORKSHOP_SUBJECT,
+  );
   if (view.totals.sources !== 1 || view.totals.verified_objects !== 0 || view.lenses.maps.length !== 2 ||
       view.lenses.signals.length > 1 || view.lenses.plays.length !== 0) throw new Error("M5b render scope refused");
   const maps = packet.proposals.filter((proposal) => proposal.proposedLens === "maps");

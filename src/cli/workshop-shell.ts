@@ -1,7 +1,7 @@
 // Local static Workshop shell CLI.
 //
 // Usage:
-//   tsx src/cli/workshop-shell.ts write <bundle.json> --out-root <dir> --out-file <relative.html> [--allow-overwrite] [--preview-mode <fake|validation>]
+//   tsx src/cli/workshop-shell.ts write <bundle.json> --expected-team-id <team> --expected-account-id <account> --out-root <dir> --out-file <relative.html> [--allow-overwrite] [--preview-mode <fake|validation>]
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, resolve } from "node:path";
@@ -10,7 +10,10 @@ import { argv, exit } from "node:process";
 import { GraphFileParseError, GraphFileSchemaError, loadGraphBundleFile } from "../graph/file-store.ts";
 import { guardOutputPath, PathGuardError } from "../io/path-guard.ts";
 import { renderWorkshopHtml, type WorkshopPreviewMode } from "../workshop/render-html.ts";
-import { buildWorkshopViewModel } from "../workshop/view-model.ts";
+import {
+  buildWorkshopViewModel,
+  WorkshopGraphValidationError,
+} from "../workshop/view-model.ts";
 
 const PREVIEW_MODES: readonly WorkshopPreviewMode[] = ["fake", "validation"];
 
@@ -28,7 +31,7 @@ class CliUsageError extends Error {
 function usage(): string {
   return [
     "usage:",
-    "  tsx src/cli/workshop-shell.ts write <bundle.json> --out-root <dir> --out-file <relative.html> [--allow-overwrite] [--preview-mode <fake|validation>]",
+    "  tsx src/cli/workshop-shell.ts write <bundle.json> --expected-team-id <team> --expected-account-id <account> --out-root <dir> --out-file <relative.html> [--allow-overwrite] [--preview-mode <fake|validation>]",
   ].join("\n");
 }
 
@@ -38,16 +41,27 @@ function parseWriteArgs(args: string[]): {
   outputFile: string;
   allowOverwrite: boolean;
   previewMode: WorkshopPreviewMode;
+  expectedTeamId: string;
+  expectedAccountId: string;
 } {
   const [inputPath, ...flags] = args;
   if (!inputPath) throw new CliUsageError("missing bundle.json path");
 
-  const allowedFlags = new Set(["--out-root", "--out-file", "--allow-overwrite", "--preview-mode"]);
+  const allowedFlags = new Set([
+    "--expected-team-id",
+    "--expected-account-id",
+    "--out-root",
+    "--out-file",
+    "--allow-overwrite",
+    "--preview-mode",
+  ]);
   const seen = new Set<string>();
   let outputRoot: string | null = null;
   let outputFile: string | null = null;
   let allowOverwrite = false;
   let previewMode: WorkshopPreviewMode = "fake";
+  let expectedTeamId: string | null = null;
+  let expectedAccountId: string | null = null;
 
   for (let i = 0; i < flags.length; i += 1) {
     const flag = flags[i]!;
@@ -67,6 +81,8 @@ function parseWriteArgs(args: string[]): {
 
     if (flag === "--out-root") outputRoot = value;
     if (flag === "--out-file") outputFile = value;
+    if (flag === "--expected-team-id") expectedTeamId = value;
+    if (flag === "--expected-account-id") expectedAccountId = value;
     if (flag === "--preview-mode") {
       if (!isPreviewMode(value)) {
         throw new CliUsageError(`invalid --preview-mode value: ${value} (expected fake or validation)`);
@@ -77,7 +93,17 @@ function parseWriteArgs(args: string[]): {
 
   if (!outputRoot) throw new CliUsageError("missing --out-root");
   if (!outputFile) throw new CliUsageError("missing --out-file");
-  return { inputPath, outputRoot, outputFile, allowOverwrite, previewMode };
+  if (!expectedTeamId) throw new CliUsageError("missing --expected-team-id");
+  if (!expectedAccountId) throw new CliUsageError("missing --expected-account-id");
+  return {
+    inputPath,
+    outputRoot,
+    outputFile,
+    allowOverwrite,
+    previewMode,
+    expectedTeamId,
+    expectedAccountId,
+  };
 }
 
 function printJson(value: unknown): void {
@@ -93,6 +119,10 @@ function printError(e: unknown): void {
     process.stderr.write(`${e.message}\n${JSON.stringify(e.report, null, 2)}\n`);
     return;
   }
+  if (e instanceof WorkshopGraphValidationError) {
+    process.stderr.write(`${e.message}\n${JSON.stringify(e.report, null, 2)}\n`);
+    return;
+  }
   if (e instanceof Error) {
     process.stderr.write(`${e.message}\n`);
     return;
@@ -101,7 +131,15 @@ function printError(e: unknown): void {
 }
 
 async function writeWorkshopShell(args: string[]): Promise<number> {
-  const { inputPath, outputRoot, outputFile, allowOverwrite, previewMode } = parseWriteArgs(args);
+  const {
+    inputPath,
+    outputRoot,
+    outputFile,
+    allowOverwrite,
+    previewMode,
+    expectedTeamId,
+    expectedAccountId,
+  } = parseWriteArgs(args);
 
   if (isAbsolute(outputFile)) {
     throw new PathGuardError("--out-file must be a relative .html path under --out-root");
@@ -120,7 +158,10 @@ async function writeWorkshopShell(args: string[]): Promise<number> {
   });
 
   const bundle = await loadGraphBundleFile(inputPath);
-  const viewModel = buildWorkshopViewModel(bundle);
+  const viewModel = buildWorkshopViewModel(bundle, {
+    team_id: expectedTeamId,
+    account_id: expectedAccountId,
+  });
   const html = renderWorkshopHtml(viewModel, { previewMode });
 
   await mkdir(dirname(guarded.targetPath), { recursive: true });
@@ -149,6 +190,7 @@ run()
     printError(e);
     if (e instanceof GraphFileParseError) exit(2);
     if (e instanceof GraphFileSchemaError) exit(1);
+    if (e instanceof WorkshopGraphValidationError) exit(1);
     if (e instanceof CliUsageError) exit(2);
     if (e instanceof PathGuardError) exit(2);
     exit(2);

@@ -6,10 +6,23 @@ import { describe, test } from "node:test";
 const DEMO_FIXTURE = "fixtures/graph/valid/workshop-three-lane.json";
 const DEMO_REPORT = "fixtures/workshop/runtime-preview-demo-report.json";
 const DEMO_RUNBOOK = "docs/runbooks/workshop-runtime-preview-demo.md";
+const SUBJECT_ARGS = [
+  "--expected-team-id",
+  "team_atliera_lab",
+  "--expected-account-id",
+  "acc_acme_robotics",
+];
 
 function runPreviewReport(): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn("npm", ["run", "--silent", "workshop:runtime-preview", "--", DEMO_FIXTURE], {
+    const child = spawn("npm", [
+      "run",
+      "--silent",
+      "workshop:runtime-preview",
+      "--",
+      DEMO_FIXTURE,
+      ...SUBJECT_ARGS,
+    ], {
       cwd: process.cwd(),
       env: { ...process.env, ATL_ENV: "production", MODEL_PROVIDER: "real-provider" },
       stdio: ["ignore", "pipe", "pipe"],

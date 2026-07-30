@@ -18,6 +18,7 @@ import {
   releaseGraphSnapshotWriteLockBestEffort,
 } from "../db/graph-snapshot-write-lock.ts";
 import { parseGraphBundle } from "../graph/schema.ts";
+import type { SubjectScope } from "../graph/subject.ts";
 import type { AuditEvent, GraphBundle, RunArtifact } from "../graph/types.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
 import {
@@ -73,6 +74,11 @@ export const M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SCHEMA_VERSION =
 // Steps 1-3 IDs do not contain this digest and are not represented as doing so.
 export const M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256 =
   "21ee88262f9e27d03ce3f37064f5728b8207aa2fb04e3be54bec2495b33caed9" as const;
+
+export const M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT = Object.freeze({
+  team_id: "team_atliera_lab",
+  account_id: "acc_northstar_logistics",
+}) satisfies SubjectScope;
 
 const GRAPH_SNAPSHOTS_RELATIVE_PATH = "tables/graph_snapshots.jsonl";
 const TEMP_SUFFIX = ".m5a-step4.tmp";
@@ -485,7 +491,9 @@ function assertExecutionPins(
     packet.proposal_set_id !== contract.proposal_set_id ||
     arming.proposal_set_id !== contract.proposal_set_id ||
     packet.account_id !== contract.account_id ||
-    arming.account_id !== contract.account_id
+    arming.account_id !== contract.account_id ||
+    contract.account_id !==
+      M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT.account_id
   ) {
     throw new ExecutionBoundaryRefusal("authorization tuple mismatch");
   }
@@ -571,6 +579,7 @@ function validateMaterializationAlignment(
 ): void {
   if (
     artifact.origin !== M5A_PINNED_CURATION_ORIGIN ||
+    artifact.team_id !== M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT.team_id ||
     artifact.proposal_set_id !== contract.proposal_set_id ||
     artifact.account_id !== contract.account_id ||
     artifact.materialized_at !== contract.materialized_at ||
@@ -592,7 +601,13 @@ function validateMaterializationAlignment(
     throw new ExecutionBoundaryRefusal("materialization alignment failed");
   }
   const parsed = parseGraphBundle(artifact.bundle_candidate);
-  if (!parsed.ok || !validateGraphBundle(parsed.value, { mode: "validation" }).ok) {
+  if (
+    !parsed.ok ||
+    !validateGraphBundle(parsed.value, {
+      mode: "validation",
+      subject: M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT,
+    }).ok
+  ) {
     throw new ExecutionBoundaryRefusal("materialized graph bundle invalid");
   }
 }
@@ -670,7 +685,13 @@ function ratifyBundle(
     audit_events: [auditEvent],
   };
   const parsed = parseGraphBundle(bundle);
-  if (!parsed.ok || !validateGraphBundle(parsed.value, { mode: "fixture" }).ok) {
+  if (
+    !parsed.ok ||
+    !validateGraphBundle(parsed.value, {
+      mode: "fixture",
+      subject: M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT,
+    }).ok
+  ) {
     throw new ExecutionBoundaryRefusal("ratified bundle invalid");
   }
   if (
@@ -718,7 +739,10 @@ export function evaluateM5aCuratedProposalWorkshopBundle(
 ): M5aWorkshopEvaluation {
   let view: WorkshopViewModel;
   try {
-    view = buildWorkshopViewModel(bundle);
+    view = buildWorkshopViewModel(
+      bundle,
+      M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT,
+    );
   } catch {
     return Object.freeze({
       ok: false as const,

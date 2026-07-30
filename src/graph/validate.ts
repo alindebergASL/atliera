@@ -14,6 +14,7 @@ import {
   isWellFormedId,
   type RecordKind,
 } from "./ids.ts";
+import { createSupportEvaluator } from "./support.ts";
 import { normalizeText, sourceContainsExcerpt } from "./normalize.ts";
 import { parseGraphBundle } from "./schema.ts";
 import {
@@ -22,6 +23,11 @@ import {
   type HardFailureCode,
   type ValidationReport,
 } from "./report.ts";
+import {
+  getAccountBearingGraphRecords,
+  inspectGraphSubject,
+  type SubjectScope,
+} from "./subject.ts";
 import type {
   GraphBundle,
   LensOutput,
@@ -40,10 +46,15 @@ export interface ValidateOptions {
   // Lens outputs (Signals / Maps / Plays) are validated against the
   // graph: any verified lens item must map back to a verified record.
   lenses?: LensOutput[];
+  // Optional account-scoped validation boundary. Raw research-run bundles may
+  // omit this and contain multiple isolated accounts; candidate-style callers
+  // can supply it to require every subject-bearing record to match.
+  subject?: SubjectScope;
 }
 
 interface BundleIndex {
   source_ids: Set<string>;
+  source_by_id: Map<string, GraphBundle["sources"][number]>;
   excerpt_ids: Set<string>;
   excerpt_by_id: Map<string, GraphBundle["excerpts"][number]>;
   claim_ids: Set<string>;
@@ -60,6 +71,7 @@ interface BundleIndex {
 function indexBundle(bundle: GraphBundle): BundleIndex {
   const idx: BundleIndex = {
     source_ids: new Set(),
+    source_by_id: new Map(),
     excerpt_ids: new Set(),
     excerpt_by_id: new Map(),
     claim_ids: new Set(),
@@ -72,7 +84,10 @@ function indexBundle(bundle: GraphBundle): BundleIndex {
     run_artifact_ids: new Set(),
     audit_event_ids: new Set(),
   };
-  for (const s of bundle.sources) idx.source_ids.add(s.id);
+  for (const s of bundle.sources) {
+    idx.source_ids.add(s.id);
+    idx.source_by_id.set(s.id, s);
+  }
   for (const e of bundle.excerpts) {
     idx.excerpt_ids.add(e.id);
     idx.excerpt_by_id.set(e.id, e);
@@ -195,6 +210,21 @@ export function validateGraphBundle(
     bundle.account_object_claims.map((o) => o.id),
     "account_object_claim",
   );
+  checkDuplicates(
+    failures,
+    bundle.research_runs.map((r) => r.id),
+    "research_run",
+  );
+  checkDuplicates(
+    failures,
+    bundle.run_artifacts.map((a) => a.id),
+    "run_artifact",
+  );
+  checkDuplicates(
+    failures,
+    bundle.audit_events.map((a) => a.id),
+    "audit_event",
+  );
 
   for (const s of bundle.sources) {
     checkIdShape(failures, s.id, "source_document", "source");
@@ -230,6 +260,69 @@ export function validateGraphBundle(
   }
 
   const idx = indexBundle(bundle);
+  const support = createSupportEvaluator(bundle);
+  const subjectInspection = inspectGraphSubject(bundle);
+
+  // A raw research-run bundle may contain more than one account, but never
+  // more than one owning team. Audit events are checked only against an
+  // explicit scope or a unique team derived from account-bearing records.
+  if (subjectInspection.team_ids.length > 1) {
+    fail(
+      failures,
+      "bundle_team_mismatch",
+      `bundle contains account-bearing records from multiple teams: ${subjectInspection.team_ids.join(", ")}`,
+    );
+  }
+
+  if (options.subject) {
+    for (const record of getAccountBearingGraphRecords(bundle)) {
+      if (
+        record.team_id !== options.subject.team_id ||
+        record.account_id !== options.subject.account_id
+      ) {
+        fail(
+          failures,
+          "subject_scope_mismatch",
+          `${record.record_kind} ${record.record_id} has subject ${record.team_id}/${record.account_id}; expected ${options.subject.team_id}/${options.subject.account_id}`,
+          {
+            record_kind: record.record_kind,
+            record_id: record.record_id,
+          },
+        );
+      }
+    }
+    for (const audit of bundle.audit_events) {
+      if (audit.team_id !== options.subject.team_id) {
+        fail(
+          failures,
+          "subject_scope_mismatch",
+          `audit_event ${audit.id} has team ${audit.team_id}; expected ${options.subject.team_id}`,
+          { record_kind: "audit_event", record_id: audit.id, field: "team_id" },
+        );
+      }
+    }
+  } else if (
+    subjectInspection.team_ids.length === 0 &&
+    subjectInspection.audit_team_ids.length > 1
+  ) {
+    fail(
+      failures,
+      "bundle_team_mismatch",
+      `bundle contains audit events from multiple teams: ${subjectInspection.audit_team_ids.join(", ")}`,
+    );
+  } else if (subjectInspection.team_ids.length === 1) {
+    const bundleTeam = subjectInspection.team_ids[0]!;
+    for (const audit of bundle.audit_events) {
+      if (audit.team_id !== bundleTeam) {
+        fail(
+          failures,
+          "bundle_team_mismatch",
+          `audit_event ${audit.id} has team ${audit.team_id}; bundle team is ${bundleTeam}`,
+          { record_kind: "audit_event", record_id: audit.id, field: "team_id" },
+        );
+      }
+    }
+  }
 
   // 2. Excerpts must point at a real source document. A reference to a
   //    source id that does not exist in the bundle is an "invented"
@@ -315,6 +408,25 @@ export function validateGraphBundle(
         },
       );
     }
+
+    const claim = idx.claim_by_id.get(ce.claim_id);
+    const excerpt = idx.excerpt_by_id.get(ce.evidence_excerpt_id);
+    const source = excerpt
+      ? idx.source_by_id.get(excerpt.source_document_id)
+      : undefined;
+    if (
+      claim &&
+      source &&
+      (claim.team_id !== source.team_id ||
+        claim.account_id !== source.account_id)
+    ) {
+      fail(
+        failures,
+        "relationship_subject_mismatch",
+        `claim_evidence ${ce.id} links claim ${claim.id} (${claim.team_id}/${claim.account_id}) to excerpt ${excerpt!.id} owned by source ${source.id} (${source.team_id}/${source.account_id})`,
+        { record_kind: "claim_evidence", record_id: ce.id },
+      );
+    }
   }
 
   // 4. AccountObjectClaim references resolve.
@@ -340,6 +452,53 @@ export function validateGraphBundle(
           record_kind: "account_object_claim",
           record_id: oc.id,
           field: "claim_id",
+        },
+      );
+    }
+    const object = idx.account_object_by_id.get(oc.account_object_id);
+    const claim = idx.claim_by_id.get(oc.claim_id);
+    if (
+      object &&
+      claim &&
+      (object.team_id !== claim.team_id ||
+        object.account_id !== claim.account_id)
+    ) {
+      fail(
+        failures,
+        "relationship_subject_mismatch",
+        `account_object_claim ${oc.id} links object ${object.id} (${object.team_id}/${object.account_id}) to claim ${claim.id} (${claim.team_id}/${claim.account_id})`,
+        { record_kind: "account_object_claim", record_id: oc.id },
+      );
+    }
+  }
+
+  // RunArtifact ownership is inherited through its ResearchRun reference.
+  // ResearchRun itself remains optional for bundles with no RunArtifacts.
+  for (const artifact of bundle.run_artifacts) {
+    if (!idx.research_run_ids.has(artifact.research_run_id)) {
+      fail(
+        failures,
+        "invented_research_run_id",
+        `run_artifact ${artifact.id} references unknown research_run_id ${artifact.research_run_id}`,
+        {
+          record_kind: "run_artifact",
+          record_id: artifact.id,
+          field: "research_run_id",
+        },
+      );
+    }
+    if (
+      isWellFormedId(artifact.research_run_id) &&
+      !idHasPrefix(artifact.research_run_id, "research_run")
+    ) {
+      fail(
+        failures,
+        "dangling_reference",
+        `run_artifact ${artifact.id}.research_run_id is not a research_run id`,
+        {
+          record_kind: "run_artifact",
+          record_id: artifact.id,
+          field: "research_run_id",
         },
       );
     }
@@ -434,24 +593,14 @@ export function validateGraphBundle(
     }
   }
 
-  // 6. Verified / high-confidence claims need at least one accepted
-  //    supporting excerpt.
-  const acceptedExcerptIds = new Set(
-    bundle.excerpts
-      .filter((e) => e.validation_status === "accepted" && e.kind === "literal")
-      .map((e) => e.id),
-  );
-  const supportByClaim = new Map<string, number>();
-  for (const ce of bundle.claim_evidence) {
-    if (ce.relationship !== "supports") continue;
-    if (!acceptedExcerptIds.has(ce.evidence_excerpt_id)) continue;
-    supportByClaim.set(ce.claim_id, (supportByClaim.get(ce.claim_id) ?? 0) + 1);
-  }
+  // 6. Verified / high-confidence claims need structurally accepted support.
+  //    Lifecycle history remains valid: inactive sources and claims preserve
+  //    their accepted literal evidence, but cannot provide current support.
   for (const c of bundle.claims) {
     const needsEvidence =
       c.provenance_status === "verified" || c.confidence === "high";
     if (!needsEvidence) continue;
-    if ((supportByClaim.get(c.id) ?? 0) === 0) {
+    if (!support.hasStructuralSupportingEvidence(c.id)) {
       fail(
         failures,
         "verified_claim_without_evidence",
@@ -461,28 +610,15 @@ export function validateGraphBundle(
     }
   }
 
-  // 7. Verified AccountObjects need at least one verified or
-  //    accepted-supporting claim linked to them.
-  const claimsByObject = new Map<string, string[]>();
-  for (const oc of bundle.account_object_claims) {
-    const arr = claimsByObject.get(oc.account_object_id) ?? [];
-    arr.push(oc.claim_id);
-    claimsByObject.set(oc.account_object_id, arr);
-  }
+  // 7. Verified AccountObjects need a structurally accepted-supporting claim.
+  //    Object and claim lifecycle state does not erase historical connection.
   for (const o of bundle.account_objects) {
     if (o.provenance_status !== "verified") continue;
-    const linked = claimsByObject.get(o.id) ?? [];
-    const hasSupportingClaim = linked.some((cid) => {
-      const c = idx.claim_by_id.get(cid);
-      if (!c) return false;
-      if (c.provenance_status === "verified") return true;
-      return (supportByClaim.get(c.id) ?? 0) > 0;
-    });
-    if (!hasSupportingClaim) {
+    if (!support.hasStructuralSupportingClaim(o.id)) {
       fail(
         failures,
         "verified_object_without_supporting_claim",
-        `account_object ${o.id} is verified but has no verified or accepted-supporting claim`,
+        `account_object ${o.id} is verified but has no accepted-supporting claim`,
         { record_kind: "account_object", record_id: o.id },
       );
     }
@@ -499,8 +635,12 @@ export function validateGraphBundle(
         const cl = item.claim_id
           ? idx.claim_by_id.get(item.claim_id)
           : undefined;
-        const backedByVerifiedObj = obj?.provenance_status === "verified";
-        const backedByVerifiedClaim = cl?.provenance_status === "verified";
+        const backedByVerifiedObj =
+          obj?.provenance_status === "verified" &&
+          support.hasCurrentSupportingClaim(obj.id);
+        const backedByVerifiedClaim =
+          cl?.provenance_status === "verified" &&
+          support.hasCurrentSupportingEvidence(cl.id);
         if (!backedByVerifiedObj && !backedByVerifiedClaim) {
           fail(
             failures,
@@ -520,17 +660,21 @@ export function validateGraphBundle(
   metrics.total_sources = bundle.sources.length;
   metrics.total_excerpts = bundle.excerpts.length;
   for (const e of bundle.excerpts) {
-    if (e.validation_status === "accepted") metrics.accepted_excerpts++;
-    else if (e.validation_status === "rejected") metrics.rejected_excerpts++;
-    else metrics.proposed_excerpts++;
+    if (support.isCurrentExcerptEligible(e)) metrics.accepted_excerpts++;
+    if (e.validation_status === "rejected") metrics.rejected_excerpts++;
+    if (e.validation_status === "proposed") metrics.proposed_excerpts++;
   }
   metrics.total_claims = bundle.claims.length;
   metrics.verified_claims = bundle.claims.filter(
-    (c) => c.provenance_status === "verified",
+    (c) =>
+      c.provenance_status === "verified" &&
+      support.isCurrentClaimEligible(c),
   ).length;
   metrics.total_account_objects = bundle.account_objects.length;
   metrics.verified_account_objects = bundle.account_objects.filter(
-    (o) => o.provenance_status === "verified",
+    (o) =>
+      o.provenance_status === "verified" &&
+      support.isCurrentAccountObjectEligible(o),
   ).length;
 
   return {

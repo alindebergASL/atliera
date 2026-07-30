@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { makeValidBundle, clone } from "../fixtures/valid-graph.ts";
+import {
+  makeValidBundle,
+  clone,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 
 describe("renderWorkshopHtml", () => {
   test("renders Atliera Workshop with Signals, Maps, Plays, and provenance language", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+    );
 
     assert.match(html, /<title>Atliera Workshop<\/title>/);
     assert.match(html, /Atliera Workshop/);
@@ -31,7 +37,9 @@ describe("renderWorkshopHtml", () => {
     const bundle = clone(makeValidBundle());
     bundle.sources[0]!.url = "javascript:alert(1)";
 
-    const html = renderWorkshopHtml(buildWorkshopViewModel(bundle));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.doesNotMatch(html, /href="javascript:alert\(1\)"/);
     assert.match(html, /Unsafe source URL omitted/);
@@ -42,7 +50,7 @@ describe("renderWorkshopHtml", () => {
     const html = renderWorkshopHtml({
       product_name: "Atliera",
       surface: "Workshop",
-      account_id: null,
+      account_id: VALID_GRAPH_SUBJECT.account_id,
       generated_from: "graph_bundle",
       lenses: { signals: [], maps: [], plays: [] },
       totals: { sources: 0, excerpts: 0, accepted_excerpts: 0, claims: 0, account_objects: 0, verified_objects: 0 },
@@ -58,7 +66,9 @@ describe("renderWorkshopHtml", () => {
   test("escapes graph text before rendering HTML", () => {
     const bundle = makeValidBundle();
     bundle.account_objects[0]!.title = "<script>alert('x')</script>";
-    const html = renderWorkshopHtml(buildWorkshopViewModel(bundle));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.doesNotMatch(html, /<script>alert/);
     assert.match(html, /&lt;script&gt;alert/);
@@ -67,14 +77,18 @@ describe("renderWorkshopHtml", () => {
   test("renders unsupported material as visibly unsupported, not verified", () => {
     const bundle = clone(makeValidBundle());
     bundle.account_objects[0]!.provenance_status = "unsupported";
-    const html = renderWorkshopHtml(buildWorkshopViewModel(bundle));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.match(html, /Unsupported/);
     assert.doesNotMatch(html, /trust-pill trust-verified">Verified/);
   });
 
   test("defaults to a fake-mode preview boundary label (backward compatible)", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+    );
 
     assert.match(html, /Fake-mode preview/);
     assert.doesNotMatch(html, /Validation preview/);
@@ -83,9 +97,12 @@ describe("renderWorkshopHtml", () => {
   });
 
   test("renders a non-production validation preview label when requested", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()), {
-      previewMode: "validation",
-    });
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      {
+        previewMode: "validation",
+      },
+    );
 
     assert.match(html, /Validation preview \(non-production\)/);
     assert.doesNotMatch(html, /Fake-mode preview/);
@@ -95,9 +112,12 @@ describe("renderWorkshopHtml", () => {
   });
 
   test("treats an explicit fake preview mode the same as the default", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeValidBundle()), {
-      previewMode: "fake",
-    });
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      {
+        previewMode: "fake",
+      },
+    );
 
     assert.match(html, /Fake-mode preview/);
     assert.doesNotMatch(html, /Validation preview/);

@@ -8,6 +8,13 @@ interface RunResult {
   readonly stderr: string;
 }
 
+const SUBJECT_ARGS = [
+  "--expected-team-id",
+  "team_atliera_lab",
+  "--expected-account-id",
+  "acc_acme_robotics",
+];
+
 function baseEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
@@ -21,7 +28,12 @@ function baseEnv(overrides: Record<string, string | undefined> = {}): NodeJS.Pro
 }
 
 async function runServerUntilExit(env: NodeJS.ProcessEnv): Promise<RunResult> {
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/fake-mode-workshop-server.ts"], {
+  const child = spawn(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/fake-mode-workshop-server.ts",
+    ...SUBJECT_ARGS,
+  ], {
     cwd: process.cwd(),
     env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -40,7 +52,12 @@ async function runServerUntilExit(env: NodeJS.ProcessEnv): Promise<RunResult> {
 }
 
 async function runServerUntilListening(env: NodeJS.ProcessEnv): Promise<{ child: ReturnType<typeof spawn>; jsonText: string; stderr: () => string }> {
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/fake-mode-workshop-server.ts"], {
+  const child = spawn(process.execPath, [
+    "--import",
+    "tsx",
+    "scripts/fake-mode-workshop-server.ts",
+    ...SUBJECT_ARGS,
+  ], {
     cwd: process.cwd(),
     env,
     stdio: ["ignore", "pipe", "pipe"],

@@ -17,13 +17,13 @@ Use `--silent` so stdout is machine-readable and does not include npm lifecycle 
 Sanitized JSON report:
 
 ```bash
-npm run --silent workshop:runtime-preview -- fixtures/graph/valid/workshop-three-lane.json
+npm run --silent workshop:runtime-preview -- fixtures/graph/valid/workshop-three-lane.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics
 ```
 
 Stdout-only HTML preview:
 
 ```bash
-npm run --silent workshop:runtime-preview:html -- fixtures/graph/valid/workshop-three-lane.json
+npm run --silent workshop:runtime-preview:html -- fixtures/graph/valid/workshop-three-lane.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics
 ```
 
 ## Checked report contract

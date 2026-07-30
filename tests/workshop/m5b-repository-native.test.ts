@@ -20,7 +20,10 @@ import {
   type M5bRepositoryNativeRatification,
   type M5bRepositoryNativeRatificationContent,
 } from "../../src/workshop/m5b-repository-native.ts";
-import { makeValidBundle } from "../fixtures/valid-graph.ts";
+import {
+  makeValidBundle,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const SOURCE = join(ROOT, "fixtures/validation/m5b-fedex-system-acquired-demo-source.json");
@@ -683,7 +686,10 @@ describe("M5b repository-native product completion", () => {
   });
 
   test("maps bound source kinds to exact positive and negative final provenance labels", () => {
-    const vm = buildWorkshopViewModel(makeValidBundle());
+    const vm = buildWorkshopViewModel(
+      makeValidBundle(),
+      VALID_GRAPH_SUBJECT,
+    );
     const production = renderWorkshopHtml(vm, {
       previewMode: m5bRepositoryNativePreviewModeForSourceKind("exact-production-custody"),
     });

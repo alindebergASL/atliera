@@ -116,6 +116,138 @@ describe("validateGraphBundle — dangling references", () => {
     assert.ok(cs.includes("invented_source_document_id"));
     assert.ok(cs.includes("dangling_reference"));
   });
+
+  it("rejects a RunArtifact whose ResearchRun target is missing", () => {
+    const b = clone(makeValidBundle());
+    b.run_artifacts[0]!.research_run_id = "run_missing";
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("invented_research_run_id"));
+  });
+});
+
+describe("validateGraphBundle — subject ownership", () => {
+  it("rejects cross-account ClaimEvidence laundering", () => {
+    const b = clone(makeValidBundle());
+    b.sources[0]!.account_id = "acc_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("relationship_subject_mismatch"));
+  });
+
+  it("rejects cross-account AccountObjectClaim laundering", () => {
+    const b = clone(makeValidBundle());
+    b.account_objects[0]!.account_id = "acc_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("relationship_subject_mismatch"));
+  });
+
+  it("rejects disconnected cross-team bundle contamination", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs.push({
+      ...b.research_runs[0]!,
+      id: "run_other_team",
+      team_id: "team_other",
+      account_id: "acc_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("enforces every account- and team-bearing record against an explicit subject scope", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs[0]!.account_id = "acc_other";
+
+    const report = validateGraphBundle(b, {
+      mode: "fixture",
+      subject: {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      },
+    });
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("subject_scope_mismatch"));
+  });
+
+  it("rejects an audit team mismatch when the bundle team is unambiguous", () => {
+    const b = clone(makeValidBundle());
+    b.audit_events[0]!.team_id = "team_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("rejects audit events from multiple teams when no account-bearing team exists", () => {
+    const b = clone(makeValidBundle());
+    b.sources = [];
+    b.excerpts = [];
+    b.claims = [];
+    b.claim_evidence = [];
+    b.account_objects = [];
+    b.account_object_claims = [];
+    b.research_runs = [];
+    b.run_artifacts = [];
+    b.audit_events.push({
+      ...b.audit_events[0]!,
+      id: "aud_other_team",
+      team_id: "team_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("rejects an audit event outside an explicit subject scope", () => {
+    const b = clone(makeValidBundle());
+    b.audit_events[0]!.team_id = "team_other";
+
+    const report = validateGraphBundle(b, {
+      mode: "fixture",
+      subject: {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      },
+    });
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("subject_scope_mismatch"));
+  });
+
+  it("preserves isolated multi-account raw research-run bundles", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs.push({
+      ...b.research_runs[0]!,
+      id: "run_other_account",
+      account_id: "acc_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  it("does not require a ResearchRun record when no RunArtifact references one", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs = [];
+    b.run_artifacts = [];
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
 });
 
 describe("validateGraphBundle — excerpt text integrity", () => {
@@ -253,6 +385,7 @@ describe("validateGraphBundle — verified records need evidence", () => {
     const report = run(b);
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("verified_claim_without_evidence"));
+    assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
   });
 
   it("rejects a verified AccountObject linked only to an unverified, unsupported claim", () => {
@@ -266,6 +399,45 @@ describe("validateGraphBundle — verified records need evidence", () => {
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
   });
+
+  for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
+    it(`keeps accepted support on a ${sourceStatus} source structurally valid but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.sources[0]!.status = sourceStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.accepted_excerpts, 0);
+    });
+  }
+
+  for (const claimStatus of ["contradicted", "stale", "rejected"] as const) {
+    it(`keeps a structurally supported ${claimStatus} claim as history but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.claims[0]!.status = claimStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_claims, 0);
+    });
+  }
+
+  for (const objectStatus of ["rejected", "superseded", "stale"] as const) {
+    it(`keeps a structurally supported ${objectStatus} object as history but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.account_objects[0]!.status = objectStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
 });
 
 describe("validateGraphBundle — lens output safety", () => {
@@ -313,6 +485,29 @@ describe("validateGraphBundle — lens output safety", () => {
     );
   });
 
+  it("rejects a verified lens item backed only by an inactive-source object and claim", () => {
+    const b = clone(makeValidBundle());
+    b.sources[0]!.status = "stale";
+    const lenses: LensOutput[] = [
+      {
+        lens: "signals",
+        items: [
+          {
+            label: "New logistics platform launch",
+            account_object_id: "obj_acme_signal_launch",
+            claim_id: "clm_acme_launch",
+            status: "verified",
+          },
+        ],
+      },
+    ];
+
+    const report = run(b, lenses);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("lens_unsupported_prose_marked_verified"));
+  });
+
   it("does not flag inferred/note items even without backing", () => {
     const b = makeValidBundle();
     const lenses: LensOutput[] = [
@@ -341,4 +536,16 @@ describe("validateGraphBundle — duplicates", () => {
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("duplicate_id"));
   });
+
+  for (const kind of ["research_runs", "run_artifacts", "audit_events"] as const) {
+    it(`rejects duplicate ids in ${kind}`, () => {
+      const b = clone(makeValidBundle());
+      b[kind].push({ ...b[kind][0]! } as never);
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("duplicate_id"));
+    });
+  }
 });

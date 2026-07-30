@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { describe, test } from "node:test";
 
+const SUBJECT_ARGS = [
+  "--expected-team-id",
+  "team_atliera_lab",
+  "--expected-account-id",
+  "acc_acme_robotics",
+];
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "atliera-workshop-cli-"));
   try {
@@ -40,6 +47,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
       ]);
 
       assert.equal(result.code, 0, result.stderr);
@@ -62,6 +70,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
       ]);
 
       assert.equal(result.code, 0, result.stderr);
@@ -82,6 +91,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
         "--preview-mode",
         "validation",
       ]);
@@ -156,6 +166,57 @@ describe("workshop-shell CLI", () => {
     assert.match(result.stderr, /usage:/i);
   });
 
+  test("requires an explicit expected team and account subject", async () => {
+    await withTempDir(async (outputRoot) => {
+      const base = [
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/acme.html",
+      ];
+      const missingTeam = await runCli([
+        ...base,
+        "--expected-account-id",
+        "acc_acme_robotics",
+      ]);
+      assert.equal(missingTeam.code, 2);
+      assert.match(missingTeam.stderr, /missing --expected-team-id/i);
+
+      const missingAccount = await runCli([
+        ...base,
+        "--expected-team-id",
+        "team_atliera_lab",
+      ]);
+      assert.equal(missingAccount.code, 2);
+      assert.match(missingAccount.stderr, /missing --expected-account-id/i);
+    });
+  });
+
+  test("rejects a bundle outside the explicitly expected account", async () => {
+    await withTempDir(async (outputRoot) => {
+      const outputPath = join(outputRoot, "workshop", "other.html");
+      const result = await runCli([
+        "write",
+        "fixtures/graph/valid/minimal-pass.json",
+        "--out-root",
+        outputRoot,
+        "--out-file",
+        "workshop/other.html",
+        "--expected-team-id",
+        "team_atliera_lab",
+        "--expected-account-id",
+        "acc_other",
+      ]);
+
+      assert.equal(result.code, 1);
+      assert.match(result.stderr, /Workshop graph validation failed/i);
+      assert.match(result.stderr, /subject_scope_mismatch/i);
+      await assert.rejects(() => readFile(outputPath, "utf8"));
+    });
+  });
+
   test("rejects duplicate flags and trailing positional arguments", async () => {
     await withTempDir(async (outputRoot) => {
       const duplicate = await runCli([
@@ -202,6 +263,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.txt",
+        ...SUBJECT_ARGS,
       ]);
       assert.notEqual(nonHtml.code, 0);
       assert.match(nonHtml.stderr, /html/i);
@@ -217,6 +279,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         join(outputRoot, "absolute.html"),
+        ...SUBJECT_ARGS,
       ]);
       assert.notEqual(absolute.code, 0);
       assert.match(absolute.stderr, /relative|absolute|path/i);
@@ -228,6 +291,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "../escape.html",
+        ...SUBJECT_ARGS,
       ]);
       assert.notEqual(result.code, 0);
       assert.match(result.stderr, /outside output root|invalid output path|path/i);
@@ -249,6 +313,7 @@ describe("workshop-shell CLI", () => {
           outputRoot,
           "--out-file",
           "workshop/linked.html",
+          ...SUBJECT_ARGS,
           "--allow-overwrite",
         ]);
 
@@ -271,6 +336,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
       ]);
       assert.equal(first.code, 0, first.stderr);
 
@@ -281,6 +347,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
       ]);
       assert.notEqual(second.code, 0);
       assert.match(second.stderr, /already exists|overwrite/i);
@@ -292,6 +359,7 @@ describe("workshop-shell CLI", () => {
         outputRoot,
         "--out-file",
         "workshop/acme.html",
+        ...SUBJECT_ARGS,
         "--allow-overwrite",
       ]);
       assert.equal(overwrite.code, 0, overwrite.stderr);

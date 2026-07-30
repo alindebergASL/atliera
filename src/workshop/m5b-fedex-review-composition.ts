@@ -1,4 +1,5 @@
 import { parseGraphBundle } from "../graph/schema.ts";
+import type { SubjectScope } from "../graph/subject.ts";
 import type { GraphBundle } from "../graph/types.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
 import {
@@ -23,8 +24,12 @@ import {
 
 const SAFE_HASH = /^[a-f0-9]{64}$/;
 const CAPTURED_AT = "2026-07-14T18:41:11.214Z";
-const TEAM_ID = "team_atliera_workshop";
-const ACCOUNT_ID = "acc_fedex_corp";
+export const M5B_FEDEX_WORKSHOP_SUBJECT = Object.freeze({
+  team_id: "team_atliera_workshop",
+  account_id: "acc_fedex_corp",
+}) satisfies SubjectScope;
+const TEAM_ID = M5B_FEDEX_WORKSHOP_SUBJECT.team_id;
+const ACCOUNT_ID = M5B_FEDEX_WORKSHOP_SUBJECT.account_id;
 const SOURCE_ID = "src_fedex_sec_submissions";
 
 function refuse(code: string): never {
@@ -187,7 +192,10 @@ export function buildM5bFedExPrewriteCandidate(packInput: unknown): Readonly<M5b
   };
   const parsed = parseGraphBundle(bundle);
   if (!parsed.ok) refuse("candidate_schema");
-  const report = validateGraphBundle(parsed.value, { mode: "validation" });
+  const report = validateGraphBundle(parsed.value, {
+    mode: "validation",
+    subject: M5B_FEDEX_WORKSHOP_SUBJECT,
+  });
   if (!report.ok) refuse("candidate_graph");
   if (bundle.sources.length !== 1 || bundle.excerpts.length > 4 || bundle.claims.length < 2 ||
       bundle.claims.length > 3 || bundle.account_objects.length < 2 || bundle.account_objects.length > 3 ||
@@ -217,7 +225,15 @@ export function verifyM5bFedExPrewriteCandidate(candidateInput: unknown,
     refuse("review_candidate_counterfeit");
   }
   const parsed = parseGraphBundle(candidate.bundle);
-  if (!parsed.ok || !validateGraphBundle(parsed.value, { mode: "validation" }).ok) refuse("review_candidate_counterfeit");
+  if (
+    !parsed.ok ||
+    !validateGraphBundle(parsed.value, {
+      mode: "validation",
+      subject: M5B_FEDEX_WORKSHOP_SUBJECT,
+    }).ok
+  ) {
+    refuse("review_candidate_counterfeit");
+  }
   const expected = buildM5bFedExPrewriteCandidate(pack);
   if (canonicalM5bFedExJson(candidate) !== canonicalM5bFedExJson(expected)) refuse("review_candidate_counterfeit");
   return Object.freeze(candidate);

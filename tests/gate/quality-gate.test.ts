@@ -112,6 +112,47 @@ describe("runQualityGate", () => {
     );
   });
 
+  for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
+    test(`fails current coverage without a validator hard failure when the source is ${sourceStatus}`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.status = sourceStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.deepEqual(report.validation_report.hard_failures, []);
+      assert.equal(report.metrics.accepted_excerpts, 0);
+      assert.equal(report.metrics.accepted_excerpt_rate, 0);
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 1);
+      assert.equal(
+        report.metrics
+          .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+        0,
+      );
+      assert.equal(report.metrics.verified_claim_evidence_coverage, 0);
+      assert.equal(report.status, "fail");
+      assert.ok(
+        reasonCodes(report).includes(
+          "verified_claim_evidence_coverage_below_threshold",
+        ),
+      );
+      assert.ok(!reasonCodes(report).includes("hard_failures_present"));
+    });
+  }
+
+  for (const claimStatus of ["contradicted", "stale", "rejected"] as const) {
+    test(`excludes a ${claimStatus} claim from the current coverage denominator`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.claims[0]!.status = claimStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 0);
+      assert.equal(report.metrics.verified_claim_evidence_coverage, null);
+    });
+  }
+
   test("fails zero-output incidents", () => {
     const emptyBundle = {
       sources: [],

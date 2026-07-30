@@ -275,6 +275,17 @@ export function validateGraphBundle(
   }
 
   if (options.subject) {
+    for (const field of ["team_id", "account_id"] as const) {
+      const authority = options.subject[field];
+      if (typeof authority !== "string" || authority.trim().length === 0) {
+        fail(
+          failures,
+          "subject_scope_mismatch",
+          `subject.${field} must contain at least one non-whitespace character`,
+          { field },
+        );
+      }
+    }
     for (const record of getAccountBearingGraphRecords(bundle)) {
       if (
         record.team_id !== options.subject.team_id ||
@@ -656,7 +667,8 @@ export function validateGraphBundle(
     }
   }
 
-  // 9. Aggregate metrics for the report.
+  // 9. Aggregate metrics for the report. Totals retain all historical rows;
+  //    verified counts include only records with current supporting evidence.
   metrics.total_sources = bundle.sources.length;
   metrics.total_excerpts = bundle.excerpts.length;
   for (const e of bundle.excerpts) {
@@ -668,13 +680,13 @@ export function validateGraphBundle(
   metrics.verified_claims = bundle.claims.filter(
     (c) =>
       c.provenance_status === "verified" &&
-      support.isCurrentClaimEligible(c),
+      support.hasCurrentSupportingEvidence(c.id),
   ).length;
   metrics.total_account_objects = bundle.account_objects.length;
   metrics.verified_account_objects = bundle.account_objects.filter(
     (o) =>
       o.provenance_status === "verified" &&
-      support.isCurrentAccountObjectEligible(o),
+      support.hasCurrentSupportingClaim(o.id),
   ).length;
 
   return {

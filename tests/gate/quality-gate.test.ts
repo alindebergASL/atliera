@@ -20,6 +20,8 @@ describe("runQualityGate", () => {
     assert.equal(report.metrics.invented_id_failures, 0);
     assert.equal(report.metrics.accepted_excerpt_rate, 1);
     assert.equal(report.metrics.verified_claim_evidence_coverage, 1);
+    assert.equal(report.validation_report.metrics.verified_claims, 1);
+    assert.equal(report.validation_report.metrics.verified_account_objects, 1);
   });
 
   test("fails when validator hard failures are present", () => {
@@ -121,6 +123,11 @@ describe("runQualityGate", () => {
 
       assert.equal(report.validation_report.ok, true);
       assert.deepEqual(report.validation_report.hard_failures, []);
+      assert.equal(report.validation_report.metrics.verified_claims, 0);
+      assert.equal(
+        report.validation_report.metrics.verified_account_objects,
+        0,
+      );
       assert.equal(report.metrics.accepted_excerpts, 0);
       assert.equal(report.metrics.accepted_excerpt_rate, 0);
       assert.equal(report.metrics.verified_or_high_confidence_claims, 1);
@@ -140,7 +147,14 @@ describe("runQualityGate", () => {
     });
   }
 
-  for (const claimStatus of ["contradicted", "stale", "rejected"] as const) {
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
     test(`excludes a ${claimStatus} claim from the current coverage denominator`, () => {
       const bundle = clone(makeValidBundle());
       bundle.claims[0]!.status = claimStatus;
@@ -149,6 +163,29 @@ describe("runQualityGate", () => {
 
       assert.equal(report.validation_report.ok, true);
       assert.equal(report.metrics.verified_or_high_confidence_claims, 0);
+      assert.equal(report.metrics.verified_claim_evidence_coverage, null);
+    });
+  }
+
+  for (const provenanceStatus of ["stale", "unsupported"] as const) {
+    test(`excludes an active ${provenanceStatus}-provenance claim from current coverage`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.claims[0]!.provenance_status = provenanceStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.equal(report.validation_report.metrics.verified_claims, 0);
+      assert.equal(
+        report.validation_report.metrics.verified_account_objects,
+        0,
+      );
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 0);
+      assert.equal(
+        report.metrics
+          .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+        0,
+      );
       assert.equal(report.metrics.verified_claim_evidence_coverage, null);
     });
   }

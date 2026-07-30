@@ -26,6 +26,20 @@ function codes(report: ValidationReport): string[] {
   return report.hard_failures.map((f) => f.code);
 }
 
+function makeEmptyBundle(): GraphBundle {
+  return {
+    sources: [],
+    excerpts: [],
+    claims: [],
+    claim_evidence: [],
+    account_objects: [],
+    account_object_claims: [],
+    research_runs: [],
+    run_artifacts: [],
+    audit_events: [],
+  };
+}
+
 describe("validateGraphBundle — baseline", () => {
   it("accepts the valid baseline bundle", () => {
     const report = run(makeValidBundle());
@@ -177,6 +191,27 @@ describe("validateGraphBundle — subject ownership", () => {
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("subject_scope_mismatch"));
   });
+
+  for (const field of ["team_id", "account_id"] as const) {
+    for (const authority of ["", " \t\n"]) {
+      it(`rejects ${authority === "" ? "blank" : "whitespace-only"} explicit ${field} authority on an empty bundle`, () => {
+        const subject = {
+          team_id: "team_atliera_lab",
+          account_id: "acc_acme_robotics",
+        };
+        subject[field] = authority;
+
+        const report = validateGraphBundle(makeEmptyBundle(), {
+          mode: "fixture",
+          subject,
+        });
+
+        assert.equal(report.ok, false);
+        assert.deepEqual(codes(report), ["subject_scope_mismatch"]);
+        assert.equal(report.hard_failures[0]!.field, field);
+      });
+    }
+  }
 
   it("rejects an audit team mismatch when the bundle team is unambiguous", () => {
     const b = clone(makeValidBundle());
@@ -400,6 +435,31 @@ describe("validateGraphBundle — verified records need evidence", () => {
     assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
   });
 
+  it("keeps a context-only object/claim edge as valid history without treating it as support", () => {
+    const b = clone(makeValidBundle());
+    b.account_objects[0]!.provenance_status = "unverified";
+    b.account_object_claims[0]!.relationship = "context";
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+    assert.equal(b.account_object_claims[0]!.relationship, "context");
+    assert.equal(report.metrics.verified_claims, 1);
+    assert.equal(report.metrics.verified_account_objects, 0);
+  });
+
+  it("does not accept a context-only claim link as support for a verified object", () => {
+    const b = clone(makeValidBundle());
+    b.account_object_claims[0]!.relationship = "context";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
+    assert.equal(report.metrics.verified_claims, 1);
+    assert.equal(report.metrics.verified_account_objects, 0);
+  });
+
   for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
     it(`keeps accepted support on a ${sourceStatus} source structurally valid but not current`, () => {
       const b = clone(makeValidBundle());
@@ -410,10 +470,19 @@ describe("validateGraphBundle — verified records need evidence", () => {
       assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
       assert.deepEqual(report.hard_failures, []);
       assert.equal(report.metrics.accepted_excerpts, 0);
+      assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
     });
   }
 
-  for (const claimStatus of ["contradicted", "stale", "rejected"] as const) {
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
     it(`keeps a structurally supported ${claimStatus} claim as history but not current`, () => {
       const b = clone(makeValidBundle());
       b.claims[0]!.status = claimStatus;
@@ -423,6 +492,21 @@ describe("validateGraphBundle — verified records need evidence", () => {
       assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
       assert.deepEqual(report.hard_failures, []);
       assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
+
+  for (const provenanceStatus of ["stale", "unsupported"] as const) {
+    it(`keeps an active ${provenanceStatus}-provenance claim as structurally supported history but not current support`, () => {
+      const b = clone(makeValidBundle());
+      b.claims[0]!.provenance_status = provenanceStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
     });
   }
 

@@ -10,8 +10,8 @@ import type {
 
 /**
  * Current eligibility is deliberately narrower than structural validity.
- * Historical records remain in Graph, but only these lifecycle states may
- * participate in current support or trusted presentation.
+ * Historical records remain in Graph, but only eligible lifecycle and
+ * provenance states may participate in current support or trusted presentation.
  */
 export function isCurrentSourceEligible(source: SourceDocument): boolean {
   return source.status === "active";
@@ -24,7 +24,11 @@ function isAcceptedLiteralExcerpt(excerpt: EvidenceExcerpt): boolean {
 }
 
 export function isCurrentClaimEligible(claim: Claim): boolean {
-  return claim.status === "active";
+  return (
+    claim.status === "active" &&
+    claim.provenance_status !== "stale" &&
+    claim.provenance_status !== "unsupported"
+  );
 }
 
 export function isCurrentAccountObjectEligible(
@@ -178,6 +182,7 @@ export function createSupportEvaluator(
     for (const edge of claimsByObject.get(objectId) ?? []) {
       const claim = claimById.get(edge.claim_id);
       if (
+        edge.relationship === "context" ||
         !claim ||
         !isCurrentClaimEligible(claim) ||
         !sameSubject(object, claim)
@@ -193,9 +198,7 @@ export function createSupportEvaluator(
     objectId: string,
   ): ObjectClaimLink[] =>
     getCurrentClaimLinks(objectId).filter(
-      (link) =>
-        link.edge.relationship !== "context" &&
-        getCurrentSupportingEvidence(link.claim.id).length > 0,
+      (link) => getCurrentSupportingEvidence(link.claim.id).length > 0,
     );
 
   return {

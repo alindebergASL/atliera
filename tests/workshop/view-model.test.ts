@@ -125,6 +125,24 @@ describe("buildWorkshopViewModel", () => {
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
   });
 
+  test("does not expose a context-only object/claim edge as an ordinary current link", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_object_claims[0]!.relationship = "context";
+
+    const item = build(bundle).lenses.signals[0]!;
+
+    assert.deepEqual(item.claim_ids, []);
+    assert.deepEqual(item.source_ids, []);
+    assert.deepEqual(item.excerpt_ids, []);
+    assert.deepEqual(item.evidence_packets, []);
+    assert.deepEqual(item.trust.evidence, {
+      accepted_excerpt_count: 0,
+      source_document_count: 0,
+      claim_count: 0,
+    });
+  });
+
   test("does not emit evidence packets for unsupported claims or objects", () => {
     const unsupportedObject = clone(makeValidBundle());
     unsupportedObject.account_objects[0]!.provenance_status = "unsupported";
@@ -137,7 +155,10 @@ describe("buildWorkshopViewModel", () => {
     unsupportedClaim.account_objects[0]!.provenance_status = "unverified";
     vm = build(unsupportedClaim);
     assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
-    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 1);
+    assert.deepEqual(vm.lenses.signals[0]!.claim_ids, []);
+    assert.deepEqual(vm.lenses.signals[0]!.source_ids, []);
+    assert.deepEqual(vm.lenses.signals[0]!.excerpt_ids, []);
+    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
   });
 
   test("refuses an ambiguous multi-account bundle with its validation report", () => {
@@ -255,7 +276,39 @@ describe("buildWorkshopViewModel", () => {
     assert.deepEqual(item.evidence_packets, []);
   });
 
-  for (const claimStatus of ["contradicted", "stale", "rejected"] as const) {
+  test("does not expose a context-only proposed claim as model-proposed support", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.excerpts[0]!.validation_status = "proposed";
+    bundle.claims[0]!.confidence = "medium";
+    bundle.claims[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.confidence = "medium";
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.payload_json.review_state =
+      "model_proposed_pending_human_review";
+    bundle.account_object_claims[0]!.relationship = "context";
+
+    const item = build(bundle).lenses.signals[0]!;
+
+    assert.equal(item.review_state, "model_proposed_pending_human_review");
+    assert.deepEqual(item.claim_ids, []);
+    assert.deepEqual(item.source_ids, []);
+    assert.deepEqual(item.excerpt_ids, []);
+    assert.deepEqual(item.evidence_packets, []);
+    assert.deepEqual(item.trust.evidence, {
+      accepted_excerpt_count: 0,
+      source_document_count: 0,
+      claim_count: 0,
+    });
+  });
+
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
     for (
       const provenanceStatus of ["verified", "source_document_only"] as const
     ) {
@@ -275,6 +328,24 @@ describe("buildWorkshopViewModel", () => {
           ),
           false,
         );
+      });
+    }
+  }
+
+  for (const claimProvenance of ["stale", "unsupported"] as const) {
+    for (
+      const objectProvenance of ["verified", "source_document_only"] as const
+    ) {
+      test(`does not render a ${objectProvenance} item on any lens when its active claim provenance is ${claimProvenance}`, () => {
+        const bundle = clone(makeValidBundle());
+        bundle.claims[0]!.provenance_status = claimProvenance;
+        bundle.account_objects[0]!.provenance_status = objectProvenance;
+
+        const vm = build(bundle);
+        const items = Object.values(vm.lenses).flat();
+
+        assert.equal(items.length, 0);
+        assert.equal(vm.totals.verified_objects, 0);
       });
     }
   }

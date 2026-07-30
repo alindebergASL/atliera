@@ -120,7 +120,7 @@ function fail(
 }
 
 function isNonBlank(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
+  return typeof value === "string" && /[^\p{White_Space}]/u.test(value);
 }
 
 function checkIdShape(

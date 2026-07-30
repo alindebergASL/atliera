@@ -62,6 +62,7 @@ describe("runQualityGate", () => {
   for (const [label, value] of [
     ["blank", ""],
     ["whitespace-only", " \t\n"],
+    ["U+0085-only", "\u0085"],
   ] as const) {
     test(`fails coherently ${label} intrinsic ownership through validator hard failures`, () => {
       const bundle = clone(makeValidBundle());

@@ -51,6 +51,34 @@ function relabelAccountBearingField(
   for (const record of bundle.research_runs) record[field] = value;
 }
 
+const UNICODE_WHITE_SPACE_CODE_POINTS = [
+  ["U+0009", "\u0009"],
+  ["U+000A", "\u000A"],
+  ["U+000B", "\u000B"],
+  ["U+000C", "\u000C"],
+  ["U+000D", "\u000D"],
+  ["U+0020", "\u0020"],
+  ["U+0085", "\u0085"],
+  ["U+00A0", "\u00A0"],
+  ["U+1680", "\u1680"],
+  ["U+2000", "\u2000"],
+  ["U+2001", "\u2001"],
+  ["U+2002", "\u2002"],
+  ["U+2003", "\u2003"],
+  ["U+2004", "\u2004"],
+  ["U+2005", "\u2005"],
+  ["U+2006", "\u2006"],
+  ["U+2007", "\u2007"],
+  ["U+2008", "\u2008"],
+  ["U+2009", "\u2009"],
+  ["U+200A", "\u200A"],
+  ["U+2028", "\u2028"],
+  ["U+2029", "\u2029"],
+  ["U+202F", "\u202F"],
+  ["U+205F", "\u205F"],
+  ["U+3000", "\u3000"],
+] as const;
+
 describe("validateGraphBundle — baseline", () => {
   it("accepts the valid baseline bundle", () => {
     const report = run(makeValidBundle());
@@ -155,6 +183,7 @@ describe("validateGraphBundle — subject ownership", () => {
   for (const [label, value] of [
     ["blank", ""],
     ["whitespace-only", " \t\n"],
+    ["U+0085-only", "\u0085"],
   ] as const) {
     for (const field of ["team_id", "account_id"] as const) {
       it(`rejects coherently ${label} intrinsic account-bearing ${field} values without an explicit subject`, () => {
@@ -277,8 +306,12 @@ describe("validateGraphBundle — subject ownership", () => {
   });
 
   for (const field of ["team_id", "account_id"] as const) {
-    for (const authority of ["", " \t\n"]) {
-      it(`rejects ${authority === "" ? "blank" : "whitespace-only"} explicit ${field} authority on an empty bundle`, () => {
+    for (const [label, authority] of [
+      ["blank", ""],
+      ["whitespace-only", " \t\n"],
+      ["U+0085-only", "\u0085"],
+    ] as const) {
+      it(`rejects ${label} explicit ${field} authority on an empty bundle`, () => {
         const subject = {
           team_id: "team_atliera_lab",
           account_id: "acc_acme_robotics",
@@ -296,6 +329,73 @@ describe("validateGraphBundle — subject ownership", () => {
       });
     }
   }
+
+  it("rejects every Unicode White_Space code point as intrinsic ownership without an explicit subject", () => {
+    for (const [label, authority] of UNICODE_WHITE_SPACE_CODE_POINTS) {
+      for (const field of ["team_id", "account_id"] as const) {
+        const b = clone(makeValidBundle());
+        relabelAccountBearingField(b, field, authority);
+        if (field === "team_id") {
+          for (const audit of b.audit_events) audit.team_id = authority;
+        }
+
+        const report = run(b);
+
+        assert.equal(report.ok, false, `${label} intrinsic ${field}`);
+        assert.ok(
+          report.hard_failures.some(
+            (failure) =>
+              failure.code === "subject_scope_mismatch" &&
+              failure.field === field &&
+              failure.record_kind !== "audit_event",
+          ),
+          `${label} intrinsic ${field}`,
+        );
+      }
+
+      const auditOnly = makeEmptyBundle();
+      auditOnly.audit_events = clone(makeValidBundle()).audit_events;
+      auditOnly.audit_events[0]!.team_id = authority;
+      const auditReport = run(auditOnly);
+
+      assert.equal(auditReport.ok, false, `${label} intrinsic audit team_id`);
+      assert.deepEqual(
+        auditReport.hard_failures.map((failure) => ({
+          code: failure.code,
+          record_kind: failure.record_kind,
+          field: failure.field,
+        })),
+        [
+          {
+            code: "subject_scope_mismatch",
+            record_kind: "audit_event",
+            field: "team_id",
+          },
+        ],
+        `${label} intrinsic audit team_id`,
+      );
+    }
+  });
+
+  it("accepts and preserves non-ASCII ownership identifiers with non-whitespace characters", () => {
+    const b = clone(makeValidBundle());
+    const teamId = "équipe_日本";
+    const accountId = "cuenta_Ångström";
+    relabelAccountBearingField(b, "team_id", teamId);
+    relabelAccountBearingField(b, "account_id", accountId);
+    for (const audit of b.audit_events) audit.team_id = teamId;
+
+    const report = run(b);
+
+    assert.equal(
+      report.ok,
+      true,
+      "non-ASCII ownership should validate; got: " +
+        JSON.stringify(report.hard_failures),
+    );
+    assert.equal(b.sources[0]!.team_id, teamId);
+    assert.equal(b.sources[0]!.account_id, accountId);
+  });
 
   it("rejects an audit team mismatch when the bundle team is unambiguous", () => {
     const b = clone(makeValidBundle());

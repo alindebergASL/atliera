@@ -30,7 +30,10 @@ function isStrictIsoTimestamp(value: unknown): value is string {
   if (typeof value !== "string" || !STRICT_ISO_TIMESTAMP.test(value)) {
     return false;
   }
-  return Number.isFinite(Date.parse(value));
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return false;
+  const canonical = parsed.toISOString();
+  return canonical === value || canonical.replace(".000Z", "Z") === value;
 }
 
 function isLocalTargetType(value: string): value is RecordKind {

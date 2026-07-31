@@ -380,11 +380,27 @@ describe("validateGraphBundle — audit target references", () => {
     return b;
   }
 
-  it("accepts the legacy M5b source_custody_retention_draft binding", () => {
+  it("accepts the pinned M5b retention timestamp", () => {
     const report = run(makeRetentionBundle());
 
     assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
   });
+
+  for (const deadline of [
+    "2026-02-29T18:41:11.277Z",
+    "2026-02-30T18:41:11.277Z",
+    "2026-08-13T18:41:11.27Z",
+  ] as const) {
+    it(`rejects noncanonical M5b retention deadline ${deadline}`, () => {
+      const b = makeRetentionBundle();
+      b.audit_events[0]!.payload_json.deadline = deadline;
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+    });
+  }
 
   for (const [label, mutate] of [
     ["event type", (b: GraphBundle) => { b.audit_events[0]!.event_type = "source.retention_proposed"; }],

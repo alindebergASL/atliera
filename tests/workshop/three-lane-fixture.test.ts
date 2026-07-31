@@ -4,11 +4,12 @@ import { describe, test } from "node:test";
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
+import { VALID_GRAPH_SUBJECT } from "../fixtures/valid-graph.ts";
 
 describe("Workshop three-lane fixture", () => {
   test("renders realistic Signals, Maps, and Plays lanes from one GraphBundle fixture", async () => {
     const bundle = await loadGraphBundleFile("fixtures/graph/valid/workshop-three-lane.json");
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
 
     assert.equal(vm.account_id, "acc_acme_robotics");
     assert.equal(vm.totals.sources, 3);

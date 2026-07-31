@@ -5,10 +5,34 @@ import {
   runQualityGate,
   summarizeGateRun,
 } from "../../src/gate/quality-gate.ts";
+import type { GraphBundle } from "../../src/graph/types.ts";
 import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
 
 function reasonCodes(report: ReturnType<typeof runQualityGate>): string[] {
   return report.reasons.map((r) => r.code);
+}
+
+function relabelIntrinsicOwnership(
+  bundle: GraphBundle,
+  value: string,
+): void {
+  for (const record of bundle.sources) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.claims) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.account_objects) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const record of bundle.research_runs) {
+    record.team_id = value;
+    record.account_id = value;
+  }
+  for (const audit of bundle.audit_events) audit.team_id = value;
 }
 
 describe("runQualityGate", () => {
@@ -20,6 +44,8 @@ describe("runQualityGate", () => {
     assert.equal(report.metrics.invented_id_failures, 0);
     assert.equal(report.metrics.accepted_excerpt_rate, 1);
     assert.equal(report.metrics.verified_claim_evidence_coverage, 1);
+    assert.equal(report.validation_report.metrics.verified_claims, 1);
+    assert.equal(report.validation_report.metrics.verified_account_objects, 1);
   });
 
   test("fails when validator hard failures are present", () => {
@@ -30,6 +56,48 @@ describe("runQualityGate", () => {
 
     assert.equal(report.status, "fail");
     assert.equal(report.ok, false);
+    assert.ok(reasonCodes(report).includes("hard_failures_present"));
+  });
+
+  for (const [label, value] of [
+    ["blank", ""],
+    ["whitespace-only", " \t\n"],
+    ["U+0085-only", "\u0085"],
+  ] as const) {
+    test(`fails coherently ${label} intrinsic ownership through validator hard failures`, () => {
+      const bundle = clone(makeValidBundle());
+      relabelIntrinsicOwnership(bundle, value);
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.status, "fail");
+      assert.equal(report.ok, false);
+      assert.equal(report.validation_report.ok, false);
+      assert.ok(report.validation_report.hard_failures.length > 0);
+      assert.ok(
+        report.validation_report.hard_failures.every(
+          (failure) => failure.code === "subject_scope_mismatch",
+        ),
+      );
+      assert.ok(reasonCodes(report).includes("hard_failures_present"));
+    });
+  }
+
+  test("fails a coherently U+FEFF-owned bundle through validator hard failures", () => {
+    const bundle = clone(makeValidBundle());
+    relabelIntrinsicOwnership(bundle, "\uFEFF");
+
+    const report = runQualityGate(bundle);
+
+    assert.equal(report.status, "fail");
+    assert.equal(report.ok, false);
+    assert.equal(report.validation_report.ok, false);
+    assert.ok(report.validation_report.hard_failures.length > 0);
+    assert.ok(
+      report.validation_report.hard_failures.every(
+        (failure) => failure.code === "subject_scope_mismatch",
+      ),
+    );
     assert.ok(reasonCodes(report).includes("hard_failures_present"));
   });
 
@@ -111,6 +179,82 @@ describe("runQualityGate", () => {
       ),
     );
   });
+
+  for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
+    test(`fails current coverage without a validator hard failure when the source is ${sourceStatus}`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.status = sourceStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.deepEqual(report.validation_report.hard_failures, []);
+      assert.equal(report.validation_report.metrics.verified_claims, 0);
+      assert.equal(
+        report.validation_report.metrics.verified_account_objects,
+        0,
+      );
+      assert.equal(report.metrics.accepted_excerpts, 0);
+      assert.equal(report.metrics.accepted_excerpt_rate, 0);
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 1);
+      assert.equal(
+        report.metrics
+          .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+        0,
+      );
+      assert.equal(report.metrics.verified_claim_evidence_coverage, 0);
+      assert.equal(report.status, "fail");
+      assert.ok(
+        reasonCodes(report).includes(
+          "verified_claim_evidence_coverage_below_threshold",
+        ),
+      );
+      assert.ok(!reasonCodes(report).includes("hard_failures_present"));
+    });
+  }
+
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
+    test(`excludes a ${claimStatus} claim from the current coverage denominator`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.claims[0]!.status = claimStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 0);
+      assert.equal(report.metrics.verified_claim_evidence_coverage, null);
+    });
+  }
+
+  for (const provenanceStatus of ["stale", "unsupported"] as const) {
+    test(`excludes an active ${provenanceStatus}-provenance claim from current coverage`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.claims[0]!.provenance_status = provenanceStatus;
+
+      const report = runQualityGate(bundle);
+
+      assert.equal(report.validation_report.ok, true);
+      assert.equal(report.validation_report.metrics.verified_claims, 0);
+      assert.equal(
+        report.validation_report.metrics.verified_account_objects,
+        0,
+      );
+      assert.equal(report.metrics.verified_or_high_confidence_claims, 0);
+      assert.equal(
+        report.metrics
+          .verified_or_high_confidence_claims_with_accepted_supporting_evidence,
+        0,
+      );
+      assert.equal(report.metrics.verified_claim_evidence_coverage, null);
+    });
+  }
 
   test("fails zero-output incidents", () => {
     const emptyBundle = {

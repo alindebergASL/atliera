@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { makeValidBundle, clone } from "../fixtures/valid-graph.ts";
-import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
+import {
+  makeValidBundle,
+  clone,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
+import {
+  buildWorkshopViewModel,
+  WorkshopGraphValidationError,
+} from "../../src/workshop/view-model.ts";
+import { validateGraphBundle } from "../../src/graph/validate.ts";
 import type { GraphBundle } from "../../src/graph/types.ts";
+
+const EXPECTED_ORIGINAL = VALID_GRAPH_SUBJECT;
 
 function makeEmptyBundle(): GraphBundle {
   return {
@@ -19,9 +29,13 @@ function makeEmptyBundle(): GraphBundle {
   };
 }
 
+function build(bundle: GraphBundle) {
+  return buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
+}
+
 describe("buildWorkshopViewModel", () => {
   test("renders the baseline fixture as a Signals item from the shared graph", () => {
-    const vm = buildWorkshopViewModel(makeValidBundle());
+    const vm = build(makeValidBundle());
 
     assert.equal(vm.product_name, "Atliera");
     assert.equal(vm.surface, "Workshop");
@@ -58,7 +72,7 @@ describe("buildWorkshopViewModel", () => {
       { id: "oclm_play", account_object_id: "obj_acme_play", claim_id: "clm_acme_launch", relationship: "primary" },
     );
 
-    const vm = buildWorkshopViewModel(bundle);
+    const vm = build(bundle);
 
     assert.deepEqual(vm.lenses.signals.map((item) => item.id), ["obj_acme_signal_launch"]);
     assert.deepEqual(vm.lenses.maps.map((item) => item.id), ["obj_acme_stakeholder"]);
@@ -69,10 +83,10 @@ describe("buildWorkshopViewModel", () => {
   });
 
   test("renders an explicit empty state for an empty graph bundle", () => {
-    const vm = buildWorkshopViewModel(makeEmptyBundle());
+    const vm = build(makeEmptyBundle());
 
     assert.equal(vm.empty_state, true);
-    assert.equal(vm.account_id, null);
+    assert.equal(vm.account_id, VALID_GRAPH_SUBJECT.account_id);
     assert.deepEqual(vm.lenses, { signals: [], maps: [], plays: [] });
     assert.deepEqual(vm.totals, {
       sources: 0,
@@ -87,38 +101,252 @@ describe("buildWorkshopViewModel", () => {
   test("labels unsupported and source-document-only material visibly", () => {
     const bundle = clone(makeValidBundle());
     bundle.account_objects[0]!.provenance_status = "unsupported";
-    let vm = buildWorkshopViewModel(bundle);
+    let vm = build(bundle);
     assert.equal(vm.lenses.signals[0]!.trust.label, "Unsupported");
 
     bundle.account_objects[0]!.provenance_status = "source_document_only";
-    vm = buildWorkshopViewModel(bundle);
+    vm = build(bundle);
     assert.equal(vm.lenses.signals[0]!.trust.label, "Source-backed");
   });
 
   test("does not count contextual or contradicting excerpts as accepted supporting evidence", () => {
     const bundle = clone(makeValidBundle());
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.claims[0]!.provenance_status = "unverified";
+    bundle.claims[0]!.confidence = "medium";
     bundle.claim_evidence[0]!.relationship = "context";
-    let vm = buildWorkshopViewModel(bundle);
+    let vm = build(bundle);
     assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
 
     bundle.claim_evidence[0]!.relationship = "contradicts";
-    vm = buildWorkshopViewModel(bundle);
+    vm = build(bundle);
     assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
+  });
+
+  test("does not expose a context-only object/claim edge as an ordinary current link", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_object_claims[0]!.relationship = "context";
+
+    const item = build(bundle).lenses.signals[0]!;
+
+    assert.deepEqual(item.claim_ids, []);
+    assert.deepEqual(item.source_ids, []);
+    assert.deepEqual(item.excerpt_ids, []);
+    assert.deepEqual(item.evidence_packets, []);
+    assert.deepEqual(item.trust.evidence, {
+      accepted_excerpt_count: 0,
+      source_document_count: 0,
+      claim_count: 0,
+    });
   });
 
   test("does not emit evidence packets for unsupported claims or objects", () => {
     const unsupportedObject = clone(makeValidBundle());
     unsupportedObject.account_objects[0]!.provenance_status = "unsupported";
-    let vm = buildWorkshopViewModel(unsupportedObject);
+    let vm = build(unsupportedObject);
     assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
     assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 1);
 
     const unsupportedClaim = clone(makeValidBundle());
     unsupportedClaim.claims[0]!.provenance_status = "unsupported";
-    vm = buildWorkshopViewModel(unsupportedClaim);
+    unsupportedClaim.account_objects[0]!.provenance_status = "unverified";
+    vm = build(unsupportedClaim);
     assert.equal(vm.lenses.signals[0]!.evidence_packets.length, 0);
-    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 1);
+    assert.deepEqual(vm.lenses.signals[0]!.claim_ids, []);
+    assert.deepEqual(vm.lenses.signals[0]!.source_ids, []);
+    assert.deepEqual(vm.lenses.signals[0]!.excerpt_ids, []);
+    assert.equal(vm.lenses.signals[0]!.trust.evidence.accepted_excerpt_count, 0);
   });
+
+  test("refuses an ambiguous multi-account bundle with its validation report", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.research_runs.push({
+      ...bundle.research_runs[0]!,
+      id: "run_other_account",
+      account_id: "acc_other",
+    });
+
+    assert.throws(() => build(bundle), (error) => {
+      assert.ok(error instanceof WorkshopGraphValidationError);
+      assert.equal(error.report.ok, false);
+      assert.ok(
+        error.report.hard_failures.some(
+          (failure) => failure.code === "subject_scope_mismatch",
+        ),
+      );
+      return true;
+    });
+  });
+
+  test("refuses structurally invalid bundles before Workshop projection", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources.push({ ...bundle.sources[0]! });
+
+    assert.throws(() => build(bundle), (error) => {
+      assert.ok(error instanceof WorkshopGraphValidationError);
+      assert.ok(
+        error.report.hard_failures.some(
+          (failure) => failure.code === "duplicate_id",
+        ),
+      );
+      return true;
+    });
+  });
+
+  test("rejects a coherent account relabel against the authoritative Workshop subject", () => {
+    const bundle = clone(makeValidBundle());
+    for (const source of bundle.sources) source.account_id = "acc_other";
+    for (const claim of bundle.claims) claim.account_id = "acc_other";
+    for (const object of bundle.account_objects) object.account_id = "acc_other";
+    for (const run of bundle.research_runs) run.account_id = "acc_other";
+
+    const validation = validateGraphBundle(bundle, {
+      mode: "fixture",
+      subject: EXPECTED_ORIGINAL,
+    });
+    assert.equal(validation.ok, false);
+    assert.ok(
+      validation.hard_failures.some(
+        (failure) => failure.code === "subject_scope_mismatch",
+      ),
+    );
+    assert.throws(
+      () => buildWorkshopViewModel(bundle, EXPECTED_ORIGINAL),
+      WorkshopGraphValidationError,
+    );
+  });
+
+  for (const status of ["rejected", "superseded", "stale"] as const) {
+    test(`excludes ${status} objects from current Workshop output`, () => {
+      const bundle = clone(makeValidBundle());
+      bundle.account_objects[0]!.status = status;
+
+      const vm = build(bundle);
+
+      assert.equal(vm.lenses.signals.length, 0);
+      assert.equal(vm.totals.account_objects, 0);
+      assert.equal(vm.empty_state, true);
+    });
+  }
+
+  for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
+    for (
+      const provenanceStatus of ["verified", "source_document_only"] as const
+    ) {
+      test(`does not render a ${provenanceStatus} item on any lens when its source is ${sourceStatus}`, () => {
+        const bundle = clone(makeValidBundle());
+        bundle.sources[0]!.status = sourceStatus;
+        bundle.account_objects[0]!.provenance_status = provenanceStatus;
+
+        const vm = build(bundle);
+        const items = Object.values(vm.lenses).flat();
+
+        assert.equal(items.length, 0);
+        assert.equal(
+          items.some((item) =>
+            item.trust.label === "Verified" ||
+            item.trust.label === "Source-backed"
+          ),
+          false,
+        );
+      });
+    }
+  }
+
+  test("does not expose an inactive source or proposed excerpt on a model-proposed review item", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources[0]!.status = "stale";
+    bundle.excerpts[0]!.validation_status = "proposed";
+    bundle.claims[0]!.confidence = "medium";
+    bundle.claims[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.confidence = "medium";
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.payload_json.review_state =
+      "model_proposed_pending_human_review";
+
+    const vm = build(bundle);
+    const item = vm.lenses.signals[0]!;
+
+    assert.equal(item.review_state, "model_proposed_pending_human_review");
+    assert.deepEqual(item.source_ids, []);
+    assert.deepEqual(item.excerpt_ids, []);
+    assert.deepEqual(item.evidence_packets, []);
+  });
+
+  test("does not expose a context-only proposed claim as model-proposed support", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.excerpts[0]!.validation_status = "proposed";
+    bundle.claims[0]!.confidence = "medium";
+    bundle.claims[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.confidence = "medium";
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_objects[0]!.payload_json.review_state =
+      "model_proposed_pending_human_review";
+    bundle.account_object_claims[0]!.relationship = "context";
+
+    const item = build(bundle).lenses.signals[0]!;
+
+    assert.equal(item.review_state, "model_proposed_pending_human_review");
+    assert.deepEqual(item.claim_ids, []);
+    assert.deepEqual(item.source_ids, []);
+    assert.deepEqual(item.excerpt_ids, []);
+    assert.deepEqual(item.evidence_packets, []);
+    assert.deepEqual(item.trust.evidence, {
+      accepted_excerpt_count: 0,
+      source_document_count: 0,
+      claim_count: 0,
+    });
+  });
+
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
+    for (
+      const provenanceStatus of ["verified", "source_document_only"] as const
+    ) {
+      test(`does not render a ${provenanceStatus} item on any lens when its claim is ${claimStatus}`, () => {
+        const bundle = clone(makeValidBundle());
+        bundle.claims[0]!.status = claimStatus;
+        bundle.account_objects[0]!.provenance_status = provenanceStatus;
+
+        const vm = build(bundle);
+        const items = Object.values(vm.lenses).flat();
+
+        assert.equal(items.length, 0);
+        assert.equal(
+          items.some((item) =>
+            item.trust.label === "Verified" ||
+            item.trust.label === "Source-backed"
+          ),
+          false,
+        );
+      });
+    }
+  }
+
+  for (const claimProvenance of ["stale", "unsupported"] as const) {
+    for (
+      const objectProvenance of ["verified", "source_document_only"] as const
+    ) {
+      test(`does not render a ${objectProvenance} item on any lens when its active claim provenance is ${claimProvenance}`, () => {
+        const bundle = clone(makeValidBundle());
+        bundle.claims[0]!.provenance_status = claimProvenance;
+        bundle.account_objects[0]!.provenance_status = objectProvenance;
+
+        const vm = build(bundle);
+        const items = Object.values(vm.lenses).flat();
+
+        assert.equal(items.length, 0);
+        assert.equal(vm.totals.verified_objects, 0);
+      });
+    }
+  }
 });

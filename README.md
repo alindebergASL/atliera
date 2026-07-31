@@ -345,8 +345,8 @@ CLI smoke command:
 
 ```bash
 mkdir -p /tmp/atliera-workshop
-npm run workshop:shell -- fixtures/graph/valid/minimal-pass.json --out-root /tmp/atliera-workshop --out-file acme-workshop.html
-npm run workshop:shell -- fixtures/graph/valid/workshop-three-lane.json --out-root /tmp/atliera-workshop --out-file acme-workshop-three-lane.html
+npm run workshop:shell -- fixtures/graph/valid/minimal-pass.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics --out-root /tmp/atliera-workshop --out-file acme-workshop.html
+npm run workshop:shell -- fixtures/graph/valid/workshop-three-lane.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics --out-root /tmp/atliera-workshop --out-file acme-workshop-three-lane.html
 ```
 
 The output is local static HTML only. It does not call providers, read API keys, use the network, touch a database, or deploy. The shell is intentionally fixture/graph-backed: unsupported or inferred material must be visibly labeled, and verified-looking items must carry evidence/provenance metadata. Each card includes a deterministic evidence packet drawer that shows supporting claim text, accepted excerpt text, and source metadata directly from the GraphBundle.

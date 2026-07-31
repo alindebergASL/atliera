@@ -14,6 +14,7 @@
 import { loadGraphBundleFile } from "../graph/file-store.ts";
 import type { ProvenanceStatus } from "../graph/types.ts";
 import { buildWorkshopViewModel } from "./view-model.ts";
+import { deriveFixtureOnlySingleSubjectAfterValidation } from "./fixture-subject.ts";
 import {
   summarizeLensRichness,
   summarizeUsefulLensRichness,
@@ -55,7 +56,7 @@ export type WorkshopTrustStateCounts = Record<ProvenanceStatus, number>;
 
 export interface WorkshopFixtureSmokeEntry {
   path: string;
-  account_id: string | null;
+  account_id: string;
   totals: WorkshopFixtureSmokeTotals;
   lens_richness: WorkshopLensRichness;
   useful_lens_richness: WorkshopLensRichness;
@@ -93,7 +94,8 @@ export async function buildWorkshopFixtureSmokeReport(
   const fixtures: WorkshopFixtureSmokeEntry[] = [];
   for (const path of fixturePaths) {
     const bundle = await loadGraphBundleFile(path);
-    const vm = buildWorkshopViewModel(bundle);
+    const subject = deriveFixtureOnlySingleSubjectAfterValidation(bundle);
+    const vm = buildWorkshopViewModel(bundle, subject);
     const lensRichness = summarizeLensRichness(vm);
     const usefulRichness = summarizeUsefulLensRichness(vm);
 

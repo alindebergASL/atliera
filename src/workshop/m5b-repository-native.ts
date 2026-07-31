@@ -20,6 +20,7 @@ import {
   type M5bFedExSanitizedSourcePack,
 } from "./m5b-fedex-system-acquired-source.ts";
 import {
+  M5B_FEDEX_WORKSHOP_SUBJECT,
   buildM5bFedExPrewriteCandidate,
   buildM5bFedExReviewPacket,
   verifyM5bFedExPrewriteCandidate,
@@ -621,7 +622,15 @@ function durableBundle(
     audit_events: auditEvents,
   };
   const parsed = parseGraphBundle(bundle);
-  if (!parsed.ok || !validateGraphBundle(parsed.value, { mode: "fixture" }).ok) refuse("durable_bundle_validation");
+  if (
+    !parsed.ok ||
+    !validateGraphBundle(parsed.value, {
+      mode: "fixture",
+      subject: M5B_FEDEX_WORKSHOP_SUBJECT,
+    }).ok
+  ) {
+    refuse("durable_bundle_validation");
+  }
   return parsed.value;
 }
 
@@ -718,9 +727,16 @@ export async function applyM5bRepositoryNative(
     ? "existing-exact-finalized-without-write" as const
     : "newly-created" as const;
   const previewMode = m5bRepositoryNativePreviewModeForSourceKind(prepare.sourceIdentity.kind);
-  const workshopBytes = Buffer.from(renderWorkshopHtml(buildWorkshopViewModel(existing?.bundle ?? bundle), {
-    previewMode,
-  }), "utf8");
+  const workshopBytes = Buffer.from(
+    renderWorkshopHtml(
+      buildWorkshopViewModel(
+        existing?.bundle ?? bundle,
+        M5B_FEDEX_WORKSHOP_SUBJECT,
+      ),
+      { previewMode },
+    ),
+    "utf8",
+  );
   const acceptedProposalIds = Object.freeze(ratification.decisions.filter((item) => item.disposition === "accept").map((item) => item.proposalId));
   const rejectedProposalIds = Object.freeze(ratification.decisions.filter((item) => item.disposition === "reject").map((item) => item.proposalId));
   const decisions = Object.freeze(ratification.decisions.map((decision) => Object.freeze({ ...decision })));
@@ -791,9 +807,16 @@ export async function applyM5bRepositoryNative(
       refuse("read_back_mismatch");
     }
     if (!existing) {
-      const readBackWorkshopBytes = Buffer.from(renderWorkshopHtml(buildWorkshopViewModel(readBack.bundle), {
-        previewMode,
-      }), "utf8");
+      const readBackWorkshopBytes = Buffer.from(
+        renderWorkshopHtml(
+          buildWorkshopViewModel(
+            readBack.bundle,
+            M5B_FEDEX_WORKSHOP_SUBJECT,
+          ),
+          { previewMode },
+        ),
+        "utf8",
+      );
       if (sha256Bytes(readBackWorkshopBytes) !== result.workshopSha256) {
         refuse("read_back_render_mismatch");
       }

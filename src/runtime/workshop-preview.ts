@@ -1,6 +1,7 @@
 import type { WorkshopViewModel } from "../workshop/view-model.ts";
 import { renderWorkshopHtml } from "../workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../workshop/view-model.ts";
+import type { SubjectScope } from "../graph/subject.ts";
 import type { AtlieraRuntime } from "./composition.ts";
 import {
   runRuntimePreflight,
@@ -59,6 +60,7 @@ function getPreviewFailures(runtime: AtlieraRuntime): RuntimeWorkshopPreviewFail
 
 export function prepareRuntimeWorkshopPreview(
   runtime: AtlieraRuntime,
+  subject: SubjectScope,
 ): RuntimeWorkshopPreviewReport {
   const preflight = runRuntimePreflight(runtime.config);
   const previewFailures = getPreviewFailures(runtime);
@@ -77,7 +79,7 @@ export function prepareRuntimeWorkshopPreview(
     };
   }
 
-  const viewModel = buildWorkshopViewModel(runtime.graphStore.snapshot);
+  const viewModel = buildWorkshopViewModel(runtime.graphStore.snapshot, subject);
   return {
     ok: true,
     kind: "workshop-preview",
@@ -95,8 +97,9 @@ export function prepareRuntimeWorkshopPreview(
 
 export function prepareRuntimeWorkshopHtmlPreview(
   runtime: AtlieraRuntime,
+  subject: SubjectScope,
 ): RuntimeWorkshopHtmlPreviewReport {
-  const workshopPreview = prepareRuntimeWorkshopPreview(runtime);
+  const workshopPreview = prepareRuntimeWorkshopPreview(runtime, subject);
   if (!workshopPreview.ok || !workshopPreview.viewModel) {
     return {
       ok: false,

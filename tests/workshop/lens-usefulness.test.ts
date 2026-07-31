@@ -7,12 +7,18 @@ import {
   evaluateWorkshopLensUsefulness,
   summarizeWorkshopLensUsefulnessReviews,
 } from "../../src/workshop/lens-usefulness.ts";
-import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
+import {
+  clone,
+  makeValidBundle,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
 
 describe("Workshop lens-usefulness review", () => {
   test("passes when at least two graph-backed lenses are materially useful", async () => {
     const bundle = await loadGraphBundleFile("fixtures/graph/valid/workshop-three-lane.json");
-    const review = evaluateWorkshopLensUsefulness(buildWorkshopViewModel(bundle));
+    const review = evaluateWorkshopLensUsefulness(
+      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.equal(review.ok, true);
     assert.equal(review.status, "pass");
@@ -26,7 +32,9 @@ describe("Workshop lens-usefulness review", () => {
   });
 
   test("fails without claiming launch readiness when fewer than two lenses are useful", () => {
-    const review = evaluateWorkshopLensUsefulness(buildWorkshopViewModel(makeValidBundle()));
+    const review = evaluateWorkshopLensUsefulness(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+    );
 
     assert.equal(review.ok, false);
     assert.equal(review.status, "fail");
@@ -53,8 +61,14 @@ describe("Workshop lens-usefulness review", () => {
       { id: "oclm_unbacked_play", account_object_id: "obj_unbacked_play", claim_id: "clm_acme_launch", relationship: "primary" },
     );
     bundle.claim_evidence[0]!.relationship = "context";
+    bundle.claims[0]!.provenance_status = "unverified";
+    bundle.claims[0]!.confidence = "medium";
+    bundle.account_objects[0]!.provenance_status = "unverified";
+    bundle.account_objects[2]!.provenance_status = "unverified";
 
-    const review = evaluateWorkshopLensUsefulness(buildWorkshopViewModel(bundle));
+    const review = evaluateWorkshopLensUsefulness(
+      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.equal(review.ok, false);
     assert.deepEqual(review.metrics.lens_item_counts, { signals: 1, maps: 1, plays: 1 });
@@ -64,9 +78,16 @@ describe("Workshop lens-usefulness review", () => {
 
   test("summarizes corpus lens usefulness without hiding per-account failures", async () => {
     const useful = evaluateWorkshopLensUsefulness(
-      buildWorkshopViewModel(await loadGraphBundleFile("fixtures/graph/valid/workshop-three-lane.json")),
+      buildWorkshopViewModel(
+        await loadGraphBundleFile(
+          "fixtures/graph/valid/workshop-three-lane.json",
+        ),
+        VALID_GRAPH_SUBJECT,
+      ),
     );
-    const sparse = evaluateWorkshopLensUsefulness(buildWorkshopViewModel(makeValidBundle()));
+    const sparse = evaluateWorkshopLensUsefulness(
+      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+    );
 
     const summary = summarizeWorkshopLensUsefulnessReviews([
       { input: "workshop-three-lane.json", ...useful },

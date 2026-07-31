@@ -10,6 +10,7 @@ import {
 import { validateLabDeploymentTargetDescriptor } from "../../src/deployment/lab-deployment-target.ts";
 import { createInMemoryAtlieraRuntime } from "../../src/runtime/composition.ts";
 import { handleFakeModeWorkshopRequest } from "../../src/runtime/fake-mode-workshop-server.ts";
+import { VALID_GRAPH_SUBJECT } from "../fixtures/valid-graph.ts";
 
 const validDescriptor = () => ({
   schemaVersion: "1",
@@ -144,7 +145,7 @@ test("evaluates an in-process fake-mode healthcheck response without claiming de
       path: plan.healthcheckPath,
       headers: { authorization: "Bearer fixture-healthcheck-token" },
     },
-    { auth },
+    { auth, subject: VALID_GRAPH_SUBJECT },
   );
 
   const report = evaluateLabDeploymentHealthcheckResponse(plan, response);

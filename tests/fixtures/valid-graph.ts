@@ -3,6 +3,12 @@
 // time so every rejection test isolates a single invariant.
 
 import type { GraphBundle } from "../../src/graph/types.ts";
+import type { SubjectScope } from "../../src/graph/subject.ts";
+
+export const VALID_GRAPH_SUBJECT = Object.freeze({
+  team_id: "team_atliera_lab",
+  account_id: "acc_acme_robotics",
+}) satisfies SubjectScope;
 
 export const VALID_SOURCE_TEXT =
   "Acme Robotics announced a new logistics platform on March 1, 2026. " +

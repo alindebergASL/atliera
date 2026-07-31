@@ -424,6 +424,15 @@ describe("Workshop targeted brief V1", () => {
 
     assert.throws(
       () => evaluateTargetedBriefSelection(bundle, CISO_REQUEST),
+      /failed deterministic GraphBundle validation/,
+    );
+    assert.throws(
+      () =>
+        assertTargetedBriefSingleAccountIsolation(
+          bundle,
+          CISO_REQUEST.account_id,
+          CISO_REQUEST.authority.team_id,
+        ),
       /team\/account ownership isolation failed/,
     );
 
@@ -570,6 +579,9 @@ describe("Workshop targeted brief V1", () => {
         relationship.account_object_id === "obj_acme_signal_launch" &&
         relationship.claim_id === "clm_acme_launch",
     )!.relationship = "context";
+    nonGoverned.account_objects.find(
+      (object) => object.id === "obj_acme_signal_launch",
+    )!.provenance_status = "unverified";
     assert.throws(
       () =>
         evaluateTargetedBriefSelection(

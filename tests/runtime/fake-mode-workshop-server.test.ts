@@ -18,7 +18,10 @@ import {
   type FakeModeWorkshopServeResponse,
 } from "../../src/runtime/fake-mode-workshop-server.ts";
 import { initializeLocalDurableDb } from "../../src/db/local-durable-db.ts";
-import { makeValidBundle } from "../fixtures/valid-graph.ts";
+import {
+  makeValidBundle,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
 
 const EMPTY_BUNDLE: GraphBundle = {
   sources: [],
@@ -90,7 +93,11 @@ function writeNodeResponse(target: ServerResponse, response: FakeModeWorkshopSer
 
 function createMountedFakeModeWorkshopHttpServer(runtime: ReturnType<typeof makeRuntime>): Server {
   return createServer((request, response) => {
-    handleFakeModeWorkshopRequest(runtime, { method: request.method, path: request.url })
+    handleFakeModeWorkshopRequest(
+      runtime,
+      { method: request.method, path: request.url },
+      { subject: VALID_GRAPH_SUBJECT },
+    )
       .then((handled) => writeNodeResponse(response, handled))
       .catch(() =>
         writeNodeResponse(response, {
@@ -110,10 +117,14 @@ function createMountedFakeModeWorkshopHttpServer(runtime: ReturnType<typeof make
 describe("fake-mode Workshop HTTP serve slice", () => {
   test("serves a healthcheck from an empty fake/local runtime without graph reads or side effects", async () => {
     const graphStore = new CountingGraphStore(EMPTY_BUNDLE);
-    const response = await handleFakeModeWorkshopRequest(makeRuntime(graphStore), {
-      method: "GET",
-      path: "/healthz",
-    });
+    const response = await handleFakeModeWorkshopRequest(
+      makeRuntime(graphStore),
+      {
+        method: "GET",
+        path: "/healthz",
+      },
+      { subject: VALID_GRAPH_SUBJECT },
+    );
     const body = parseJsonResponse(response);
 
     assert.equal(response.statusCode, 200);
@@ -137,7 +148,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
       const response = await handleFakeModeWorkshopRequest(
         makeRuntime(graphStore),
         { method: "GET", path: "/healthz" },
-        { localDurableDbRoot: rootDir },
+        { localDurableDbRoot: rootDir, subject: VALID_GRAPH_SUBJECT },
       );
       const body = parseJsonResponse(response);
 
@@ -158,10 +169,14 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     await withTempDir(async (rootDir) => {
       await initializeLocalDurableDb({ rootDir, now: "2026-06-09T00:00:00.000Z" });
       const graphStore = new CountingGraphStore(EMPTY_BUNDLE);
-      const response = await handleFakeModeWorkshopRequest(makeRuntime(graphStore), {
-        method: "GET",
-        path: `/healthz?localDurableDbRoot=${encodeURIComponent(rootDir)}`,
-      });
+      const response = await handleFakeModeWorkshopRequest(
+        makeRuntime(graphStore),
+        {
+          method: "GET",
+          path: `/healthz?localDurableDbRoot=${encodeURIComponent(rootDir)}`,
+        },
+        { subject: VALID_GRAPH_SUBJECT },
+      );
       const body = parseJsonResponse(response);
 
       assert.equal(response.statusCode, 200);
@@ -175,10 +190,14 @@ describe("fake-mode Workshop HTTP serve slice", () => {
 
   test("serves Workshop HTML with Signals, Maps, Plays, and evidence from the shared graph bundle", async () => {
     const graphStore = new CountingGraphStore(makeValidBundle());
-    const response = await handleFakeModeWorkshopRequest(makeRuntime(graphStore), {
-      method: "GET",
-      path: "/workshop",
-    });
+    const response = await handleFakeModeWorkshopRequest(
+      makeRuntime(graphStore),
+      {
+        method: "GET",
+        path: "/workshop",
+      },
+      { subject: VALID_GRAPH_SUBJECT },
+    );
 
     assert.equal(response.statusCode, 200);
     assert.match(String(response.headers["content-type"]), /text\/html/);
@@ -199,7 +218,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     const missing = await handleFakeModeWorkshopRequest(
       makeRuntime(graphStore),
       { method: "GET", path: "/workshop" },
-      { auth },
+      { auth, subject: VALID_GRAPH_SUBJECT },
     );
     const missingBody = parseJsonResponse(missing);
     assert.equal(missing.statusCode, 401);
@@ -212,7 +231,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     const invalid = await handleFakeModeWorkshopRequest(
       makeRuntime(graphStore),
       { method: "GET", path: "/workshop", headers: { authorization: "Bearer wrong-token" } },
-      { auth },
+      { auth, subject: VALID_GRAPH_SUBJECT },
     );
     assert.equal(invalid.statusCode, 401);
     assert.doesNotMatch(invalid.body, /fixture-auth-token|wrong-token/i);
@@ -221,7 +240,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     const valid = await handleFakeModeWorkshopRequest(
       makeRuntime(graphStore),
       { method: "GET", path: "/workshop", headers: { authorization: "Bearer fixture-auth-token" } },
-      { auth },
+      { auth, subject: VALID_GRAPH_SUBJECT },
     );
     assert.equal(valid.statusCode, 200);
     assert.match(valid.body, /Atliera Workshop/);
@@ -237,7 +256,11 @@ describe("fake-mode Workshop HTTP serve slice", () => {
       const publicHealth = await handleFakeModeWorkshopRequest(
         makeRuntime(graphStore),
         { method: "GET", path: "/healthz" },
-        { localDurableDbRoot: rootDir, auth },
+        {
+          localDurableDbRoot: rootDir,
+          auth,
+          subject: VALID_GRAPH_SUBJECT,
+        },
       );
       const publicBody = parseJsonResponse(publicHealth);
       assert.equal(publicHealth.statusCode, 200);
@@ -249,7 +272,11 @@ describe("fake-mode Workshop HTTP serve slice", () => {
       const detailedHealth = await handleFakeModeWorkshopRequest(
         makeRuntime(graphStore),
         { method: "GET", path: "/healthz", headers: { authorization: "Bearer fixture-auth-token" } },
-        { localDurableDbRoot: rootDir, auth },
+        {
+          localDurableDbRoot: rootDir,
+          auth,
+          subject: VALID_GRAPH_SUBJECT,
+        },
       );
       const detailedBody = parseJsonResponse(detailedHealth);
       assert.equal(detailedHealth.statusCode, 200);
@@ -271,6 +298,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
         MODEL_PROVIDER: "fake",
       }),
       { method: "GET", path: "/workshop" },
+      { subject: VALID_GRAPH_SUBJECT },
     );
     const body = parseJsonResponse(response);
 
@@ -292,6 +320,7 @@ describe("fake-mode Workshop HTTP serve slice", () => {
     const response = await handleFakeModeWorkshopRequest(
       makeRuntime(graphStore, { MODEL_PROVIDER: "real-provider" }),
       { method: "GET", path: "/workshop" },
+      { subject: VALID_GRAPH_SUBJECT },
     );
     const body = parseJsonResponse(response);
 

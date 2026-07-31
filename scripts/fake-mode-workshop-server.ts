@@ -8,6 +8,7 @@ import type { ArtifactPutTextOptions, ArtifactStore, TextArtifact } from "../src
 import { parseAtlieraRuntimeConfig } from "../src/config/runtime.ts";
 import { GraphFileParseError, GraphFileSchemaError, loadGraphBundleFile } from "../src/graph/file-store.ts";
 import type { GraphStore } from "../src/graph/store.ts";
+import type { SubjectScope } from "../src/graph/subject.ts";
 import type { GraphBundle } from "../src/graph/types.ts";
 import type { JobQueue, QueuedJob } from "../src/jobs/queue.ts";
 import type { RuntimeMode } from "../src/modes/index.ts";
@@ -86,12 +87,13 @@ const THROWING_MODEL_ADAPTER: ModelAdapter = {
 
 interface ParsedArgs {
   readonly bundlePath: string | undefined;
+  readonly subject: SubjectScope;
 }
 
 function usage(): string {
   return [
     "usage:",
-    "  tsx scripts/fake-mode-workshop-server.ts [--bundle <graph-bundle.json>]",
+    "  tsx scripts/fake-mode-workshop-server.ts [--bundle <graph-bundle.json>] --expected-team-id <team> --expected-account-id <account>",
     "",
     "required env for a passing fake/local server:",
     "  ATL_ENV=test|development|lab",
@@ -109,18 +111,39 @@ function usage(): string {
 
 function parseArgs(args: string[]): ParsedArgs {
   let bundlePath: string | undefined;
+  let expectedTeamId: string | undefined;
+  let expectedAccountId: string | undefined;
+  const seen = new Set<string>();
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === "--bundle") {
+    if (
+      arg === "--bundle" ||
+      arg === "--expected-team-id" ||
+      arg === "--expected-account-id"
+    ) {
+      if (seen.has(arg)) throw new CliUsageError(`duplicate argument: ${arg}`);
+      seen.add(arg);
       const value = args[index + 1];
-      if (!value || value.startsWith("--")) throw new CliUsageError("--bundle requires a path");
-      bundlePath = value;
+      if (!value || value.startsWith("--")) {
+        throw new CliUsageError(`${arg} requires a value`);
+      }
+      if (arg === "--bundle") bundlePath = value;
+      if (arg === "--expected-team-id") expectedTeamId = value;
+      if (arg === "--expected-account-id") expectedAccountId = value;
       index += 1;
       continue;
     }
     throw new CliUsageError(`unknown argument: ${arg}`);
   }
-  return { bundlePath };
+  if (!expectedTeamId) throw new CliUsageError("missing --expected-team-id");
+  if (!expectedAccountId) throw new CliUsageError("missing --expected-account-id");
+  return {
+    bundlePath,
+    subject: {
+      team_id: expectedTeamId,
+      account_id: expectedAccountId,
+    },
+  };
 }
 
 async function loadBundle(bundlePath: string | undefined): Promise<GraphBundle> {
@@ -140,9 +163,14 @@ function writeNodeResponse(target: ServerResponse, response: FakeModeWorkshopSer
 function createFakeModeWorkshopHttpServer(
   runtime: AtlieraRuntime,
   auth: ReturnType<typeof parseLocalBearerAuthConfig>,
+  subject: SubjectScope,
 ) {
   return createServer((request, response) => {
-    handleFakeModeWorkshopRequest(runtime, { method: request.method, path: request.url, headers: request.headers }, { auth })
+    handleFakeModeWorkshopRequest(
+      runtime,
+      { method: request.method, path: request.url, headers: request.headers },
+      { auth, subject },
+    )
       .then((handled) => writeNodeResponse(response, handled))
       .catch(() =>
         writeNodeResponse(response, {
@@ -177,7 +205,7 @@ function printError(e: unknown): void {
 }
 
 async function run(): Promise<number> {
-  const { bundlePath } = parseArgs(argv.slice(2));
+  const { bundlePath, subject } = parseArgs(argv.slice(2));
   const config = parseAtlieraRuntimeConfig(env);
   const auth = parseLocalBearerAuthConfig(env);
   const bundle = await loadBundle(bundlePath);
@@ -202,7 +230,7 @@ async function run(): Promise<number> {
     return 1;
   }
 
-  const server = createFakeModeWorkshopHttpServer(runtime, auth);
+  const server = createFakeModeWorkshopHttpServer(runtime, auth, subject);
   const host = config.bindHost ?? "localhost";
   const port = config.port ?? 0;
   server.listen(port, host);

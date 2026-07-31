@@ -2,23 +2,31 @@ import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 
 import type { GraphBundle } from "../../src/graph/types.ts";
+import type { SubjectScope } from "../../src/graph/subject.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
 
+const EDGE_SUBJECT = Object.freeze({
+  team_id: "team_atliera_lab",
+  account_id: "acc_edge_<unsafe>&co",
+}) satisfies SubjectScope;
+
 function makeSparseEdgeBundle(): GraphBundle {
   const bundle = clone(makeValidBundle());
+  const excerptText = "Accepted excerpt with <angle> & ampersand.";
   bundle.sources[0] = {
     ...bundle.sources[0]!,
-    account_id: "acc_edge_<unsafe>&co",
+    account_id: EDGE_SUBJECT.account_id,
     title: "Edge Account <launch>",
     publisher: null,
     url: "javascript:alert('xss')",
     canonical_url: "javascript:alert('xss')",
+    raw_text: excerptText,
   };
   bundle.account_objects[0] = {
     ...bundle.account_objects[0]!,
-    account_id: "acc_edge_<unsafe>&co",
+    account_id: EDGE_SUBJECT.account_id,
     object_type: "risk",
     title: "Unverified risk <script>alert('x')</script>",
     summary: "Sparse summary with & and <unsafe> content.",
@@ -27,19 +35,25 @@ function makeSparseEdgeBundle(): GraphBundle {
   };
   bundle.claims[0] = {
     ...bundle.claims[0]!,
-    account_id: "acc_edge_<unsafe>&co",
+    account_id: EDGE_SUBJECT.account_id,
     text: "Claim text with <tag> and & characters.",
     provenance_status: "unverified",
   };
+  bundle.research_runs[0] = {
+    ...bundle.research_runs[0]!,
+    account_id: EDGE_SUBJECT.account_id,
+  };
   bundle.excerpts[0] = {
     ...bundle.excerpts[0]!,
-    text: "Accepted excerpt with <angle> & ampersand.",
+    text: excerptText,
+    char_start: 0,
+    char_end: excerptText.length,
   };
   bundle.account_objects.push(
     {
       id: "obj_edge_stale_map",
       team_id: "team_atliera_lab",
-      account_id: "acc_edge_<unsafe>&co",
+      account_id: EDGE_SUBJECT.account_id,
       object_type: "stakeholder",
       title: "Stale stakeholder map",
       summary: "Known contact exists, but the supporting evidence is stale.",
@@ -54,7 +68,7 @@ function makeSparseEdgeBundle(): GraphBundle {
     {
       id: "obj_edge_unsupported_play",
       team_id: "team_atliera_lab",
-      account_id: "acc_edge_<unsafe>&co",
+      account_id: EDGE_SUBJECT.account_id,
       object_type: "play",
       title: "Unsupported play should be visibly bounded",
       summary: "The preview should show this as unsupported without fabricating evidence.",
@@ -72,7 +86,9 @@ function makeSparseEdgeBundle(): GraphBundle {
 
 describe("Workshop HTML edge-case rendering", () => {
   it("renders sparse and low-trust graph objects with explicit bounded preview context", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeSparseEdgeBundle()));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeSparseEdgeBundle(), EDGE_SUBJECT),
+    );
 
     assert.match(html, /Fake-mode preview/i);
     assert.match(html, /No provider calls/i);
@@ -89,7 +105,9 @@ describe("Workshop HTML edge-case rendering", () => {
   });
 
   it("escapes edge text and omits unsafe source links without hiding source context", () => {
-    const html = renderWorkshopHtml(buildWorkshopViewModel(makeSparseEdgeBundle()));
+    const html = renderWorkshopHtml(
+      buildWorkshopViewModel(makeSparseEdgeBundle(), EDGE_SUBJECT),
+    );
 
     assert.doesNotMatch(html, /<script>alert\('x'\)<\/script>/);
     assert.match(html, /Unverified risk &lt;script&gt;alert\(&#39;x&#39;\)&lt;\/script&gt;/);

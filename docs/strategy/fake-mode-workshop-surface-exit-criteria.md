@@ -61,13 +61,13 @@ The fake-mode Workshop surface exits this phase only when every gate below remai
 - The exact JSON demo command remains:
 
 ```bash
-npm run --silent workshop:runtime-preview -- fixtures/graph/valid/workshop-three-lane.json
+npm run --silent workshop:runtime-preview -- fixtures/graph/valid/workshop-three-lane.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics
 ```
 
 - The exact stdout-only HTML demo command remains:
 
 ```bash
-npm run --silent workshop:runtime-preview:html -- fixtures/graph/valid/workshop-three-lane.json
+npm run --silent workshop:runtime-preview:html -- fixtures/graph/valid/workshop-three-lane.json --expected-team-id team_atliera_lab --expected-account-id acc_acme_robotics
 ```
 
 ### 5. Verification discipline

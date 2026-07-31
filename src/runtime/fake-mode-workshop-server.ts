@@ -6,6 +6,7 @@ import {
   type LocalBearerAuthConfig,
 } from "../auth/bearer-token-auth.ts";
 import { inspectLocalDurableDb, type LocalDurableDbReport } from "../db/local-durable-db.ts";
+import type { SubjectScope } from "../graph/subject.ts";
 import { runRuntimePreflight, type RuntimePreflightReport } from "./preflight.ts";
 import { prepareRuntimeWorkshopHtmlPreview } from "./workshop-preview.ts";
 
@@ -42,6 +43,7 @@ export interface FakeModeWorkshopServeRequest {
 }
 
 export interface FakeModeWorkshopServeOptions {
+  readonly subject: SubjectScope;
   readonly localDurableDbRoot?: string;
   readonly auth?: LocalBearerAuthConfig;
 }
@@ -214,7 +216,7 @@ function authRequiredResponse(auth: BearerAuthResult): FakeModeWorkshopServeResp
 export async function handleFakeModeWorkshopRequest(
   runtime: AtlieraRuntime,
   request: FakeModeWorkshopServeRequest,
-  options: FakeModeWorkshopServeOptions = {},
+  options: FakeModeWorkshopServeOptions,
 ): Promise<FakeModeWorkshopServeResponse> {
   const method = request.method?.toUpperCase() ?? "GET";
   const route = routeOf(request.path);
@@ -264,7 +266,7 @@ export async function handleFakeModeWorkshopRequest(
     return jsonResponse(503, readinessBody(readiness, "fake-mode-workshop-serve-blocked", undefined, auth));
   }
 
-  const report = prepareRuntimeWorkshopHtmlPreview(runtime);
+  const report = prepareRuntimeWorkshopHtmlPreview(runtime, options.subject);
   if (!report.ok || report.html === undefined) {
     return jsonResponse(503, {
       ok: false,

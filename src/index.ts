@@ -23,6 +23,8 @@
 
 export * from "./graph/ids.ts";
 export * from "./graph/normalize.ts";
+export * from "./graph/support.ts";
+export * from "./graph/subject.ts";
 export * from "./graph/types.ts";
 export * from "./graph/schema.ts";
 export * from "./graph/report.ts";

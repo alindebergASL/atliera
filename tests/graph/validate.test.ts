@@ -26,6 +26,59 @@ function codes(report: ValidationReport): string[] {
   return report.hard_failures.map((f) => f.code);
 }
 
+function makeEmptyBundle(): GraphBundle {
+  return {
+    sources: [],
+    excerpts: [],
+    claims: [],
+    claim_evidence: [],
+    account_objects: [],
+    account_object_claims: [],
+    research_runs: [],
+    run_artifacts: [],
+    audit_events: [],
+  };
+}
+
+function relabelAccountBearingField(
+  bundle: GraphBundle,
+  field: "team_id" | "account_id",
+  value: string,
+): void {
+  for (const record of bundle.sources) record[field] = value;
+  for (const record of bundle.claims) record[field] = value;
+  for (const record of bundle.account_objects) record[field] = value;
+  for (const record of bundle.research_runs) record[field] = value;
+}
+
+const UNICODE_WHITE_SPACE_CODE_POINTS = [
+  ["U+0009", "\u0009"],
+  ["U+000A", "\u000A"],
+  ["U+000B", "\u000B"],
+  ["U+000C", "\u000C"],
+  ["U+000D", "\u000D"],
+  ["U+0020", "\u0020"],
+  ["U+0085", "\u0085"],
+  ["U+00A0", "\u00A0"],
+  ["U+1680", "\u1680"],
+  ["U+2000", "\u2000"],
+  ["U+2001", "\u2001"],
+  ["U+2002", "\u2002"],
+  ["U+2003", "\u2003"],
+  ["U+2004", "\u2004"],
+  ["U+2005", "\u2005"],
+  ["U+2006", "\u2006"],
+  ["U+2007", "\u2007"],
+  ["U+2008", "\u2008"],
+  ["U+2009", "\u2009"],
+  ["U+200A", "\u200A"],
+  ["U+2028", "\u2028"],
+  ["U+2029", "\u2029"],
+  ["U+202F", "\u202F"],
+  ["U+205F", "\u205F"],
+  ["U+3000", "\u3000"],
+] as const;
+
 describe("validateGraphBundle — baseline", () => {
   it("accepts the valid baseline bundle", () => {
     const report = run(makeValidBundle());
@@ -115,6 +168,387 @@ describe("validateGraphBundle — dangling references", () => {
     const cs = codes(report);
     assert.ok(cs.includes("invented_source_document_id"));
     assert.ok(cs.includes("dangling_reference"));
+  });
+
+  it("rejects a RunArtifact whose ResearchRun target is missing", () => {
+    const b = clone(makeValidBundle());
+    b.run_artifacts[0]!.research_run_id = "run_missing";
+    const report = run(b);
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("invented_research_run_id"));
+  });
+});
+
+describe("validateGraphBundle — subject ownership", () => {
+  for (const [label, value] of [
+    ["blank", ""],
+    ["whitespace-only", " \t\n"],
+    ["U+0085-only", "\u0085"],
+  ] as const) {
+    for (const field of ["team_id", "account_id"] as const) {
+      it(`rejects coherently ${label} intrinsic account-bearing ${field} values without an explicit subject`, () => {
+        const b = clone(makeValidBundle());
+        relabelAccountBearingField(b, field, value);
+        if (field === "team_id") {
+          for (const audit of b.audit_events) audit.team_id = value;
+        }
+
+        const report = run(b);
+        const intrinsicFailures = report.hard_failures.filter(
+          (failure) =>
+            failure.code === "subject_scope_mismatch" &&
+            failure.field === field &&
+            failure.record_kind !== "audit_event",
+        );
+
+        assert.equal(report.ok, false);
+        assert.deepEqual(
+          intrinsicFailures.map((failure) => ({
+            record_kind: failure.record_kind,
+            record_id: failure.record_id,
+            field: failure.field,
+          })),
+          [
+            {
+              record_kind: "source_document",
+              record_id: b.sources[0]!.id,
+              field,
+            },
+            {
+              record_kind: "claim",
+              record_id: b.claims[0]!.id,
+              field,
+            },
+            {
+              record_kind: "account_object",
+              record_id: b.account_objects[0]!.id,
+              field,
+            },
+            {
+              record_kind: "research_run",
+              record_id: b.research_runs[0]!.id,
+              field,
+            },
+          ],
+        );
+      });
+    }
+
+    it(`rejects an intrinsic ${label} audit team without an explicit subject`, () => {
+      const b = makeEmptyBundle();
+      b.audit_events = clone(makeValidBundle()).audit_events;
+      b.audit_events[0]!.team_id = value;
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(report.hard_failures, [
+        {
+          code: "subject_scope_mismatch",
+          message: `audit_event ${b.audit_events[0]!.id}.team_id must contain at least one non-whitespace character`,
+          record_kind: "audit_event",
+          record_id: b.audit_events[0]!.id,
+          field: "team_id",
+        },
+      ]);
+    });
+  }
+
+  it("rejects U+FEFF-only intrinsic account-bearing team/account ownership without an explicit subject", () => {
+    for (const field of ["team_id", "account_id"] as const) {
+      const b = clone(makeValidBundle());
+      relabelAccountBearingField(b, field, "\uFEFF");
+      if (field === "team_id") {
+        for (const audit of b.audit_events) audit.team_id = "\uFEFF";
+      }
+
+      const report = run(b);
+      const intrinsicFailures = report.hard_failures.filter(
+        (failure) =>
+          failure.code === "subject_scope_mismatch" &&
+          failure.field === field &&
+          failure.record_kind !== "audit_event",
+      );
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(
+        intrinsicFailures.map((failure) => failure.record_kind),
+        ["source_document", "claim", "account_object", "research_run"],
+      );
+    }
+  });
+
+  it("rejects U+FEFF-only audit-event team ownership without an explicit subject", () => {
+    const b = makeEmptyBundle();
+    b.audit_events = clone(makeValidBundle()).audit_events;
+    b.audit_events[0]!.team_id = "\uFEFF";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.hard_failures, [
+      {
+        code: "subject_scope_mismatch",
+        message: `audit_event ${b.audit_events[0]!.id}.team_id must contain at least one non-whitespace character`,
+        record_kind: "audit_event",
+        record_id: b.audit_events[0]!.id,
+        field: "team_id",
+      },
+    ]);
+  });
+
+  it("rejects cross-account ClaimEvidence laundering", () => {
+    const b = clone(makeValidBundle());
+    b.sources[0]!.account_id = "acc_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("relationship_subject_mismatch"));
+  });
+
+  it("rejects cross-account AccountObjectClaim laundering", () => {
+    const b = clone(makeValidBundle());
+    b.account_objects[0]!.account_id = "acc_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("relationship_subject_mismatch"));
+  });
+
+  it("rejects disconnected cross-team bundle contamination", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs.push({
+      ...b.research_runs[0]!,
+      id: "run_other_team",
+      team_id: "team_other",
+      account_id: "acc_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("enforces every account- and team-bearing record against an explicit subject scope", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs[0]!.account_id = "acc_other";
+
+    const report = validateGraphBundle(b, {
+      mode: "fixture",
+      subject: {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      },
+    });
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("subject_scope_mismatch"));
+  });
+
+  for (const field of ["team_id", "account_id"] as const) {
+    for (const [label, authority] of [
+      ["blank", ""],
+      ["whitespace-only", " \t\n"],
+      ["U+0085-only", "\u0085"],
+    ] as const) {
+      it(`rejects ${label} explicit ${field} authority on an empty bundle`, () => {
+        const subject = {
+          team_id: "team_atliera_lab",
+          account_id: "acc_acme_robotics",
+        };
+        subject[field] = authority;
+
+        const report = validateGraphBundle(makeEmptyBundle(), {
+          mode: "fixture",
+          subject,
+        });
+
+        assert.equal(report.ok, false);
+        assert.deepEqual(codes(report), ["subject_scope_mismatch"]);
+        assert.equal(report.hard_failures[0]!.field, field);
+      });
+    }
+  }
+
+  it("rejects U+FEFF-only explicit SubjectScope team/account authority", () => {
+    for (const field of ["team_id", "account_id"] as const) {
+      const subject = {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      };
+      subject[field] = "\uFEFF";
+
+      const report = validateGraphBundle(makeEmptyBundle(), {
+        mode: "fixture",
+        subject,
+      });
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(codes(report), ["subject_scope_mismatch"]);
+      assert.equal(report.hard_failures[0]!.field, field);
+    }
+  });
+
+  it("rejects every Unicode White_Space code point as intrinsic ownership without an explicit subject", () => {
+    for (const [label, authority] of UNICODE_WHITE_SPACE_CODE_POINTS) {
+      for (const field of ["team_id", "account_id"] as const) {
+        const b = clone(makeValidBundle());
+        relabelAccountBearingField(b, field, authority);
+        if (field === "team_id") {
+          for (const audit of b.audit_events) audit.team_id = authority;
+        }
+
+        const report = run(b);
+
+        assert.equal(report.ok, false, `${label} intrinsic ${field}`);
+        assert.ok(
+          report.hard_failures.some(
+            (failure) =>
+              failure.code === "subject_scope_mismatch" &&
+              failure.field === field &&
+              failure.record_kind !== "audit_event",
+          ),
+          `${label} intrinsic ${field}`,
+        );
+      }
+
+      const auditOnly = makeEmptyBundle();
+      auditOnly.audit_events = clone(makeValidBundle()).audit_events;
+      auditOnly.audit_events[0]!.team_id = authority;
+      const auditReport = run(auditOnly);
+
+      assert.equal(auditReport.ok, false, `${label} intrinsic audit team_id`);
+      assert.deepEqual(
+        auditReport.hard_failures.map((failure) => ({
+          code: failure.code,
+          record_kind: failure.record_kind,
+          field: failure.field,
+        })),
+        [
+          {
+            code: "subject_scope_mismatch",
+            record_kind: "audit_event",
+            field: "team_id",
+          },
+        ],
+        `${label} intrinsic audit team_id`,
+      );
+    }
+  });
+
+  it("accepts and preserves non-ASCII ownership identifiers with non-whitespace characters", () => {
+    const b = clone(makeValidBundle());
+    const teamId = "équipe_日本";
+    const accountId = "cuenta_Ångström";
+    relabelAccountBearingField(b, "team_id", teamId);
+    relabelAccountBearingField(b, "account_id", accountId);
+    for (const audit of b.audit_events) audit.team_id = teamId;
+
+    const report = run(b);
+
+    assert.equal(
+      report.ok,
+      true,
+      "non-ASCII ownership should validate; got: " +
+        JSON.stringify(report.hard_failures),
+    );
+    assert.equal(b.sources[0]!.team_id, teamId);
+    assert.equal(b.sources[0]!.account_id, accountId);
+  });
+
+  it("accepts and preserves ownership identifiers containing U+FEFF plus non-whitespace characters", () => {
+    const b = clone(makeValidBundle());
+    const teamId = "\uFEFFteam_atliera_lab";
+    const accountId = "acc_acme_robotics\uFEFF";
+    relabelAccountBearingField(b, "team_id", teamId);
+    relabelAccountBearingField(b, "account_id", accountId);
+    for (const audit of b.audit_events) audit.team_id = teamId;
+
+    const report = run(b);
+
+    assert.equal(
+      report.ok,
+      true,
+      "mixed U+FEFF ownership should validate; got: " +
+        JSON.stringify(report.hard_failures),
+    );
+    assert.equal(b.sources[0]!.team_id, teamId);
+    assert.equal(b.sources[0]!.account_id, accountId);
+    assert.equal(b.audit_events[0]!.team_id, teamId);
+  });
+
+  it("rejects an audit team mismatch when the bundle team is unambiguous", () => {
+    const b = clone(makeValidBundle());
+    b.audit_events[0]!.team_id = "team_other";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("rejects audit events from multiple teams when no account-bearing team exists", () => {
+    const b = clone(makeValidBundle());
+    b.sources = [];
+    b.excerpts = [];
+    b.claims = [];
+    b.claim_evidence = [];
+    b.account_objects = [];
+    b.account_object_claims = [];
+    b.research_runs = [];
+    b.run_artifacts = [];
+    b.audit_events.push({
+      ...b.audit_events[0]!,
+      id: "aud_other_team",
+      team_id: "team_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("bundle_team_mismatch"));
+  });
+
+  it("rejects an audit event outside an explicit subject scope", () => {
+    const b = clone(makeValidBundle());
+    b.audit_events[0]!.team_id = "team_other";
+
+    const report = validateGraphBundle(b, {
+      mode: "fixture",
+      subject: {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      },
+    });
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("subject_scope_mismatch"));
+  });
+
+  it("preserves isolated multi-account raw research-run bundles", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs.push({
+      ...b.research_runs[0]!,
+      id: "run_other_account",
+      account_id: "acc_other",
+    });
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  it("does not require a ResearchRun record when no RunArtifact references one", () => {
+    const b = clone(makeValidBundle());
+    b.research_runs = [];
+    b.run_artifacts = [];
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
   });
 });
 
@@ -253,6 +687,7 @@ describe("validateGraphBundle — verified records need evidence", () => {
     const report = run(b);
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("verified_claim_without_evidence"));
+    assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
   });
 
   it("rejects a verified AccountObject linked only to an unverified, unsupported claim", () => {
@@ -266,6 +701,94 @@ describe("validateGraphBundle — verified records need evidence", () => {
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
   });
+
+  it("keeps a context-only object/claim edge as valid history without treating it as support", () => {
+    const b = clone(makeValidBundle());
+    b.account_objects[0]!.provenance_status = "unverified";
+    b.account_object_claims[0]!.relationship = "context";
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+    assert.equal(b.account_object_claims[0]!.relationship, "context");
+    assert.equal(report.metrics.verified_claims, 1);
+    assert.equal(report.metrics.verified_account_objects, 0);
+  });
+
+  it("does not accept a context-only claim link as support for a verified object", () => {
+    const b = clone(makeValidBundle());
+    b.account_object_claims[0]!.relationship = "context";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("verified_object_without_supporting_claim"));
+    assert.equal(report.metrics.verified_claims, 1);
+    assert.equal(report.metrics.verified_account_objects, 0);
+  });
+
+  for (const sourceStatus of ["stale", "unavailable", "rejected"] as const) {
+    it(`keeps accepted support on a ${sourceStatus} source structurally valid but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.sources[0]!.status = sourceStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.accepted_excerpts, 0);
+      assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
+
+  for (
+    const claimStatus of [
+      "contradicted",
+      "stale",
+      "rejected",
+      "superseded",
+    ] as const
+  ) {
+    it(`keeps a structurally supported ${claimStatus} claim as history but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.claims[0]!.status = claimStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
+
+  for (const provenanceStatus of ["stale", "unsupported"] as const) {
+    it(`keeps an active ${provenanceStatus}-provenance claim as structurally supported history but not current support`, () => {
+      const b = clone(makeValidBundle());
+      b.claims[0]!.provenance_status = provenanceStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_claims, 0);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
+
+  for (const objectStatus of ["rejected", "superseded", "stale"] as const) {
+    it(`keeps a structurally supported ${objectStatus} object as history but not current`, () => {
+      const b = clone(makeValidBundle());
+      b.account_objects[0]!.status = objectStatus;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+      assert.deepEqual(report.hard_failures, []);
+      assert.equal(report.metrics.verified_account_objects, 0);
+    });
+  }
 });
 
 describe("validateGraphBundle — lens output safety", () => {
@@ -313,6 +836,29 @@ describe("validateGraphBundle — lens output safety", () => {
     );
   });
 
+  it("rejects a verified lens item backed only by an inactive-source object and claim", () => {
+    const b = clone(makeValidBundle());
+    b.sources[0]!.status = "stale";
+    const lenses: LensOutput[] = [
+      {
+        lens: "signals",
+        items: [
+          {
+            label: "New logistics platform launch",
+            account_object_id: "obj_acme_signal_launch",
+            claim_id: "clm_acme_launch",
+            status: "verified",
+          },
+        ],
+      },
+    ];
+
+    const report = run(b, lenses);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("lens_unsupported_prose_marked_verified"));
+  });
+
   it("does not flag inferred/note items even without backing", () => {
     const b = makeValidBundle();
     const lenses: LensOutput[] = [
@@ -341,4 +887,16 @@ describe("validateGraphBundle — duplicates", () => {
     assert.equal(report.ok, false);
     assert.ok(codes(report).includes("duplicate_id"));
   });
+
+  for (const kind of ["research_runs", "run_artifacts", "audit_events"] as const) {
+    it(`rejects duplicate ids in ${kind}`, () => {
+      const b = clone(makeValidBundle());
+      b[kind].push({ ...b[kind][0]! } as never);
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("duplicate_id"));
+    });
+  }
 });

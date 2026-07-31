@@ -70,7 +70,10 @@ export function buildWorkshopPublicCuratedProposalPreview(
   input: MaterializeProposalForValidationInput,
 ): WorkshopPublicCuratedProposalPreview {
   const materialized = materializeProposalForValidation(input);
-  const viewModel = buildWorkshopViewModel(materialized.bundle_candidate);
+  const viewModel = buildWorkshopViewModel(materialized.bundle_candidate, {
+    team_id: materialized.team_id,
+    account_id: materialized.account_id,
+  });
   const html = renderWorkshopHtml(viewModel, { previewMode: "validation" });
   const decorated = reviewDecoratedItemCount(viewModel);
 

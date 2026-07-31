@@ -7,6 +7,7 @@
 
 import type { HardFailure, ValidationReport } from "../graph/report.ts";
 import type { GraphBundle } from "../graph/types.ts";
+import { createSupportEvaluator } from "../graph/support.ts";
 import { validateGraphBundleRaw } from "../graph/validate.ts";
 
 export type GateStatus = "pass" | "borderline" | "fail";
@@ -46,9 +47,9 @@ export const DEFAULT_QUALITY_GATE_THRESHOLDS: QualityGateThresholds = {
   // too few accepted excerpts is not automatically unsafe, but should not
   // be treated as a clean pass.
   min_accepted_excerpt_rate: 0.5,
-  // Verified/high-confidence claims must be backed by accepted supporting
-  // evidence. The validator enforces this as a hard invariant for each
-  // such claim; the gate also exposes it as an aggregate launch metric.
+  // Current verified/high-confidence claims must be backed by current
+  // accepted support. Historical structural support remains valid in Graph,
+  // but does not satisfy this launch-quality metric.
   min_verified_claim_evidence_coverage: 1,
   max_invented_id_failures: 0,
 };
@@ -133,6 +134,7 @@ const INVENTED_ID_CODES = new Set<string>([
   "invented_claim_evidence_id",
   "invented_account_object_id",
   "invented_account_object_claim_id",
+  "invented_research_run_id",
 ]);
 
 function rate(numerator: number, denominator: number): number | null {
@@ -157,25 +159,17 @@ function computeMetrics(
   bundle: GraphBundle,
   validationReport: ValidationReport,
 ): QualityGateMetrics {
-  const acceptedExcerptIds = new Set(
-    bundle.excerpts
-      .filter((e) => e.validation_status === "accepted")
-      .map((e) => e.id),
-  );
-  const supportingEvidenceClaimIds = new Set(
-    bundle.claim_evidence
-      .filter(
-        (ce) =>
-          ce.relationship === "supports" &&
-          acceptedExcerptIds.has(ce.evidence_excerpt_id),
-      )
-      .map((ce) => ce.claim_id),
+  const support = createSupportEvaluator(bundle);
+  const acceptedExcerpts = bundle.excerpts.filter((excerpt) =>
+    support.isCurrentExcerptEligible(excerpt),
   );
   const verifiedOrHighConfidenceClaims = bundle.claims.filter(
-    isVerifiedOrHighConfidenceClaim,
+    (claim) =>
+      support.isCurrentClaimEligible(claim) &&
+      isVerifiedOrHighConfidenceClaim(claim),
   );
   const supportedVerifiedOrHighConfidenceClaims = verifiedOrHighConfidenceClaims.filter(
-    (claim) => supportingEvidenceClaimIds.has(claim.id),
+    (claim) => support.hasCurrentSupportingEvidence(claim.id),
   );
   const graphRecordCount =
     bundle.sources.length +
@@ -191,11 +185,9 @@ function computeMetrics(
   return {
     total_sources: bundle.sources.length,
     total_excerpts: bundle.excerpts.length,
-    accepted_excerpts: bundle.excerpts.filter(
-      (e) => e.validation_status === "accepted",
-    ).length,
+    accepted_excerpts: acceptedExcerpts.length,
     accepted_excerpt_rate: rate(
-      bundle.excerpts.filter((e) => e.validation_status === "accepted").length,
+      acceptedExcerpts.length,
       bundle.excerpts.length,
     ),
     total_claims: bundle.claims.length,

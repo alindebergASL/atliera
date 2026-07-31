@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { describe, test } from "node:test";
 
+const SUBJECT_ARGS = [
+  "--expected-team-id",
+  "team_atliera_lab",
+  "--expected-account-id",
+  "acc_acme_robotics",
+];
+
 async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), "atliera-runtime-workshop-preview-cli-"));
   try {
@@ -39,7 +46,11 @@ describe("runtime-workshop-preview CLI", () => {
     await withTempDir(async (dir) => {
       await mkdir(join(dir, "empty"));
 
-      const result = await runCli(["report", "fixtures/graph/valid/minimal-pass.json"]);
+      const result = await runCli([
+        "report",
+        "fixtures/graph/valid/minimal-pass.json",
+        ...SUBJECT_ARGS,
+      ]);
 
       assert.equal(result.code, 0, result.stderr);
       assert.equal(result.stderr, "");
@@ -65,7 +76,11 @@ describe("runtime-workshop-preview CLI", () => {
   });
 
   test("prints Workshop HTML to stdout only after the fake-mode runtime preview succeeds", async () => {
-    const result = await runCli(["html", "fixtures/graph/valid/minimal-pass.json"]);
+    const result = await runCli([
+      "html",
+      "fixtures/graph/valid/minimal-pass.json",
+      ...SUBJECT_ARGS,
+    ]);
 
     assert.equal(result.code, 0, result.stderr);
     assert.equal(result.stderr, "");
@@ -77,13 +92,20 @@ describe("runtime-workshop-preview CLI", () => {
   });
 
   test("uses deterministic fake-mode config rather than process.env provider settings", async () => {
-    const result = await runCli(["report", "fixtures/graph/valid/minimal-pass.json"], {
-      env: {
-        ATL_ENV: "production",
-        MODEL_PROVIDER: "real-provider",
-        DATABASE_URL: "postgres://example.invalid/db",
+    const result = await runCli(
+      [
+        "report",
+        "fixtures/graph/valid/minimal-pass.json",
+        ...SUBJECT_ARGS,
+      ],
+      {
+        env: {
+          ATL_ENV: "production",
+          MODEL_PROVIDER: "real-provider",
+          DATABASE_URL: "postgres://example.invalid/db",
+        },
       },
-    });
+    );
 
     assert.equal(result.code, 0, result.stderr);
     const payload = JSON.parse(result.stdout) as Record<string, unknown>;
@@ -109,5 +131,41 @@ describe("runtime-workshop-preview CLI", () => {
     const unknownFlag = await runCli(["report", "fixtures/graph/valid/minimal-pass.json", "--out-file", "preview.html"]);
     assert.equal(unknownFlag.code, 2);
     assert.match(unknownFlag.stderr, /unknown flag|usage:/i);
+  });
+
+  test("requires explicit expected team and account flags", async () => {
+    const missingTeam = await runCli([
+      "report",
+      "fixtures/graph/valid/minimal-pass.json",
+      "--expected-account-id",
+      "acc_acme_robotics",
+    ]);
+    assert.equal(missingTeam.code, 2);
+    assert.match(missingTeam.stderr, /missing --expected-team-id/i);
+
+    const missingAccount = await runCli([
+      "report",
+      "fixtures/graph/valid/minimal-pass.json",
+      "--expected-team-id",
+      "team_atliera_lab",
+    ]);
+    assert.equal(missingAccount.code, 2);
+    assert.match(missingAccount.stderr, /missing --expected-account-id/i);
+  });
+
+  test("rejects a graph outside the explicitly expected account", async () => {
+    const result = await runCli([
+      "report",
+      "fixtures/graph/valid/minimal-pass.json",
+      "--expected-team-id",
+      "team_atliera_lab",
+      "--expected-account-id",
+      "acc_other",
+    ]);
+
+    assert.equal(result.code, 1);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /Workshop graph validation failed/i);
+    assert.match(result.stderr, /subject_scope_mismatch/i);
   });
 });

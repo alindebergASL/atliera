@@ -1,8 +1,8 @@
 // No-write fake-mode runtime Workshop preview CLI.
 //
 // Usage:
-//   tsx src/cli/runtime-workshop-preview.ts report <bundle.json>
-//   tsx src/cli/runtime-workshop-preview.ts html <bundle.json>
+//   tsx src/cli/runtime-workshop-preview.ts report <bundle.json> --expected-team-id <team> --expected-account-id <account>
+//   tsx src/cli/runtime-workshop-preview.ts html <bundle.json> --expected-team-id <team> --expected-account-id <account>
 //
 // This CLI is an operator smoke path for the runtime Workshop preview seam.
 // It constructs a deterministic test/fake runtime around a supplied graph
@@ -17,11 +17,13 @@ import type { ArtifactStore, ArtifactPutTextOptions, TextArtifact } from "../art
 import { parseAtlieraRuntimeConfig } from "../config/runtime.ts";
 import { GraphFileParseError, GraphFileSchemaError, loadGraphBundleFile } from "../graph/file-store.ts";
 import type { GraphStore } from "../graph/store.ts";
+import type { SubjectScope } from "../graph/subject.ts";
 import type { GraphBundle } from "../graph/types.ts";
 import type { JobQueue, QueuedJob } from "../jobs/queue.ts";
 import type { RuntimeMode } from "../modes/index.ts";
 import { createAtlieraRuntime } from "../runtime/composition.ts";
 import { prepareRuntimeWorkshopHtmlPreview } from "../runtime/workshop-preview.ts";
+import { WorkshopGraphValidationError } from "../workshop/view-model.ts";
 
 class CliUsageError extends Error {
   constructor(message: string) {
@@ -80,13 +82,17 @@ const THROWING_MODEL_ADAPTER: ModelAdapter = {
 function usage(): string {
   return [
     "usage:",
-    "  tsx src/cli/runtime-workshop-preview.ts report <bundle.json>",
-    "  tsx src/cli/runtime-workshop-preview.ts html <bundle.json>",
+    "  tsx src/cli/runtime-workshop-preview.ts report <bundle.json> --expected-team-id <team> --expected-account-id <account>",
+    "  tsx src/cli/runtime-workshop-preview.ts html <bundle.json> --expected-team-id <team> --expected-account-id <account>",
   ].join("\n");
 }
 
-function parseArgs(args: string[]): { command: "report" | "html"; inputPath: string } {
-  const [command, inputPath, ...rest] = args;
+function parseArgs(args: string[]): {
+  command: "report" | "html";
+  inputPath: string;
+  subject: SubjectScope;
+} {
+  const [command, inputPath, ...flags] = args;
   if (command !== "report" && command !== "html") {
     throw new CliUsageError("unknown command");
   }
@@ -96,11 +102,39 @@ function parseArgs(args: string[]): { command: "report" | "html"; inputPath: str
   if (inputPath.startsWith("--")) {
     throw new CliUsageError(`unknown flag: ${inputPath}`);
   }
-  for (const value of rest) {
-    if (value.startsWith("--")) throw new CliUsageError(`unknown flag: ${value}`);
-    throw new CliUsageError(`unexpected positional argument: ${value}`);
+  const allowedFlags = new Set([
+    "--expected-team-id",
+    "--expected-account-id",
+  ]);
+  const seen = new Set<string>();
+  let expectedTeamId: string | null = null;
+  let expectedAccountId: string | null = null;
+  for (let index = 0; index < flags.length; index += 1) {
+    const flag = flags[index]!;
+    if (!flag.startsWith("--")) {
+      throw new CliUsageError(`unexpected positional argument: ${flag}`);
+    }
+    if (!allowedFlags.has(flag)) throw new CliUsageError(`unknown flag: ${flag}`);
+    if (seen.has(flag)) throw new CliUsageError(`duplicate flag: ${flag}`);
+    seen.add(flag);
+    const value = flags[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new CliUsageError(`missing value for ${flag}`);
+    }
+    index += 1;
+    if (flag === "--expected-team-id") expectedTeamId = value;
+    if (flag === "--expected-account-id") expectedAccountId = value;
   }
-  return { command, inputPath };
+  if (!expectedTeamId) throw new CliUsageError("missing --expected-team-id");
+  if (!expectedAccountId) throw new CliUsageError("missing --expected-account-id");
+  return {
+    command,
+    inputPath,
+    subject: {
+      team_id: expectedTeamId,
+      account_id: expectedAccountId,
+    },
+  };
 }
 
 function printJson(value: unknown): void {
@@ -116,6 +150,10 @@ function printError(e: unknown): void {
     process.stderr.write(`${e.message}\n${JSON.stringify(e.report, null, 2)}\n`);
     return;
   }
+  if (e instanceof WorkshopGraphValidationError) {
+    process.stderr.write(`${e.message}\n${JSON.stringify(e.report, null, 2)}\n`);
+    return;
+  }
   if (e instanceof Error) {
     process.stderr.write(`${e.message}\n`);
     return;
@@ -123,7 +161,7 @@ function printError(e: unknown): void {
   process.stderr.write(`${String(e)}\n`);
 }
 
-async function buildPreview(inputPath: string) {
+async function buildPreview(inputPath: string, subject: SubjectScope) {
   const bundle = await loadGraphBundleFile(inputPath);
   const config = parseAtlieraRuntimeConfig({
     ATL_ENV: "test",
@@ -138,7 +176,7 @@ async function buildPreview(inputPath: string) {
     jobQueue: new NoQueueOperations(),
     modelAdapter: THROWING_MODEL_ADAPTER,
   });
-  return prepareRuntimeWorkshopHtmlPreview(runtime);
+  return prepareRuntimeWorkshopHtmlPreview(runtime, subject);
 }
 
 function lensItemCounts(viewModel: ReturnType<typeof prepareRuntimeWorkshopHtmlPreview>["workshopPreview"]["viewModel"]): Record<"signals" | "maps" | "plays", number> | undefined {
@@ -186,8 +224,8 @@ function toSanitizedReport(
 }
 
 async function run(): Promise<number> {
-  const { command, inputPath } = parseArgs(argv.slice(2));
-  const report = await buildPreview(inputPath);
+  const { command, inputPath, subject } = parseArgs(argv.slice(2));
+  const report = await buildPreview(inputPath, subject);
   if (command === "html") {
     if (!report.ok || report.html === undefined) {
       printJson(toSanitizedReport(report, command));
@@ -208,5 +246,6 @@ run()
     if (e instanceof CliUsageError) exit(2);
     if (e instanceof GraphFileParseError) exit(2);
     if (e instanceof GraphFileSchemaError) exit(1);
+    if (e instanceof WorkshopGraphValidationError) exit(1);
     exit(2);
   });

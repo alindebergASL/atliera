@@ -12,7 +12,12 @@ import {
   prepareRuntimeWorkshopHtmlPreview,
   prepareRuntimeWorkshopPreview,
 } from "../../src/runtime/workshop-preview.ts";
-import { makeValidBundle } from "../fixtures/valid-graph.ts";
+import {
+  clone,
+  makeValidBundle,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
+import { WorkshopGraphValidationError } from "../../src/workshop/view-model.ts";
 
 class StaticGraphStore implements GraphStore {
   commitCalls = 0;
@@ -54,7 +59,7 @@ describe("runtime Workshop preview", () => {
     const graphStore = new StaticGraphStore(makeValidBundle());
     const runtime = createPreviewRuntime(graphStore);
 
-    const report = prepareRuntimeWorkshopPreview(runtime);
+    const report = prepareRuntimeWorkshopPreview(runtime, VALID_GRAPH_SUBJECT);
 
     assert.equal(report.ok, true);
     assert.equal(report.kind, "workshop-preview");
@@ -73,6 +78,20 @@ describe("runtime Workshop preview", () => {
     assert.equal(report.providerCallsMade, 0);
     assert.equal(report.productionWrites, false);
     assert.equal(graphStore.commitCalls, 0);
+  });
+
+  it("rejects a coherent graph relabel against the caller-supplied runtime subject", () => {
+    const bundle = clone(makeValidBundle());
+    for (const source of bundle.sources) source.account_id = "acc_other";
+    for (const claim of bundle.claims) claim.account_id = "acc_other";
+    for (const object of bundle.account_objects) object.account_id = "acc_other";
+    for (const run of bundle.research_runs) run.account_id = "acc_other";
+    const runtime = createPreviewRuntime(new StaticGraphStore(bundle));
+
+    assert.throws(
+      () => prepareRuntimeWorkshopPreview(runtime, VALID_GRAPH_SUBJECT),
+      WorkshopGraphValidationError,
+    );
   });
 
   it("fails closed before reading graph state when runtime preflight fails", () => {
@@ -97,7 +116,7 @@ describe("runtime Workshop preview", () => {
       },
     });
 
-    const report = prepareRuntimeWorkshopPreview(runtime);
+    const report = prepareRuntimeWorkshopPreview(runtime, VALID_GRAPH_SUBJECT);
 
     assert.equal(report.ok, false);
     assert.equal(report.kind, "workshop-preview");
@@ -148,7 +167,7 @@ describe("runtime Workshop preview", () => {
       },
     });
 
-    const report = prepareRuntimeWorkshopPreview(runtime);
+    const report = prepareRuntimeWorkshopPreview(runtime, VALID_GRAPH_SUBJECT);
 
     assert.equal(report.ok, false);
     assert.equal(report.viewModel, undefined);
@@ -169,6 +188,7 @@ describe("runtime Workshop preview", () => {
     try {
       const report = prepareRuntimeWorkshopPreview(
         createPreviewRuntime(new StaticGraphStore(makeValidBundle())),
+        VALID_GRAPH_SUBJECT,
       );
 
       assert.equal(report.ok, true);
@@ -186,7 +206,10 @@ describe("runtime Workshop preview", () => {
     const graphStore = new StaticGraphStore(makeValidBundle());
     const runtime = createPreviewRuntime(graphStore);
 
-    const report = prepareRuntimeWorkshopHtmlPreview(runtime);
+    const report = prepareRuntimeWorkshopHtmlPreview(
+      runtime,
+      VALID_GRAPH_SUBJECT,
+    );
 
     assert.equal(report.ok, true);
     assert.equal(report.kind, "workshop-html-preview");
@@ -234,7 +257,10 @@ describe("runtime Workshop preview", () => {
       },
     });
 
-    const report = prepareRuntimeWorkshopHtmlPreview(runtime);
+    const report = prepareRuntimeWorkshopHtmlPreview(
+      runtime,
+      VALID_GRAPH_SUBJECT,
+    );
 
     assert.equal(report.ok, false);
     assert.equal(report.html, undefined);

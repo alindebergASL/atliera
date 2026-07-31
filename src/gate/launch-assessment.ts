@@ -5,6 +5,7 @@ import { runQualityGate, summarizeGateRun } from "./quality-gate.ts";
 import { parseGraphBundle } from "../graph/schema.ts";
 import { validateGraphBundleRaw } from "../graph/validate.ts";
 import { buildWorkshopViewModel } from "../workshop/view-model.ts";
+import { deriveFixtureOnlySingleSubjectAfterValidation } from "../workshop/fixture-subject.ts";
 import type {
   NamedWorkshopLensUsefulnessReview,
   WorkshopLensUsefulnessCorpusSummary,
@@ -333,7 +334,10 @@ export async function assessLaunchGateCorpusManifest(
       const parsed = parseGraphBundle(rawBundle);
       if (parsed.ok) {
         lensUsefulness = evaluateWorkshopLensUsefulness(
-          buildWorkshopViewModel(parsed.value),
+          buildWorkshopViewModel(
+            parsed.value,
+            deriveFixtureOnlySingleSubjectAfterValidation(parsed.value),
+          ),
         );
         lensReviews.push({ input: entry.path, ...lensUsefulness });
       }

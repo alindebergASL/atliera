@@ -11,7 +11,10 @@ import { executeM5aCuratedProposalFlow } from "../../src/workshop/m5a-curated-pr
 import { buildM5aCuratedProposalFlowOperatorArming } from "../../src/workshop/m5a-curated-proposal-flow-operator-arming.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
-import { makeValidBundle } from "../fixtures/valid-graph.ts";
+import {
+  makeValidBundle,
+  VALID_GRAPH_SUBJECT,
+} from "../fixtures/valid-graph.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const INPUT_PATH = join(ROOT, "fixtures/validation/m5a-curated-proposal-flow-capstone-20260710a-input.json");
@@ -225,7 +228,10 @@ describe("M5a Step 4 hostile-input and purity boundaries", () => {
   });
 
   test("default renderer output is byte-identical when curated options are absent", () => {
-    const vm = buildWorkshopViewModel(makeValidBundle());
+    const vm = buildWorkshopViewModel(
+      makeValidBundle(),
+      VALID_GRAPH_SUBJECT,
+    );
     const implicit = renderWorkshopHtml(vm);
     const explicit = renderWorkshopHtml(vm, { previewMode: "fake" });
     assert.equal(implicit, explicit);

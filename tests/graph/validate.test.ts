@@ -254,6 +254,49 @@ describe("validateGraphBundle — subject ownership", () => {
     });
   }
 
+  it("rejects U+FEFF-only intrinsic account-bearing team/account ownership without an explicit subject", () => {
+    for (const field of ["team_id", "account_id"] as const) {
+      const b = clone(makeValidBundle());
+      relabelAccountBearingField(b, field, "\uFEFF");
+      if (field === "team_id") {
+        for (const audit of b.audit_events) audit.team_id = "\uFEFF";
+      }
+
+      const report = run(b);
+      const intrinsicFailures = report.hard_failures.filter(
+        (failure) =>
+          failure.code === "subject_scope_mismatch" &&
+          failure.field === field &&
+          failure.record_kind !== "audit_event",
+      );
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(
+        intrinsicFailures.map((failure) => failure.record_kind),
+        ["source_document", "claim", "account_object", "research_run"],
+      );
+    }
+  });
+
+  it("rejects U+FEFF-only audit-event team ownership without an explicit subject", () => {
+    const b = makeEmptyBundle();
+    b.audit_events = clone(makeValidBundle()).audit_events;
+    b.audit_events[0]!.team_id = "\uFEFF";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.hard_failures, [
+      {
+        code: "subject_scope_mismatch",
+        message: `audit_event ${b.audit_events[0]!.id}.team_id must contain at least one non-whitespace character`,
+        record_kind: "audit_event",
+        record_id: b.audit_events[0]!.id,
+        field: "team_id",
+      },
+    ]);
+  });
+
   it("rejects cross-account ClaimEvidence laundering", () => {
     const b = clone(makeValidBundle());
     b.sources[0]!.account_id = "acc_other";
@@ -330,6 +373,25 @@ describe("validateGraphBundle — subject ownership", () => {
     }
   }
 
+  it("rejects U+FEFF-only explicit SubjectScope team/account authority", () => {
+    for (const field of ["team_id", "account_id"] as const) {
+      const subject = {
+        team_id: "team_atliera_lab",
+        account_id: "acc_acme_robotics",
+      };
+      subject[field] = "\uFEFF";
+
+      const report = validateGraphBundle(makeEmptyBundle(), {
+        mode: "fixture",
+        subject,
+      });
+
+      assert.equal(report.ok, false);
+      assert.deepEqual(codes(report), ["subject_scope_mismatch"]);
+      assert.equal(report.hard_failures[0]!.field, field);
+    }
+  });
+
   it("rejects every Unicode White_Space code point as intrinsic ownership without an explicit subject", () => {
     for (const [label, authority] of UNICODE_WHITE_SPACE_CODE_POINTS) {
       for (const field of ["team_id", "account_id"] as const) {
@@ -395,6 +457,27 @@ describe("validateGraphBundle — subject ownership", () => {
     );
     assert.equal(b.sources[0]!.team_id, teamId);
     assert.equal(b.sources[0]!.account_id, accountId);
+  });
+
+  it("accepts and preserves ownership identifiers containing U+FEFF plus non-whitespace characters", () => {
+    const b = clone(makeValidBundle());
+    const teamId = "\uFEFFteam_atliera_lab";
+    const accountId = "acc_acme_robotics\uFEFF";
+    relabelAccountBearingField(b, "team_id", teamId);
+    relabelAccountBearingField(b, "account_id", accountId);
+    for (const audit of b.audit_events) audit.team_id = teamId;
+
+    const report = run(b);
+
+    assert.equal(
+      report.ok,
+      true,
+      "mixed U+FEFF ownership should validate; got: " +
+        JSON.stringify(report.hard_failures),
+    );
+    assert.equal(b.sources[0]!.team_id, teamId);
+    assert.equal(b.sources[0]!.account_id, accountId);
+    assert.equal(b.audit_events[0]!.team_id, teamId);
   });
 
   it("rejects an audit team mismatch when the bundle team is unambiguous", () => {

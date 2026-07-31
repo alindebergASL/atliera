@@ -83,6 +83,24 @@ describe("runQualityGate", () => {
     });
   }
 
+  test("fails a coherently U+FEFF-owned bundle through validator hard failures", () => {
+    const bundle = clone(makeValidBundle());
+    relabelIntrinsicOwnership(bundle, "\uFEFF");
+
+    const report = runQualityGate(bundle);
+
+    assert.equal(report.status, "fail");
+    assert.equal(report.ok, false);
+    assert.equal(report.validation_report.ok, false);
+    assert.ok(report.validation_report.hard_failures.length > 0);
+    assert.ok(
+      report.validation_report.hard_failures.every(
+        (failure) => failure.code === "subject_scope_mismatch",
+      ),
+    );
+    assert.ok(reasonCodes(report).includes("hard_failures_present"));
+  });
+
   test("keeps invented ID failures as a launch-quality metric", () => {
     const bundle = clone(makeValidBundle());
     bundle.claim_evidence[0]!.evidence_excerpt_id = "exc_missing_excerpt";

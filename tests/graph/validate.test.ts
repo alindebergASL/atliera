@@ -40,6 +40,13 @@ function makeEmptyBundle(): GraphBundle {
   };
 }
 
+function targetAuditEventAtItself(bundle: GraphBundle): void {
+  for (const audit of bundle.audit_events) {
+    audit.target_type = "audit_event";
+    audit.target_id = audit.id;
+  }
+}
+
 function relabelAccountBearingField(
   bundle: GraphBundle,
   field: "team_id" | "account_id",
@@ -179,6 +186,266 @@ describe("validateGraphBundle — dangling references", () => {
   });
 });
 
+describe("validateGraphBundle — audit target references", () => {
+  const localTargets = [
+    ["source_document", "src_acme_press_001"],
+    ["evidence_excerpt", "exc_acme_launch_001"],
+    ["claim", "clm_acme_launch"],
+    ["claim_evidence", "cev_acme_launch_001"],
+    ["account_object", "obj_acme_signal_launch"],
+    ["account_object_claim", "oclm_acme_signal_launch_001"],
+    ["research_run", "run_acme_phase1_001"],
+    ["run_artifact", "art_acme_phase1_report"],
+    ["audit_event", "aud_acme_phase1_001"],
+  ] as const;
+
+  for (const [targetType, targetId] of localTargets) {
+    it(`resolves local ${targetType} targets in the matching collection`, () => {
+      const b = clone(makeValidBundle());
+      b.audit_events[0]!.target_type = targetType;
+      b.audit_events[0]!.target_id = targetId;
+
+      const report = run(b);
+
+      assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+    });
+  }
+
+  for (const [label, targetId] of [
+    ["missing", "src_missing"],
+    ["cross-kind", "clm_acme_launch"],
+  ] as const) {
+    it(`rejects a ${label} local audit target`, () => {
+      const b = clone(makeValidBundle());
+      b.audit_events[0]!.target_type = "source_document";
+      b.audit_events[0]!.target_id = targetId;
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("unresolved_local_audit_target"));
+    });
+  }
+
+  it("rejects an arbitrary unknown audit target type", () => {
+    const b = clone(makeValidBundle());
+    b.audit_events[0]!.target_type = "external_record";
+    b.audit_events[0]!.target_id = "ext_arbitrary";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.deepEqual(report.hard_failures.filter((failure) =>
+      failure.code === "unsupported_audit_target_type"
+    ), [{
+      code: "unsupported_audit_target_type",
+      message: "audit_event aud_acme_phase1_001 has unsupported target_type external_record",
+      record_kind: "audit_event",
+      record_id: "aud_acme_phase1_001",
+      field: "target_type",
+    }]);
+  });
+
+  function makeProposalSetBundle(proposalSetId = "m5a-proposal-set-001"): GraphBundle {
+    const b = clone(makeValidBundle());
+    const run = b.research_runs[0]!;
+    b.audit_events[0] = {
+      ...b.audit_events[0]!,
+      id: `aud_m5a_${proposalSetId}`,
+      team_id: run.team_id,
+      event_type: "proposal_set.ratified",
+      target_type: "proposal_set",
+      target_id: proposalSetId,
+      payload_json: { account_id: run.account_id },
+    };
+    b.run_artifacts[0] = {
+      ...b.run_artifacts[0]!,
+      id: `art_m5a_${proposalSetId}`,
+      research_run_id: run.id,
+      artifact_type: "m5a_curated_proposal_set_ratification",
+      payload_json: {
+        ...b.run_artifacts[0]!.payload_json,
+        proposal_set_id: proposalSetId,
+      },
+    };
+    return b;
+  }
+
+  it("accepts the legacy M5a proposal_set binding at its 60-character producer boundary", () => {
+    const b = makeProposalSetBundle("p".repeat(60));
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  it("rejects an M5a proposal_set id at 61 characters", () => {
+    const b = makeProposalSetBundle("p".repeat(61));
+    b.audit_events[0]!.id = "aud_m5a_overlong_proposal_set";
+    b.run_artifacts[0]!.id = "art_m5a_overlong_proposal_set";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+  });
+
+  for (const [label, mutate] of [
+    ["event type", (b: GraphBundle) => { b.audit_events[0]!.event_type = "proposal_set.created"; }],
+    ["artifact binding", (b: GraphBundle) => { b.run_artifacts[0]!.payload_json.proposal_set_id = "other-set"; }],
+    ["missing account binding", (b: GraphBundle) => { delete b.audit_events[0]!.payload_json.account_id; }],
+    ["mismatched account binding", (b: GraphBundle) => { b.audit_events[0]!.payload_json.account_id = "acc_other"; }],
+    ["artifact type", (b: GraphBundle) => { b.run_artifacts[0]!.artifact_type = "research_report"; }],
+  ] as const) {
+    it(`rejects a broken M5a proposal_set ${label}`, () => {
+      const b = makeProposalSetBundle();
+      mutate(b);
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+    });
+  }
+
+  function makeRejectedCandidateBundle(): GraphBundle {
+    const b = clone(makeValidBundle());
+    b.audit_events[0] = {
+      ...b.audit_events[0]!,
+      event_type: "claim.rejected",
+      target_type: "account_object_candidate",
+      target_id: "obj_fedex_rejected_candidate",
+      payload_json: {
+        disposition: "reject",
+        reason_code: "not_material",
+        owner_authorization_id: "m5b-owner-authorization",
+        ratification_raw_sha256: "a".repeat(64),
+        ratification_artifact_sha256: "b".repeat(64),
+        review_packet_sha256: "c".repeat(64),
+        candidate_content_sha256: "d".repeat(64),
+        execution_commit: "e".repeat(40),
+        execution_tree: "f".repeat(40),
+        ratification_mode: "repository-native-one-shot-local-write",
+      },
+    };
+    return b;
+  }
+
+  it("accepts the legacy M5b rejected account_object_candidate binding", () => {
+    const report = run(makeRejectedCandidateBundle());
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  for (const [label, mutate] of [
+    ["event type", (b: GraphBundle) => { b.audit_events[0]!.event_type = "claim.ratified"; }],
+    ["target kind", (b: GraphBundle) => { b.audit_events[0]!.target_id = "clm_acme_launch"; }],
+    ["local collision", (b: GraphBundle) => { b.audit_events[0]!.target_id = "obj_acme_signal_launch"; }],
+    ["disposition", (b: GraphBundle) => { b.audit_events[0]!.payload_json.disposition = "accept"; }],
+    ["reason code", (b: GraphBundle) => { b.audit_events[0]!.payload_json.reason_code = " \t"; }],
+    ["ratification binding", (b: GraphBundle) => { b.audit_events[0]!.payload_json.candidate_content_sha256 = "not-a-hash"; }],
+  ] as const) {
+    it(`rejects a broken M5b account_object_candidate ${label}`, () => {
+      const b = makeRejectedCandidateBundle();
+      mutate(b);
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+    });
+  }
+
+  function makeRetentionBundle(): GraphBundle {
+    const b = clone(makeValidBundle());
+    b.audit_events[0] = {
+      ...b.audit_events[0]!,
+      actor_id: "reviewer_demo",
+      event_type: "source.retention_decided",
+      target_type: "source_custody_retention_draft",
+      target_id: "m5b-fedex-source-retention-beyond-original-deadline",
+      payload_json: {
+        ratifier_id: "reviewer_demo",
+        ratification_raw_sha256: "a".repeat(64),
+        ratification_artifact_sha256: "b".repeat(64),
+        review_packet_sha256: "c".repeat(64),
+        retention_draft_id: "m5b-fedex-source-retention-beyond-original-deadline",
+        deadline: "2026-08-13T18:41:11.277Z",
+        disposition: "reject",
+        outcome: "beyond-deadline-retention-not-authorized-external-custody-cleanup-required",
+        original_custody_deleted: false,
+        external_custody_cleanup_required: true,
+      },
+    };
+    return b;
+  }
+
+  it("accepts the pinned M5b retention timestamp", () => {
+    const report = run(makeRetentionBundle());
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  it("accepts a canonical zero-millisecond M5b retention timestamp", () => {
+    const b = makeRetentionBundle();
+    b.audit_events[0]!.payload_json.deadline = "2026-08-13T18:41:11.000Z";
+
+    const report = run(b);
+
+    assert.equal(report.ok, true, JSON.stringify(report.hard_failures));
+  });
+
+  it("rejects a seconds-only zero-millisecond M5b retention timestamp", () => {
+    const b = makeRetentionBundle();
+    b.audit_events[0]!.payload_json.deadline = "2026-08-13T18:41:11Z";
+
+    const report = run(b);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+  });
+
+  for (const deadline of [
+    "2026-02-29T18:41:11.277Z",
+    "2026-02-30T18:41:11.277Z",
+    "2026-08-13T18:41:11.27Z",
+  ] as const) {
+    it(`rejects noncanonical M5b retention deadline ${deadline}`, () => {
+      const b = makeRetentionBundle();
+      b.audit_events[0]!.payload_json.deadline = deadline;
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+    });
+  }
+
+  for (const [label, mutate] of [
+    ["event type", (b: GraphBundle) => { b.audit_events[0]!.event_type = "source.retention_proposed"; }],
+    ["external target id", (b: GraphBundle) => { b.audit_events[0]!.target_id = "m5b-source-retention-draft"; }],
+    ["target id echo", (b: GraphBundle) => { b.audit_events[0]!.payload_json.retention_draft_id = "other-draft"; }],
+    ["actor binding", (b: GraphBundle) => { b.audit_events[0]!.payload_json.ratifier_id = "reviewer_other"; }],
+    ["ratification raw hash", (b: GraphBundle) => { b.audit_events[0]!.payload_json.ratification_raw_sha256 = "A".repeat(64); }],
+    ["ratification artifact hash", (b: GraphBundle) => { b.audit_events[0]!.payload_json.ratification_artifact_sha256 = "b".repeat(63); }],
+    ["review packet hash", (b: GraphBundle) => { b.audit_events[0]!.payload_json.review_packet_sha256 = "not-a-hash"; }],
+    ["deadline", (b: GraphBundle) => { b.audit_events[0]!.payload_json.deadline = "2026-13-13T18:41:11Z"; }],
+    ["outcome consistency", (b: GraphBundle) => { b.audit_events[0]!.payload_json.outcome = "beyond-deadline-retention-approved"; }],
+    ["deletion consistency", (b: GraphBundle) => { b.audit_events[0]!.payload_json.original_custody_deleted = true; }],
+    ["cleanup consistency", (b: GraphBundle) => { b.audit_events[0]!.payload_json.external_custody_cleanup_required = false; }],
+  ] as const) {
+    it(`rejects a broken M5b retention ${label}`, () => {
+      const b = makeRetentionBundle();
+      mutate(b);
+
+      const report = run(b);
+
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_external_audit_target_binding"));
+    });
+  }
+});
+
 describe("validateGraphBundle — subject ownership", () => {
   for (const [label, value] of [
     ["blank", ""],
@@ -237,6 +504,7 @@ describe("validateGraphBundle — subject ownership", () => {
     it(`rejects an intrinsic ${label} audit team without an explicit subject`, () => {
       const b = makeEmptyBundle();
       b.audit_events = clone(makeValidBundle()).audit_events;
+      targetAuditEventAtItself(b);
       b.audit_events[0]!.team_id = value;
 
       const report = run(b);
@@ -281,6 +549,7 @@ describe("validateGraphBundle — subject ownership", () => {
   it("rejects U+FEFF-only audit-event team ownership without an explicit subject", () => {
     const b = makeEmptyBundle();
     b.audit_events = clone(makeValidBundle()).audit_events;
+    targetAuditEventAtItself(b);
     b.audit_events[0]!.team_id = "\uFEFF";
 
     const report = run(b);
@@ -417,6 +686,7 @@ describe("validateGraphBundle — subject ownership", () => {
 
       const auditOnly = makeEmptyBundle();
       auditOnly.audit_events = clone(makeValidBundle()).audit_events;
+      targetAuditEventAtItself(auditOnly);
       auditOnly.audit_events[0]!.team_id = authority;
       const auditReport = run(auditOnly);
 
@@ -545,6 +815,7 @@ describe("validateGraphBundle — subject ownership", () => {
     const b = clone(makeValidBundle());
     b.research_runs = [];
     b.run_artifacts = [];
+    targetAuditEventAtItself(b);
 
     const report = run(b);
 

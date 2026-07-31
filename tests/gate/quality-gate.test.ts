@@ -59,6 +59,20 @@ describe("runQualityGate", () => {
     assert.ok(reasonCodes(report).includes("hard_failures_present"));
   });
 
+  test("propagates an audit-reference hard failure", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.audit_events[0]!.target_id = "run_missing";
+
+    const report = runQualityGate(bundle);
+
+    assert.equal(report.status, "fail");
+    assert.equal(report.ok, false);
+    assert.ok(report.validation_report.hard_failures.some(
+      (failure) => failure.code === "unresolved_local_audit_target",
+    ));
+    assert.ok(reasonCodes(report).includes("hard_failures_present"));
+  });
+
   for (const [label, value] of [
     ["blank", ""],
     ["whitespace-only", " \t\n"],

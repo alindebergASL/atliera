@@ -42,6 +42,7 @@ Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 
 - invented EvidenceExcerpt IDs
 - invented Claim, ClaimEvidence, AccountObject, or edge IDs
 - dangling claim/evidence/object/edge references
+- unsupported, unresolved, or cross-kind AuditEvent targets; graph audit targets are closed to the nine local record kinds plus the shape-bound M5a `proposal_set` and M5b `account_object_candidate` / `source_custody_retention_draft` compatibility kinds
 - accepted excerpt text not found in stored source text after deterministic normalization
 - accepted paraphrase treated as an excerpt rather than being rejected or stored as an unsupported proposal
 - verified or high-confidence claim without accepted supporting excerpt
@@ -54,6 +55,8 @@ Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 
 - model mode without cost cap/provider/model/run approval
 - projected or observed budget violation
 - provider SDK import, API key read, or network call before explicit activation gates pass
+
+`Capability` and `CapabilityExecution` audits remain in capability proof/result envelopes, not GraphBundles. They are intentionally excluded from the graph audit-target taxonomy until GraphBundle gains a locally resolvable capability record kind; there is no generic external-target escape hatch.
 
 ## Model/provider safety gates
 

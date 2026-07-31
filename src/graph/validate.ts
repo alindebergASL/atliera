@@ -14,6 +14,7 @@ import {
   isWellFormedId,
   type RecordKind,
 } from "./ids.ts";
+import { validateAuditTargetReference } from "./audit-target.ts";
 import { createSupportEvaluator } from "./support.ts";
 import { normalizeText, sourceContainsExcerpt } from "./normalize.ts";
 import { parseGraphBundle } from "./schema.ts";
@@ -266,6 +267,11 @@ export function validateGraphBundle(
   const idx = indexBundle(bundle);
   const support = createSupportEvaluator(bundle);
   const subjectInspection = inspectGraphSubject(bundle);
+
+  for (const audit of bundle.audit_events) {
+    const targetFailure = validateAuditTargetReference(bundle, audit);
+    if (targetFailure !== null) failures.push(targetFailure);
+  }
 
   for (const record of getAccountBearingGraphRecords(bundle)) {
     for (const field of ["team_id", "account_id"] as const) {

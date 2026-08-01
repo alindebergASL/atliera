@@ -167,7 +167,7 @@ export interface TargetedBriefAssertion {
   readonly state: "supported" | "contested";
   readonly provenance_status: "verified" | "source_document_only" | "contested";
   readonly trust_label:
-    | "Verified"
+    | "Reviewed · source-backed"
     | "Source-backed · not independently checked"
     | "Contested · supporting and contradicting evidence";
   readonly confidence: AccountObject["confidence"];
@@ -851,7 +851,11 @@ function trustForAssertion(
     object.provenance_status === "verified" &&
     claims.every((claim) => claim.provenance_status === "verified");
   return verified
-    ? { state: "supported", provenance_status: "verified", trust_label: "Verified" }
+    ? {
+        state: "supported",
+        provenance_status: "verified",
+        trust_label: "Reviewed · source-backed",
+      }
     : {
         state: "supported",
         provenance_status: "source_document_only",

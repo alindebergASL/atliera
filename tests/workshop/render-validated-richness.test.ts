@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import { validateGraphBundle } from "../../src/graph/validate.ts";
@@ -55,7 +56,9 @@ function countOccurrences(haystack: string, needle: string): number {
 describe("Workshop render — validated richness fixtures", () => {
   test("one-lane-weak reproduces the observed 1-lens (Signals only) weak account", async () => {
     const bundle = await loadGraphBundleFile(ONE_LANE_WEAK);
-    const vm = buildWorkshopViewModel(bundle, NORTHWIND_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, NORTHWIND_SUBJECT),
+    );
 
     // Parity with the validated metric shape (e.g. live-product-preview-20260528a:
     // graph_supported_lens_item_counts = {signals:1, maps:0, plays:0}).
@@ -79,7 +82,9 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("three-lane fixture is genuinely 3-lens rich", async () => {
     const bundle = await loadGraphBundleFile(THREE_LANE);
-    const vm = buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.deepEqual(summarizeLensRichness(vm), {
       signals: 1,
@@ -100,7 +105,9 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("mixed-trust locks the object_type → lens mapping (incl. risk/open_question → Signals)", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, VERTEX_SUBJECT),
+    );
 
     // Item counts per lane.
     assert.deepEqual(summarizeLensRichness(vm), {
@@ -122,7 +129,9 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("mixed-trust renders each trust label and never dresses non-verified as verified", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, VERTEX_SUBJECT),
+    );
     const html = renderWorkshopHtml(vm);
 
     // Historical lifecycle records are not current Workshop output.
@@ -154,7 +163,9 @@ describe("Workshop render — validated richness fixtures", () => {
 
   test("soft-trust object with accepted evidence still renders non-verified and is excluded from useful richness", async () => {
     const bundle = await loadGraphBundleFile(MIXED_TRUST);
-    const vm = buildWorkshopViewModel(bundle, VERTEX_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, VERTEX_SUBJECT),
+    );
 
     // The stakeholder is source_document_only but DOES carry accepted
     // evidence packets — soft trust with evidence, not zero-evidence.
@@ -165,7 +176,7 @@ describe("Workshop render — validated richness fixtures", () => {
       stakeholder!.evidence_packets.length > 0,
       "stakeholder should carry accepted evidence packets",
     );
-    assert.notEqual(stakeholder!.trust.label, "Verified");
+    assert.notEqual(stakeholder!.trust.label, "Reviewed · source-backed");
 
     // It must NOT count toward useful richness: useful requires verified.
     // Maps holds the stakeholder (with evidence) + account_snapshot, both
@@ -185,7 +196,9 @@ describe("Workshop render — validated richness fixtures", () => {
   test("no render fixture marks a non-verified object as verified", async () => {
     for (const path of RENDER_FIXTURES) {
       const bundle = await loadGraphBundleFile(path);
-      const vm = buildWorkshopViewModel(bundle, fixtureSubject(path));
+      const vm = buildWorkshopViewModel(
+        createValidatedCandidate(bundle, fixtureSubject(path)),
+      );
       const html = renderWorkshopHtml(vm);
 
       // VM level: a non-verified item must not carry a Verified trust label.
@@ -193,7 +206,7 @@ describe("Workshop render — validated richness fixtures", () => {
         if (item.trust.provenance_status !== "verified") {
           assert.notEqual(
             item.trust.label,
-            "Verified",
+            "Reviewed · source-backed",
             `${path}: ${item.object_type} ${item.id} mislabeled Verified`,
           );
         }

@@ -8,6 +8,7 @@ import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { argv, exit } from "node:process";
 
 import { GraphFileParseError, GraphFileSchemaError, loadGraphBundleFile } from "../graph/file-store.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import { guardOutputPath, PathGuardError } from "../io/path-guard.ts";
 import { renderWorkshopHtml, type WorkshopPreviewMode } from "../workshop/render-html.ts";
 import {
@@ -158,10 +159,12 @@ async function writeWorkshopShell(args: string[]): Promise<number> {
   });
 
   const bundle = await loadGraphBundleFile(inputPath);
-  const viewModel = buildWorkshopViewModel(bundle, {
-    team_id: expectedTeamId,
-    account_id: expectedAccountId,
-  });
+  const viewModel = buildWorkshopViewModel(
+    createValidatedCandidate(bundle, {
+      team_id: expectedTeamId,
+      account_id: expectedAccountId,
+    }),
+  );
   const html = renderWorkshopHtml(viewModel, { previewMode });
 
   await mkdir(dirname(guarded.targetPath), { recursive: true });

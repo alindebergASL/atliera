@@ -1,4 +1,5 @@
 import { buildWorkshopViewModel } from "./view-model.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import {
   M5B_FEDEX_PRODUCTION_PINS,
   buildM5bFedExSanitizedSourcePack,
@@ -65,8 +66,7 @@ export function renderM5bFedExPrewriteWorkshopHtml(packInput: unknown, packetInp
   const candidate = verifyM5bFedExPrewriteCandidate(candidateInput, pack);
   const packet = verifyM5bFedExReviewPacket(packetInput, pack, candidate);
   const view = buildWorkshopViewModel(
-    candidate.bundle,
-    M5B_FEDEX_WORKSHOP_SUBJECT,
+    createValidatedCandidate(candidate.bundle, M5B_FEDEX_WORKSHOP_SUBJECT),
   );
   if (view.totals.sources !== 1 || view.totals.verified_objects !== 0 || view.lenses.maps.length !== 2 ||
       view.lenses.signals.length > 1 || view.lenses.plays.length !== 0) throw new Error("M5b render scope refused");

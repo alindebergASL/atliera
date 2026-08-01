@@ -1,5 +1,6 @@
 import { materializeProposalForValidation, type MaterializeProposalForValidationInput } from "../validation/proposal-materialization.ts";
 import type { ProposalMaterializationBoundaries, ProposalMaterializationTrustLanguage } from "../validation/proposal-materialization.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import { renderWorkshopHtml } from "./render-html.ts";
 import { buildWorkshopViewModel, WORKSHOP_REVIEW_STATE_MODEL_PROPOSED, type WorkshopLens, type WorkshopViewModel } from "./view-model.ts";
 
@@ -70,10 +71,12 @@ export function buildWorkshopPublicCuratedProposalPreview(
   input: MaterializeProposalForValidationInput,
 ): WorkshopPublicCuratedProposalPreview {
   const materialized = materializeProposalForValidation(input);
-  const viewModel = buildWorkshopViewModel(materialized.bundle_candidate, {
-    team_id: materialized.team_id,
-    account_id: materialized.account_id,
-  });
+  const viewModel = buildWorkshopViewModel(
+    createValidatedCandidate(materialized.bundle_candidate, {
+      team_id: materialized.team_id,
+      account_id: materialized.account_id,
+    }),
+  );
   const html = renderWorkshopHtml(viewModel, { previewMode: "validation" });
   const decorated = reviewDecoratedItemCount(viewModel);
 

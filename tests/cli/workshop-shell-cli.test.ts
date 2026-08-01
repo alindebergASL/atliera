@@ -56,7 +56,8 @@ describe("workshop-shell CLI", () => {
       const html = await readFile(payload.output_path, "utf8");
       assert.match(html, /Atliera Workshop/);
       assert.match(html, /Signals/);
-      assert.match(html, /Verified/);
+      assert.match(html, /Reviewed · source-backed/);
+      assert.doesNotMatch(html, />Verified</);
       assert.match(html, /Evidence/);
     });
   });

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, test } from "node:test";
 
 import { initializeLocalDurableDb } from "../../src/db/local-durable-db.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { buildM5aCuratedProposalFlowApprovalPacket } from "../../src/workshop/m5a-curated-proposal-flow-approval-packet.ts";
 import { buildM5aCuratedProposalFlowContract } from "../../src/workshop/m5a-curated-proposal-flow-contract.ts";
 import { executeM5aCuratedProposalFlow } from "../../src/workshop/m5a-curated-proposal-flow-execution.ts";
@@ -229,8 +230,7 @@ describe("M5a Step 4 hostile-input and purity boundaries", () => {
 
   test("default renderer output is byte-identical when curated options are absent", () => {
     const vm = buildWorkshopViewModel(
-      makeValidBundle(),
-      VALID_GRAPH_SUBJECT,
+      createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
     );
     const implicit = renderWorkshopHtml(vm);
     const explicit = renderWorkshopHtml(vm, { previewMode: "fake" });

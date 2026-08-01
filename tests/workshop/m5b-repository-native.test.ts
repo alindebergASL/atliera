@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 
 import { LocalFileVersionedGraphStore } from "../../src/graph/local-file-versioned-store.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import {
@@ -687,8 +688,7 @@ describe("M5b repository-native product completion", () => {
 
   test("maps bound source kinds to exact positive and negative final provenance labels", () => {
     const vm = buildWorkshopViewModel(
-      makeValidBundle(),
-      VALID_GRAPH_SUBJECT,
+      createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
     );
     const production = renderWorkshopHtml(vm, {
       previewMode: m5bRepositoryNativePreviewModeForSourceKind("exact-production-custody"),

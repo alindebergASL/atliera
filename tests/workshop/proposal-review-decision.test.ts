@@ -141,7 +141,7 @@ describe("public proposal human review decision artifact", () => {
               trust: {
                 ...item.trust,
                 provenance_status: "verified" as const,
-                label: "Verified" as const,
+                label: "Reviewed · source-backed" as const,
               },
             },
           ],

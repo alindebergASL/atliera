@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import {
   evaluateWorkshopLensUsefulness,
@@ -17,7 +18,9 @@ describe("Workshop lens-usefulness review", () => {
   test("passes when at least two graph-backed lenses are materially useful", async () => {
     const bundle = await loadGraphBundleFile("fixtures/graph/valid/workshop-three-lane.json");
     const review = evaluateWorkshopLensUsefulness(
-      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.equal(review.ok, true);
@@ -33,7 +36,9 @@ describe("Workshop lens-usefulness review", () => {
 
   test("fails without claiming launch readiness when fewer than two lenses are useful", () => {
     const review = evaluateWorkshopLensUsefulness(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.equal(review.ok, false);
@@ -67,7 +72,9 @@ describe("Workshop lens-usefulness review", () => {
     bundle.account_objects[2]!.provenance_status = "unverified";
 
     const review = evaluateWorkshopLensUsefulness(
-      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.equal(review.ok, false);
@@ -79,14 +86,18 @@ describe("Workshop lens-usefulness review", () => {
   test("summarizes corpus lens usefulness without hiding per-account failures", async () => {
     const useful = evaluateWorkshopLensUsefulness(
       buildWorkshopViewModel(
-        await loadGraphBundleFile(
-          "fixtures/graph/valid/workshop-three-lane.json",
+        createValidatedCandidate(
+          await loadGraphBundleFile(
+            "fixtures/graph/valid/workshop-three-lane.json",
+          ),
+          VALID_GRAPH_SUBJECT,
         ),
-        VALID_GRAPH_SUBJECT,
       ),
     );
     const sparse = evaluateWorkshopLensUsefulness(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
     );
 
     const summary = summarizeWorkshopLensUsefulnessReviews([

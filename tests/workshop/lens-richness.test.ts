@@ -31,7 +31,7 @@ function item(
         source_document_count: 1,
         claim_count: 1,
       },
-      label: "Verified",
+      label: "Reviewed · source-backed",
     },
     claim_ids: overrides.claim_ids ?? [],
     source_ids: overrides.source_ids ?? [],
@@ -47,7 +47,7 @@ function vm(
     product_name: "Atliera",
     surface: "Workshop",
     account_id: "acc_test",
-    generated_from: "graph_bundle",
+    generated_from: "validated_candidate",
     lenses: {
       signals: lenses.signals ?? [],
       maps: lenses.maps ?? [],

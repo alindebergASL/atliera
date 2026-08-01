@@ -2,6 +2,7 @@ import type { WorkshopViewModel } from "../workshop/view-model.ts";
 import { renderWorkshopHtml } from "../workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../workshop/view-model.ts";
 import type { SubjectScope } from "../graph/subject.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import type { AtlieraRuntime } from "./composition.ts";
 import {
   runRuntimePreflight,
@@ -79,7 +80,9 @@ export function prepareRuntimeWorkshopPreview(
     };
   }
 
-  const viewModel = buildWorkshopViewModel(runtime.graphStore.snapshot, subject);
+  const viewModel = buildWorkshopViewModel(
+    createValidatedCandidate(runtime.graphStore.snapshot, subject),
+  );
   return {
     ok: true,
     kind: "workshop-preview",

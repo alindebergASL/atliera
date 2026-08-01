@@ -2,6 +2,8 @@
 // fixtures. Adversarial fixtures clone this and mutate one rule at a
 // time so every rejection test isolates a single invariant.
 
+import { createHash } from "node:crypto";
+
 import type { GraphBundle } from "../../src/graph/types.ts";
 import type { SubjectScope } from "../../src/graph/subject.ts";
 
@@ -14,6 +16,10 @@ export const VALID_SOURCE_TEXT =
   "Acme Robotics announced a new logistics platform on March 1, 2026. " +
   "The platform integrates with existing warehouse management systems and " +
   "is generally available to enterprise customers.";
+
+export function sha256Utf8(value: string): string {
+  return createHash("sha256").update(Buffer.from(value, "utf8")).digest("hex");
+}
 
 export function makeValidBundle(): GraphBundle {
   return {
@@ -29,7 +35,9 @@ export function makeValidBundle(): GraphBundle {
         source_type: "press_release",
         fetched_at: "2026-03-02T12:00:00Z",
         accessed_at: "2026-03-02T12:00:00Z",
-        content_hash: "sha256:fixture",
+        origin_content_sha256: sha256Utf8(VALID_SOURCE_TEXT),
+        stored_content_sha256: sha256Utf8(VALID_SOURCE_TEXT),
+        transformation_manifest_sha256: null,
         raw_text: VALID_SOURCE_TEXT,
         reliability: "high",
         status: "active",

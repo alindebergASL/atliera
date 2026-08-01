@@ -189,7 +189,7 @@ describe("proposal materialization: per-record dispositions fail closed with saf
   test("rejects sources with missing provenance and cascades rejection downstream", () => {
     const input = mutableFixtureInput();
     delete input.public_sources[0]!.fetched_at;
-    delete input.public_sources[0]!.content_hash;
+    delete input.public_sources[0]!.stored_content_sha256;
     const artifact = materializeProposalForValidation(input as never);
 
     const sourceDisposition = artifact.dispositions.find((d) => d.record_kind === "source");

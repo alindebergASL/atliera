@@ -74,7 +74,7 @@ export const M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SCHEMA_VERSION =
 // Fixture-bound authority for this intentionally single-fixture capstone.
 // Steps 1-3 IDs do not contain this digest and are not represented as doing so.
 export const M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256 =
-  "21ee88262f9e27d03ce3f37064f5728b8207aa2fb04e3be54bec2495b33caed9" as const;
+  "1a7b919a7502ed0ae977caab0fdf3955e200c4325dfe7b50e47635622204e22a" as const;
 
 export const M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT = Object.freeze({
   team_id: "team_atliera_lab",
@@ -550,7 +550,8 @@ function assertMaterializationInputShape(input: unknown): void {
   const shapes = [
     [root.public_sources, [
       "id", "team_id", "account_id", "url", "canonical_url", "title", "publisher",
-      "source_type", "fetched_at", "accessed_at", "content_hash", "raw_text", "reliability", "status",
+      "source_type", "fetched_at", "accessed_at", "origin_content_sha256", "stored_content_sha256",
+      "transformation_manifest_sha256", "raw_text", "reliability", "status",
     ]],
     [root.proposed_excerpts, ["proposal_id", "source_document_id", "quote"]],
     [root.proposed_claims, [

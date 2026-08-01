@@ -65,6 +65,19 @@ describe("buildWorkshopViewModel", () => {
     assert.equal(item.trust.label, "Reviewed · source-backed");
   });
 
+  test("refuses Workshop projection when source stored-content integrity is invalid", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources[0]!.stored_content_sha256 = "0".repeat(64);
+
+    assert.throws(() => build(bundle), (error) => {
+      assert.ok(error instanceof WorkshopGraphValidationError);
+      assert.ok(error.report.hard_failures.some(
+        (failure) => failure.code === "stored_content_sha256_mismatch",
+      ));
+      return true;
+    });
+  });
+
   test("routes account-object kinds into Signals, Maps, and Plays without separate data paths", () => {
     const bundle = clone(makeValidBundle());
     const base = bundle.account_objects[0]!;

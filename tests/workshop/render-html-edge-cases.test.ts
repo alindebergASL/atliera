@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 
@@ -16,6 +17,9 @@ const EDGE_SUBJECT = Object.freeze({
 function makeSparseEdgeBundle(): GraphBundle {
   const bundle = clone(makeValidBundle());
   const excerptText = "Accepted excerpt with <angle> & ampersand.";
+  const excerptSha256 = createHash("sha256")
+    .update(Buffer.from(excerptText, "utf8"))
+    .digest("hex");
   bundle.sources[0] = {
     ...bundle.sources[0]!,
     account_id: EDGE_SUBJECT.account_id,
@@ -23,6 +27,9 @@ function makeSparseEdgeBundle(): GraphBundle {
     publisher: null,
     url: "javascript:alert('xss')",
     canonical_url: "javascript:alert('xss')",
+    origin_content_sha256: excerptSha256,
+    stored_content_sha256: excerptSha256,
+    transformation_manifest_sha256: null,
     raw_text: excerptText,
   };
   bundle.account_objects[0] = {

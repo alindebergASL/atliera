@@ -11,7 +11,9 @@
       "source_type": "press_release",
       "fetched_at": "2026-04-10T12:00:00Z",
       "accessed_at": "2026-04-10T12:00:00Z",
-      "content_hash": "sha256:render-fixture-vertex-press",
+      "origin_content_sha256": "d67085efcff836acba6f920cb6de039648cc4f9d2cc7243e46817e84c952c534",
+      "stored_content_sha256": "d67085efcff836acba6f920cb6de039648cc4f9d2cc7243e46817e84c952c534",
+      "transformation_manifest_sha256": null,
       "raw_text": "Vertex Manufacturing confirmed it migrated its ERP to a cloud platform in April 2026.",
       "reliability": "high",
       "status": "active"
@@ -27,7 +29,9 @@
       "source_type": "forum_post",
       "fetched_at": "2026-04-11T08:00:00Z",
       "accessed_at": "2026-04-11T08:00:00Z",
-      "content_hash": "sha256:render-fixture-vertex-forum",
+      "origin_content_sha256": "19aa2ea07afcecbc1f2658830e7863af496092e43d9bcb7e7b05342f0f73da69",
+      "stored_content_sha256": "19aa2ea07afcecbc1f2658830e7863af496092e43d9bcb7e7b05342f0f73da69",
+      "transformation_manifest_sha256": null,
       "raw_text": "A community forum thread speculated about Vertex Manufacturing's vendor strategy without citing sources.",
       "reliability": "low",
       "status": "active"
@@ -43,7 +47,9 @@
       "source_type": "company_page",
       "fetched_at": "2026-04-11T07:30:00Z",
       "accessed_at": "2026-04-11T07:30:00Z",
-      "content_hash": "sha256:render-fixture-vertex-leadership",
+      "origin_content_sha256": "11b00580db8094bac1fa9d64eb20d29310e14ce9afdd882b47fa948e82e0df76",
+      "stored_content_sha256": "11b00580db8094bac1fa9d64eb20d29310e14ce9afdd882b47fa948e82e0df76",
+      "transformation_manifest_sha256": null,
       "raw_text": "Vertex Manufacturing's leadership page lists Dana Okafor as Chief Information Officer.",
       "reliability": "high",
       "status": "active"

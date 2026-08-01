@@ -150,6 +150,19 @@ describe("ValidatedCandidate", () => {
     });
   });
 
+  test("refuses a candidate whose stored source digest is false", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources[0]!.stored_content_sha256 = "0".repeat(64);
+
+    assert.throws(() => createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT), (error) => {
+      assert.ok(error instanceof WorkshopGraphValidationError);
+      assert.ok(error.report.hard_failures.some(
+        (failure) => failure.code === "stored_content_sha256_mismatch",
+      ));
+      return true;
+    });
+  });
+
   test("rejects hostile accessors and Proxies before executing their traps", () => {
     let getterCalls = 0;
     const accessorBundle = clone(makeValidBundle()) as unknown as Record<

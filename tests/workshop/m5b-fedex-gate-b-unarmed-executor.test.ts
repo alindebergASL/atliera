@@ -806,7 +806,7 @@ test("thrown and short custody reads are attempted once with zero retry and trut
   }, { attempts: 1, completed: 1, bytes: 15 });
 });
 
-test("all five committed synthetic artifacts equal regeneration byte-for-byte", () => {
+test("five committed legacy artifacts remain frozen while active generation uses a new review identity", () => {
   const first = generateM5bFedExGateBSyntheticArtifacts(FIXTURE.toString("utf8"));
   const second = generateM5bFedExGateBSyntheticArtifacts(FIXTURE.toString("utf8"));
   const generated = [first.sourcePackJson, first.candidateJson, first.reviewPacketJson,
@@ -821,13 +821,26 @@ test("all five committed synthetic artifacts equal regeneration byte-for-byte", 
     "fixtures/validation/m5b-fedex-gate-b-synthetic-execution-receipt.json",
   ];
   const committed = paths.map((path) => readFileSync(join(REPOSITORY_ROOT, path), "utf8"));
-  assert.deepEqual(generated, committed);
+  assert.equal(generated[0], committed[0]);
+  assert.notEqual(generated[1], committed[1]);
+  assert.notEqual(generated[2], committed[2]);
+  assert.notEqual(generated[3], committed[3]);
+  assert.notEqual(generated[4], committed[4]);
+  assert.deepEqual(committed.map((bytes) => sha256(Buffer.from(bytes, "utf8"))), [
+    "0bbc9ec8083cfacd4b1d3ee22ef48dd96f6dc66d4df9bbab74d80a30e717656b",
+    "d3206f2801d742b5be2beaa2b59a4679ec0635b8a34fbff65a8bba7d089a549b",
+    "eac5f6b831acc565d7eea741cc9cc8a48be54bf8373be4de5247492ac74406ad",
+    "fdba41a27b99699cf7884a3a32868f044ae80d465875ff572444047b29450d0c",
+    "179919073b0f0ef0a4b60ad517ca91d5e0848e017c374a01c0823473925b5698",
+  ]);
   for (let index = 0; index < committed.length; index++) {
     const altered = [...committed];
     altered[index] = `${altered[index]}hostile-byte`;
     assert.notDeepEqual(generated, altered, paths[index]);
   }
   assert.equal(first.sourcePack.trustStatus, M5B_FEDEX_TRUST_STATUS);
+  assert.equal(first.candidate.schemaVersion, "3");
+  assert.equal(first.reviewPacket.schemaVersion, "3");
   assert.equal(first.candidate.boundaries.verifiedObjects, 0);
   assert.equal(first.reviewPacket.ratificationState, "unratified-draft");
   assert.equal(first.reviewPacket.satisfiesFutureArming, false);

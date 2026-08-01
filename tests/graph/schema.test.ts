@@ -56,6 +56,25 @@ describe("parseGraphBundle — strict unknown-field rejection", () => {
     assert.ok(f!.message.includes("secret_provenance_override"));
   });
 
+  it("rejects legacy content_hash and mixed legacy/canonical source shapes", () => {
+    const legacy = JSON.parse(JSON.stringify(makeValidBundle()));
+    const source = legacy.sources[0];
+    source.content_hash = source.stored_content_sha256;
+    delete source.origin_content_sha256;
+    delete source.stored_content_sha256;
+    delete source.transformation_manifest_sha256;
+    const legacyReport = validateGraphBundleRaw(legacy, { mode: "fixture" });
+    assert.equal(legacyReport.ok, false);
+    assert.ok(legacyReport.hard_failures.some((failure) =>
+      failure.code === "unknown_field" && failure.message.includes("content_hash")));
+
+    const mixed = JSON.parse(JSON.stringify(makeValidBundle()));
+    mixed.sources[0].content_hash = mixed.sources[0].stored_content_sha256;
+    const mixedReport = validateGraphBundleRaw(mixed, { mode: "fixture" });
+    assert.equal(mixedReport.ok, false);
+    assert.ok(mixedReport.hard_failures.some((failure) => failure.code === "unknown_field"));
+  });
+
   it("rejects an unknown field on EvidenceExcerpt", () => {
     const raw = JSON.parse(JSON.stringify(makeValidBundle()));
     raw.excerpts[0].verified_by_model_alone = true;

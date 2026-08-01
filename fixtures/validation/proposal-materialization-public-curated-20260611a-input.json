@@ -18,7 +18,9 @@
       "source_type": "press_release",
       "fetched_at": "2026-06-01T09:00:00Z",
       "accessed_at": "2026-06-01T09:00:00Z",
-      "content_hash": "sha256:fixture-public-curated",
+      "origin_content_sha256": "36ab96d45d4a0a94408f31c51e1fdeb91bd91485138c35252249047006a03a9c",
+      "stored_content_sha256": "36ab96d45d4a0a94408f31c51e1fdeb91bd91485138c35252249047006a03a9c",
+      "transformation_manifest_sha256": null,
       "raw_text": "Acme Robotics opened a European distribution hub in May 2026. The hub supports same-week delivery for enterprise warehouse customers and is staffed by an existing regional operations team.",
       "reliability": "high",
       "status": "active"

@@ -8,6 +8,8 @@
 // alongside hard failures so downstream gates can report pass/borderline
 // /fail bands later without changing this surface.
 
+import { createHash } from "node:crypto";
+
 import {
   ID_PREFIXES,
   idHasPrefix,
@@ -124,6 +126,12 @@ function isNonBlank(value: unknown): value is string {
   return typeof value === "string" && /[^\p{White_Space}\uFEFF]/u.test(value);
 }
 
+const CANONICAL_SHA256 = /^[a-f0-9]{64}$/;
+
+function sha256ExactUtf8(value: string): string {
+  return createHash("sha256").update(Buffer.from(value, "utf8")).digest("hex");
+}
+
 function checkIdShape(
   failures: HardFailure[],
   id: string,
@@ -233,6 +241,62 @@ export function validateGraphBundle(
 
   for (const s of bundle.sources) {
     checkIdShape(failures, s.id, "source_document", "source");
+    for (const field of [
+      "origin_content_sha256",
+      "stored_content_sha256",
+    ] as const) {
+      if (!CANONICAL_SHA256.test(s[field])) {
+        fail(
+          failures,
+          "invalid_source_integrity_digest",
+          `source ${s.id}.${field} must be a bare lowercase 64-hex SHA-256 digest`,
+          { record_kind: "source_document", record_id: s.id, field },
+        );
+      }
+    }
+    if (
+      s.transformation_manifest_sha256 !== null &&
+      !CANONICAL_SHA256.test(s.transformation_manifest_sha256)
+    ) {
+      fail(
+        failures,
+        "invalid_source_integrity_digest",
+        `source ${s.id}.transformation_manifest_sha256 must be null or a bare lowercase 64-hex SHA-256 digest`,
+        {
+          record_kind: "source_document",
+          record_id: s.id,
+          field: "transformation_manifest_sha256",
+        },
+      );
+    }
+    const recomputedStoredSha256 = sha256ExactUtf8(s.raw_text);
+    if (s.stored_content_sha256 !== recomputedStoredSha256) {
+      fail(
+        failures,
+        "stored_content_sha256_mismatch",
+        `source ${s.id}.stored_content_sha256 does not match the exact UTF-8 bytes of raw_text`,
+        {
+          record_kind: "source_document",
+          record_id: s.id,
+          field: "stored_content_sha256",
+        },
+      );
+    }
+    if (
+      s.origin_content_sha256 !== s.stored_content_sha256 &&
+      s.transformation_manifest_sha256 === null
+    ) {
+      fail(
+        failures,
+        "transformation_manifest_sha256_required",
+        `source ${s.id} requires a transformation manifest identity when origin and stored content differ`,
+        {
+          record_kind: "source_document",
+          record_id: s.id,
+          field: "transformation_manifest_sha256",
+        },
+      );
+    }
   }
   for (const e of bundle.excerpts) {
     checkIdShape(failures, e.id, "evidence_excerpt", "excerpt");

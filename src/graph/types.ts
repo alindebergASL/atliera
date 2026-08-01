@@ -51,7 +51,12 @@ export interface SourceDocument {
   source_type: string;
   fetched_at: ISOTimestamp;
   accessed_at: ISOTimestamp;
-  content_hash: string;
+  /** SHA-256 identity of the acquired/origin bytes; not locally recomputed. */
+  origin_content_sha256: string;
+  /** SHA-256 of the exact UTF-8 bytes obtained from `raw_text`. */
+  stored_content_sha256: string;
+  /** Identity of the external transformation manifest, when bytes changed. */
+  transformation_manifest_sha256: string | null;
   raw_text: string;
   reliability: "high" | "medium" | "low" | "unknown";
   status: "active" | "stale" | "unavailable" | "rejected";

@@ -86,7 +86,7 @@ function ratificationFor(
   });
   const content: M5bRepositoryNativeRatificationContent = {
     kind: M5B_REPOSITORY_NATIVE_RATIFICATION_KIND,
-    schemaVersion: "1",
+    schemaVersion: "2",
     prepareResultSha256: prepare.resultSha256,
     sourceSha256: prepare.sourceIdentity.sha256,
     sourceSize: prepare.sourceIdentity.size,
@@ -323,6 +323,37 @@ describe("M5b repository-native product completion", () => {
         (error) => assertRefusalCode(error, "output_parent_missing"),
       );
       await assert.rejects(() => stat(graphStoreRoot), /ENOENT/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("does not let a legacy schema-v1 ratification authorize the canonical source-integrity candidate", async () => {
+    const root = scenarioRoot();
+    try {
+      const { preparedDir, result: prepare } = await preparedScenario(root);
+      const canonical = ratificationFor(prepare);
+      const { ratificationArtifactSha256: _canonicalHash, ...canonicalContent } = canonical;
+      const legacyContent = { ...canonicalContent, schemaVersion: "1" };
+      const legacy = {
+        ...legacyContent,
+        ratificationArtifactSha256:
+          verifyM5bRepositoryNativeRatificationArtifactHash(legacyContent as never),
+      };
+      const path = join(root, "ratification", "legacy-v1.json");
+      const bytes = Buffer.from(`${JSON.stringify(legacy, null, 2)}\n`, "utf8");
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, bytes, { flag: "wx", mode: 0o600 });
+
+      await assert.rejects(
+        () => applyM5bRepositoryNative(applyOptions(
+          preparedDir,
+          { path, rawSha256: hash(bytes) },
+          join(root, "graph-store"),
+          join(root, "output"),
+        )),
+        (error) => assertRefusalCode(error, "ratification_binding"),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -797,8 +797,8 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     const expected = new Map([
       ["src/capability/m4-sec-extraction.ts", "47ce47151bc43cc89d9147e555e0467312002d9b359ae82b077e6332dfa6e3d2"],
       ["src/capability/m4-target-policy.ts", "446499764aa1592cd526a3be0d3ed1c6898a0a61b35d4b29e8bd5c3d017c0e7a"],
-      ["src/workshop/m5a-curated-proposal-flow-contract.ts", "af92b138a702d9bf762ee8c470863af7e580bc30d0b9a5f0c0a22f329eed3db5"],
-      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "59c12b6a8e17f82953a5c8db78527c65ce5b57bd4228e0c1d2407b93a0a63bd7"],
+      ["src/workshop/m5a-curated-proposal-flow-contract.ts", "2a64b4fd7aea231cacee09b61a1e775f414988a3a6c05770d4ea49354c558356"],
+      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "24a49ef85a47a0ae80095319d1fe06651699dba5a8dbefc1fbf17cba974020e5"],
     ]);
     for (const [relative, digest] of expected) {
       assert.equal(hashBytes(readFileSync(join(ROOT, relative))), digest, relative);

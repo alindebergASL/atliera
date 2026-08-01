@@ -213,5 +213,12 @@ test("the fixed generator has only the committed input and three committed outpu
   assert.match(script, /fixtures\/validation\/m5b-fedex-system-acquired-review-packet\.json/);
   assert.match(script, /fixtures\/workshop\/m5b-fedex-system-acquired-prewrite-review\.html/);
   assert.doesNotMatch(script, /process\.argv|fetch\(|https?:|provider|dbRootDir|private|durable/);
-  assert.equal((script.match(/writeFile\(/g) ?? []).length, 3);
+  const artifactSetCall = script.match(/writeExclusiveArtifactSet\(\[([\s\S]*?)\]\)/);
+  assert.ok(artifactSetCall);
+  assert.equal((script.match(/writeExclusiveArtifactSet\(/g) ?? []).length, 1);
+  assert.deepEqual(
+    [...artifactSetCall[1]!.matchAll(/\{\s*path:\s*(\w+),\s*data:/g)].map((match) => match[1]),
+    ["sourcePackPath", "reviewPacketPath", "htmlPath"],
+  );
+  assert.equal((script.match(/writeFile\(/g) ?? []).length, 0);
 });

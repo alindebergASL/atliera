@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { describe, test } from "node:test";
 
@@ -161,6 +162,34 @@ describe("ValidatedCandidate", () => {
       ));
       return true;
     });
+  });
+
+  test("rejects both distinct lone-surrogate collision inputs at the validated-candidate boundary", () => {
+    const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
+    assert.equal(digest("\ud800"), digest("\ud801"));
+
+    const collisionBundles = ["\ud800", "\ud801"].map((suffix) => {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.raw_text += suffix;
+      bundle.sources[0]!.origin_content_sha256 = digest(bundle.sources[0]!.raw_text);
+      bundle.sources[0]!.stored_content_sha256 = digest(bundle.sources[0]!.raw_text);
+      return bundle;
+    });
+    assert.notEqual(collisionBundles[0]!.sources[0]!.raw_text, collisionBundles[1]!.sources[0]!.raw_text);
+    assert.equal(
+      collisionBundles[0]!.sources[0]!.stored_content_sha256,
+      collisionBundles[1]!.sources[0]!.stored_content_sha256,
+    );
+
+    for (const bundle of collisionBundles) {
+      assert.throws(() => createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT), (error) => {
+        assert.ok(error instanceof WorkshopGraphValidationError);
+        assert.ok(error.report.hard_failures.some(
+          (failure) => failure.code === "invalid_source_raw_text_unicode",
+        ));
+        return true;
+      });
+    }
   });
 
   test("rejects hostile accessors and Proxies before executing their traps", () => {

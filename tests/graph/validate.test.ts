@@ -103,6 +103,33 @@ describe("validateGraphBundle — baseline", () => {
 });
 
 describe("validateGraphBundle — source stored-content integrity", () => {
+  it("rejects lone UTF-16 surrogates while accepting valid supplementary-plane pairs", () => {
+    const highA = "\ud800";
+    const highB = "\ud801";
+    assert.notEqual(highA, highB);
+    assert.equal(sha256Utf8(highA), sha256Utf8(highB), "Node replaces both lone surrogates in UTF-8");
+
+    for (const rawText of [highA, highB, "\udc00"]) {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.raw_text += rawText;
+      bundle.sources[0]!.origin_content_sha256 = sha256Utf8(bundle.sources[0]!.raw_text);
+      bundle.sources[0]!.stored_content_sha256 = sha256Utf8(bundle.sources[0]!.raw_text);
+      const report = run(bundle);
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_source_raw_text_unicode"));
+      assert.ok(report.hard_failures.some((failure) =>
+        failure.code === "invalid_source_raw_text_unicode" &&
+        failure.message === `source ${bundle.sources[0]!.id}.raw_text must contain only Unicode scalar values; unpaired UTF-16 surrogates are forbidden`,
+      ));
+    }
+
+    const emoji = clone(makeValidBundle());
+    emoji.sources[0]!.raw_text += " 😀";
+    emoji.sources[0]!.origin_content_sha256 = sha256Utf8(emoji.sources[0]!.raw_text);
+    emoji.sources[0]!.stored_content_sha256 = sha256Utf8(emoji.sources[0]!.raw_text);
+    assert.equal(run(emoji).ok, true);
+  });
+
   it("rejects a false stored-content digest", () => {
     const bundle = clone(makeValidBundle());
     bundle.sources[0]!.stored_content_sha256 = "0".repeat(64);

@@ -132,6 +132,20 @@ function sha256ExactUtf8(value: string): string {
   return createHash("sha256").update(Buffer.from(value, "utf8")).digest("hex");
 }
 
+function hasUnpairedUtf16Surrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (index + 1 >= value.length || next < 0xdc00 || next > 0xdfff) return true;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function checkIdShape(
   failures: HardFailure[],
   id: string,
@@ -269,18 +283,31 @@ export function validateGraphBundle(
         },
       );
     }
-    const recomputedStoredSha256 = sha256ExactUtf8(s.raw_text);
-    if (s.stored_content_sha256 !== recomputedStoredSha256) {
+    if (hasUnpairedUtf16Surrogate(s.raw_text)) {
       fail(
         failures,
-        "stored_content_sha256_mismatch",
-        `source ${s.id}.stored_content_sha256 does not match the exact UTF-8 bytes of raw_text`,
+        "invalid_source_raw_text_unicode",
+        `source ${s.id}.raw_text must contain only Unicode scalar values; unpaired UTF-16 surrogates are forbidden`,
         {
           record_kind: "source_document",
           record_id: s.id,
-          field: "stored_content_sha256",
+          field: "raw_text",
         },
       );
+    } else {
+      const recomputedStoredSha256 = sha256ExactUtf8(s.raw_text);
+      if (s.stored_content_sha256 !== recomputedStoredSha256) {
+        fail(
+          failures,
+          "stored_content_sha256_mismatch",
+          `source ${s.id}.stored_content_sha256 does not match the exact UTF-8 bytes of raw_text`,
+          {
+            record_kind: "source_document",
+            record_id: s.id,
+            field: "stored_content_sha256",
+          },
+        );
+      }
     }
     if (
       s.origin_content_sha256 !== s.stored_content_sha256 &&

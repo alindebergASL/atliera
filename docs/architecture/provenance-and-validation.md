@@ -55,22 +55,25 @@ already identifies the algorithm:
 - `transformation_manifest_sha256` may be null when origin and stored
   identities are equal, and is required when they differ.
 
-Shared validation recomputes only `stored_content_sha256`, using the exact
-UTF-8 encoding of `raw_text` without Unicode, whitespace, newline, or other
-normalization. Accepted excerpt spans are then checked against that same
-stored string. The origin and transformation-manifest fields preserve
+Accepted `raw_text` must be a Unicode scalar-value sequence: lone UTF-16 high
+or low surrogates are rejected before hashing, while valid supplementary-plane
+pairs are preserved. Shared validation recomputes only
+`stored_content_sha256`, using the exact UTF-8 encoding of that accepted string
+without Unicode, whitespace, newline, or other normalization. It never
+normalizes or calls `toWellFormed`. Accepted excerpt spans are then checked
+against that same stored string. The origin and transformation-manifest fields preserve
 distinct identities for custody and review binding; their bytes are not
 claimed as locally verified when the origin object or external manifest is
 not present at this boundary.
 
 The canonical exact-key parser does not accept the former `content_hash`
 field. `LocalFileVersionedGraphStore` alone has a historical schema-v2 read
-adapter: it first verifies the original v2 envelope digest, then accepts a
-bare or `sha256:` legacy hash only when it equals the recomputed exact stored
-text digest. That harmless direct-text case becomes origin=stored with a null
-manifest. False or transformed/ambiguous legacy rows require migration and
-new review. Canonical store writes use envelope schema v3 and never emit the
-legacy field.
+adapter: it first verifies the original v2 envelope digest. Any v2 row carrying
+one or more sources then requires migration review, because even a
+self-consistent `content_hash` cannot prove whether it identifies origin bytes
+or transformed stored bytes. Otherwise-valid source-free v2 rows may continue
+through the isolated adapter. Canonical store writes use envelope schema v3
+and never emit the legacy field.
 
 The active M5b projection derives acquired, projected-text, and transformation
 manifest identities deterministically from its verified source pack and
@@ -91,6 +94,7 @@ Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 
 
 - schema parse failure
 - invalid source-integrity digest syntax
+- source `raw_text` containing an unpaired UTF-16 surrogate
 - stored source digest mismatch against exact UTF-8 `raw_text` bytes
 - distinct origin/stored identities without a transformation-manifest identity
 - invented SourceDocument IDs

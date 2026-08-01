@@ -271,28 +271,17 @@ describe("LocalFileVersionedGraphStore", () => {
     });
   });
 
-  test("adapts a schema-v2 direct-text source only after verifying the original envelope digest", async () => {
+  test("requires migration review for every schema-v2 row with sources after verifying envelope integrity", async () => {
     await withTempDir(async (root) => {
       const graphId = "teams/team_1/graphs/legacy_direct_text";
       const envelope = legacyV2Envelope(graphId);
       await writeEnvelope(root, graphId, envelope);
 
-      const loaded = await new LocalFileVersionedGraphStore(root).load(graphId);
-
-      assert.equal(loaded?.bundle.sources[0]?.origin_content_sha256,
-        loaded?.bundle.sources[0]?.stored_content_sha256);
-      assert.equal(loaded?.bundle.sources[0]?.transformation_manifest_sha256, null);
-      assert.equal(Object.hasOwn(loaded!.bundle.sources[0]!, "content_hash"), false);
-
-      const prefixedGraphId = "teams/team_1/graphs/legacy_prefixed_direct_text";
-      const directHash = makeValidBundle().sources[0]!.stored_content_sha256;
-      await writeEnvelope(
-        root,
-        prefixedGraphId,
-        legacyV2Envelope(prefixedGraphId, `sha256:${directHash}`),
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(root).load(graphId),
+        (error) => error instanceof LegacySourceMigrationReviewRequiredError &&
+          error.code === "legacy_source_migration_review_required",
       );
-      const prefixed = await new LocalFileVersionedGraphStore(root).load(prefixedGraphId);
-      assert.equal(prefixed?.bundle.sources[0]?.stored_content_sha256, directHash);
 
       (envelope as Record<string, unknown>).integritySha256 = "0".repeat(64);
       await writeEnvelope(root, graphId, envelope);
@@ -313,6 +302,58 @@ describe("LocalFileVersionedGraphStore", () => {
         (error) => !(error instanceof LegacySourceMigrationReviewRequiredError) &&
           /integrity digest mismatch/.test(String(error)),
       );
+    });
+  });
+
+  test("requires review for a self-consistent transformed schema-v2 source", async () => {
+    await withTempDir(async (root) => {
+      const graphId = "teams/team_1/graphs/legacy_transformed_self_consistent";
+      const envelope = legacyV2Envelope(graphId);
+      const bundle = envelope.bundle as Record<string, unknown>;
+      const source = (bundle.sources as Array<Record<string, unknown>>)[0]!;
+      source.raw_text = `${source.raw_text as string} transformed suffix outside excerpt spans`;
+      source.content_hash = createHash("sha256").update(source.raw_text as string, "utf8").digest("hex");
+      const content = {
+        kind: envelope.kind,
+        schemaVersion: envelope.schemaVersion,
+        graphId: envelope.graphId,
+        revision: envelope.revision,
+        bundle: envelope.bundle,
+      };
+      envelope.integritySha256 = createHash("sha256").update(canonicalJson(content), "utf8").digest("hex");
+      await writeEnvelope(root, graphId, envelope);
+
+      await assert.rejects(
+        () => new LocalFileVersionedGraphStore(root).load(graphId),
+        (error) => error instanceof LegacySourceMigrationReviewRequiredError &&
+          error.code === "legacy_source_migration_review_required",
+      );
+    });
+  });
+
+  test("continues to adapt an otherwise valid source-free schema-v2 row", async () => {
+    await withTempDir(async (root) => {
+      const graphId = "teams/team_1/graphs/legacy_source_free";
+      const envelope = legacyV2Envelope(graphId);
+      const bundle = envelope.bundle as Record<string, unknown>;
+      for (const key of [
+        "sources", "excerpts", "claims", "claim_evidence", "account_objects",
+        "account_object_claims", "research_runs", "run_artifacts", "audit_events",
+      ]) {
+        bundle[key] = [];
+      }
+      const content = {
+        kind: envelope.kind,
+        schemaVersion: envelope.schemaVersion,
+        graphId: envelope.graphId,
+        revision: envelope.revision,
+        bundle: envelope.bundle,
+      };
+      envelope.integritySha256 = createHash("sha256").update(canonicalJson(content), "utf8").digest("hex");
+      await writeEnvelope(root, graphId, envelope);
+
+      const loaded = await new LocalFileVersionedGraphStore(root).load(graphId);
+      assert.deepEqual(loaded?.bundle.sources, []);
     });
   });
 

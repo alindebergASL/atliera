@@ -25,6 +25,7 @@ export type HardFailureCode =
   | "bundle_team_mismatch"
   | "subject_scope_mismatch"
   | "invalid_source_integrity_digest"
+  | "invalid_source_raw_text_unicode"
   | "stored_content_sha256_mismatch"
   | "transformation_manifest_sha256_required"
   | "excerpt_text_not_found_in_source"

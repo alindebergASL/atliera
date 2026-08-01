@@ -4,7 +4,7 @@ Status: active
 
 This runbook records the implemented, tightly bounded M5a Step 4 curated-flow capstone. It is an implementation record for one committed proposal input, not standing execution authority and not a generic M5a approval framework. It authorizes no repeat or successor slice and makes no production, deployment, launch, shipping, or readiness claim.
 
-The executor consumes one valid Step-3 arming over its matching Step-2 packet and Step-1 contract. Steps 1–3 bind structural identity, counts, and chronology; their current canonical IDs do **not** contain a proposal-content digest, and Step 4 does not pretend otherwise. Step 4 independently binds this capstone to the exact committed input with the exported SHA-256 pin `M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256`, calculated over deterministic key-sorted canonical JSON of the already own-data-snapshotted materialization input. Any different digest refuses before preflight, lock acquisition, or durable effects.
+The executor consumes one valid Step-3 arming over its matching Step-2 packet and Step-1 contract. Step-1 schema v2 carries the SHA-256 identity of the recursively safe, canonically encoded materialization input, and its canonical contract ID includes that digest. The existing packet, arming, and one-shot identities therefore rotate transitively with any materialization-byte change. Step 4 requires both the contract digest and the supplied snapshotted-input digest to equal the exported `M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256` pin before accepting authorization. Any stale, unbound, or differently bound chain refuses before preflight, lock acquisition, or durable effects.
 
 ## Implemented path
 

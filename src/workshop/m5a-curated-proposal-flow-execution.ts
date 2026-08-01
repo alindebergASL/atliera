@@ -38,6 +38,7 @@ import {
   requireCanonicalIsoTimestamp,
   snapshotPlainArray,
   snapshotPlainOwnData,
+  sha256M5aMaterializationInputSnapshot,
   verifyM5aCuratedProposalFlowContract,
   type M5aCuratedProposalFlowContractArtifact,
   type M5aFlowSuccessCriterion,
@@ -72,7 +73,8 @@ export const M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SCHEMA_VERSION =
   "atliera.m5a_curated_proposal_flow_execution_outcome.v1" as const;
 
 // Fixture-bound authority for this intentionally single-fixture capstone.
-// Steps 1-3 IDs do not contain this digest and are not represented as doing so.
+// Step 1 carries this digest and binds it into the contract ID; Steps 2 and 3
+// inherit it transitively through their contract/packet identity chain.
 export const M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256 =
   "1a7b919a7502ed0ae977caab0fdf3955e200c4325dfe7b50e47635622204e22a" as const;
 
@@ -102,7 +104,6 @@ export type M5aCuratedProposalFlowExecutionRefusalCode =
   | "input_string_budget_exceeded"
   | "authorization_invalid"
   | "authorization_expired"
-  | "recorded_proposal_digest_mismatch"
   | "materialization_refused"
   | "proposal_set_invalid"
   | "durable_db_invalid"
@@ -256,7 +257,6 @@ function refused(
     input_string_budget_exceeded: "execution input exceeds the cumulative UTF-8 string-byte budget",
     authorization_invalid: "contract, packet, and arming authorization did not verify",
     authorization_expired: "one-shot authorization is not live at execution time",
-    recorded_proposal_digest_mismatch: "materialization input does not match the committed capstone fixture digest",
     materialization_refused: "recorded curated proposal materialization was refused",
     proposal_set_invalid: "materialized proposal set failed identity, count, or graph validation",
     durable_db_invalid: "target does not satisfy the inspected Atliera local durable DB contract",
@@ -305,10 +305,6 @@ function canonicalJson(value: unknown): string {
       .join(",")}}`;
   }
   throw new ExecutionBoundaryRefusal("canonical JSON input contains a non-JSON value");
-}
-
-function sha256M5aMaterializationInputSnapshot(snapshot: unknown): string {
-  return createHash("sha256").update(canonicalJson(snapshot), "utf8").digest("hex");
 }
 
 export function canonicalM5aCuratedProposalFlowDurableRecordId(
@@ -484,6 +480,7 @@ function assertExecutionPins(
   contract: M5aCuratedProposalFlowContractArtifact,
   packet: M5aCuratedProposalFlowApprovalPacketArtifact,
   arming: M5aCuratedProposalFlowOperatorArmingArtifact,
+  suppliedMaterializationInputSha256: string,
 ): void {
   if (
     packet.references_contract_artifact_id !== contract.contract_artifact_id ||
@@ -493,6 +490,9 @@ function assertExecutionPins(
     arming.proposal_set_id !== contract.proposal_set_id ||
     packet.account_id !== contract.account_id ||
     arming.account_id !== contract.account_id ||
+    contract.materialization_input_sha256 !==
+      M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256 ||
+    suppliedMaterializationInputSha256 !== contract.materialization_input_sha256 ||
     contract.account_id !==
       M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT.account_id
   ) {
@@ -869,6 +869,9 @@ export async function executeM5aCuratedProposalFlow(
   let contract: M5aCuratedProposalFlowContractArtifact;
   let packet: M5aCuratedProposalFlowApprovalPacketArtifact;
   let arming: M5aCuratedProposalFlowOperatorArmingArtifact;
+  const materializationInputSha256 = sha256M5aMaterializationInputSnapshot(
+    root.materializationInput,
+  );
   try {
     contract = root.contract as M5aCuratedProposalFlowContractArtifact;
     verifyM5aCuratedProposalFlowContract(contract);
@@ -876,7 +879,7 @@ export async function executeM5aCuratedProposalFlow(
     verifyM5aCuratedProposalFlowApprovalPacket(packet, contract);
     arming = root.arming as M5aCuratedProposalFlowOperatorArmingArtifact;
     verifyM5aCuratedProposalFlowOperatorArming(arming, packet, contract);
-    assertExecutionPins(contract, packet, arming);
+    assertExecutionPins(contract, packet, arming, materializationInputSha256);
   } catch (error) {
     if (
       error instanceof M5aContractBuilderRefusal ||
@@ -911,10 +914,6 @@ export async function executeM5aCuratedProposalFlow(
     assertMaterializationInputShape(root.materializationInput);
   } catch {
     return refused("materialization_refused", now);
-  }
-  const materializationInputSha256 = sha256M5aMaterializationInputSnapshot(root.materializationInput);
-  if (materializationInputSha256 !== M5A_CURATED_PROPOSAL_FLOW_MATERIALIZATION_INPUT_SHA256) {
-    return refused("recorded_proposal_digest_mismatch", now);
   }
   try {
     materialized = materializeProposalForValidation(

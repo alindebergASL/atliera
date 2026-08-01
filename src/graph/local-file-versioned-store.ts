@@ -30,21 +30,15 @@ interface StoredVersionedGraphSnapshot extends StoredVersionedGraphSnapshotConte
 }
 
 const HASH = /^[a-f0-9]{64}$/;
-const LEGACY_HASH = /^(?:sha256:)?([a-fA-F0-9]{64})$/;
 const REVISION = /^rev_([1-9][0-9]*)$/;
 
 const ENVELOPE_KEYS = ["bundle", "graphId", "integritySha256", "kind", "revision", "schemaVersion"] as const;
-const LEGACY_SOURCE_KEYS = [
-  "id", "team_id", "account_id", "url", "canonical_url", "title", "publisher",
-  "source_type", "fetched_at", "accessed_at", "content_hash", "raw_text", "reliability", "status",
-] as const;
-
 export class LegacySourceMigrationReviewRequiredError extends Error {
   readonly code = "legacy_source_migration_review_required" as const;
 
   constructor(graphId: string, sourceId: string) {
     super(
-      `Local graph ${graphId} legacy source ${sourceId} requires migration/review: content_hash does not prove exact direct stored text`,
+      `Local graph ${graphId} legacy source ${sourceId} requires migration/review: schema-v2 source metadata cannot prove whether content_hash identifies origin bytes or transformed stored bytes`,
     );
     this.name = "LegacySourceMigrationReviewRequiredError";
   }
@@ -111,10 +105,6 @@ function hasExactKeys(record: Record<string, unknown>, expected: readonly string
   return keys.length === wanted.length && keys.every((key, index) => key === wanted[index]);
 }
 
-function sha256ExactUtf8(value: string): string {
-  return createHash("sha256").update(Buffer.from(value, "utf8")).digest("hex");
-}
-
 /**
  * Historical schema-v2 compatibility only. The caller must verify the v2
  * envelope digest before invoking this adapter. Canonical parsing never sees
@@ -129,36 +119,15 @@ function adaptVerifiedLegacySchemaV2GraphBundle(
   }
   const bundle = rawBundle as Record<string, unknown>;
   if (!Array.isArray(bundle.sources)) throw new GraphStoreValidationError(graphId);
-  const sources = bundle.sources.map((value, index) => {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) {
-      throw new GraphStoreValidationError(graphId);
-    }
-    const source = value as Record<string, unknown>;
-    if (!hasExactKeys(source, LEGACY_SOURCE_KEYS)) {
-      throw new GraphStoreValidationError(graphId);
-    }
-    const sourceId = typeof source.id === "string" ? source.id : `sources[${index}]`;
-    if (typeof source.raw_text !== "string" || typeof source.content_hash !== "string") {
-      throw new LegacySourceMigrationReviewRequiredError(graphId, sourceId);
-    }
-    const legacy = LEGACY_HASH.exec(source.content_hash);
-    const stored = sha256ExactUtf8(source.raw_text);
-    if (!legacy || legacy[1]!.toLowerCase() !== stored) {
-      throw new LegacySourceMigrationReviewRequiredError(graphId, sourceId);
-    }
-    const {
-      content_hash: _legacyContentHash,
-      ...sourceWithoutLegacyHash
-    } = source;
-    return {
-      ...sourceWithoutLegacyHash,
-      origin_content_sha256: stored,
-      stored_content_sha256: stored,
-      transformation_manifest_sha256: null,
-    };
-  });
-  const adapted = { ...bundle, sources };
-  const parsed = parseGraphBundle(adapted);
+  if (bundle.sources.length > 0) {
+    const first = bundle.sources[0];
+    const sourceId = first !== null && typeof first === "object" && !Array.isArray(first) &&
+      typeof (first as Record<string, unknown>).id === "string"
+      ? (first as Record<string, unknown>).id as string
+      : "sources[0]";
+    throw new LegacySourceMigrationReviewRequiredError(graphId, sourceId);
+  }
+  const parsed = parseGraphBundle(bundle);
   if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
     throw new GraphStoreValidationError(graphId);
   }

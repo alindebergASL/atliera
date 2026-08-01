@@ -1,14 +1,8 @@
-import { lstat, open, unlink, type FileHandle } from "node:fs/promises";
+import { lstat, open, type FileHandle } from "node:fs/promises";
 
 export interface ExclusiveArtifact {
   readonly path: string;
   readonly data: string | Uint8Array;
-}
-
-export interface CreatedRegularFileIdentity {
-  readonly path: string;
-  readonly dev: bigint;
-  readonly ino: bigint;
 }
 
 const MAX_ARTIFACTS_PER_SET = 32;
@@ -38,33 +32,6 @@ async function closeBestEffort(handles: readonly FileHandle[]): Promise<void> {
   }));
 }
 
-export async function unlinkCreatedRegularFileIfIdentityMatchesBestEffort(
-  identity: CreatedRegularFileIdentity,
-): Promise<void> {
-  try {
-    const stats = await lstat(identity.path, { bigint: true });
-    if (!stats.isFile() || stats.isSymbolicLink() ||
-        stats.dev !== identity.dev || stats.ino !== identity.ino) {
-      return;
-    }
-    await unlink(identity.path);
-  } catch {
-    // Cleanup must preserve both the primary refusal and any substituted path.
-  }
-}
-
-async function unlinkCreatedFilesBestEffort(
-  identities: readonly CreatedRegularFileIdentity[],
-): Promise<void> {
-  await Promise.all(identities.map(async (identity) => {
-    try {
-      await unlinkCreatedRegularFileIfIdentityMatchesBestEffort(identity);
-    } catch {
-      // Preserve the primary refusal.
-    }
-  }));
-}
-
 /**
  * Creates one bounded generated-artifact set only when every destination is
  * absent. The full-set preflight prevents predictable partial output, while
@@ -86,7 +53,6 @@ export async function writeExclusiveArtifactSet(
   await Promise.all(paths.map(assertDestinationAbsent));
 
   const handles: FileHandle[] = [];
-  const createdFiles: CreatedRegularFileIdentity[] = [];
   try {
     for (const path of paths) {
       const handle = await open(path, "wx");
@@ -95,7 +61,6 @@ export async function writeExclusiveArtifactSet(
       if (!stats.isFile()) {
         throw new Error(`exclusive artifact destination is not a regular file: ${path}`);
       }
-      createdFiles.push({ path, dev: stats.dev, ino: stats.ino });
     }
     for (let index = 0; index < artifacts.length; index += 1) {
       await handles[index]!.writeFile(artifacts[index]!.data, { encoding: "utf8" });
@@ -104,7 +69,8 @@ export async function writeExclusiveArtifactSet(
     for (const handle of handles) await handle.close();
   } catch (error) {
     await closeBestEffort(handles);
-    await unlinkCreatedFilesBestEffort(createdFiles);
+    // Retain remnants: Node pathname deletion cannot atomically bind dev+ino,
+    // so any cleanup unlink would have a substitution race.
     if ((error as NodeJS.ErrnoException).code === "EEXIST") {
       throw new Error("exclusive artifact destination already exists", { cause: error });
     }

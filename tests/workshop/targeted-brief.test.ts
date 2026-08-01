@@ -698,6 +698,30 @@ describe("Workshop targeted brief V1", () => {
     );
   });
 
+  test("labels verified free-form claim prose as reviewed and source-backed", async () => {
+    const bundle = await loadGraphBundleFile(THREE_LANE);
+    const loaded = await loadCommittedTargetedBriefFixture(THREE_LANE);
+    const selection = evaluateTargetedBriefSelection(
+      bundle,
+      narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+    );
+
+    assert.equal(selection.assertions[0]!.provenance_status, "verified");
+    assert.equal(
+      selection.assertions[0]!.trust_label,
+      "Reviewed · source-backed",
+    );
+    assert.match(
+      renderTargetedBriefHtml(
+        buildTargetedBrief(
+          loaded,
+          narrowedCisoRequest("obj_acme_signal_launch", "clm_acme_launch"),
+        ),
+      ),
+      />Reviewed · source-backed</,
+    );
+  });
+
   test("renders accepted supporting and contradicting evidence as a contested assertion", async () => {
     const bundle = cloneBundle(await loadGraphBundleFile(THREE_LANE));
     addLaunchContradiction(bundle);

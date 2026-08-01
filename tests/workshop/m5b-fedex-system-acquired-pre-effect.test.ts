@@ -779,7 +779,7 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
       ["src/capability/m4-sec-extraction.ts", "47ce47151bc43cc89d9147e555e0467312002d9b359ae82b077e6332dfa6e3d2"],
       ["src/capability/m4-target-policy.ts", "446499764aa1592cd526a3be0d3ed1c6898a0a61b35d4b29e8bd5c3d017c0e7a"],
       ["src/workshop/m5a-curated-proposal-flow-contract.ts", "af92b138a702d9bf762ee8c470863af7e580bc30d0b9a5f0c0a22f329eed3db5"],
-      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "f033b2b0ed427a66c3a39284ddd374e191edbcb3dd8c1834303354ae64c50159"],
+      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "f984e703ce8cf4780352a7ae87f0f8d7acac36e626ee567188859683754daa6a"],
     ]);
     for (const [relative, digest] of expected) {
       assert.equal(hashBytes(readFileSync(join(ROOT, relative))), digest, relative);
@@ -794,7 +794,7 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
     );
     assert.match(
       executionSource,
-      /buildWorkshopViewModel\(\s*bundle,\s*M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT/s,
+      /buildWorkshopViewModel\(\s*createValidatedCandidate\(\s*bundle,\s*M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT/s,
     );
   });
 });

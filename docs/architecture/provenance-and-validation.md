@@ -33,6 +33,22 @@ Atliera should not rely on “LLM with citations” as the trust model. The targ
 - RunArtifact
 - AuditEvent
 
+## Serializable validation-to-render boundary
+
+Generic Workshop projection accepts only the versioned `ValidatedCandidate`
+envelope: an authoritative `SubjectScope` plus a recursively frozen,
+plain-JSON `GraphBundle` snapshot. Candidate construction snapshots own data
+before strict parsing and semantic validation; hydration repeats those checks
+after JSON serialization, and Workshop hydrates again at use time. A raw or
+mutable `GraphBundle` is therefore not render authority. This boundary does
+not claim durable revision, source-integrity, or store-read semantics.
+
+Customer-visible free-form prose whose underlying provenance remains
+`verified` is labeled exactly `Reviewed · source-backed`. The label describes
+the evidence review honestly without presenting the prose itself as an
+independently verified fact; conservative, contested, unsupported, stale, and
+pending-review states retain their existing labels and behavior.
+
 ## Hard invariants
 
 Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 safety properties and should be tested with adversarial fixtures before real provider mode is enabled:

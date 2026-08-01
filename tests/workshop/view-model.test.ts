@@ -10,6 +10,10 @@ import {
   buildWorkshopViewModel,
   WorkshopGraphValidationError,
 } from "../../src/workshop/view-model.ts";
+import {
+  createValidatedCandidate,
+  ValidatedCandidateBoundaryError,
+} from "../../src/graph/validated-candidate.ts";
 import { validateGraphBundle } from "../../src/graph/validate.ts";
 import type { GraphBundle } from "../../src/graph/types.ts";
 
@@ -30,7 +34,9 @@ function makeEmptyBundle(): GraphBundle {
 }
 
 function build(bundle: GraphBundle) {
-  return buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
+  return buildWorkshopViewModel(
+    createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+  );
 }
 
 describe("buildWorkshopViewModel", () => {
@@ -39,7 +45,7 @@ describe("buildWorkshopViewModel", () => {
 
     assert.equal(vm.product_name, "Atliera");
     assert.equal(vm.surface, "Workshop");
-    assert.equal(vm.generated_from, "graph_bundle");
+    assert.equal(vm.generated_from, "validated_candidate");
     assert.equal(vm.empty_state, false);
     assert.equal(vm.lenses.signals.length, 1);
     assert.equal(vm.lenses.maps.length, 0);
@@ -56,7 +62,7 @@ describe("buildWorkshopViewModel", () => {
     assert.equal(item.evidence_packets[0]?.claim.text, "Acme Robotics launched a logistics platform on March 1, 2026.");
     assert.equal(item.evidence_packets[0]?.excerpt.text, "Acme Robotics announced a new logistics platform on March 1, 2026.");
     assert.equal(item.evidence_packets[0]?.source.title, "Acme Robotics launches logistics platform");
-    assert.equal(item.trust.label, "Verified");
+    assert.equal(item.trust.label, "Reviewed · source-backed");
   });
 
   test("routes account-object kinds into Signals, Maps, and Plays without separate data paths", () => {
@@ -214,8 +220,37 @@ describe("buildWorkshopViewModel", () => {
       ),
     );
     assert.throws(
-      () => buildWorkshopViewModel(bundle, EXPECTED_ORIGINAL),
+      () => createValidatedCandidate(bundle, EXPECTED_ORIGINAL),
       WorkshopGraphValidationError,
+    );
+  });
+
+  test("refuses a raw GraphBundle at runtime", () => {
+    assert.throws(
+      () => buildWorkshopViewModel(makeValidBundle() as never),
+      ValidatedCandidateBoundaryError,
+    );
+  });
+
+  test("renders only the candidate snapshot and survives JSON round trip", () => {
+    const subject: { team_id: string; account_id: string } = {
+      ...VALID_GRAPH_SUBJECT,
+    };
+    const bundle = clone(makeValidBundle());
+    bundle.account_objects[0]!.payload_json.nested = { value: "original" };
+    const candidate = createValidatedCandidate(bundle, subject);
+    const expected = buildWorkshopViewModel(candidate);
+
+    subject.account_id = "acc_mutated";
+    bundle.account_objects[0]!.title = "Mutated hostile title";
+    bundle.account_objects[0]!.summary = "Mutated hostile summary";
+    (bundle.account_objects[0]!.payload_json.nested as { value: string }).value =
+      "mutated";
+
+    assert.deepEqual(buildWorkshopViewModel(candidate), expected);
+    assert.deepEqual(
+      buildWorkshopViewModel(JSON.parse(JSON.stringify(candidate))),
+      expected,
     );
   });
 
@@ -247,7 +282,7 @@ describe("buildWorkshopViewModel", () => {
         assert.equal(items.length, 0);
         assert.equal(
           items.some((item) =>
-            item.trust.label === "Verified" ||
+            item.trust.label === "Reviewed · source-backed" ||
             item.trust.label === "Source-backed"
           ),
           false,
@@ -323,7 +358,7 @@ describe("buildWorkshopViewModel", () => {
         assert.equal(items.length, 0);
         assert.equal(
           items.some((item) =>
-            item.trust.label === "Verified" ||
+            item.trust.label === "Reviewed · source-backed" ||
             item.trust.label === "Source-backed"
           ),
           false,

@@ -12,6 +12,7 @@
 // `readiness` field is hard-coded to `false`.
 
 import { loadGraphBundleFile } from "../graph/file-store.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import type { ProvenanceStatus } from "../graph/types.ts";
 import { buildWorkshopViewModel } from "./view-model.ts";
 import { deriveFixtureOnlySingleSubjectAfterValidation } from "./fixture-subject.ts";
@@ -95,7 +96,7 @@ export async function buildWorkshopFixtureSmokeReport(
   for (const path of fixturePaths) {
     const bundle = await loadGraphBundleFile(path);
     const subject = deriveFixtureOnlySingleSubjectAfterValidation(bundle);
-    const vm = buildWorkshopViewModel(bundle, subject);
+    const vm = buildWorkshopViewModel(createValidatedCandidate(bundle, subject));
     const lensRichness = summarizeLensRichness(vm);
     const usefulRichness = summarizeUsefulLensRichness(vm);
 

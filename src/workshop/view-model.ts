@@ -2,14 +2,16 @@ import type {
   AccountObject,
   Claim,
   EvidenceExcerpt,
-  GraphBundle,
   ProvenanceStatus,
   SourceDocument,
 } from "../graph/types.ts";
 import { createSupportEvaluator } from "../graph/support.ts";
-import type { ValidationReport } from "../graph/report.ts";
-import type { SubjectScope } from "../graph/subject.ts";
-import { validateGraphBundle } from "../graph/validate.ts";
+import {
+  hydrateValidatedCandidate,
+  type ValidatedCandidate,
+} from "../graph/validated-candidate.ts";
+
+export { WorkshopGraphValidationError } from "../graph/validated-candidate.ts";
 
 export type WorkshopLens = "signals" | "maps" | "plays";
 
@@ -31,7 +33,12 @@ export interface WorkshopTrustSummary {
   provenance_status: ProvenanceStatus;
   confidence: AccountObject["confidence"];
   evidence: WorkshopEvidenceSummary;
-  label: "Verified" | "Source-backed" | "Unverified" | "Unsupported" | "Stale";
+  label:
+    | "Reviewed · source-backed"
+    | "Source-backed"
+    | "Unverified"
+    | "Unsupported"
+    | "Stale";
 }
 
 export interface WorkshopEvidencePacket {
@@ -65,7 +72,7 @@ export interface WorkshopViewModel {
   product_name: "Atliera";
   surface: "Workshop";
   account_id: string;
-  generated_from: "graph_bundle";
+  generated_from: "validated_candidate";
   lenses: Record<WorkshopLens, WorkshopLensItemViewModel[]>;
   totals: {
     sources: number;
@@ -76,18 +83,6 @@ export interface WorkshopViewModel {
     verified_objects: number;
   };
   empty_state: boolean;
-}
-
-export class WorkshopGraphValidationError extends Error {
-  readonly report: ValidationReport;
-
-  constructor(report: ValidationReport) {
-    super(
-      `Workshop graph validation failed with ${report.hard_failures.length} hard failure${report.hard_failures.length === 1 ? "" : "s"}`,
-    );
-    this.name = "WorkshopGraphValidationError";
-    this.report = report;
-  }
 }
 
 const LENS_BY_OBJECT_TYPE: Record<AccountObject["object_type"], WorkshopLens> = {
@@ -104,7 +99,7 @@ const LENS_BY_OBJECT_TYPE: Record<AccountObject["object_type"], WorkshopLens> = 
 function trustLabel(status: ProvenanceStatus): WorkshopTrustSummary["label"] {
   switch (status) {
     case "verified":
-      return "Verified";
+      return "Reviewed · source-backed";
     case "source_document_only":
       return "Source-backed";
     case "unverified":
@@ -128,17 +123,13 @@ function requiresCurrentSupport(object: AccountObject): boolean {
 }
 
 export function buildWorkshopViewModel(
-  bundle: GraphBundle,
-  subject: SubjectScope,
+  input: ValidatedCandidate,
 ): WorkshopViewModel {
-  // Projection is a pure validation boundary independent of caller runtime mode.
-  const validation = validateGraphBundle(bundle, {
-    mode: "validation",
-    subject,
-  });
-  if (!validation.ok) {
-    throw new WorkshopGraphValidationError(validation);
-  }
+  // Rehydrate at use time so projection authority is serializable and never
+  // depends on caller identity or an earlier validate-then-mutate reference.
+  const candidate = hydrateValidatedCandidate(input);
+  const bundle = candidate.graph_bundle;
+  const subject = candidate.subject;
 
   const support = createSupportEvaluator(bundle);
   const excerptById = new Map(bundle.excerpts.map((excerpt) => [excerpt.id, excerpt]));
@@ -284,7 +275,7 @@ export function buildWorkshopViewModel(
     product_name: "Atliera",
     surface: "Workshop",
     account_id: subject.account_id,
-    generated_from: "graph_bundle",
+    generated_from: "validated_candidate",
     lenses,
     totals: {
       sources: bundle.sources.length,

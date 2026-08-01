@@ -21,6 +21,7 @@ import { parseGraphBundle } from "../graph/schema.ts";
 import type { SubjectScope } from "../graph/subject.ts";
 import type { AuditEvent, GraphBundle, RunArtifact } from "../graph/types.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import {
   materializeProposalForValidation,
   type MaterializeProposalForValidationInput,
@@ -740,8 +741,10 @@ export function evaluateM5aCuratedProposalWorkshopBundle(
   let view: WorkshopViewModel;
   try {
     view = buildWorkshopViewModel(
-      bundle,
-      M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT,
+      createValidatedCandidate(
+        bundle,
+        M5A_CURATED_PROPOSAL_FLOW_EXECUTION_SUBJECT,
+      ),
     );
   } catch {
     return Object.freeze({

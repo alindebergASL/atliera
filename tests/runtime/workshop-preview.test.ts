@@ -70,7 +70,7 @@ describe("runtime Workshop preview", () => {
     const viewModel = report.viewModel;
     assert.equal(viewModel.product_name, "Atliera");
     assert.equal(viewModel.surface, "Workshop");
-    assert.equal(viewModel.generated_from, "graph_bundle");
+    assert.equal(viewModel.generated_from, "validated_candidate");
     assert.equal(viewModel.totals.account_objects, 1);
     assert.equal(report.graphSnapshotRead, true);
     assert.equal(report.serverStarted, false);

@@ -7,6 +7,7 @@ import { LocalFileVersionedGraphStore } from "../graph/local-file-versioned-stor
 import type { GraphBundle } from "../graph/types.ts";
 import { parseGraphBundle } from "../graph/schema.ts";
 import { validateGraphBundle } from "../graph/validate.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
 import { buildWorkshopViewModel } from "./view-model.ts";
 import { renderWorkshopHtml } from "./render-html.ts";
 import {
@@ -730,8 +731,10 @@ export async function applyM5bRepositoryNative(
   const workshopBytes = Buffer.from(
     renderWorkshopHtml(
       buildWorkshopViewModel(
-        existing?.bundle ?? bundle,
-        M5B_FEDEX_WORKSHOP_SUBJECT,
+        createValidatedCandidate(
+          existing?.bundle ?? bundle,
+          M5B_FEDEX_WORKSHOP_SUBJECT,
+        ),
       ),
       { previewMode },
     ),
@@ -810,8 +813,10 @@ export async function applyM5bRepositoryNative(
       const readBackWorkshopBytes = Buffer.from(
         renderWorkshopHtml(
           buildWorkshopViewModel(
-            readBack.bundle,
-            M5B_FEDEX_WORKSHOP_SUBJECT,
+            createValidatedCandidate(
+              readBack.bundle,
+              M5B_FEDEX_WORKSHOP_SUBJECT,
+            ),
           ),
           { previewMode },
         ),

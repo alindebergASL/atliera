@@ -3,6 +3,7 @@ import * as assert from "node:assert/strict";
 
 import type { GraphBundle } from "../../src/graph/types.ts";
 import type { SubjectScope } from "../../src/graph/subject.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
@@ -87,7 +88,9 @@ function makeSparseEdgeBundle(): GraphBundle {
 describe("Workshop HTML edge-case rendering", () => {
   it("renders sparse and low-trust graph objects with explicit bounded preview context", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeSparseEdgeBundle(), EDGE_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeSparseEdgeBundle(), EDGE_SUBJECT),
+      ),
     );
 
     assert.match(html, /Fake-mode preview/i);
@@ -106,7 +109,9 @@ describe("Workshop HTML edge-case rendering", () => {
 
   it("escapes edge text and omits unsafe source links without hiding source context", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeSparseEdgeBundle(), EDGE_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeSparseEdgeBundle(), EDGE_SUBJECT),
+      ),
     );
 
     assert.doesNotMatch(html, /<script>alert\('x'\)<\/script>/);

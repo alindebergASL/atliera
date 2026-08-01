@@ -7,12 +7,15 @@ import {
   VALID_GRAPH_SUBJECT,
 } from "../fixtures/valid-graph.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 
 describe("renderWorkshopHtml", () => {
   test("renders Atliera Workshop with Signals, Maps, Plays, and provenance language", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.match(html, /<title>Atliera Workshop<\/title>/);
@@ -21,7 +24,8 @@ describe("renderWorkshopHtml", () => {
     assert.match(html, /Maps/);
     assert.match(html, /Plays/);
     assert.match(html, /New logistics platform launch/);
-    assert.match(html, /Verified/);
+    assert.match(html, /Reviewed · source-backed/);
+    assert.doesNotMatch(html, />Verified</);
     assert.match(html, /1 accepted excerpt/);
     assert.match(html, /Evidence packet/);
     assert.match(html, /Claim/);
@@ -38,7 +42,9 @@ describe("renderWorkshopHtml", () => {
     bundle.sources[0]!.url = "javascript:alert(1)";
 
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.doesNotMatch(html, /href="javascript:alert\(1\)"/);
@@ -51,7 +57,7 @@ describe("renderWorkshopHtml", () => {
       product_name: "Atliera",
       surface: "Workshop",
       account_id: VALID_GRAPH_SUBJECT.account_id,
-      generated_from: "graph_bundle",
+      generated_from: "validated_candidate",
       lenses: { signals: [], maps: [], plays: [] },
       totals: { sources: 0, excerpts: 0, accepted_excerpts: 0, claims: 0, account_objects: 0, verified_objects: 0 },
       empty_state: true,
@@ -67,7 +73,9 @@ describe("renderWorkshopHtml", () => {
     const bundle = makeValidBundle();
     bundle.account_objects[0]!.title = "<script>alert('x')</script>";
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.doesNotMatch(html, /<script>alert/);
@@ -78,7 +86,9 @@ describe("renderWorkshopHtml", () => {
     const bundle = clone(makeValidBundle());
     bundle.account_objects[0]!.provenance_status = "unsupported";
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.match(html, /Unsupported/);
@@ -87,7 +97,9 @@ describe("renderWorkshopHtml", () => {
 
   test("defaults to a fake-mode preview boundary label (backward compatible)", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
     );
 
     assert.match(html, /Fake-mode preview/);
@@ -98,7 +110,9 @@ describe("renderWorkshopHtml", () => {
 
   test("renders a non-production validation preview label when requested", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
       {
         previewMode: "validation",
       },
@@ -113,7 +127,9 @@ describe("renderWorkshopHtml", () => {
 
   test("treats an explicit fake preview mode the same as the default", () => {
     const html = renderWorkshopHtml(
-      buildWorkshopViewModel(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      buildWorkshopViewModel(
+        createValidatedCandidate(makeValidBundle(), VALID_GRAPH_SUBJECT),
+      ),
       {
         previewMode: "fake",
       },

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { loadGraphBundleFile } from "../../src/graph/file-store.ts";
+import { createValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import { buildWorkshopViewModel } from "../../src/workshop/view-model.ts";
 import { renderWorkshopHtml } from "../../src/workshop/render-html.ts";
 import { VALID_GRAPH_SUBJECT } from "../fixtures/valid-graph.ts";
@@ -9,7 +10,9 @@ import { VALID_GRAPH_SUBJECT } from "../fixtures/valid-graph.ts";
 describe("Workshop three-lane fixture", () => {
   test("renders realistic Signals, Maps, and Plays lanes from one GraphBundle fixture", async () => {
     const bundle = await loadGraphBundleFile("fixtures/graph/valid/workshop-three-lane.json");
-    const vm = buildWorkshopViewModel(bundle, VALID_GRAPH_SUBJECT);
+    const vm = buildWorkshopViewModel(
+      createValidatedCandidate(bundle, VALID_GRAPH_SUBJECT),
+    );
 
     assert.equal(vm.account_id, "acc_acme_robotics");
     assert.equal(vm.totals.sources, 3);
@@ -29,7 +32,7 @@ describe("Workshop three-lane fixture", () => {
     for (const lens of ["signals", "maps", "plays"] as const) {
       const item = vm.lenses[lens][0];
       assert.ok(item, `${lens} item missing`);
-      assert.equal(item.trust.label, "Verified");
+      assert.equal(item.trust.label, "Reviewed · source-backed");
       assert.equal(item.trust.evidence.accepted_excerpt_count, 1);
       assert.equal(item.trust.evidence.source_document_count, 1);
     }

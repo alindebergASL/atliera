@@ -65,7 +65,7 @@ Committed generator input and command:
 - `fixtures/validation/m5b-fedex-system-acquired-demo-source.json`
 - `npm run workshop:m5b-fedex-prewrite`
 
-The generator reads only that fixed committed input and writes only the source pack, review packet, and HTML paths above. It imports no network, provider, private-read, or durable-write module.
+The generator reads only that fixed committed input and targets only the source pack, review packet, and HTML paths above. The full destination set is preflighted before any output is created, and every final create uses exclusive `wx` semantics; an occupied frozen destination refuses without overwriting it or creating missing siblings. It imports no network, provider, private-read, or durable-write module.
 
 ## Optional model and future effect seams
 

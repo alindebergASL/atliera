@@ -14,7 +14,7 @@ Atliera is evidence-first account intelligence.
 Atliera should not rely on “LLM with citations” as the trust model. The target is an auditable evidence graph:
 
 1. The system fetches/canonicalizes source documents.
-2. The system stores source text, metadata, and content hashes.
+2. The system stores source text, metadata, and distinct origin/stored/transformation identities.
 3. The model may propose excerpts and claims using bounded source context.
 4. The system validates excerpt text/spans against stored source content.
 5. The system validates all claim/evidence/object references.
@@ -41,7 +41,46 @@ plain-JSON `GraphBundle` snapshot. Candidate construction snapshots own data
 before strict parsing and semantic validation; hydration repeats those checks
 after JSON serialization, and Workshop hydrates again at use time. A raw or
 mutable `GraphBundle` is therefore not render authority. This boundary does
-not claim durable revision, source-integrity, or store-read semantics.
+not claim durable revision or store-read semantics. It does re-run the shared
+source-integrity invariants before the graph may render.
+
+## Source identity and stored-content integrity
+
+Canonical `SourceDocument` records carry exactly three SHA-256 identity
+fields. Digests are bare lowercase 64-hex values because each field name
+already identifies the algorithm:
+
+- `origin_content_sha256` identifies the acquired/origin bytes.
+- `stored_content_sha256` identifies the exact UTF-8 bytes of `raw_text`.
+- `transformation_manifest_sha256` may be null when origin and stored
+  identities are equal, and is required when they differ.
+
+Accepted `raw_text` must be a Unicode scalar-value sequence: lone UTF-16 high
+or low surrogates are rejected before hashing, while valid supplementary-plane
+pairs are preserved. Shared validation recomputes only
+`stored_content_sha256`, using the exact UTF-8 encoding of that accepted string
+without Unicode, whitespace, newline, or other normalization. It never
+normalizes or calls `toWellFormed`. Accepted excerpt spans are then checked
+against that same stored string. The origin and transformation-manifest fields preserve
+distinct identities for custody and review binding; their bytes are not
+claimed as locally verified when the origin object or external manifest is
+not present at this boundary.
+
+The canonical exact-key parser does not accept the former `content_hash`
+field. `LocalFileVersionedGraphStore` alone has a historical schema-v2 read
+adapter: it first verifies the original v2 envelope digest. Any v2 row carrying
+one or more sources then requires migration review, because even a
+self-consistent `content_hash` cannot prove whether it identifies origin bytes
+or transformed stored bytes. Otherwise-valid source-free v2 rows may continue
+through the isolated adapter. Canonical store writes use envelope schema v3
+and never emit the legacy field.
+
+The active M5b projection derives acquired, projected-text, and transformation
+manifest identities deterministically from its verified source pack and
+projected `raw_text`. Its candidate/review envelopes and repository-native
+approval chain use new schema versions, producing new candidate and review
+identities. Historical schema-v2 candidate/review artifacts remain read-only
+records and cannot authorize canonical projection or commit.
 
 Customer-visible free-form prose whose underlying provenance remains
 `verified` is labeled exactly `Reviewed · source-backed`. The label describes
@@ -54,6 +93,10 @@ pending-review states retain their existing labels and behavior.
 Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 safety properties and should be tested with adversarial fixtures before real provider mode is enabled:
 
 - schema parse failure
+- invalid source-integrity digest syntax
+- source `raw_text` containing an unpaired UTF-16 surrogate
+- stored source digest mismatch against exact UTF-8 `raw_text` bytes
+- distinct origin/stored identities without a transformation-manifest identity
 - invented SourceDocument IDs
 - invented EvidenceExcerpt IDs
 - invented Claim, ClaimEvidence, AccountObject, or edge IDs

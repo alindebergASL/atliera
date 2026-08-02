@@ -18,7 +18,9 @@
       "source_type": "press_release",
       "fetched_at": "2026-07-09T10:00:00Z",
       "accessed_at": "2026-07-09T10:00:00Z",
-      "content_hash": "sha256:m5a-capstone-northstar-network",
+      "origin_content_sha256": "ecbc73ecb088853e203aa095947fcc6272350e6888734f8e5e017fb83979391c",
+      "stored_content_sha256": "ecbc73ecb088853e203aa095947fcc6272350e6888734f8e5e017fb83979391c",
+      "transformation_manifest_sha256": null,
       "raw_text": "Northstar Logistics opened two regional fulfillment centers in June 2026. The centers add temperature-controlled capacity for healthcare shipments. Northstar also named Maya Chen vice president of network operations.",
       "reliability": "high",
       "status": "active"
@@ -34,7 +36,9 @@
       "source_type": "company_update",
       "fetched_at": "2026-07-09T11:00:00Z",
       "accessed_at": "2026-07-09T11:00:00Z",
-      "content_hash": "sha256:m5a-capstone-northstar-program",
+      "origin_content_sha256": "5176ba3c4713870b26ce02c13e79ad82189616f1039ceaa5088aec00d1a06302",
+      "stored_content_sha256": "5176ba3c4713870b26ce02c13e79ad82189616f1039ceaa5088aec00d1a06302",
+      "transformation_manifest_sha256": null,
       "raw_text": "Northstar will offer healthcare shippers a quarterly lane planning session beginning in August 2026. The session will review capacity forecasts and exception trends with customer operations teams.",
       "reliability": "high",
       "status": "active"

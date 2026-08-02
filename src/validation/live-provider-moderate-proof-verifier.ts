@@ -356,6 +356,7 @@ export function convertLiveProviderProofToGraphBundleCandidate(
   const byAccount = new Map(proof.accounts.map((account) => [account.account_ref, proof.excerpts.filter((excerpt) => excerpt.account_ref === account.account_ref)]));
   const sources = proof.accounts.map((account) => {
     const text = (byAccount.get(account.account_ref) ?? []).map((excerpt) => excerpt.text).join("\n");
+    const textSha256 = createHash("sha256").update(Buffer.from(text, "utf8")).digest("hex");
     return {
       id: sourceId(account.account_ref),
       team_id: options.teamId,
@@ -367,7 +368,9 @@ export function convertLiveProviderProofToGraphBundleCandidate(
       source_type: "synthetic_live_provider_proof",
       fetched_at: options.observedAt,
       accessed_at: options.observedAt,
-      content_hash: createHash("sha256").update(text).digest("hex"),
+      origin_content_sha256: textSha256,
+      stored_content_sha256: textSha256,
+      transformation_manifest_sha256: null,
       raw_text: text,
       reliability: "medium" as const,
       status: "active" as const,

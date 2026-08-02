@@ -139,7 +139,9 @@ function addLaunchContradiction(
     source_type: "press_release",
     fetched_at: "2026-03-05T12:00:00Z",
     accessed_at: "2026-03-05T12:00:00Z",
-    content_hash: "sha256:hostile-contradiction-fixture",
+    origin_content_sha256: createHash("sha256").update(Buffer.from(contraryText, "utf8")).digest("hex"),
+    stored_content_sha256: createHash("sha256").update(Buffer.from(contraryText, "utf8")).digest("hex"),
+    transformation_manifest_sha256: null,
     raw_text: contraryText,
     reliability: "high",
     status,
@@ -1562,7 +1564,7 @@ describe("Workshop targeted brief V1", () => {
     const missingHtml = renderTargetedBriefHtml(missingMapping);
     assert.equal(
       createHash("sha256").update(missingHtml).digest("hex"),
-      "200fc6fe56fdacee567d3eff02b2e5703926ad39737f05c7c51fedc7fa5d0aa5",
+      "2ce7286102a10595d3fe74f98b31a0b29f6942fda762896790fb143fafa7df9c",
       "zero-mapping RFx HTML must remain byte-identical",
     );
     assert.deepEqual(missingMapping.preparation_gaps, [
@@ -1659,7 +1661,7 @@ describe("Workshop targeted brief V1", () => {
     for (const html of [existingSelectionHtml, nonexistentSelectionHtml]) {
       assert.equal(
         createHash("sha256").update(html).digest("hex"),
-        "200fc6fe56fdacee567d3eff02b2e5703926ad39737f05c7c51fedc7fa5d0aa5",
+        "2ce7286102a10595d3fe74f98b31a0b29f6942fda762896790fb143fafa7df9c",
       );
     }
     assert.equal(JSON.stringify(nonexistentSelectionBrief).includes(nonexistentId), false);

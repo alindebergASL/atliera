@@ -13,7 +13,7 @@ import type {
   GraphBundle,
   LensOutput,
 } from "../../src/graph/types.ts";
-import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
+import { clone, makeValidBundle, sha256Utf8 } from "../fixtures/valid-graph.ts";
 
 function run(
   bundle: GraphBundle,
@@ -99,6 +99,90 @@ describe("validateGraphBundle — baseline", () => {
     assert.equal(report.metrics.accepted_excerpts, 1);
     assert.equal(report.metrics.verified_claims, 1);
     assert.equal(report.metrics.verified_account_objects, 1);
+  });
+});
+
+describe("validateGraphBundle — source stored-content integrity", () => {
+  it("rejects lone UTF-16 surrogates while accepting valid supplementary-plane pairs", () => {
+    const highA = "\ud800";
+    const highB = "\ud801";
+    assert.notEqual(highA, highB);
+    assert.equal(sha256Utf8(highA), sha256Utf8(highB), "Node replaces both lone surrogates in UTF-8");
+
+    for (const rawText of [highA, highB, "\udc00"]) {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.raw_text += rawText;
+      bundle.sources[0]!.origin_content_sha256 = sha256Utf8(bundle.sources[0]!.raw_text);
+      bundle.sources[0]!.stored_content_sha256 = sha256Utf8(bundle.sources[0]!.raw_text);
+      const report = run(bundle);
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_source_raw_text_unicode"));
+      assert.ok(report.hard_failures.some((failure) =>
+        failure.code === "invalid_source_raw_text_unicode" &&
+        failure.message === `source ${bundle.sources[0]!.id}.raw_text must contain only Unicode scalar values; unpaired UTF-16 surrogates are forbidden`,
+      ));
+    }
+
+    const emoji = clone(makeValidBundle());
+    emoji.sources[0]!.raw_text += " 😀";
+    emoji.sources[0]!.origin_content_sha256 = sha256Utf8(emoji.sources[0]!.raw_text);
+    emoji.sources[0]!.stored_content_sha256 = sha256Utf8(emoji.sources[0]!.raw_text);
+    assert.equal(run(emoji).ok, true);
+  });
+
+  it("rejects a false stored-content digest", () => {
+    const bundle = clone(makeValidBundle());
+    bundle.sources[0]!.stored_content_sha256 = "0".repeat(64);
+
+    const report = run(bundle);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("stored_content_sha256_mismatch"));
+  });
+
+  it("rejects post-hoc raw_text mutation even when excerpt offsets are shifted to remain valid", () => {
+    const bundle = clone(makeValidBundle());
+    const prefix = "Attacker-controlled prefix. ";
+    bundle.sources[0]!.raw_text = prefix + bundle.sources[0]!.raw_text;
+    bundle.excerpts[0]!.char_start += prefix.length;
+    bundle.excerpts[0]!.char_end += prefix.length;
+
+    const report = run(bundle);
+
+    assert.equal(report.ok, false);
+    assert.ok(codes(report).includes("stored_content_sha256_mismatch"));
+  });
+
+  it("hashes exact UTF-8 bytes without Unicode normalization", () => {
+    const bundle = makeEmptyBundle();
+    bundle.sources = clone(makeValidBundle().sources);
+    const decomposed = "Cafe\u0301 — 東京";
+    bundle.sources[0]!.raw_text = decomposed;
+    bundle.sources[0]!.origin_content_sha256 = sha256Utf8(decomposed);
+    bundle.sources[0]!.stored_content_sha256 = sha256Utf8(decomposed);
+
+    assert.notEqual(sha256Utf8(decomposed), sha256Utf8(decomposed.normalize("NFC")));
+    assert.equal(run(bundle).ok, true);
+  });
+
+  it("rejects non-canonical digest syntax", () => {
+    for (const digest of ["invalid", `sha256:${"a".repeat(64)}`, "A".repeat(64)]) {
+      const bundle = clone(makeValidBundle());
+      bundle.sources[0]!.origin_content_sha256 = digest;
+      const report = run(bundle);
+      assert.equal(report.ok, false);
+      assert.ok(codes(report).includes("invalid_source_integrity_digest"));
+    }
+  });
+
+  it("requires a manifest identity for transformed content and represents distinct identities when supplied", () => {
+    const missingManifest = clone(makeValidBundle());
+    missingManifest.sources[0]!.origin_content_sha256 = "a".repeat(64);
+    assert.ok(codes(run(missingManifest)).includes("transformation_manifest_sha256_required"));
+
+    const represented = clone(missingManifest);
+    represented.sources[0]!.transformation_manifest_sha256 = "b".repeat(64);
+    assert.equal(run(represented).ok, true);
   });
 });
 

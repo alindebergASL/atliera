@@ -297,7 +297,7 @@ describe("M5a Step 4 curated-flow capstone", () => {
       const identity = await executeM5aCuratedProposalFlow({ ...options, materializationInput: identityDrift });
       assert.equal(identity.outcome, "refused");
       if (identity.outcome === "refused") {
-        assert.equal(identity.refusal_code, "recorded_proposal_digest_mismatch");
+        assert.equal(identity.refusal_code, "authorization_invalid");
       }
 
       const countDrift = clone(options.materializationInput as InputFixture);
@@ -307,7 +307,7 @@ describe("M5a Step 4 curated-flow capstone", () => {
       const count = await executeM5aCuratedProposalFlow({ ...options, materializationInput: countDrift });
       assert.equal(count.outcome, "refused");
       if (count.outcome === "refused") {
-        assert.equal(count.refusal_code, "recorded_proposal_digest_mismatch");
+        assert.equal(count.refusal_code, "authorization_invalid");
       }
 
       const broadened = clone(options.arming as M5aCuratedProposalFlowOperatorArmingArtifact);
@@ -332,10 +332,39 @@ describe("M5a Step 4 curated-flow capstone", () => {
       const result = await executeM5aCuratedProposalFlow({ ...options, materializationInput: drift });
       assert.equal(result.outcome, "refused");
       if (result.outcome === "refused") {
-        assert.equal(result.refusal_code, "recorded_proposal_digest_mismatch");
+        assert.equal(result.refusal_code, "authorization_invalid");
         assert.equal(result.durable_writes_performed, false);
       }
       assert.equal(await readFile(db.graphPath, "utf8"), "");
+    } finally {
+      await db.cleanup();
+    }
+  });
+
+  test("a valid chain bound to different materialization bytes refuses as authorization before effects", async () => {
+    const db = await setup();
+    try {
+      const changed = await fixture();
+      const source = (changed.public_sources as Array<Record<string, unknown>>)[0]!;
+      source.title = `${source.title as string} (changed bytes)`;
+      const changedAuthorization = await authorization(changed);
+      const before = await readFile(db.graphPath, "utf8");
+
+      const outcome = await executeM5aCuratedProposalFlow({
+        contract: changedAuthorization.contract,
+        approvalPacket: changedAuthorization.packet,
+        arming: changedAuthorization.arming,
+        materializationInput: changed,
+        dbRootDir: db.dbRootDir,
+        now: EXECUTED_AT,
+      });
+
+      assert.equal(outcome.outcome, "refused");
+      if (outcome.outcome === "refused") {
+        assert.equal(outcome.refusal_code, "authorization_invalid");
+        assert.equal(outcome.durable_writes_performed, false);
+      }
+      assert.equal(await readFile(db.graphPath, "utf8"), before);
     } finally {
       await db.cleanup();
     }
@@ -423,7 +452,7 @@ describe("M5a Step 4 curated-flow capstone", () => {
       });
       assert.equal(acceptedByBudget.outcome, "refused");
       if (acceptedByBudget.outcome === "refused") {
-        assert.equal(acceptedByBudget.refusal_code, "recorded_proposal_digest_mismatch");
+        assert.equal(acceptedByBudget.refusal_code, "authorization_invalid");
       }
 
       const overBoundary = clone(atBoundary);
@@ -454,7 +483,7 @@ describe("M5a Step 4 curated-flow capstone", () => {
       });
       assert.equal(acceptedByBudget.outcome, "refused");
       if (acceptedByBudget.outcome === "refused") {
-        assert.equal(acceptedByBudget.refusal_code, "recorded_proposal_digest_mismatch");
+        assert.equal(acceptedByBudget.refusal_code, "authorization_invalid");
       }
 
       const overBoundary = clone(atBoundary);

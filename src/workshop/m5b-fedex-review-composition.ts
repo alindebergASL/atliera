@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { parseGraphBundle } from "../graph/schema.ts";
 import type { SubjectScope } from "../graph/subject.ts";
 import type { GraphBundle } from "../graph/types.ts";
@@ -57,9 +59,13 @@ function string(value: unknown, label: string): string {
   return value;
 }
 
+function sha256ExactUtf8(value: string): string {
+  return createHash("sha256").update(Buffer.from(value, "utf8")).digest("hex");
+}
+
 export interface M5bFedExPrewriteCandidate {
   readonly kind: "m5b-fedex-prewrite-graph-candidate";
-  readonly schemaVersion: "2";
+  readonly schemaVersion: "3";
   readonly fixtureClassification: M5bFedExSanitizedSourcePack["fixtureClassification"];
   readonly origin: M5bFedExSanitizedSourcePack["origin"];
   readonly reviewState: typeof M5B_FEDEX_REVIEW_STATE;
@@ -186,7 +192,16 @@ export function buildM5bFedExPrewriteCandidate(packInput: unknown): Readonly<M5b
       canonical_url: pack.source.url, title: "SEC submissions — FEDEX CORP",
       publisher: "U.S. Securities and Exchange Commission", source_type: pack.source.sourceType,
       fetched_at: pack.source.acquiredAt, accessed_at: pack.source.acquiredAt,
-      content_hash: `sha256:${pack.source.sourceSha256}`, raw_text: rawText, reliability: "unknown", status: "active" }],
+      origin_content_sha256: pack.source.sourceSha256,
+      stored_content_sha256: sha256ExactUtf8(rawText),
+      transformation_manifest_sha256: sha256M5bFedExCanonical({
+        kind: "m5b-fedex-source-projection-transformation-manifest",
+        schemaVersion: "1",
+        sourcePackSha256: pack.sourcePackSha256,
+        transformations: pack.transformations,
+        projectedRawTextSha256: sha256ExactUtf8(rawText),
+      }),
+      raw_text: rawText, reliability: "unknown", status: "active" }],
     excerpts, claims, claim_evidence: claimEvidence, account_objects: accountObjects,
     account_object_claims: accountObjectClaims, research_runs: [], run_artifacts: [], audit_events: [],
   };
@@ -203,7 +218,7 @@ export function buildM5bFedExPrewriteCandidate(packInput: unknown): Readonly<M5b
       bundle.account_objects.some((object) => object.provenance_status === "verified" || object.created_by !== "system") ||
       bundle.excerpts.some((excerpt) => excerpt.validation_status !== "proposed")) refuse("candidate_scope");
   const candidateContentSha256 = sha256M5bFedExCanonical(bundle);
-  return Object.freeze({ kind: "m5b-fedex-prewrite-graph-candidate", schemaVersion: "2",
+  return Object.freeze({ kind: "m5b-fedex-prewrite-graph-candidate", schemaVersion: "3",
     fixtureClassification: pack.fixtureClassification, origin: pack.origin, reviewState: M5B_FEDEX_REVIEW_STATE,
     sourcePackSha256: pack.sourcePackSha256, bundle, candidateContentSha256, boundaries: candidateBoundaries() });
 }
@@ -216,7 +231,7 @@ export function verifyM5bFedExPrewriteCandidate(candidateInput: unknown,
   }
   const candidate = record(snapshotM5bFedExOwnData(candidateInput, "reviewCandidate"),
     "reviewCandidate") as unknown as M5bFedExPrewriteCandidate;
-  if (candidate.kind !== "m5b-fedex-prewrite-graph-candidate" || candidate.schemaVersion !== "2" ||
+  if (candidate.kind !== "m5b-fedex-prewrite-graph-candidate" || candidate.schemaVersion !== "3" ||
       candidate.origin !== pack.origin || candidate.fixtureClassification !== pack.fixtureClassification ||
       candidate.reviewState !== M5B_FEDEX_REVIEW_STATE || candidate.sourcePackSha256 !== pack.sourcePackSha256 ||
       !SAFE_HASH.test(candidate.candidateContentSha256) ||
@@ -289,7 +304,7 @@ export function m5bFedExZeroEffectBoundaries(): Readonly<M5bFedExZeroEffectBound
 
 export interface M5bFedExReviewPacketContent {
   readonly kind: "m5b-fedex-unratified-review-draft-packet";
-  readonly schemaVersion: "2";
+  readonly schemaVersion: "3";
   readonly boundaryMarker: "m5b-gate-a-pre-effect-unarmed";
   readonly fixtureClassification: M5bFedExSanitizedSourcePack["fixtureClassification"];
   readonly current_effective_authorization: "none";
@@ -375,7 +390,7 @@ export function buildM5bFedExReviewPacket(packInput: unknown,
   }
   if (proposals.length > 3) refuse("proposal_ceiling");
   const content: M5bFedExReviewPacketContent = Object.freeze({
-    kind: "m5b-fedex-unratified-review-draft-packet", schemaVersion: "2",
+    kind: "m5b-fedex-unratified-review-draft-packet", schemaVersion: "3",
     boundaryMarker: "m5b-gate-a-pre-effect-unarmed", fixtureClassification: pack.fixtureClassification,
     current_effective_authorization: "none", ratificationState: "unratified-draft", satisfiesFutureArming: false,
     sourcePackSha256: pack.sourcePackSha256, candidateContentSha256: candidate.candidateContentSha256,
@@ -406,7 +421,7 @@ export function verifyM5bFedExReviewPacket(packetInput: unknown, packInput: unkn
   "review_packet");
   const { packetSha256, ...content } = packet;
   if (!SAFE_HASH.test(packetSha256) || sha256M5bFedExCanonical(content) !== packetSha256) refuse("review_packet_hash");
-  if (packet.kind !== "m5b-fedex-unratified-review-draft-packet" || packet.schemaVersion !== "2" ||
+  if (packet.kind !== "m5b-fedex-unratified-review-draft-packet" || packet.schemaVersion !== "3" ||
       packet.boundaryMarker !== "m5b-gate-a-pre-effect-unarmed" || packet.current_effective_authorization !== "none" ||
       packet.ratificationState !== "unratified-draft" || packet.satisfiesFutureArming !== false ||
       packet.fixtureClassification !== pack.fixtureClassification || packet.sourcePackSha256 !== pack.sourcePackSha256 ||

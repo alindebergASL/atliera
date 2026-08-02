@@ -11,7 +11,9 @@
       "source_type": "press_release",
       "fetched_at": "2026-03-02T12:00:00Z",
       "accessed_at": "2026-03-02T12:00:00Z",
-      "content_hash": "sha256:fixture",
+      "origin_content_sha256": "9dc842dacbff810848a1bd0f0abce910a9f2a8a298b6437f88d56ee0f2f64555",
+      "stored_content_sha256": "9dc842dacbff810848a1bd0f0abce910a9f2a8a298b6437f88d56ee0f2f64555",
+      "transformation_manifest_sha256": null,
       "raw_text": "Acme Robotics announced a new logistics platform on March 1, 2026. The platform integrates with existing warehouse management systems and is generally available to enterprise customers.",
       "reliability": "high",
       "status": "active"

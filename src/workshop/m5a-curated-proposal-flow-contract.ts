@@ -55,7 +55,7 @@ export const M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME =
   "m5a-curated-proposal-flow-contract" as const;
 
 export const M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION =
-  "atliera.m5a_curated_proposal_flow_contract.v1" as const;
+  "atliera.m5a_curated_proposal_flow_contract.v2" as const;
 
 // M5a snapshots are a hostile-input boundary, so an array's declared
 // length must be bounded before snapshotPlainArray allocates an output
@@ -80,11 +80,13 @@ export function canonicalM5aCuratedProposalFlowContractArtifactId(
   proposalSetId: string,
   accountId: string,
   flowId: string,
+  materializationInputSha256: string,
 ): string {
   return `m5a-flow-contract:${m5aCanonicalTupleDigest([
     proposalSetId,
     accountId,
     flowId,
+    materializationInputSha256,
   ])}`;
 }
 
@@ -300,6 +302,7 @@ export interface M5aCuratedProposalFlowContractArtifact {
   readonly disposable: true;
   readonly current_effective_authorization: "none";
   readonly contract_artifact_id: string;
+  readonly materialization_input_sha256: string;
   readonly flow_id: string;
   readonly proposal_set_id: string;
   readonly account_id: string;
@@ -464,6 +467,141 @@ export function snapshotPlainArray(value: unknown, label: string): readonly unkn
   return Object.freeze(out);
 }
 
+const M5A_MAX_SNAPSHOT_DEPTH = 24;
+const M5A_MAX_SNAPSHOT_NODES = 20_000;
+const M5A_MAX_SNAPSHOT_STRING_UTF8_BYTES = 64 * 1024;
+const M5A_MAX_SNAPSHOT_TOTAL_STRING_UTF8_BYTES = 1024 * 1024;
+
+interface M5aSnapshotBudget {
+  nodes: number;
+  stringBytes: number;
+}
+
+function canonicalJsonStringUtf8ByteLength(value: string): number {
+  let bytes = 2;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit === 0x22 || codeUnit === 0x5c) bytes += 2;
+    else if (codeUnit <= 0x1f) {
+      bytes += codeUnit === 0x08 || codeUnit === 0x09 || codeUnit === 0x0a ||
+        codeUnit === 0x0c || codeUnit === 0x0d ? 2 : 6;
+    } else if (codeUnit <= 0x7f) bytes += 1;
+    else if (codeUnit <= 0x7ff) bytes += 2;
+    else if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        index += 1;
+      } else bytes += 6;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) bytes += 6;
+    else bytes += 3;
+  }
+  return bytes;
+}
+
+function snapshotM5aString(value: string, label: string, budget: M5aSnapshotBudget): string {
+  const rawBytes = Buffer.byteLength(value, "utf8");
+  const canonicalBytes = canonicalJsonStringUtf8ByteLength(value);
+  if (rawBytes > M5A_MAX_SNAPSHOT_STRING_UTF8_BYTES ||
+      canonicalBytes > M5A_MAX_SNAPSHOT_STRING_UTF8_BYTES) {
+    throw new M5aContractBuilderRefusal(`${label} exceeds the per-string UTF-8 bound`);
+  }
+  if (canonicalBytes > M5A_MAX_SNAPSHOT_TOTAL_STRING_UTF8_BYTES - budget.stringBytes) {
+    throw new M5aContractBuilderRefusal(`${label} exceeds the total string UTF-8 bound`);
+  }
+  budget.stringBytes += canonicalBytes;
+  return value;
+}
+
+function snapshotM5aCanonicalJsonValue(
+  value: unknown,
+  label: string,
+  budget: M5aSnapshotBudget,
+  ancestors: WeakSet<object>,
+  depth: number,
+): unknown {
+  if (depth > M5A_MAX_SNAPSHOT_DEPTH || budget.nodes >= M5A_MAX_SNAPSHOT_NODES) {
+    throw new M5aContractBuilderRefusal(`${label} exceeds the recursive snapshot bounds`);
+  }
+  budget.nodes += 1;
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") return snapshotM5aString(value, label, budget);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || Object.is(value, -0)) {
+      throw new M5aContractBuilderRefusal(`${label} must be a stable finite JSON number`);
+    }
+    return value;
+  }
+  if (typeof value !== "object") {
+    throw new M5aContractBuilderRefusal(`${label} must contain JSON own-data only`);
+  }
+  if (nodeUtilTypes.isProxy(value)) {
+    throw new M5aContractBuilderRefusal(`${label} is Proxy-backed`);
+  }
+  if (ancestors.has(value)) {
+    throw new M5aContractBuilderRefusal(`${label} must not be cyclic`);
+  }
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype) {
+        throw new M5aContractBuilderRefusal(`${label} must use Array.prototype`);
+      }
+      const source = snapshotPlainArray(value, label);
+      return Object.freeze(source.map((item, index) =>
+        snapshotM5aCanonicalJsonValue(item, `${label}[${index}]`, budget, ancestors, depth + 1)));
+    }
+    if (Object.getPrototypeOf(value) !== Object.prototype) {
+      throw new M5aContractBuilderRefusal(`${label} must use Object.prototype`);
+    }
+    const source = snapshotPlainOwnData(value, label);
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
+      snapshotM5aString(key, `${label} key`, budget);
+      Object.defineProperty(out, key, {
+        value: snapshotM5aCanonicalJsonValue(
+          source[key], `${label}.${key}`, budget, ancestors, depth + 1,
+        ),
+        enumerable: true,
+        writable: false,
+        configurable: false,
+      });
+    }
+    return Object.freeze(out);
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+export function snapshotM5aMaterializationInput(
+  value: unknown,
+): Readonly<Record<string, unknown>> {
+  const snapshot = snapshotM5aCanonicalJsonValue(
+    value,
+    "materializationInput",
+    { nodes: 0, stringBytes: 0 },
+    new WeakSet<object>(),
+    0,
+  );
+  if (snapshot === null || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    throw new M5aContractBuilderRefusal("materializationInput must be a plain own-data object");
+  }
+  return snapshot as Readonly<Record<string, unknown>>;
+}
+
+function canonicalM5aJson(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean" ||
+      typeof value === "number") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalM5aJson).join(",")}]`;
+  const record = value as Readonly<Record<string, unknown>>;
+  return `{${Object.keys(record).sort().map((key) =>
+    `${JSON.stringify(key)}:${canonicalM5aJson(record[key])}`).join(",")}}`;
+}
+
+export function sha256M5aMaterializationInputSnapshot(snapshot: unknown): string {
+  return createHash("sha256").update(canonicalM5aJson(snapshot), "utf8").digest("hex");
+}
+
 // isCanonicalIsoTimestamp: regex pre-filter + Date.parse round-trip.
 // Mirrors the M3 step 3a executor's lesson (the NaN-expiry hardening
 // pass), now applied here: a regex-only check accepts impossible
@@ -573,6 +711,7 @@ const CONTRACT_ROOT_KEYS = [
   "disposable",
   "current_effective_authorization",
   "contract_artifact_id",
+  "materialization_input_sha256",
   "flow_id",
   "proposal_set_id",
   "account_id",
@@ -740,14 +879,21 @@ export function verifyM5aCuratedProposalFlowContract(
     );
   }
   const contractArtifactId = requireSafeId(root.contract_artifact_id, "contract.contract_artifact_id");
+  const materializationInputSha256 = root.materialization_input_sha256;
+  if (typeof materializationInputSha256 !== "string" || !/^[a-f0-9]{64}$/.test(materializationInputSha256)) {
+    throw new M5aContractBuilderRefusal(
+      "contract.materialization_input_sha256 must be a bare lowercase 64-hex SHA-256 digest",
+    );
+  }
   const expectedContractArtifactId = canonicalM5aCuratedProposalFlowContractArtifactId(
     proposalSetId,
     accountId,
     flowId,
+    materializationInputSha256,
   );
   if (contractArtifactId !== expectedContractArtifactId) {
     throw new M5aContractBuilderRefusal(
-      "contract.contract_artifact_id does not match the canonical proposal_set_id / account_id / flow_id form",
+      "contract.contract_artifact_id does not match the canonical proposal_set_id / account_id / flow_id / materialization_input_sha256 form",
     );
   }
   requireExactContractValue(
@@ -979,7 +1125,8 @@ export function buildM5aCuratedProposalFlowContract(
   const now = requireCanonicalIsoTimestamp(optsSnap.now, "options.now");
 
   // (2) Snapshot the root materialization input.
-  const rootSnap = snapshotPlainOwnData(materializationInput, "materializationInput");
+  const rootSnap = snapshotM5aMaterializationInput(materializationInput);
+  const materializationInputSha256 = sha256M5aMaterializationInputSnapshot(rootSnap);
 
   // (3) Snapshot the context sub-object. The materialization input's
   // context carries the curated-provenance marker and the bound ids;
@@ -1012,10 +1159,9 @@ export function buildM5aCuratedProposalFlowContract(
   // (6) Snapshot the required arrays. snapshotPlainArray refuses
   // Proxy arrays, accessor-backed indices, symbol keys, etc., before
   // any element is read. We only need the lengths from these for
-  // counts; we do NOT read individual elements (the element shape is
-  // a downstream-slice concern: the validate stage of the eventual
-  // flow runs the full graph validator). The snapshot still walks
-  // every index to refuse hostile descriptors.
+  // counts. The recursive digest snapshot above already copied every
+  // element without invoking caller code; these array snapshots close
+  // the specific Step-1 count-bearing shapes before lengths are used.
   const publicSources = snapshotPlainArray(rootSnap.public_sources, "materializationInput.public_sources");
   if (publicSources.length === 0) {
     throw new M5aContractBuilderRefusal("materializationInput.public_sources must be a non-empty array");
@@ -1045,6 +1191,7 @@ export function buildM5aCuratedProposalFlowContract(
     proposalSetId,
     accountId,
     flowId,
+    materializationInputSha256,
   );
 
   // Render the artifact EXCLUSIVELY from validated locals. No snap.*
@@ -1059,6 +1206,7 @@ export function buildM5aCuratedProposalFlowContract(
     disposable: true as const,
     current_effective_authorization: "none" as const,
     contract_artifact_id: contractArtifactId,
+    materialization_input_sha256: materializationInputSha256,
     flow_id: flowId,
     proposal_set_id: proposalSetId,
     account_id: accountId,

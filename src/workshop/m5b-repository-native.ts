@@ -67,7 +67,7 @@ interface PreparedArtifactIdentity {
 
 export interface M5bRepositoryNativePrepareResultContent {
   readonly kind: typeof M5B_REPOSITORY_NATIVE_PREPARE_RESULT_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly sourceIdentity: M5bRepositoryNativeSourceIdentity;
   readonly sourcePackSha256: string;
   readonly candidateContentSha256: string;
@@ -101,7 +101,7 @@ export interface M5bRepositoryNativeRatificationDecision {
 
 export interface M5bRepositoryNativeRatificationContent {
   readonly kind: typeof M5B_REPOSITORY_NATIVE_RATIFICATION_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly prepareResultSha256: string;
   readonly sourceSha256: string;
   readonly sourceSize: number;
@@ -143,7 +143,7 @@ export interface M5bRepositoryNativeApplyOptions {
 
 export interface M5bRepositoryNativeApplyResultContent {
   readonly kind: typeof M5B_REPOSITORY_NATIVE_APPLY_RESULT_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly prepareResultSha256: string;
   readonly ratificationRawSha256: string;
   readonly ratificationArtifactSha256: string;
@@ -413,7 +413,7 @@ export async function prepareM5bRepositoryNative(
   ]);
   const content: M5bRepositoryNativePrepareResultContent = Object.freeze({
     kind: M5B_REPOSITORY_NATIVE_PREPARE_RESULT_KIND,
-    schemaVersion: "1",
+    schemaVersion: "2",
     sourceIdentity: expectedSource,
     sourcePackSha256: sourcePack.sourcePackSha256,
     candidateContentSha256: candidate.candidateContentSha256,
@@ -455,7 +455,7 @@ function verifyPrepareResult(value: unknown): M5bRepositoryNativePrepareResult {
     "sourcePackSha256", "candidateContentSha256", "reviewPacketSha256", "ownerAuthorizationId",
     "executionCommit", "executionTree", "artifacts", "accounting", "resultSha256"], "prepare_result");
   const { resultSha256, ...content } = result;
-  if (result.kind !== M5B_REPOSITORY_NATIVE_PREPARE_RESULT_KIND || result.schemaVersion !== "1" ||
+  if (result.kind !== M5B_REPOSITORY_NATIVE_PREPARE_RESULT_KIND || result.schemaVersion !== "2" ||
       !HASH.test(resultSha256) || sha256M5bFedExCanonical(content) !== resultSha256 ||
       !HASH.test(result.sourcePackSha256) || !HASH.test(result.candidateContentSha256) ||
       !HASH.test(result.reviewPacketSha256)) refuse("prepare_result");
@@ -508,7 +508,7 @@ function verifyRatification(value: unknown, prepare: M5bRepositoryNativePrepareR
     "maximumDurableLocalWrites", "authorizesProviderCall", "authorizesAcquisition", "authorizesNetwork",
     "authorizesDeployment", "retries", "ratificationArtifactSha256"], "ratification_envelope");
   const { ratificationArtifactSha256, ...content } = ratification;
-  if (ratification.kind !== M5B_REPOSITORY_NATIVE_RATIFICATION_KIND || ratification.schemaVersion !== "1" ||
+  if (ratification.kind !== M5B_REPOSITORY_NATIVE_RATIFICATION_KIND || ratification.schemaVersion !== "2" ||
       !HASH.test(ratificationArtifactSha256) || sha256M5bFedExCanonical(content) !== ratificationArtifactSha256 ||
       ratification.prepareResultSha256 !== prepare.resultSha256 ||
       ratification.sourceSha256 !== prepare.sourceIdentity.sha256 || ratification.sourceSize !== prepare.sourceIdentity.size ||
@@ -756,7 +756,7 @@ export async function applyM5bRepositoryNative(
   });
   const content: M5bRepositoryNativeApplyResultContent = Object.freeze({
     kind: M5B_REPOSITORY_NATIVE_APPLY_RESULT_KIND,
-    schemaVersion: "1",
+    schemaVersion: "2",
     prepareResultSha256: prepare.resultSha256,
     ratificationRawSha256,
     ratificationArtifactSha256: ratification.ratificationArtifactSha256,

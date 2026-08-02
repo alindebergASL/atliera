@@ -53,6 +53,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
   M5A_PINNED_CURATION_ORIGIN,
   M5A_PINNED_MEDIATION_GATE_LEVEL,
   M5A_PINNED_PER_RECORD_PROVENANCE_STATUS,
@@ -383,7 +384,7 @@ export function buildM5aCuratedProposalFlowApprovalPacket(
     throw new M5aApprovalPacketRefusal("contract.kind is not the M5a step 1 contract kind");
   }
   if (
-    contractSnap.schema_version !== "atliera.m5a_curated_proposal_flow_contract.v1"
+    contractSnap.schema_version !== M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION
   ) {
     throw new M5aApprovalPacketRefusal("contract.schema_version is unexpected");
   }

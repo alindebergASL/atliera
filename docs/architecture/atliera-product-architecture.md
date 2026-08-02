@@ -181,7 +181,9 @@ Minimum first-class records:
   - source_type
   - fetched_at
   - accessed_at
-  - content_hash
+  - origin_content_sha256
+  - stored_content_sha256
+  - transformation_manifest_sha256
   - raw_text_ref or raw_text
   - reliability
   - status: active/stale/unavailable/rejected

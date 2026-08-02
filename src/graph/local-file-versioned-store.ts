@@ -19,7 +19,7 @@ import {
 
 interface StoredVersionedGraphSnapshotContent {
   readonly kind: "atliera-local-versioned-graph";
-  readonly schemaVersion: "2";
+  readonly schemaVersion: "3";
   readonly graphId: string;
   readonly revision: GraphRevision;
   readonly bundle: GraphBundle;
@@ -31,6 +31,18 @@ interface StoredVersionedGraphSnapshot extends StoredVersionedGraphSnapshotConte
 
 const HASH = /^[a-f0-9]{64}$/;
 const REVISION = /^rev_([1-9][0-9]*)$/;
+
+const ENVELOPE_KEYS = ["bundle", "graphId", "integritySha256", "kind", "revision", "schemaVersion"] as const;
+export class LegacySourceMigrationReviewRequiredError extends Error {
+  readonly code = "legacy_source_migration_review_required" as const;
+
+  constructor(graphId: string, sourceId: string) {
+    super(
+      `Local graph ${graphId} legacy source ${sourceId} requires migration/review: schema-v2 source metadata cannot prove whether content_hash identifies origin bytes or transformed stored bytes`,
+    );
+    this.name = "LegacySourceMigrationReviewRequiredError";
+  }
+}
 
 interface MaterialPathIdentity {
   readonly device: number;
@@ -83,8 +95,43 @@ function canonicalJson(value: unknown): string {
   throw new Error("local versioned graph store canonical JSON contains a non-JSON value");
 }
 
-function integritySha256(content: StoredVersionedGraphSnapshotContent): string {
+function integritySha256(content: unknown): string {
   return createHash("sha256").update(canonicalJson(content), "utf8").digest("hex");
+}
+
+function hasExactKeys(record: Record<string, unknown>, expected: readonly string[]): boolean {
+  const keys = Object.keys(record).sort();
+  const wanted = [...expected].sort();
+  return keys.length === wanted.length && keys.every((key, index) => key === wanted[index]);
+}
+
+/**
+ * Historical schema-v2 compatibility only. The caller must verify the v2
+ * envelope digest before invoking this adapter. Canonical parsing never sees
+ * or accepts `content_hash`.
+ */
+function adaptVerifiedLegacySchemaV2GraphBundle(
+  rawBundle: unknown,
+  graphId: string,
+): GraphBundle {
+  if (rawBundle === null || typeof rawBundle !== "object" || Array.isArray(rawBundle)) {
+    throw new GraphStoreValidationError(graphId);
+  }
+  const bundle = rawBundle as Record<string, unknown>;
+  if (!Array.isArray(bundle.sources)) throw new GraphStoreValidationError(graphId);
+  if (bundle.sources.length > 0) {
+    const first = bundle.sources[0];
+    const sourceId = first !== null && typeof first === "object" && !Array.isArray(first) &&
+      typeof (first as Record<string, unknown>).id === "string"
+      ? (first as Record<string, unknown>).id as string
+      : "sources[0]";
+    throw new LegacySourceMigrationReviewRequiredError(graphId, sourceId);
+  }
+  const parsed = parseGraphBundle(bundle);
+  if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
+    throw new GraphStoreValidationError(graphId);
+  }
+  return parsed.value;
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -202,31 +249,39 @@ function parseStoredSnapshot(text: string, expectedGraphId: string): VersionedGr
     throw new Error("local versioned graph store contains an invalid envelope");
   }
   const record = raw as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  const expectedKeys = ["bundle", "graphId", "integritySha256", "kind", "revision", "schemaVersion"].sort();
-  if (keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
+  if (!hasExactKeys(record, ENVELOPE_KEYS)) {
     throw new Error("local versioned graph store contains an invalid envelope");
   }
-  if (record.kind !== "atliera-local-versioned-graph" || record.schemaVersion !== "2" ||
+  if (record.kind !== "atliera-local-versioned-graph" ||
+      (record.schemaVersion !== "2" && record.schemaVersion !== "3") ||
       record.graphId !== expectedGraphId || typeof record.revision !== "string" || !REVISION.test(record.revision) ||
       typeof record.integritySha256 !== "string" || !HASH.test(record.integritySha256)) {
     throw new Error("local versioned graph store identity mismatch");
   }
-  const parsed = parseGraphBundle(record.bundle);
-  if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
-    throw new GraphStoreValidationError(expectedGraphId);
-  }
-  const content: StoredVersionedGraphSnapshotContent = {
+  const originalContent = {
     kind: "atliera-local-versioned-graph",
-    schemaVersion: "2",
+    schemaVersion: record.schemaVersion,
     graphId: expectedGraphId,
     revision: record.revision as GraphRevision,
-    bundle: parsed.value,
+    bundle: record.bundle,
   };
-  if (integritySha256(content) !== record.integritySha256) {
+  if (integritySha256(originalContent) !== record.integritySha256) {
     throw new Error("local versioned graph store integrity digest mismatch");
   }
-  return { graphId: expectedGraphId, revision: content.revision, bundle: cloneBundle(parsed.value) };
+  const bundle = record.schemaVersion === "2"
+    ? adaptVerifiedLegacySchemaV2GraphBundle(record.bundle, expectedGraphId)
+    : (() => {
+        const parsed = parseGraphBundle(record.bundle);
+        if (!parsed.ok || !validateGraphBundleRaw(parsed.value, { mode: "fixture" }).ok) {
+          throw new GraphStoreValidationError(expectedGraphId);
+        }
+        return parsed.value;
+      })();
+  return {
+    graphId: expectedGraphId,
+    revision: record.revision as GraphRevision,
+    bundle: cloneBundle(bundle),
+  };
 }
 
 /**
@@ -409,7 +464,7 @@ export class LocalFileVersionedGraphStore implements VersionedGraphStore {
       const revision = nextRevision(actualRevision);
       const content: StoredVersionedGraphSnapshotContent = {
         kind: "atliera-local-versioned-graph",
-        schemaVersion: "2",
+        schemaVersion: "3",
         graphId,
         revision,
         bundle: validatedBundle,

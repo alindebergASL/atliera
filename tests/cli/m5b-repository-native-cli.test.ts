@@ -57,7 +57,7 @@ async function createRatification(root: string, prepare: M5bRepositoryNativePrep
   };
   const content: M5bRepositoryNativeRatificationContent = {
     kind: M5B_REPOSITORY_NATIVE_RATIFICATION_KIND,
-    schemaVersion: "1",
+    schemaVersion: "2",
     prepareResultSha256: prepare.resultSha256,
     sourceSha256: prepare.sourceIdentity.sha256,
     sourceSize: prepare.sourceIdentity.size,

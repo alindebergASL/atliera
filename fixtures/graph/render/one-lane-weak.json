@@ -11,7 +11,9 @@
       "source_type": "company_page",
       "fetched_at": "2026-04-01T10:00:00Z",
       "accessed_at": "2026-04-01T10:00:00Z",
-      "content_hash": "sha256:render-fixture-northwind-status",
+      "origin_content_sha256": "2f177d5620ed2c637804456c0d3012ca9942a105b06cd543a98c1659ca433b6c",
+      "stored_content_sha256": "2f177d5620ed2c637804456c0d3012ca9942a105b06cd543a98c1659ca433b6c",
+      "transformation_manifest_sha256": null,
       "raw_text": "Northwind Freight disclosed a Q1 2026 outage affecting its dispatch portal, per a company status page update.",
       "reliability": "high",
       "status": "active"

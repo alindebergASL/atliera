@@ -765,21 +765,40 @@ describe("M5b candidate, visible review, optional model seam, and regeneration",
       /source_pack_boundary/);
   });
 
-  test("regenerates all three committed artifacts byte-for-byte from only the committed fixture", () => {
+  test("uses a new canonical candidate/review identity while preserving frozen legacy artifact bytes", () => {
     assert.equal(generated.sourcePackJson,
       readFileSync(join(ROOT, "fixtures/validation/m5b-fedex-system-acquired-demo-source-pack.json"), "utf8"));
-    assert.equal(generated.reviewPacketJson,
-      readFileSync(join(ROOT, "fixtures/validation/m5b-fedex-system-acquired-review-packet.json"), "utf8"));
-    assert.equal(generated.html,
-      readFileSync(join(ROOT, "fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html"), "utf8"));
+    assert.equal(generated.candidate.schemaVersion, "3");
+    assert.equal(generated.reviewPacket.schemaVersion, "3");
+    assert.equal(generated.candidate.bundle.sources[0]?.origin_content_sha256,
+      generated.sourcePack.source.sourceSha256);
+    assert.notEqual(generated.candidate.bundle.sources[0]?.origin_content_sha256,
+      generated.candidate.bundle.sources[0]?.stored_content_sha256);
+    assert.match(generated.candidate.bundle.sources[0]?.transformation_manifest_sha256 ?? "", /^[a-f0-9]{64}$/);
+
+    const legacyPacketBytes = readFileSync(
+      join(ROOT, "fixtures/validation/m5b-fedex-system-acquired-review-packet.json"),
+    );
+    const legacyHtmlBytes = readFileSync(
+      join(ROOT, "fixtures/workshop/m5b-fedex-system-acquired-prewrite-review.html"),
+    );
+    const legacyPacket = JSON.parse(legacyPacketBytes.toString("utf8"));
+    assert.equal(legacyPacket.schemaVersion, "2");
+    assert.notEqual(legacyPacket.candidateContentSha256, generated.candidate.candidateContentSha256);
+    assert.equal(hashBytes(legacyPacketBytes), "eac5f6b831acc565d7eea741cc9cc8a48be54bf8373be4de5247492ac74406ad");
+    assert.equal(hashBytes(legacyHtmlBytes), "7472b5c297b873c35311403589135941ae554c68e7775a5e373ff85ff5e3ebed");
+    assert.throws(
+      () => verifyM5bFedExReviewPacket(legacyPacket, generated.sourcePack, generated.candidate),
+      /review_packet_boundary/,
+    );
   });
 
-  test("leaves characterized M4 and M5a contract bytes unchanged while M5a projection pins its subject", () => {
+  test("keeps characterized M4 and source-format-transition M5a bytes pinned with the M5a subject", () => {
     const expected = new Map([
       ["src/capability/m4-sec-extraction.ts", "47ce47151bc43cc89d9147e555e0467312002d9b359ae82b077e6332dfa6e3d2"],
       ["src/capability/m4-target-policy.ts", "446499764aa1592cd526a3be0d3ed1c6898a0a61b35d4b29e8bd5c3d017c0e7a"],
-      ["src/workshop/m5a-curated-proposal-flow-contract.ts", "af92b138a702d9bf762ee8c470863af7e580bc30d0b9a5f0c0a22f329eed3db5"],
-      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "f984e703ce8cf4780352a7ae87f0f8d7acac36e626ee567188859683754daa6a"],
+      ["src/workshop/m5a-curated-proposal-flow-contract.ts", "2a64b4fd7aea231cacee09b61a1e775f414988a3a6c05770d4ea49354c558356"],
+      ["src/workshop/m5a-curated-proposal-flow-execution.ts", "24a49ef85a47a0ae80095319d1fe06651699dba5a8dbefc1fbf17cba974020e5"],
     ]);
     for (const [relative, digest] of expected) {
       assert.equal(hashBytes(readFileSync(join(ROOT, relative))), digest, relative);

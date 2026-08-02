@@ -288,7 +288,9 @@ const SOURCE_RECORD_KEYS: readonly string[] = [
   "source_type",
   "fetched_at",
   "accessed_at",
-  "content_hash",
+  "origin_content_sha256",
+  "stored_content_sha256",
+  "transformation_manifest_sha256",
   "raw_text",
   "reliability",
   "status",
@@ -538,7 +540,8 @@ function materializeSources(
     if (
       source.title.trim() === "" ||
       source.raw_text.trim() === "" ||
-      source.content_hash.trim() === "" ||
+      source.origin_content_sha256.trim() === "" ||
+      source.stored_content_sha256.trim() === "" ||
       !ISO_TIMESTAMP.test(source.fetched_at) ||
       !ISO_TIMESTAMP.test(source.accessed_at) ||
       source.status !== "active"

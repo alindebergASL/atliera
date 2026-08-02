@@ -6,6 +6,7 @@
 // this test exercises only the builder + the runbook + the index.
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -26,6 +27,8 @@ import {
   snapshotPlainArray,
   verifyM5aCuratedProposalFlowContract,
 } from "../../src/workshop/m5a-curated-proposal-flow-contract.ts";
+import { buildM5aCuratedProposalFlowApprovalPacket } from "../../src/workshop/m5a-curated-proposal-flow-approval-packet.ts";
+import { buildM5aCuratedProposalFlowOperatorArming } from "../../src/workshop/m5a-curated-proposal-flow-operator-arming.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const STATUS = join(ROOT, "docs/runbooks/m5a-curated-proposal-flow-contract-status.md");
@@ -58,7 +61,7 @@ describe("M5a contract — pinned constants", () => {
     assert.equal(M5A_CURATED_PROPOSAL_FLOW_CONTRACT_NAME, "m5a-curated-proposal-flow-contract");
     assert.equal(
       M5A_CURATED_PROPOSAL_FLOW_CONTRACT_SCHEMA_VERSION,
-      "atliera.m5a_curated_proposal_flow_contract.v1",
+      "atliera.m5a_curated_proposal_flow_contract.v2",
     );
     assert.equal(M5A_NEXT_REQUIRED_ARTIFACT, "m5a-curated-proposal-flow-approval-packet");
     assert.equal(M5A_PINNED_CURATION_ORIGIN, "hand-curated-public");
@@ -89,8 +92,10 @@ describe("M5a contract — happy path against the committed M3-step-3a materiali
         contract.proposal_set_id,
         contract.account_id,
         contract.flow_id,
+        contract.materialization_input_sha256,
       ),
     );
+    assert.match(contract.materialization_input_sha256, /^[a-f0-9]{64}$/);
     assert.match(contract.contract_artifact_id, /^m5a-flow-contract:[a-f0-9]{40}$/);
 
     // All top-level closed boundary markers.
@@ -305,6 +310,40 @@ describe("M5a contract — builder refuses every enumerated reject path", () => 
 });
 
 describe("M5a contract — canonical account-distinct identity and bounded array snapshots", () => {
+  test("source-byte drift rotates the contract, packet, arming, and one-shot identities", () => {
+    const inputA = loadCommittedMaterializationInput();
+    const inputB = loadCommittedMaterializationInput();
+    const sourceB = (inputB.public_sources as Array<Record<string, unknown>>)[0]!;
+    sourceB.raw_text = `${sourceB.raw_text as string} Additional source bytes.`;
+    const changedDigest = createHash("sha256")
+      .update(sourceB.raw_text as string, "utf8")
+      .digest("hex");
+    sourceB.origin_content_sha256 = changedDigest;
+    sourceB.stored_content_sha256 = changedDigest;
+
+    const contractA = buildM5aCuratedProposalFlowContract(inputA, { flowId: FLOW_ID, now: NOW });
+    const contractB = buildM5aCuratedProposalFlowContract(inputB, { flowId: FLOW_ID, now: NOW });
+    const packetOptions = {
+      now: NOW,
+      draftedBy: "reviewer_source_integrity",
+      expiresAt: "2026-06-18T00:00:00Z",
+    } as const;
+    const packetA = buildM5aCuratedProposalFlowApprovalPacket(contractA, packetOptions);
+    const packetB = buildM5aCuratedProposalFlowApprovalPacket(contractB, packetOptions);
+    const armingOptions = {
+      armedAt: "2026-06-17T01:00:00Z",
+      armedBy: "operator_source_integrity",
+    } as const;
+    const armingA = buildM5aCuratedProposalFlowOperatorArming(contractA, packetA, armingOptions);
+    const armingB = buildM5aCuratedProposalFlowOperatorArming(contractB, packetB, armingOptions);
+
+    assert.notEqual(contractA.materialization_input_sha256, contractB.materialization_input_sha256);
+    assert.notEqual(contractA.contract_artifact_id, contractB.contract_artifact_id);
+    assert.notEqual(packetA.packet_artifact_id, packetB.packet_artifact_id);
+    assert.notEqual(armingA.arming_artifact_id, armingB.arming_artifact_id);
+    assert.notEqual(armingA.one_shot_consumption_key, armingB.one_shot_consumption_key);
+  });
+
   test("different accounts produce distinct canonical contract IDs", () => {
     const inputA = loadCommittedMaterializationInput();
     const inputB = loadCommittedMaterializationInput();
@@ -324,6 +363,7 @@ describe("M5a contract — canonical account-distinct identity and bounded array
       longestSafeId,
       longestSafeId,
       longestSafeId,
+      "f".repeat(64),
     );
     assert.ok(id.length <= 121);
     assert.match(id, /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/);
@@ -343,6 +383,68 @@ describe("M5a contract — canonical account-distinct identity and bounded array
         () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
           c.contract_artifact_id = forgedId;
         })),
+        M5aContractBuilderRefusal,
+      );
+    }
+  });
+
+  test("legacy unbound v1 contracts and forged materialization digests are refused", () => {
+    const contract = buildM5aCuratedProposalFlowContract(loadCommittedMaterializationInput(), {
+      flowId: FLOW_ID,
+      now: NOW,
+    });
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.schema_version = "atliera.m5a_curated_proposal_flow_contract.v1";
+        delete c.materialization_input_sha256;
+      })),
+      M5aContractBuilderRefusal,
+    );
+    assert.throws(
+      () => verifyM5aCuratedProposalFlowContract(mutate(contract, (c) => {
+        c.materialization_input_sha256 = "0".repeat(64);
+      })),
+      M5aContractBuilderRefusal,
+    );
+  });
+
+  test("recursive digest snapshot refuses nested Proxy, accessor, exotic, cyclic, and non-JSON values", () => {
+    const cases: Array<() => Record<string, unknown>> = [
+      () => {
+        const input = loadCommittedMaterializationInput();
+        (input.public_sources as unknown[])[0] = new Proxy(
+          (input.public_sources as unknown[])[0] as object,
+          {},
+        );
+        return input;
+      },
+      () => {
+        const input = loadCommittedMaterializationInput();
+        Object.defineProperty((input.public_sources as object[])[0]!, "title", {
+          enumerable: true,
+          get: () => "must not execute",
+        });
+        return input;
+      },
+      () => {
+        const input = loadCommittedMaterializationInput();
+        (input.public_sources as Array<Record<string, unknown>>)[0]!.extra = new Date(0);
+        return input;
+      },
+      () => {
+        const input = loadCommittedMaterializationInput();
+        (input.public_sources as Array<Record<string, unknown>>)[0]!.cycle = input;
+        return input;
+      },
+      () => {
+        const input = loadCommittedMaterializationInput();
+        (input.public_sources as Array<Record<string, unknown>>)[0]!.extra = 1n;
+        return input;
+      },
+    ];
+    for (const makeInput of cases) {
+      assert.throws(
+        () => buildM5aCuratedProposalFlowContract(makeInput(), { flowId: FLOW_ID, now: NOW }),
         M5aContractBuilderRefusal,
       );
     }

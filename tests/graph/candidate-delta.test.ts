@@ -10,6 +10,7 @@ import {
   hydrateCandidateTransition,
   validatedCandidateSha256,
 } from "../../src/graph/candidate-delta.ts";
+import { sha256CanonicalJson } from "../../src/authority/strict-json.ts";
 import {
   createValidatedCandidate,
   hydrateValidatedCandidate,
@@ -54,9 +55,24 @@ function apply(
   return applyCandidateDelta(values.envelope, values.delta, values.base, {
     now: PUBLIC_PROPOSAL_NOW,
     expected_scope: values.envelope.scope,
-    consumed_replay_keys: [],
+    prior_recorded_replay_keys: [],
     ...overrides,
   });
+}
+
+function applicationOptions(envelope = makePublicProposalEnvelope()) {
+  return {
+    now: PUBLIC_PROPOSAL_NOW,
+    expected_scope: envelope.scope,
+    prior_recorded_replay_keys: [],
+  };
+}
+
+function rehashTransition(raw: unknown): any {
+  const transition = clone(raw) as Record<string, any>;
+  delete transition.transition_sha256;
+  transition.transition_sha256 = sha256CanonicalJson(transition);
+  return transition;
 }
 
 describe("CandidateDelta v1 and pure candidate application", () => {
@@ -85,9 +101,11 @@ describe("CandidateDelta v1 and pure candidate application", () => {
 
   test("applies against the full base and returns a revalidated candidate plus exact quality report", () => {
     const transition = apply();
+    const envelope = makePublicProposalEnvelope();
     const hydrated = hydrateCandidateTransition(
+      envelope,
       JSON.parse(JSON.stringify(transition)),
-      PUBLIC_PROPOSAL_NOW,
+      applicationOptions(envelope),
     );
 
     assert.deepEqual(hydrated, transition);
@@ -99,10 +117,10 @@ describe("CandidateDelta v1 and pure candidate application", () => {
       transition.quality_gate.reasons.map((reason) => reason.code),
       ["accepted_excerpt_rate_below_threshold"],
     );
-    assert.equal(transition.consumed_replay_key, transition.delta.replay_key);
+    assert.equal(transition.replay_key_to_record, transition.delta.replay_key);
     assert.deepEqual(transition.replay_protection, {
       caller_snapshot_required: true,
-      newly_consumed_key_returned: true,
+      caller_must_record_key: true,
       cross_process_durable_protection: false,
     });
     assert.equal(transition.authority.trusted_presentation_authority, false);
@@ -123,12 +141,22 @@ describe("CandidateDelta v1 and pure candidate application", () => {
       /fields must exactly match/,
     );
     assert.throws(
-      () => apply(values, { consumed_replay_keys: [values.delta.replay_key] }),
-      /already been consumed/,
+      () => apply(values, { prior_recorded_replay_keys: [values.delta.replay_key] }),
+      /already present in the prior snapshot/,
     );
     assert.throws(
-      () => apply(values, { consumed_replay_keys: ["not-a-replay-key"] }),
+      () => apply(values, { prior_recorded_replay_keys: ["not-a-replay-key"] }),
       /exact replay keys/,
+    );
+    assert.throws(
+      () =>
+        apply(values, {
+          prior_recorded_replay_keys: Array.from(
+            { length: 1_001 },
+            (_, index) => index.toString(16).padStart(64, "0"),
+          ),
+        }),
+      /array bound/,
     );
   });
 
@@ -150,6 +178,10 @@ describe("CandidateDelta v1 and pure candidate application", () => {
   test("rejects expired/stale envelope derivation and expired/stale delta application", () => {
     const { envelope, base, delta } = derive();
     assert.throws(
+      () => createCandidateDelta(envelope, base, "2026-06-11T00:00:00.000Z"),
+      /must be canonical UTC/,
+    );
+    assert.throws(
       () => createCandidateDelta(envelope, base, "2026-06-12T00:00:00Z"),
       /proposal envelope is expired or stale/,
     );
@@ -158,7 +190,7 @@ describe("CandidateDelta v1 and pure candidate application", () => {
         applyCandidateDelta(envelope, delta, base, {
           now: "2026-06-12T00:00:00Z",
           expected_scope: envelope.scope,
-          consumed_replay_keys: [],
+          prior_recorded_replay_keys: [],
         }),
       /candidate delta is expired or stale/,
     );
@@ -177,8 +209,117 @@ describe("CandidateDelta v1 and pure candidate application", () => {
     const transition = clone(apply(values));
     transition.candidate.graph_bundle.claims[0]!.text = "Mutated transition candidate";
     assert.throws(
-      () => hydrateCandidateTransition(transition, PUBLIC_PROPOSAL_NOW),
-      /candidate digest mismatch|transition integrity digest mismatch/,
+      () =>
+        hydrateCandidateTransition(
+          values.envelope,
+          transition,
+          applicationOptions(values.envelope),
+        ),
+      /does not exactly match deterministic envelope\/base application/,
+    );
+  });
+
+  test("envelope-bound hydration rejects self-rehashed replay, quality, base, candidate, and transition metadata substitutions", () => {
+    const values = derive();
+    const valid = apply(values);
+    const substitutions: Array<(transition: any) => void> = [
+      (transition) => {
+        transition.replay_key_to_record = "b".repeat(64);
+        transition.replay_protection.caller_must_record_key = false;
+      },
+      (transition) => {
+        transition.quality_gate.status = "pass";
+        transition.quality_gate.ok = true;
+        transition.quality_gate.reasons = [];
+      },
+      (transition) => {
+        transition.base_candidate = createValidatedCandidate(
+          makeValidBundle(),
+          values.base.subject,
+        );
+      },
+      (transition) => {
+        transition.candidate = values.base;
+        transition.candidate_sha256 = validatedCandidateSha256(values.base);
+      },
+      (transition) => {
+        transition.producer.trace_id = "substituted-transition-trace";
+      },
+    ];
+
+    for (const substitute of substitutions) {
+      const tampered = clone(valid) as any;
+      substitute(tampered);
+      const selfRehashed = rehashTransition(tampered);
+      assert.throws(
+        () =>
+          hydrateCandidateTransition(
+            values.envelope,
+            selfRehashed,
+            applicationOptions(values.envelope),
+          ),
+        CandidateDeltaBoundaryError,
+      );
+    }
+  });
+
+  test("envelope-bound hydration preserves an exact pass quality report", () => {
+    const envelope = makePublicProposalEnvelope();
+    const baseBundle = makeValidBundle();
+    const secondExcerptText =
+      "The platform integrates with existing warehouse management systems";
+    const secondExcerptStart = baseBundle.sources[0]!.raw_text.indexOf(
+      secondExcerptText,
+    );
+    baseBundle.excerpts.push({
+      ...clone(baseBundle.excerpts[0]!),
+      id: "exc_acme_launch_002",
+      text: secondExcerptText,
+      char_start: secondExcerptStart,
+      char_end: secondExcerptStart + secondExcerptText.length,
+    });
+    const base = createValidatedCandidate(baseBundle, {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    });
+    const delta = createCandidateDelta(envelope, base, PUBLIC_PROPOSAL_NOW);
+    const transition = applyCandidateDelta(envelope, delta, base, {
+      now: PUBLIC_PROPOSAL_NOW,
+      expected_scope: envelope.scope,
+      prior_recorded_replay_keys: [],
+    });
+
+    assert.equal(delta.quality_gate_status, "pass");
+    assert.equal(transition.quality_gate.status, "pass");
+    assert.deepEqual(
+      hydrateCandidateTransition(
+        envelope,
+        transition,
+        applicationOptions(envelope),
+      ),
+      transition,
+    );
+  });
+
+  test("normalizes validated-candidate and strict replay-array failures to the candidate-delta boundary", () => {
+    assert.throws(
+      () => validatedCandidateSha256({}),
+      CandidateDeltaBoundaryError,
+    );
+
+    const values = derive();
+    assert.throws(
+      () => createCandidateDelta(values.envelope, {}, PUBLIC_PROPOSAL_NOW),
+      CandidateDeltaBoundaryError,
+    );
+    const sparse: string[] = [];
+    sparse.length = 1;
+    assert.throws(
+      () =>
+        apply(values, {
+          prior_recorded_replay_keys: sparse,
+        }),
+      CandidateDeltaBoundaryError,
     );
   });
 
@@ -209,7 +350,7 @@ describe("CandidateDelta v1 and pure candidate application", () => {
         applyCandidateDelta(values.envelope, values.delta, changedBase, {
           now: PUBLIC_PROPOSAL_NOW,
           expected_scope: values.envelope.scope,
-          consumed_replay_keys: [],
+          prior_recorded_replay_keys: [],
         }),
       /base candidate digest is stale, wrong, or mutated/,
     );

@@ -1,5 +1,7 @@
 import type { ProposalMaterializationBoundaries, ProposalMaterializationTrustLanguage } from "../validation/proposal-materialization.ts";
 import { hydrateCandidateTransition } from "../graph/candidate-delta.ts";
+import { createValidatedCandidate } from "../graph/validated-candidate.ts";
+import type { ProposalProducerKind } from "../validation/proposal-envelope.ts";
 import { renderWorkshopHtml } from "./render-html.ts";
 import { buildWorkshopViewModel, WORKSHOP_REVIEW_STATE_MODEL_PROPOSED, type WorkshopLens, type WorkshopViewModel } from "./view-model.ts";
 
@@ -12,9 +14,9 @@ export const WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_SCHEMA_VERSION =
 export interface WorkshopPublicCuratedProposalPreviewReport {
   readonly schema_version: typeof WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_SCHEMA_VERSION;
   readonly artifact_name: typeof WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME;
-  readonly generated_from: "proposal_materialization_public_curated_fixture";
+  readonly validated_input_contract: "canonical_proposal_envelope_and_candidate_transition";
+  readonly declared_producer_kind: ProposalProducerKind;
   readonly current_effective_authorization: "none";
-  readonly input_origin: "hand-curated-public";
   readonly proposal_set_id: string;
   readonly account_id: string;
   readonly boundaries: ProposalMaterializationBoundaries;
@@ -67,17 +69,32 @@ function deepFreeze<T>(value: T): T {
 }
 
 export function buildWorkshopPublicCuratedProposalPreview(
+  envelopeInput: unknown,
   transitionInput: unknown,
-  now: string,
+  applicationOptionsInput: unknown,
 ): WorkshopPublicCuratedProposalPreview {
-  // This active boundary accepts successful, replay-consumed canonical
-  // candidate-transition evidence only. Raw legacy materialization input is
-  // not presentation authority, even for this visibly untrusted preview.
-  const transition = hydrateCandidateTransition(transitionInput, now);
-  if (transition.producer.kind !== "fixture" || transition.fixture_binding === null) {
-    throw new Error("public curated proposal preview requires an exact fixture-bound transition");
+  // This active boundary re-applies the supplied transition against the exact
+  // envelope, embedded base, and caller-supplied prior replay snapshot. The
+  // returned replay key is still only a key the caller must record; hydration
+  // does not prove that any external ledger recorded it.
+  const transition = hydrateCandidateTransition(
+    envelopeInput,
+    transitionInput,
+    applicationOptionsInput,
+  );
+  if (transition.producer.kind === "imported") {
+    throw new Error(
+      "public proposal preview does not yet render the imported pending-review presentation state",
+    );
   }
-  const viewModel = buildWorkshopViewModel(transition.candidate);
+  // The merged candidate was revalidated by transition application, but this
+  // proposal-only artifact independently validates and renders the delta so
+  // unrelated base records cannot inherit proposal-wide trust language.
+  const proposalCandidate = createValidatedCandidate(transition.delta.records, {
+    team_id: transition.scope.team_id,
+    account_id: transition.scope.account_id,
+  });
+  const viewModel = buildWorkshopViewModel(proposalCandidate);
   const html = renderWorkshopHtml(viewModel, { previewMode: "validation" });
   const decorated = reviewDecoratedItemCount(viewModel);
 
@@ -114,9 +131,9 @@ export function buildWorkshopPublicCuratedProposalPreview(
     report: Object.freeze({
       schema_version: WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_SCHEMA_VERSION,
       artifact_name: WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME,
-      generated_from: "proposal_materialization_public_curated_fixture",
+      validated_input_contract: "canonical_proposal_envelope_and_candidate_transition",
+      declared_producer_kind: transition.producer.kind,
       current_effective_authorization: "none",
-      input_origin: "hand-curated-public",
       proposal_set_id: transition.producer.trace_id,
       account_id: transition.scope.account_id,
       boundaries,

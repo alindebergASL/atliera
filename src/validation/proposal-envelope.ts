@@ -129,9 +129,12 @@ const LIMITS: StrictJsonLimits = Object.freeze({
 const SAFE_TEAM_ID = /^team_[a-z0-9][a-z0-9_-]{0,40}$/;
 const SAFE_ACCOUNT_ID = /^acc_[a-z0-9][a-z0-9_-]{0,40}$/;
 const SAFE_OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const SAFE_PRODUCER_TRACE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/;
 const SAFE_PROPOSAL_ID = /^[a-z0-9][a-z0-9_-]{0,40}$/;
 const SAFE_CLAIM_TYPE = /^[a-z][a-z0-9_]{0,40}$/;
 const SAFE_NORMALIZED_SUBJECT = /^[a-z0-9][a-z0-9_:.-]{0,120}$/;
+// These are unkeyed integrity identities only; syntax or self-consistency is
+// never authentication, fixture custody, human approval, or authority.
 const CANONICAL_SHA256 = /^[a-f0-9]{64}$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const ACCOUNT_OBJECT_KINDS: readonly AccountObjectKind[] = [
@@ -203,6 +206,20 @@ function exact(
   }
 }
 
+function asArray(
+  value: StrictJsonValue | undefined,
+  path: string,
+  maxLength: number,
+  requireDense = false,
+): StrictJsonValue[] {
+  try {
+    return strictJsonArray(value, path, maxLength, requireDense);
+  } catch (error) {
+    if (error instanceof StrictJsonBoundaryError) refuse(error.message);
+    throw error;
+  }
+}
+
 function stringField(
   value: { [key: string]: StrictJsonValue },
   key: string,
@@ -219,8 +236,8 @@ function parseCanonicalTimestamp(value: unknown, path: string): string {
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) refuse(`${path} must be a valid timestamp`);
-  const canonical = parsed.toISOString();
-  if (canonical !== value && canonical.replace(".000Z", "Z") !== value) {
+  const canonical = parsed.toISOString().replace(".000Z", "Z");
+  if (canonical !== value) {
     refuse(`${path} must be canonical UTC`);
   }
   return value;
@@ -234,7 +251,9 @@ function parseProducer(value: StrictJsonValue | undefined): ProposalProducer {
   if (!["fixture", "imported", "model_generated"].includes(kind)) {
     refuse("envelope.producer.kind is unsupported");
   }
-  if (!SAFE_OPAQUE_ID.test(traceId)) refuse("envelope.producer.trace_id is unsafe");
+  if (!SAFE_PRODUCER_TRACE_ID.test(traceId)) {
+    refuse("envelope.producer.trace_id is unsafe or exceeds downstream safe-id bounds");
+  }
   return { kind: kind as ProposalProducerKind, trace_id: traceId };
 }
 
@@ -262,18 +281,12 @@ function parseUniqueStringIds(
   value: StrictJsonValue | undefined,
   path: string,
 ): readonly string[] {
-  let items: StrictJsonValue[];
-  try {
-    items = strictJsonArray(
-      value,
-      path,
-      PROPOSAL_ENVELOPE_MAX_REFERENCES_PER_RECORD,
-      true,
-    );
-  } catch (error) {
-    if (error instanceof StrictJsonBoundaryError) refuse(error.message);
-    throw error;
-  }
+  const items = asArray(
+    value,
+    path,
+    PROPOSAL_ENVELOPE_MAX_REFERENCES_PER_RECORD,
+    true,
+  );
   const out: string[] = [];
   const seen = new Set<string>();
   for (const item of items) {
@@ -291,18 +304,12 @@ function parseSources(
   value: StrictJsonValue | undefined,
   scope: ProposalScope,
 ): readonly SourceDocument[] {
-  let records: StrictJsonValue[];
-  try {
-    records = strictJsonArray(
-      value,
-      "envelope.proposal_content.sources",
-      PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
-      true,
-    );
-  } catch (error) {
-    if (error instanceof StrictJsonBoundaryError) refuse(error.message);
-    throw error;
-  }
+  const records = asArray(
+    value,
+    "envelope.proposal_content.sources",
+    PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
+    true,
+  );
   const out: SourceDocument[] = [];
   const seen = new Set<string>();
   for (let index = 0; index < records.length; index += 1) {
@@ -348,7 +355,7 @@ function parseContent(value: StrictJsonValue | undefined, scope: ProposalScope):
   const sources = parseSources(content.sources, scope);
   const sourceIds = new Set(sources.map((source) => source.id));
 
-  const excerptValues = strictJsonArray(
+  const excerptValues = asArray(
     content.excerpts,
     "envelope.proposal_content.excerpts",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -370,7 +377,7 @@ function parseContent(value: StrictJsonValue | undefined, scope: ProposalScope):
     return { id, source_id: sourceId, text };
   });
 
-  const claimValues = strictJsonArray(
+  const claimValues = asArray(
     content.claims,
     "envelope.proposal_content.claims",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -407,7 +414,7 @@ function parseContent(value: StrictJsonValue | undefined, scope: ProposalScope):
     };
   });
 
-  const objectValues = strictJsonArray(
+  const objectValues = asArray(
     content.account_objects,
     "envelope.proposal_content.account_objects",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -519,7 +526,9 @@ function parseFixtureBinding(
   producer: ProposalProducer,
 ): ProposalFixtureBinding | null {
   if (value === null) {
-    if (producer.kind === "fixture") refuse("fixture envelopes require an exact fixture binding");
+    if (producer.kind === "fixture") {
+      refuse("fixture envelopes require a declared fixture-content integrity binding");
+    }
     return null;
   }
   if (producer.kind !== "fixture") {
@@ -623,7 +632,7 @@ function canonicalExpiry(createdAt: string): string {
     .replace(".000Z", "Z");
 }
 
-export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
+function adaptPublicCuratedMaterializationInputToProposalEnvelopeInternal(
   input: MaterializeProposalForValidationInput,
   options: { readonly subject_id: string },
 ): ProposalEnvelope {
@@ -670,13 +679,13 @@ export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
     refuse("public-curated input did not materialize completely and validly");
   }
 
-  const sources = strictJsonArray(
+  const sources = asArray(
     inputRoot.public_sources,
     "public_curated_materialization_input.public_sources",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
     true,
   );
-  const excerpts = strictJsonArray(
+  const excerpts = asArray(
     inputRoot.proposed_excerpts,
     "public_curated_materialization_input.proposed_excerpts",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -691,7 +700,7 @@ export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
       text: stringField(record, "quote", path),
     };
   });
-  const claims = strictJsonArray(
+  const claims = asArray(
     inputRoot.proposed_claims,
     "public_curated_materialization_input.proposed_claims",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -713,7 +722,7 @@ export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
       excerpt_ids: record.supporting_excerpt_proposal_ids,
     };
   });
-  const accountObjects = strictJsonArray(
+  const accountObjects = asArray(
     inputRoot.proposed_account_objects,
     "public_curated_materialization_input.proposed_account_objects",
     PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
@@ -774,4 +783,21 @@ export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
       durable_effect_performed: false,
     },
   });
+}
+
+export function adaptPublicCuratedMaterializationInputToProposalEnvelope(
+  input: MaterializeProposalForValidationInput,
+  options: { readonly subject_id: string },
+): ProposalEnvelope {
+  try {
+    return adaptPublicCuratedMaterializationInputToProposalEnvelopeInternal(
+      input,
+      options,
+    );
+  } catch (error) {
+    if (error instanceof ProposalEnvelopeBoundaryError) throw error;
+    if (error instanceof StrictJsonBoundaryError) refuse(error.message);
+    if (error instanceof Error) refuse(error.message);
+    refuse("public-curated materialization input is invalid");
+  }
 }

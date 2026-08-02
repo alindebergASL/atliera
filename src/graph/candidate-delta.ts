@@ -77,7 +77,7 @@ export interface CandidateTransitionAuthorityMarkers
 
 export interface CandidateTransitionReplayProtection {
   readonly caller_snapshot_required: true;
-  readonly newly_consumed_key_returned: true;
+  readonly caller_must_record_key: true;
   readonly cross_process_durable_protection: false;
 }
 
@@ -93,7 +93,7 @@ export interface CandidateTransitionCore {
   readonly candidate_sha256: string;
   readonly candidate: ValidatedCandidate;
   readonly quality_gate: QualityGateReport;
-  readonly consumed_replay_key: string;
+  readonly replay_key_to_record: string;
   readonly replay_protection: CandidateTransitionReplayProtection;
   readonly source_assurances: ProposalSourceAssurances;
   readonly fixture_binding: ProposalFixtureBinding | null;
@@ -107,7 +107,7 @@ export interface CandidateTransition extends CandidateTransitionCore {
 export interface ApplyCandidateDeltaOptions {
   readonly now: string;
   readonly expected_scope: ProposalScope;
-  readonly consumed_replay_keys: readonly string[];
+  readonly prior_recorded_replay_keys: readonly string[];
 }
 
 export class CandidateDeltaBoundaryError extends Error {
@@ -126,10 +126,14 @@ const LIMITS: StrictJsonLimits = Object.freeze({
   max_total_string_utf8_bytes: 12 * 1024 * 1024,
 });
 
+// Every digest and replay key in this pure boundary is an unkeyed integrity
+// identity. Exact re-derivation establishes content binding; no hash grants
+// authentication, approval, replay consumption, or other authority.
 const CANONICAL_SHA256 = /^[a-f0-9]{64}$/;
 const SAFE_TEAM_ID = /^team_[a-z0-9][a-z0-9_-]{0,40}$/;
 const SAFE_ACCOUNT_ID = /^acc_[a-z0-9][a-z0-9_-]{0,40}$/;
 const SAFE_OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const SAFE_PRODUCER_TRACE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,120}$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
 const DELTA_CORE_KEYS = [
@@ -161,7 +165,7 @@ const TRANSITION_CORE_KEYS = [
   "candidate_sha256",
   "candidate",
   "quality_gate",
-  "consumed_replay_key",
+  "replay_key_to_record",
   "replay_protection",
   "source_assurances",
   "fixture_binding",
@@ -178,6 +182,49 @@ function snapshot(raw: unknown, path: string): { [key: string]: StrictJsonValue 
   } catch (error) {
     if (error instanceof StrictJsonBoundaryError) refuse(error.message);
     throw error;
+  }
+}
+
+function strictSnapshot(raw: unknown, path: string): StrictJsonValue {
+  try {
+    return snapshotStrictJson(raw, path, LIMITS);
+  } catch (error) {
+    if (error instanceof StrictJsonBoundaryError) refuse(error.message);
+    throw error;
+  }
+}
+
+function hydrateCandidate(raw: unknown, path: string): ValidatedCandidate {
+  try {
+    return hydrateValidatedCandidate(raw);
+  } catch (error) {
+    if (error instanceof CandidateDeltaBoundaryError) throw error;
+    if (error instanceof Error) refuse(`${path}: ${error.message}`);
+    refuse(`${path} is invalid`);
+  }
+}
+
+function validateCandidate(
+  raw: unknown,
+  subject: { readonly team_id: string; readonly account_id: string },
+  path: string,
+): ValidatedCandidate {
+  try {
+    return createValidatedCandidate(raw, subject);
+  } catch (error) {
+    if (error instanceof CandidateDeltaBoundaryError) throw error;
+    if (error instanceof Error) refuse(`${path}: ${error.message}`);
+    refuse(`${path} is invalid`);
+  }
+}
+
+function assertUnverifiedProposalRecords(records: GraphBundle): void {
+  try {
+    assertProposalDerivedRecordsUnverified(records);
+  } catch (error) {
+    if (error instanceof CandidateDeltaBoundaryError) throw error;
+    if (error instanceof Error) refuse(error.message);
+    refuse("candidate delta proposal records are invalid");
   }
 }
 
@@ -209,8 +256,8 @@ function parseTimestamp(value: unknown, path: string): string {
   }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) refuse(`${path} must be a valid timestamp`);
-  const canonical = parsed.toISOString();
-  if (canonical !== value && canonical.replace(".000Z", "Z") !== value) {
+  const canonical = parsed.toISOString().replace(".000Z", "Z");
+  if (canonical !== value) {
     refuse(`${path} must be canonical UTC`);
   }
   return value;
@@ -231,7 +278,7 @@ function parseProducer(value: StrictJsonValue | undefined, path: string): Propos
     typeof producer.kind !== "string" ||
     !["fixture", "imported", "model_generated"].includes(producer.kind) ||
     typeof producer.trace_id !== "string" ||
-    !SAFE_OPAQUE_ID.test(producer.trace_id)
+    !SAFE_PRODUCER_TRACE_ID.test(producer.trace_id)
   ) {
     refuse(`${path} is malformed`);
   }
@@ -462,6 +509,9 @@ function proposalReviewState(producer: ProposalProducer): string {
 
 function materializeEnvelopeRecords(envelope: ProposalEnvelope): GraphBundle {
   const proposalSetId = `proposal-${envelope.envelope_sha256.slice(0, 24)}`;
+  // This literal satisfies the legacy materializer's internal adapter gate.
+  // Its origin metadata is discarded and replaced below with the canonical
+  // envelope producer trace; it is never surfaced as the proposal's origin.
   const materialized = materializeProposalForValidation({
     context: {
       origin: "hand-curated-public",
@@ -534,7 +584,7 @@ function materializeEnvelopeRecords(envelope: ProposalEnvelope): GraphBundle {
       },
     })),
   };
-  assertProposalDerivedRecordsUnverified(bundle);
+  assertUnverifiedProposalRecords(bundle);
   return bundle;
 }
 
@@ -616,8 +666,8 @@ function assertCanonicalProposalTrace(
 }
 
 export function validatedCandidateSha256(raw: unknown): string {
-  const candidate = hydrateValidatedCandidate(raw);
-  const candidateSnapshot = snapshotStrictJson(candidate, "candidate", LIMITS);
+  const candidate = hydrateCandidate(raw, "candidate");
+  const candidateSnapshot = strictSnapshot(candidate, "candidate");
   return sha256CanonicalJson(candidateSnapshot);
 }
 
@@ -644,14 +694,22 @@ function buildCandidateDeltaCore(
   const records = materializeEnvelopeRecords(envelope);
   // The materialized proposal is independently valid, but only the complete
   // base+delta result determines whether candidate application is allowed.
-  createValidatedCandidate(records, {
-    team_id: envelope.scope.team_id,
-    account_id: envelope.scope.account_id,
-  });
-  const candidate = createValidatedCandidate(graphMerge(base.graph_bundle, records), {
-    team_id: envelope.scope.team_id,
-    account_id: envelope.scope.account_id,
-  });
+  validateCandidate(
+    records,
+    {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    },
+    "candidate delta records",
+  );
+  const candidate = validateCandidate(
+    graphMerge(base.graph_bundle, records),
+    {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    },
+    "fully merged candidate",
+  );
   const qualityGate = runQualityGate(candidate.graph_bundle);
   if (qualityGate.status === "fail") {
     refuse("fully merged candidate failed the deterministic quality gate");
@@ -680,11 +738,11 @@ export function createCandidateDelta(
   now: string,
 ): CandidateDelta {
   const envelope = hydrateProposalEnvelope(rawEnvelope);
-  const base = hydrateValidatedCandidate(rawBase);
+  const base = hydrateCandidate(rawBase, "base candidate");
   assertLive(envelope.created_at, envelope.expires_at, now, "proposal envelope");
   const core = buildCandidateDeltaCore(envelope, base);
   const deltaSha256 = sha256CanonicalJson(
-    snapshotStrictJson(core, "candidate_delta", LIMITS),
+    strictSnapshot(core, "candidate_delta"),
   );
   return deepFreezeOwnData({ ...core, delta_sha256: deltaSha256 });
 }
@@ -712,11 +770,15 @@ function parseDeltaCore(root: { [key: string]: StrictJsonValue }): CandidateDelt
   if (root.quality_gate_status === "fail") {
     refuse("a failing quality gate cannot become a candidate delta");
   }
-  const records = createValidatedCandidate(root.records, {
-    team_id: scope.team_id,
-    account_id: scope.account_id,
-  }).graph_bundle;
-  assertProposalDerivedRecordsUnverified(records);
+  const records = validateCandidate(
+    root.records,
+    {
+      team_id: scope.team_id,
+      account_id: scope.account_id,
+    },
+    "candidate delta records",
+  ).graph_bundle;
+  assertUnverifiedProposalRecords(records);
   const sourceAssurances = parseAssurances(
     root.source_assurances,
     "candidate_delta.source_assurances",
@@ -760,7 +822,7 @@ export function hydrateCandidateDelta(raw: unknown): CandidateDelta {
   }
   const core = parseDeltaCore(root);
   const expectedDigest = sha256CanonicalJson(
-    snapshotStrictJson(core, "candidate_delta", LIMITS),
+    strictSnapshot(core, "candidate_delta"),
   );
   if (root.delta_sha256 !== expectedDigest) refuse("candidate delta integrity digest mismatch");
   if (core.replay_key !== replayKey(core.envelope_sha256, core.base_candidate_sha256)) {
@@ -773,7 +835,7 @@ function parseApplyOptions(raw: unknown): ApplyCandidateDeltaOptions {
   const options = snapshot(raw, "candidate_delta_application_options");
   exact(
     options,
-    ["now", "expected_scope", "consumed_replay_keys"],
+    ["now", "expected_scope", "prior_recorded_replay_keys"],
     "candidate_delta_application_options",
   );
   const now = parseTimestamp(options.now, "candidate_delta_application_options.now");
@@ -781,11 +843,11 @@ function parseApplyOptions(raw: unknown): ApplyCandidateDeltaOptions {
     options.expected_scope,
     "candidate_delta_application_options.expected_scope",
   );
-  let consumed: StrictJsonValue[];
+  let recorded: StrictJsonValue[];
   try {
-    consumed = strictJsonArray(
-      options.consumed_replay_keys,
-      "candidate_delta_application_options.consumed_replay_keys",
+    recorded = strictJsonArray(
+      options.prior_recorded_replay_keys,
+      "candidate_delta_application_options.prior_recorded_replay_keys",
       1_000,
     );
   } catch (error) {
@@ -794,15 +856,15 @@ function parseApplyOptions(raw: unknown): ApplyCandidateDeltaOptions {
   }
   const keys: string[] = [];
   const seen = new Set<string>();
-  for (const value of consumed) {
+  for (const value of recorded) {
     if (typeof value !== "string" || !CANONICAL_SHA256.test(value)) {
-      refuse("consumed replay snapshot must contain exact replay keys only");
+      refuse("prior replay-key snapshot must contain exact replay keys only");
     }
-    if (seen.has(value)) refuse("consumed replay snapshot contains duplicate keys");
+    if (seen.has(value)) refuse("prior replay-key snapshot contains duplicate keys");
     seen.add(value);
     keys.push(value);
   }
-  return { now, expected_scope: expectedScope, consumed_replay_keys: keys };
+  return { now, expected_scope: expectedScope, prior_recorded_replay_keys: keys };
 }
 
 function makeTransition(
@@ -823,10 +885,10 @@ function makeTransition(
     candidate_sha256: validatedCandidateSha256(candidate),
     candidate,
     quality_gate: qualityGate,
-    consumed_replay_key: delta.replay_key,
+    replay_key_to_record: delta.replay_key,
     replay_protection: {
       caller_snapshot_required: true,
-      newly_consumed_key_returned: true,
+      caller_must_record_key: true,
       cross_process_durable_protection: false,
     },
     source_assurances: delta.source_assurances,
@@ -834,7 +896,7 @@ function makeTransition(
     authority: transitionAuthority(),
   };
   const transitionSha256 = sha256CanonicalJson(
-    snapshotStrictJson(core, "candidate_transition", LIMITS),
+    strictSnapshot(core, "candidate_transition"),
   );
   return deepFreezeOwnData({ ...core, transition_sha256: transitionSha256 });
 }
@@ -847,7 +909,7 @@ export function applyCandidateDelta(
 ): CandidateTransition {
   const envelope = hydrateProposalEnvelope(rawEnvelope);
   const delta = hydrateCandidateDelta(rawDelta);
-  const base = hydrateValidatedCandidate(rawBase);
+  const base = hydrateCandidate(rawBase, "base candidate");
   const options = parseApplyOptions(rawOptions);
 
   assertLive(delta.created_at, delta.expires_at, options.now, "candidate delta");
@@ -868,25 +930,26 @@ export function applyCandidateDelta(
   if (delta.envelope_sha256 !== envelope.envelope_sha256) {
     refuse("candidate delta is bound to a different envelope");
   }
-  if (options.consumed_replay_keys.includes(delta.replay_key)) {
-    refuse("candidate delta replay key has already been consumed");
+  if (options.prior_recorded_replay_keys.includes(delta.replay_key)) {
+    refuse("candidate delta replay key is already present in the prior snapshot");
   }
 
   const expectedDelta = createCandidateDelta(envelope, base, options.now);
   if (
     expectedDelta.delta_sha256 !== delta.delta_sha256 ||
-    canonicalJson(snapshotStrictJson(expectedDelta, "expected_delta", LIMITS)) !==
-      canonicalJson(snapshotStrictJson(delta, "candidate_delta", LIMITS))
+    canonicalJson(strictSnapshot(expectedDelta, "expected_delta")) !==
+      canonicalJson(strictSnapshot(delta, "candidate_delta"))
   ) {
     refuse("candidate delta does not exactly match deterministic envelope/base derivation");
   }
 
-  const candidate = createValidatedCandidate(
+  const candidate = validateCandidate(
     graphMerge(base.graph_bundle, delta.records),
     {
       team_id: delta.scope.team_id,
       account_id: delta.scope.account_id,
     },
+    "fully merged candidate",
   );
   const qualityGate = runQualityGate(candidate.graph_bundle);
   if (qualityGate.status === "fail") {
@@ -898,170 +961,26 @@ export function applyCandidateDelta(
   return makeTransition(delta, base, candidate, qualityGate);
 }
 
-function ensureDeltaRecordsAreInCandidate(delta: GraphBundle, candidate: GraphBundle): void {
-  for (const key of [
-    "sources",
-    "excerpts",
-    "claims",
-    "claim_evidence",
-    "account_objects",
-    "account_object_claims",
-    "research_runs",
-    "run_artifacts",
-    "audit_events",
-  ] as const) {
-    const candidates = new Map(
-      candidate[key].map((record) => [record.id, record] as const),
-    );
-    for (const record of delta[key]) {
-      const candidateRecord = candidates.get(record.id);
-      if (
-        candidateRecord === undefined ||
-        canonicalJson(snapshotStrictJson(candidateRecord, "candidate_record", LIMITS)) !==
-          canonicalJson(snapshotStrictJson(record, "delta_record", LIMITS))
-      ) {
-        refuse(`candidate transition does not contain the exact delta ${key} record`);
-      }
-    }
-  }
-}
-
-export function hydrateCandidateTransition(raw: unknown, now: string): CandidateTransition {
-  const root = snapshot(raw, "candidate_transition");
+export function hydrateCandidateTransition(
+  rawEnvelope: unknown,
+  rawTransition: unknown,
+  rawOptions: unknown,
+): CandidateTransition {
+  const root = snapshot(rawTransition, "candidate_transition");
   exact(root, [...TRANSITION_CORE_KEYS, "transition_sha256"], "candidate_transition");
-  if (
-    root.kind !== CANDIDATE_TRANSITION_KIND ||
-    root.version !== CANDIDATE_TRANSITION_VERSION
-  ) {
-    refuse("candidate transition kind/version is unsupported");
-  }
-  if (
-    typeof root.transition_sha256 !== "string" ||
-    !CANONICAL_SHA256.test(root.transition_sha256)
-  ) {
-    refuse("candidate_transition.transition_sha256 is malformed or missing");
-  }
-  const delta = hydrateCandidateDelta(root.delta);
-  const producer = parseProducer(root.producer, "candidate_transition.producer");
-  const scope = parseScope(root.scope, "candidate_transition.scope");
-  const createdAt = parseTimestamp(root.created_at, "candidate_transition.created_at");
-  const expiresAt = parseTimestamp(root.expires_at, "candidate_transition.expires_at");
-  assertLive(createdAt, expiresAt, now, "candidate transition");
-  if (
-    producer.kind !== delta.producer.kind ||
-    producer.trace_id !== delta.producer.trace_id ||
-    !sameScope(scope, delta.scope) ||
-    createdAt !== delta.created_at ||
-    expiresAt !== delta.expires_at
-  ) {
-    refuse("candidate transition metadata does not match its delta");
-  }
-  const baseCandidate = hydrateValidatedCandidate(root.base_candidate);
-  if (validatedCandidateSha256(baseCandidate) !== delta.base_candidate_sha256) {
-    refuse("candidate transition base-candidate digest mismatch");
-  }
-  const candidate = hydrateValidatedCandidate(root.candidate);
-  if (
-    candidate.subject.team_id !== scope.team_id ||
-    candidate.subject.account_id !== scope.account_id
-  ) {
-    refuse("candidate transition candidate is outside the transition scope");
-  }
-  if (
-    typeof root.candidate_sha256 !== "string" ||
-    root.candidate_sha256 !== validatedCandidateSha256(candidate)
-  ) {
-    refuse("candidate transition candidate digest mismatch");
-  }
-  const expectedCandidate = createValidatedCandidate(
-    graphMerge(baseCandidate.graph_bundle, delta.records),
-    { team_id: scope.team_id, account_id: scope.account_id },
+  const expected = applyCandidateDelta(
+    rawEnvelope,
+    root.delta,
+    root.base_candidate,
+    rawOptions,
   );
   if (
-    canonicalJson(snapshotStrictJson(expectedCandidate, "expected_candidate", LIMITS)) !==
-    canonicalJson(snapshotStrictJson(candidate, "candidate", LIMITS))
+    canonicalJson(root) !==
+    canonicalJson(strictSnapshot(expected, "expected_candidate_transition"))
   ) {
-    refuse("candidate transition is not the exact fully merged base+delta result");
+    refuse(
+      "candidate transition does not exactly match deterministic envelope/base application",
+    );
   }
-  ensureDeltaRecordsAreInCandidate(delta.records, candidate.graph_bundle);
-
-  const qualityGate = runQualityGate(candidate.graph_bundle);
-  if (qualityGate.status === "fail" || qualityGate.status !== delta.quality_gate_status) {
-    refuse("candidate transition quality gate is failing or inconsistent");
-  }
-  if (
-    canonicalJson(snapshotStrictJson(root.quality_gate, "candidate_transition.quality_gate", LIMITS)) !==
-    canonicalJson(snapshotStrictJson(qualityGate, "recomputed_quality_gate", LIMITS))
-  ) {
-    refuse("candidate transition quality-gate report mismatch");
-  }
-  if (root.consumed_replay_key !== delta.replay_key) {
-    refuse("candidate transition consumed replay key mismatch");
-  }
-  const replayProtection = asObject(
-    root.replay_protection,
-    "candidate_transition.replay_protection",
-  );
-  exact(
-    replayProtection,
-    ["caller_snapshot_required", "newly_consumed_key_returned", "cross_process_durable_protection"],
-    "candidate_transition.replay_protection",
-  );
-  if (
-    replayProtection.caller_snapshot_required !== true ||
-    replayProtection.newly_consumed_key_returned !== true ||
-    replayProtection.cross_process_durable_protection !== false
-  ) {
-    refuse("candidate transition replay-protection claims are invalid");
-  }
-  const assurances = parseAssurances(
-    root.source_assurances,
-    "candidate_transition.source_assurances",
-  );
-  const fixtureBinding = parseFixtureBinding(
-    root.fixture_binding,
-    producer,
-    "candidate_transition.fixture_binding",
-  );
-  if (
-    canonicalJson(snapshotStrictJson(assurances, "assurances", LIMITS)) !==
-      canonicalJson(snapshotStrictJson(delta.source_assurances, "delta_assurances", LIMITS)) ||
-    canonicalJson(snapshotStrictJson(fixtureBinding, "fixture_binding", LIMITS)) !==
-      canonicalJson(snapshotStrictJson(delta.fixture_binding, "delta_fixture_binding", LIMITS))
-  ) {
-    refuse("candidate transition assurance/binding metadata does not match its delta");
-  }
-  const authority = parseTransitionAuthority(
-    root.authority,
-    "candidate_transition.authority",
-  );
-  const core: CandidateTransitionCore = {
-    kind: CANDIDATE_TRANSITION_KIND,
-    version: CANDIDATE_TRANSITION_VERSION,
-    producer,
-    scope,
-    created_at: createdAt,
-    expires_at: expiresAt,
-    delta,
-    base_candidate: baseCandidate,
-    candidate_sha256: root.candidate_sha256,
-    candidate,
-    quality_gate: qualityGate,
-    consumed_replay_key: delta.replay_key,
-    replay_protection: {
-      caller_snapshot_required: true,
-      newly_consumed_key_returned: true,
-      cross_process_durable_protection: false,
-    },
-    source_assurances: assurances,
-    fixture_binding: fixtureBinding,
-    authority,
-  };
-  const expectedDigest = sha256CanonicalJson(
-    snapshotStrictJson(core, "candidate_transition", LIMITS),
-  );
-  if (root.transition_sha256 !== expectedDigest) {
-    refuse("candidate transition integrity digest mismatch");
-  }
-  return deepFreezeOwnData({ ...core, transition_sha256: expectedDigest });
+  return expected;
 }

@@ -86,6 +86,26 @@ describe("ProposalEnvelope v1", () => {
     assert.throws(() => createProposalEnvelope(core), /lifetime.*maximum/);
   });
 
+  test("requires one canonical timestamp spelling and downstream-safe producer trace length", () => {
+    const nonCanonicalTimestamp = coreFromEnvelope();
+    nonCanonicalTimestamp.created_at = "2026-06-11T00:00:00.000Z";
+    assert.throws(
+      () => createProposalEnvelope(nonCanonicalTimestamp),
+      /must be canonical UTC/,
+    );
+
+    const longestAccepted = coreFromEnvelope();
+    longestAccepted.producer.trace_id = "a".repeat(121);
+    assert.equal(createProposalEnvelope(longestAccepted).producer.trace_id.length, 121);
+
+    const downstreamUnsafe = coreFromEnvelope();
+    downstreamUnsafe.producer.trace_id = "a".repeat(122);
+    assert.throws(
+      () => createProposalEnvelope(downstreamUnsafe),
+      /downstream safe-id bounds/,
+    );
+  });
+
   test("rejects extra, legacy, missing-version, missing-digest, and missing-binding shapes", () => {
     const valid = clone(makePublicProposalEnvelope()) as unknown as Record<string, unknown>;
     const variants: Record<string, unknown>[] = [];
@@ -272,6 +292,32 @@ describe("ProposalEnvelope v1", () => {
           subject_id: "subject_acme_robotics",
         }),
       /did not materialize completely/,
+    );
+  });
+
+  test("the explicit public-curated adapter refuses non-public/private legacy origins", () => {
+    const input = loadPublicProposalInput() as unknown as Record<string, any>;
+    input.context.origin = "private-fresh-route-proof";
+    assert.throws(
+      () =>
+        adaptPublicCuratedMaterializationInputToProposalEnvelope(input as any, {
+          subject_id: "subject_acme_robotics",
+        }),
+      /public-curated materialization origin only/,
+    );
+  });
+
+  test("the explicit adapter normalizes strict-array failures to its envelope boundary", () => {
+    const input = loadPublicProposalInput() as unknown as Record<string, any>;
+    const sparseSources = clone(input.public_sources) as unknown[];
+    sparseSources.length += 1;
+    input.public_sources = sparseSources;
+    assert.throws(
+      () =>
+        adaptPublicCuratedMaterializationInputToProposalEnvelope(input as any, {
+          subject_id: "subject_acme_robotics",
+        }),
+      ProposalEnvelopeBoundaryError,
     );
   });
 });

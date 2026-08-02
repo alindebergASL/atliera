@@ -59,6 +59,6 @@ export function makePublicProposalTransition(): CandidateTransition {
   return applyCandidateDelta(envelope, delta, base, {
     now: PUBLIC_PROPOSAL_NOW,
     expected_scope: envelope.scope,
-    consumed_replay_keys: [],
+    prior_recorded_replay_keys: [],
   });
 }

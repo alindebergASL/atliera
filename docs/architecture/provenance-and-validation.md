@@ -52,19 +52,24 @@ plain own-data with exact keys, bounded arrays, canonical UTC creation/expiry
 timestamps, and a maximum lifetime of 24 hours. Hydration rebuilds and freezes
 the canonical value after revalidating it; no in-process brand is authority.
 Its SHA-256 digest covers every authority-relevant field except the digest
-itself, but is only an integrity/audit identity. It is not approval,
-authentication, ratification, or permission to present, ingest, or write.
+itself. The envelope, delta, candidate, replay, fixture-content, and transition
+hashes in this boundary are deliberately unkeyed integrity/audit identities;
+they are not authentication, approval, ratification, or permission to present,
+ingest, or write.
 
-The envelope binds producer kind and trace id plus exact team, account, opaque
-subject, and `candidate_validation` purpose scope. Fixture producers require an
-exact fixture-content binding whose contract states
-`authenticated_human_approval: false`; imported and model-generated producers
-cannot carry that binding. Every envelope also records the PR #300 assurance
-truths: an `origin_content_sha256` value alone does not prove origin custody,
-and a `transformation_manifest_sha256` value alone does not resolve or verify
-the corresponding transformation record. All effective-authority,
-trusted-presentation, graph-ingestion, ratification, and durable-write markers
-remain closed.
+The envelope binds producer kind and a downstream-safe trace id plus exact
+team, account, opaque subject, and `candidate_validation` purpose scope.
+Fixture producers require a declared fixture-content integrity binding whose
+contract states `authenticated_human_approval: false`; the general envelope
+boundary does not authenticate that declaration against a committed fixture or
+prove fixture custody. The explicit public-curated legacy adapter derives the
+binding from the exact adapter input it accepted. Imported and model-generated
+producers cannot carry a fixture binding. Every envelope also records the PR
+#300 assurance truths: an `origin_content_sha256` value alone does not prove
+origin custody, and a `transformation_manifest_sha256` value alone does not
+resolve or verify the corresponding transformation record. All
+effective-authority, trusted-presentation, graph-ingestion, ratification, and
+durable-write markers remain closed.
 
 `CandidateDelta` v1 is derived only from a rehydrated envelope and an explicit
 rehydrated `ValidatedCandidate` base. It binds both exact audit digests, carries
@@ -76,15 +81,25 @@ gate over that full candidate. A graph or quality `fail` refuses application;
 `borderline` remains `borderline` and can only produce visibly untrusted
 candidate preview state.
 
-Replay application requires a caller-supplied exact consumed-key snapshot;
-omission never defaults open. Successful application returns the newly
-consumed key as evidence and explicitly makes no cross-process durable replay
-claim. This slice adds no replay store or other persistence. The active public
-curated Workshop preview accepts a live, rehydrated successful candidate
-transition and renders its revalidated `ValidatedCandidate`; raw legacy
-materialization input cannot call that boundary. Existing M5a/M5b approval,
-execution, ratification, and durable flows remain separate and are not migrated
-by this boundary.
+Replay application requires a caller-supplied exact prior recorded-key
+snapshot; omission never defaults open. The pure function checks that snapshot
+and returns `replay_key_to_record`, which the caller must record. It neither
+records the key nor proves that an external ledger did so, and it explicitly
+makes no cross-process durable replay claim. The snapshot is bounded to 1,000
+keys and fails closed above that bound: callers must stop and refuse further
+application rather than truncate the ledger or drop older keys, because doing
+so would reopen replay. This slice adds no replay store or other persistence.
+
+The active public-curated Workshop preview requires the exact proposal envelope
+alongside the transition and caller-supplied prior replay snapshot. Hydration
+re-runs the same deterministic `applyCandidateDelta` path against the embedded
+exact base and requires the resulting transition to match exactly; transition
+self-hashes alone are not authority. The proposal preview then independently
+validates and renders only `transition.delta.records`, so unrelated merged-base
+records cannot inherit proposal-wide trust language. Raw legacy materialization
+input cannot call that boundary. Existing M5a/M5b approval, execution,
+ratification, and durable flows remain separate and are not migrated by this
+boundary.
 
 ## Source identity and stored-content integrity
 

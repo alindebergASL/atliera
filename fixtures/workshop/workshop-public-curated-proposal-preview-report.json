@@ -1,9 +1,9 @@
 {
   "schema_version": "atliera.workshop_public_curated_proposal_preview.v1",
   "artifact_name": "workshop-public-curated-proposal-preview",
-  "generated_from": "proposal_materialization_public_curated_fixture",
+  "validated_input_contract": "canonical_proposal_envelope_and_candidate_transition",
+  "declared_producer_kind": "fixture",
   "current_effective_authorization": "none",
-  "input_origin": "hand-curated-public",
   "proposal_set_id": "public-curated-20260611a",
   "account_id": "acc_acme_robotics",
   "boundaries": {

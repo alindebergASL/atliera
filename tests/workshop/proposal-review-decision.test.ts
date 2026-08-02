@@ -9,6 +9,7 @@ import {
   type WorkshopProposalHumanReviewDecisionArtifact,
 } from "../../src/workshop/proposal-review-decision.ts";
 import {
+  makePublicProposalEnvelope,
   makePublicProposalTransition,
   PUBLIC_PROPOSAL_NOW,
 } from "../fixtures/proposal-authority.ts";
@@ -18,9 +19,15 @@ const REVIEWED_AT = "2026-06-11T12:00:00Z";
 const VISIBLE_ITEM_ID = "obj_acme-hub-signal";
 
 function buildPreview() {
+  const envelope = makePublicProposalEnvelope();
   return buildWorkshopPublicCuratedProposalPreview(
+    envelope,
     makePublicProposalTransition(),
-    PUBLIC_PROPOSAL_NOW,
+    {
+      now: PUBLIC_PROPOSAL_NOW,
+      expected_scope: envelope.scope,
+      prior_recorded_replay_keys: [],
+    },
   );
 }
 

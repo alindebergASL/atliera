@@ -2,25 +2,27 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import type { MaterializeProposalForValidationInput } from "../../src/validation/proposal-materialization.ts";
 import {
   buildWorkshopPublicCuratedProposalPreview,
   WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME,
 } from "../../src/workshop/proposal-preview.ts";
 import { WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT } from "../../src/workshop/render-html.ts";
 import { WORKSHOP_REVIEW_STATE_MODEL_PROPOSED } from "../../src/workshop/view-model.ts";
+import {
+  loadPublicProposalInput,
+  makePublicProposalTransition,
+  PUBLIC_PROPOSAL_NOW,
+} from "../fixtures/proposal-authority.ts";
 
-const INPUT_FIXTURE = "fixtures/validation/proposal-materialization-public-curated-20260611a-input.json";
 const HTML_FIXTURE = "fixtures/workshop/workshop-public-curated-proposal-preview.html";
 const REPORT_FIXTURE = "fixtures/workshop/workshop-public-curated-proposal-preview-report.json";
 
-function loadFixtureInput(): MaterializeProposalForValidationInput {
-  return JSON.parse(readFileSync(INPUT_FIXTURE, "utf8")) as MaterializeProposalForValidationInput;
-}
-
 describe("public curated proposal Workshop preview", () => {
   test("renders the visible model-proposed pending-review treatment without promoting trust", () => {
-    const preview = buildWorkshopPublicCuratedProposalPreview(loadFixtureInput());
+    const preview = buildWorkshopPublicCuratedProposalPreview(
+      makePublicProposalTransition(),
+      PUBLIC_PROPOSAL_NOW,
+    );
 
     assert.equal(preview.kind, WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME);
     assert.equal(preview.report.artifact_name, WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME);
@@ -47,7 +49,10 @@ describe("public curated proposal Workshop preview", () => {
   });
 
   test("keeps provider, private-evidence, durable-write, ingestion, production, and readiness boundaries closed", () => {
-    const { report } = buildWorkshopPublicCuratedProposalPreview(loadFixtureInput());
+    const { report } = buildWorkshopPublicCuratedProposalPreview(
+      makePublicProposalTransition(),
+      PUBLIC_PROPOSAL_NOW,
+    );
 
     assert.equal(report.current_effective_authorization, "none");
     assert.deepEqual(report.boundaries, {
@@ -78,7 +83,10 @@ describe("public curated proposal Workshop preview", () => {
   });
 
   test("committed HTML and report artifacts regenerate exactly from the public fixture", () => {
-    const preview = buildWorkshopPublicCuratedProposalPreview(loadFixtureInput());
+    const preview = buildWorkshopPublicCuratedProposalPreview(
+      makePublicProposalTransition(),
+      PUBLIC_PROPOSAL_NOW,
+    );
     const committedHtml = readFileSync(HTML_FIXTURE, "utf8");
     const committedReport = readFileSync(REPORT_FIXTURE, "utf8");
 
@@ -87,13 +95,14 @@ describe("public curated proposal Workshop preview", () => {
     assert.equal(JSON.parse(committedReport).html_length, committedHtml.length);
   });
 
-  test("private fresh-route proof origins remain rejected by the underlying materialization contract", () => {
-    const privateInput = loadFixtureInput();
-    (privateInput.context as { origin: string }).origin = "private-fresh-route-proof";
-
+  test("raw legacy materialization input cannot call the active preview boundary", () => {
     assert.throws(
-      () => buildWorkshopPublicCuratedProposalPreview(privateInput),
-      /hand-curated-public input only.*private-evidence-handling approval/s,
+      () =>
+        buildWorkshopPublicCuratedProposalPreview(
+          loadPublicProposalInput(),
+          PUBLIC_PROPOSAL_NOW,
+        ),
+      /Candidate delta refused/,
     );
   });
 });

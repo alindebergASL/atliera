@@ -1,6 +1,5 @@
-import { materializeProposalForValidation, type MaterializeProposalForValidationInput } from "../validation/proposal-materialization.ts";
 import type { ProposalMaterializationBoundaries, ProposalMaterializationTrustLanguage } from "../validation/proposal-materialization.ts";
-import { createValidatedCandidate } from "../graph/validated-candidate.ts";
+import { hydrateCandidateTransition } from "../graph/candidate-delta.ts";
 import { renderWorkshopHtml } from "./render-html.ts";
 import { buildWorkshopViewModel, WORKSHOP_REVIEW_STATE_MODEL_PROPOSED, type WorkshopLens, type WorkshopViewModel } from "./view-model.ts";
 
@@ -68,29 +67,47 @@ function deepFreeze<T>(value: T): T {
 }
 
 export function buildWorkshopPublicCuratedProposalPreview(
-  input: MaterializeProposalForValidationInput,
+  transitionInput: unknown,
+  now: string,
 ): WorkshopPublicCuratedProposalPreview {
-  const materialized = materializeProposalForValidation(input);
-  const viewModel = buildWorkshopViewModel(
-    createValidatedCandidate(materialized.bundle_candidate, {
-      team_id: materialized.team_id,
-      account_id: materialized.account_id,
-    }),
-  );
+  // This active boundary accepts successful, replay-consumed canonical
+  // candidate-transition evidence only. Raw legacy materialization input is
+  // not presentation authority, even for this visibly untrusted preview.
+  const transition = hydrateCandidateTransition(transitionInput, now);
+  if (transition.producer.kind !== "fixture" || transition.fixture_binding === null) {
+    throw new Error("public curated proposal preview requires an exact fixture-bound transition");
+  }
+  const viewModel = buildWorkshopViewModel(transition.candidate);
   const html = renderWorkshopHtml(viewModel, { previewMode: "validation" });
   const decorated = reviewDecoratedItemCount(viewModel);
 
-  if (materialized.next_visible_workshop_artifact.name !== WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME) {
-    throw new Error("proposal materialization artifact does not target the public curated Workshop preview");
-  }
   if (viewModel.totals.verified_objects !== 0) {
     throw new Error("public curated proposal preview must not render proposal-derived objects as verified");
   }
-  if (decorated !== materialized.accepted_counts.account_objects) {
+  if (decorated !== transition.delta.records.account_objects.length) {
     throw new Error("public curated proposal preview must decorate every accepted proposal-derived account object");
   }
 
   const frozenViewModel = deepFreeze(viewModel);
+  const boundaries: ProposalMaterializationBoundaries = Object.freeze({
+    current_effective_authorization: "none",
+    authorizes_provider_call: false,
+    authorizes_private_evidence_read: false,
+    authorizes_graph_ingestion: false,
+    graph_ingestion_performed: false,
+    provider_calls_executed: 0,
+    private_evidence_read: false,
+    durable_writes_performed: false,
+    production_writes: false,
+    readiness_claim: false,
+  });
+  const trustLanguage: ProposalMaterializationTrustLanguage = Object.freeze({
+    provenance_status: "unverified",
+    excerpt_validation_status: "proposed",
+    review_state: WORKSHOP_REVIEW_STATE_MODEL_PROPOSED,
+    adds_new_truth_status_tier: false,
+    confidence_cap: "medium",
+  });
 
   return Object.freeze({
     kind: WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME,
@@ -99,11 +116,11 @@ export function buildWorkshopPublicCuratedProposalPreview(
       artifact_name: WORKSHOP_PUBLIC_CURATED_PROPOSAL_PREVIEW_NAME,
       generated_from: "proposal_materialization_public_curated_fixture",
       current_effective_authorization: "none",
-      input_origin: materialized.origin,
-      proposal_set_id: materialized.proposal_set_id,
-      account_id: materialized.account_id,
-      boundaries: materialized.boundaries,
-      trust_language: materialized.trust_language,
+      input_origin: "hand-curated-public",
+      proposal_set_id: transition.producer.trace_id,
+      account_id: transition.scope.account_id,
+      boundaries,
+      trust_language: trustLanguage,
       preview_mode: "validation",
       html_rendered: true,
       html_length: html.length,

@@ -145,6 +145,56 @@ input cannot call that boundary. Existing M5a/M5b approval, execution,
 ratification, and durable flows remain separate and are not migrated by this
 boundary.
 
+## Prewrite subject-graph revision intent
+
+`SubjectGraphRevisionIntent` v1 is the pure contract between a rehydrated
+`CandidateTransition` and a future transactional, versioned subject-graph
+store. Proposed content begins in the `ProposalEnvelope`; `CandidateDelta`
+describes its exact addition to an exact base; `ValidatedCandidate` is the
+fully merged, schema- and invariant-checked snapshot; and
+`CandidateTransition` binds those values plus the deterministic quality policy,
+complete quality report, and still-unconsumed replay key. The revision intent
+owns that exact `ValidatedCandidate` as its proposed snapshot. It does not
+store it or make it current.
+
+Graph identity is the stable structured tuple of exact `team_id`, `account_id`,
+`subject_id`, and purpose from the transition scope. No envelope, delta,
+candidate, transition, review, content, or intent hash is a graph identifier,
+physical path, or storage key. Bootstrap intent requires a null prior revision,
+the exact base-candidate digest, and a canonically empty base GraphBundle.
+Successor intent requires a canonical positive `rev_<integer>` expectation and
+the same exact base-candidate digest binding. Both are only caller-declared
+compare-and-swap expectations. This slice does not read stored state and
+provides no anti-rollback protection. A future authorized transaction must
+atomically compare both the durable current revision and the current canonical
+snapshot identity before mapping the structured identity to backend keys and
+committing `proposed_snapshot.graph_bundle`.
+
+The intent embeds one exact, bounded review handoff. Its sole disposition means
+only “accept this transition for a prewrite revision intent.” It binds the
+graph tuple, predecessor basis, envelope/delta/transition/base/proposed
+digests, quality policy and report identities, replay key, reviewer reference,
+canonical review time within the transition live window and no later than the
+validated application snapshot's `now`, rationale, and closed authority
+markers. Creation validates the exact envelope, transition, application
+options, predecessor basis, and review before constructing the intent.
+Hydration re-runs `hydrateCandidateTransition` with those exact inputs,
+reconstructs the expected intent, and canonical-compares the complete result.
+Both operations therefore remain fail-closed inside the proposal envelope's
+validity window; this v1 intent is not a timeless validation receipt, and a
+future transaction cannot refresh or replace its pinned predecessor expectation
+after expiry. The review-handoff and intent SHA-256 values are unkeyed integrity
+identities only: they are not authenticated human approval, ratification,
+replay consumption, anti-rollback enforcement, custody proof, ingestion or
+durable-write authority, or evidence that any durable effect occurred.
+
+Authenticated approval/ratification and replay-ledger or anti-rollback checks
+remain later authority gates; actual stored state exists only after a future
+authorized transaction succeeds. The historical Workshop preview review,
+ratification-plan, and related M5a/M5b artifacts remain historical,
+non-authorizing contracts. Their shapes are not this exact review handoff and
+they cannot produce a `SubjectGraphRevisionIntent`.
+
 ## Source identity and stored-content integrity
 
 Canonical `SourceDocument` records carry exactly three SHA-256 identity

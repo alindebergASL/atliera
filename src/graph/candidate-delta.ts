@@ -42,6 +42,25 @@ export const CANDIDATE_DELTA_KIND = "atliera_candidate_delta" as const;
 export const CANDIDATE_DELTA_VERSION = 1 as const;
 export const CANDIDATE_TRANSITION_KIND = "atliera_candidate_transition" as const;
 export const CANDIDATE_TRANSITION_VERSION = 1 as const;
+export const CANDIDATE_QUALITY_GATE_POLICY_NAME =
+  "atliera_candidate_quality_gate" as const;
+export const CANDIDATE_QUALITY_GATE_POLICY_VERSION = 1 as const;
+
+export const CANDIDATE_COMPOSITION_MAX_RECORDS_PER_GRAPH_KIND = 1_000;
+export const CANDIDATE_COMPOSITION_MAX_TOTAL_GRAPH_RECORDS = 4_000;
+export const CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES =
+  2 * 1024 * 1024;
+export const CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES =
+  4 * 1024 * 1024;
+export const CANDIDATE_TRANSITION_MAX_JSON_NODES = 20_000;
+export const CANDIDATE_TRANSITION_MAX_TOTAL_STRING_UTF8_BYTES =
+  12 * 1024 * 1024;
+
+export interface CandidateQualityGatePolicyIdentity {
+  readonly name: typeof CANDIDATE_QUALITY_GATE_POLICY_NAME;
+  readonly version: typeof CANDIDATE_QUALITY_GATE_POLICY_VERSION;
+  readonly policy_sha256: string;
+}
 
 export interface CandidateDeltaAuthorityMarkers extends ProposalAuthorityMarkers {
   readonly candidate_state_only: true;
@@ -59,6 +78,8 @@ export interface CandidateDeltaCore {
   readonly base_candidate_sha256: string;
   readonly records: GraphBundle;
   readonly quality_gate_status: GateStatus;
+  readonly quality_gate_policy: CandidateQualityGatePolicyIdentity;
+  readonly quality_gate_report_sha256: string;
   readonly replay_key: string;
   readonly source_assurances: ProposalSourceAssurances;
   readonly fixture_binding: ProposalFixtureBinding | null;
@@ -118,13 +139,32 @@ export class CandidateDeltaBoundaryError extends Error {
 }
 
 const LIMITS: StrictJsonLimits = Object.freeze({
-  max_array_length: 1_000,
+  max_array_length: CANDIDATE_COMPOSITION_MAX_RECORDS_PER_GRAPH_KIND,
   max_depth: 16,
-  max_nodes: 20_000,
+  max_nodes: CANDIDATE_TRANSITION_MAX_JSON_NODES,
   max_object_fields: 128,
   max_string_utf8_bytes: 2 * 1024 * 1024,
-  max_total_string_utf8_bytes: 12 * 1024 * 1024,
+  max_total_string_utf8_bytes:
+    CANDIDATE_TRANSITION_MAX_TOTAL_STRING_UTF8_BYTES,
 });
+
+// Candidate derivation never consults the exported generic default or a
+// caller-supplied threshold object. This private, recursively immutable policy
+// is versioned and hashed as an unkeyed integrity identity; neither identity
+// is authentication or approval.
+const CANDIDATE_QUALITY_GATE_POLICY = Object.freeze({
+  name: CANDIDATE_QUALITY_GATE_POLICY_NAME,
+  version: CANDIDATE_QUALITY_GATE_POLICY_VERSION,
+  thresholds: Object.freeze({
+    min_accepted_excerpt_rate: 0.5,
+    min_verified_claim_evidence_coverage: 1,
+    max_invented_id_failures: 0,
+  }),
+});
+
+const CANDIDATE_QUALITY_GATE_POLICY_SHA256 = sha256CanonicalJson(
+  CANDIDATE_QUALITY_GATE_POLICY as unknown as StrictJsonValue,
+);
 
 // Every digest and replay key in this pure boundary is an unkeyed integrity
 // identity. Exact re-derivation establishes content binding; no hash grants
@@ -147,6 +187,8 @@ const DELTA_CORE_KEYS = [
   "base_candidate_sha256",
   "records",
   "quality_gate_status",
+  "quality_gate_policy",
+  "quality_gate_report_sha256",
   "replay_key",
   "source_assurances",
   "fixture_binding",
@@ -194,9 +236,46 @@ function strictSnapshot(raw: unknown, path: string): StrictJsonValue {
   }
 }
 
+function candidateQualityGatePolicyIdentity(): CandidateQualityGatePolicyIdentity {
+  return {
+    name: CANDIDATE_QUALITY_GATE_POLICY_NAME,
+    version: CANDIDATE_QUALITY_GATE_POLICY_VERSION,
+    policy_sha256: CANDIDATE_QUALITY_GATE_POLICY_SHA256,
+  };
+}
+
+function parseCandidateQualityGatePolicyIdentity(
+  value: StrictJsonValue | undefined,
+  path: string,
+): CandidateQualityGatePolicyIdentity {
+  const identity = asObject(value, path);
+  exact(identity, ["name", "version", "policy_sha256"], path);
+  if (
+    identity.name !== CANDIDATE_QUALITY_GATE_POLICY_NAME ||
+    identity.version !== CANDIDATE_QUALITY_GATE_POLICY_VERSION ||
+    identity.policy_sha256 !== CANDIDATE_QUALITY_GATE_POLICY_SHA256
+  ) {
+    refuse(`${path} has quality-gate policy identity drift`);
+  }
+  return candidateQualityGatePolicyIdentity();
+}
+
+function runCandidateQualityGate(bundle: GraphBundle): QualityGateReport {
+  return runQualityGate(bundle, CANDIDATE_QUALITY_GATE_POLICY.thresholds);
+}
+
+function qualityGateReportSha256(report: QualityGateReport): string {
+  return sha256CanonicalJson(
+    strictSnapshot(report, "candidate_quality_gate_report"),
+  );
+}
+
 function hydrateCandidate(raw: unknown, path: string): ValidatedCandidate {
   try {
-    return hydrateValidatedCandidate(raw);
+    // Bound hostile candidate/base inputs before the generic candidate parser
+    // allocates or validates them. The returned candidate is a second fresh
+    // snapshot, so no caller-owned object can be frozen through this path.
+    return hydrateValidatedCandidate(strictSnapshot(raw, path));
   } catch (error) {
     if (error instanceof CandidateDeltaBoundaryError) throw error;
     if (error instanceof Error) refuse(`${path}: ${error.message}`);
@@ -495,6 +574,55 @@ function graphMerge(base: GraphBundle, delta: GraphBundle): GraphBundle {
   };
 }
 
+const GRAPH_BUNDLE_ARRAY_KEYS = [
+  "sources",
+  "excerpts",
+  "claims",
+  "claim_evidence",
+  "account_objects",
+  "account_object_claims",
+  "research_runs",
+  "run_artifacts",
+  "audit_events",
+] as const satisfies readonly (keyof GraphBundle)[];
+
+function assertMergedCandidateComposition(bundle: GraphBundle): void {
+  let totalRecords = 0;
+  for (const key of GRAPH_BUNDLE_ARRAY_KEYS) {
+    const count = bundle[key].length;
+    if (count > CANDIDATE_COMPOSITION_MAX_RECORDS_PER_GRAPH_KIND) {
+      refuse(
+        `fully merged candidate exceeds the merged-candidate compositional array budget for ${key} of ${CANDIDATE_COMPOSITION_MAX_RECORDS_PER_GRAPH_KIND.toLocaleString("en-US")} records`,
+      );
+    }
+    totalRecords += count;
+  }
+  if (totalRecords > CANDIDATE_COMPOSITION_MAX_TOTAL_GRAPH_RECORDS) {
+    refuse(
+      `fully merged candidate exceeds the merged-candidate compositional total-record budget of ${CANDIDATE_COMPOSITION_MAX_TOTAL_GRAPH_RECORDS.toLocaleString("en-US")} records`,
+    );
+  }
+
+  let totalSourceBytes = 0;
+  for (let index = 0; index < bundle.sources.length; index += 1) {
+    const sourceBytes = Buffer.byteLength(bundle.sources[index]!.raw_text, "utf8");
+    if (sourceBytes > CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES) {
+      refuse(
+        `fully merged candidate source[${index}].raw_text exceeds the merged-candidate compositional per-source UTF-8 budget of ${CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES} bytes`,
+      );
+    }
+    totalSourceBytes += sourceBytes;
+    if (
+      totalSourceBytes >
+      CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES
+    ) {
+      refuse(
+        `fully merged candidate exceeds the merged-candidate compositional cumulative source-content UTF-8 budget of ${CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES} bytes`,
+      );
+    }
+  }
+}
+
 function proposalActor(producer: ProposalProducer): "model" | "import" | "system" {
   if (producer.kind === "model_generated") return "model";
   if (producer.kind === "imported") return "import";
@@ -680,10 +808,16 @@ function replayKey(envelopeSha256: string, baseCandidateSha256: string): string 
   ]);
 }
 
+interface CandidateDeltaDerivation {
+  readonly core: CandidateDeltaCore;
+  readonly candidate: ValidatedCandidate;
+  readonly quality_gate: QualityGateReport;
+}
+
 function buildCandidateDeltaCore(
   envelope: ProposalEnvelope,
   base: ValidatedCandidate,
-): CandidateDeltaCore {
+): CandidateDeltaDerivation {
   if (
     base.subject.team_id !== envelope.scope.team_id ||
     base.subject.account_id !== envelope.scope.account_id
@@ -702,33 +836,41 @@ function buildCandidateDeltaCore(
     },
     "candidate delta records",
   );
+  const mergedBundle = graphMerge(base.graph_bundle, records);
+  assertMergedCandidateComposition(mergedBundle);
   const candidate = validateCandidate(
-    graphMerge(base.graph_bundle, records),
+    mergedBundle,
     {
       team_id: envelope.scope.team_id,
       account_id: envelope.scope.account_id,
     },
     "fully merged candidate",
   );
-  const qualityGate = runQualityGate(candidate.graph_bundle);
+  const qualityGate = runCandidateQualityGate(candidate.graph_bundle);
   if (qualityGate.status === "fail") {
     refuse("fully merged candidate failed the deterministic quality gate");
   }
   return {
-    kind: CANDIDATE_DELTA_KIND,
-    version: CANDIDATE_DELTA_VERSION,
-    producer: envelope.producer,
-    scope: envelope.scope,
-    created_at: envelope.created_at,
-    expires_at: envelope.expires_at,
-    envelope_sha256: envelope.envelope_sha256,
-    base_candidate_sha256: baseCandidateSha256,
-    records,
-    quality_gate_status: qualityGate.status,
-    replay_key: replayKey(envelope.envelope_sha256, baseCandidateSha256),
-    source_assurances: envelope.source_assurances,
-    fixture_binding: envelope.fixture_binding,
-    authority: deltaAuthority(),
+    core: {
+      kind: CANDIDATE_DELTA_KIND,
+      version: CANDIDATE_DELTA_VERSION,
+      producer: envelope.producer,
+      scope: envelope.scope,
+      created_at: envelope.created_at,
+      expires_at: envelope.expires_at,
+      envelope_sha256: envelope.envelope_sha256,
+      base_candidate_sha256: baseCandidateSha256,
+      records,
+      quality_gate_status: qualityGate.status,
+      quality_gate_policy: candidateQualityGatePolicyIdentity(),
+      quality_gate_report_sha256: qualityGateReportSha256(qualityGate),
+      replay_key: replayKey(envelope.envelope_sha256, baseCandidateSha256),
+      source_assurances: envelope.source_assurances,
+      fixture_binding: envelope.fixture_binding,
+      authority: deltaAuthority(),
+    },
+    candidate,
+    quality_gate: qualityGate,
   };
 }
 
@@ -740,11 +882,19 @@ export function createCandidateDelta(
   const envelope = hydrateProposalEnvelope(rawEnvelope);
   const base = hydrateCandidate(rawBase, "base candidate");
   assertLive(envelope.created_at, envelope.expires_at, now, "proposal envelope");
-  const core = buildCandidateDeltaCore(envelope, base);
+  const derivation = buildCandidateDeltaCore(envelope, base);
+  const core = derivation.core;
   const deltaSha256 = sha256CanonicalJson(
     strictSnapshot(core, "candidate_delta"),
   );
-  return deepFreezeOwnData({ ...core, delta_sha256: deltaSha256 });
+  const delta = { ...core, delta_sha256: deltaSha256 };
+  assertProspectiveTransitionRepresentable(
+    delta,
+    base,
+    derivation.candidate,
+    derivation.quality_gate,
+  );
+  return deepFreezeOwnData(delta);
 }
 
 function parseDeltaCore(root: { [key: string]: StrictJsonValue }): CandidateDeltaCore {
@@ -769,6 +919,16 @@ function parseDeltaCore(root: { [key: string]: StrictJsonValue }): CandidateDelt
   }
   if (root.quality_gate_status === "fail") {
     refuse("a failing quality gate cannot become a candidate delta");
+  }
+  const qualityGatePolicy = parseCandidateQualityGatePolicyIdentity(
+    root.quality_gate_policy,
+    "candidate_delta.quality_gate_policy",
+  );
+  if (
+    typeof root.quality_gate_report_sha256 !== "string" ||
+    !CANONICAL_SHA256.test(root.quality_gate_report_sha256)
+  ) {
+    refuse("candidate_delta.quality_gate_report_sha256 is malformed");
   }
   const records = validateCandidate(
     root.records,
@@ -807,6 +967,8 @@ function parseDeltaCore(root: { [key: string]: StrictJsonValue }): CandidateDelt
     base_candidate_sha256: root.base_candidate_sha256 as string,
     records,
     quality_gate_status: root.quality_gate_status as GateStatus,
+    quality_gate_policy: qualityGatePolicy,
+    quality_gate_report_sha256: root.quality_gate_report_sha256,
     replay_key: root.replay_key as string,
     source_assurances: sourceAssurances,
     fixture_binding: fixtureBinding,
@@ -867,13 +1029,17 @@ function parseApplyOptions(raw: unknown): ApplyCandidateDeltaOptions {
   return { now, expected_scope: expectedScope, prior_recorded_replay_keys: keys };
 }
 
-function makeTransition(
+function buildTransitionCore(
   delta: CandidateDelta,
   baseCandidate: ValidatedCandidate,
   candidate: ValidatedCandidate,
   qualityGate: QualityGateReport,
-): CandidateTransition {
-  const core: CandidateTransitionCore = {
+): CandidateTransitionCore {
+  const qualityGateSnapshot = strictSnapshot(
+    qualityGate,
+    "candidate_transition.quality_gate",
+  ) as unknown as QualityGateReport;
+  return {
     kind: CANDIDATE_TRANSITION_KIND,
     version: CANDIDATE_TRANSITION_VERSION,
     producer: delta.producer,
@@ -884,7 +1050,7 @@ function makeTransition(
     base_candidate: baseCandidate,
     candidate_sha256: validatedCandidateSha256(candidate),
     candidate,
-    quality_gate: qualityGate,
+    quality_gate: qualityGateSnapshot,
     replay_key_to_record: delta.replay_key,
     replay_protection: {
       caller_snapshot_required: true,
@@ -895,6 +1061,50 @@ function makeTransition(
     fixture_binding: delta.fixture_binding,
     authority: transitionAuthority(),
   };
+}
+
+function assertProspectiveTransitionRepresentable(
+  delta: CandidateDelta,
+  baseCandidate: ValidatedCandidate,
+  candidate: ValidatedCandidate,
+  qualityGate: QualityGateReport,
+): void {
+  const core = buildTransitionCore(
+    delta,
+    baseCandidate,
+    candidate,
+    qualityGate,
+  );
+  try {
+    // Hydration snapshots the complete serialized transition, not only the
+    // hash input. Include a canonical digest-shaped placeholder so delta
+    // creation cannot accept a core that fits while its required final digest
+    // pushes the hydrated transition over a cumulative limit.
+    snapshotStrictJson(
+      { ...core, transition_sha256: "0".repeat(64) },
+      "prospective_candidate_transition",
+      LIMITS,
+    );
+  } catch (error) {
+    if (error instanceof StrictJsonBoundaryError) {
+      refuse(`prospective transition representability budget failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+function makeTransition(
+  delta: CandidateDelta,
+  baseCandidate: ValidatedCandidate,
+  candidate: ValidatedCandidate,
+  qualityGate: QualityGateReport,
+): CandidateTransition {
+  const core = buildTransitionCore(
+    delta,
+    baseCandidate,
+    candidate,
+    qualityGate,
+  );
   const transitionSha256 = sha256CanonicalJson(
     strictSnapshot(core, "candidate_transition"),
   );
@@ -934,6 +1144,29 @@ export function applyCandidateDelta(
     refuse("candidate delta replay key is already present in the prior snapshot");
   }
 
+  const mergedBundle = graphMerge(base.graph_bundle, delta.records);
+  assertMergedCandidateComposition(mergedBundle);
+  const candidate = validateCandidate(
+    mergedBundle,
+    {
+      team_id: delta.scope.team_id,
+      account_id: delta.scope.account_id,
+    },
+    "fully merged candidate",
+  );
+  const qualityGate = runCandidateQualityGate(candidate.graph_bundle);
+  if (qualityGate.status === "fail") {
+    refuse("fully merged candidate failed the deterministic quality gate");
+  }
+  if (qualityGate.status !== delta.quality_gate_status) {
+    refuse("candidate delta quality status does not match the fully merged candidate");
+  }
+  if (qualityGateReportSha256(qualityGate) !== delta.quality_gate_report_sha256) {
+    refuse(
+      "candidate delta has exact quality-gate report identity drift for the fully merged candidate",
+    );
+  }
+
   const expectedDelta = createCandidateDelta(envelope, base, options.now);
   if (
     expectedDelta.delta_sha256 !== delta.delta_sha256 ||
@@ -941,22 +1174,6 @@ export function applyCandidateDelta(
       canonicalJson(strictSnapshot(delta, "candidate_delta"))
   ) {
     refuse("candidate delta does not exactly match deterministic envelope/base derivation");
-  }
-
-  const candidate = validateCandidate(
-    graphMerge(base.graph_bundle, delta.records),
-    {
-      team_id: delta.scope.team_id,
-      account_id: delta.scope.account_id,
-    },
-    "fully merged candidate",
-  );
-  const qualityGate = runQualityGate(candidate.graph_bundle);
-  if (qualityGate.status === "fail") {
-    refuse("fully merged candidate failed the deterministic quality gate");
-  }
-  if (qualityGate.status !== delta.quality_gate_status) {
-    refuse("candidate delta quality status does not match the fully merged candidate");
   }
   return makeTransition(delta, base, candidate, qualityGate);
 }

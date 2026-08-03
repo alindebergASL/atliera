@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
 import {
+  CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES,
+  CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES,
+  CANDIDATE_QUALITY_GATE_POLICY_NAME,
+  CANDIDATE_QUALITY_GATE_POLICY_VERSION,
   CandidateDeltaBoundaryError,
   applyCandidateDelta,
   createCandidateDelta,
@@ -11,15 +15,19 @@ import {
   validatedCandidateSha256,
 } from "../../src/graph/candidate-delta.ts";
 import { sha256CanonicalJson } from "../../src/authority/strict-json.ts";
+import { DEFAULT_QUALITY_GATE_THRESHOLDS } from "../../src/gate/quality-gate.ts";
 import {
   createValidatedCandidate,
   hydrateValidatedCandidate,
 } from "../../src/graph/validated-candidate.ts";
 import {
+  PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT,
+  PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT,
   createProposalEnvelope,
   hydrateProposalEnvelope,
 } from "../../src/validation/proposal-envelope.ts";
-import { clone, makeValidBundle } from "../fixtures/valid-graph.ts";
+import { buildWorkshopPublicCuratedProposalPreview } from "../../src/workshop/proposal-preview.ts";
+import { clone, makeValidBundle, sha256Utf8 } from "../fixtures/valid-graph.ts";
 import {
   PUBLIC_PROPOSAL_NOW,
   emptyGraphBundle,
@@ -75,6 +83,98 @@ function rehashTransition(raw: unknown): any {
   return transition;
 }
 
+function rehashDelta(raw: unknown): any {
+  const delta = clone(raw) as Record<string, any>;
+  delete delta.delta_sha256;
+  delta.delta_sha256 = sha256CanonicalJson(delta);
+  return delta;
+}
+
+function setSourceText(source: Record<string, any>, rawText: string): void {
+  source.raw_text = rawText;
+  source.origin_content_sha256 = sha256Utf8(rawText);
+  source.stored_content_sha256 = sha256Utf8(rawText);
+  source.transformation_manifest_sha256 = null;
+}
+
+function materializableClaimEvidenceFanOutEnvelope(edgeCount: number) {
+  const core = envelopeCore();
+  const source = core.proposal_content.sources[0];
+  const excerptTexts = Array.from(
+    { length: Math.min(50, edgeCount) },
+    (_, index) => `evidence phrase ${index}`,
+  );
+  setSourceText(source, excerptTexts.join(" | "));
+  core.proposal_content.excerpts = excerptTexts.map((text, index) => ({
+    id: `e${index}`,
+    source_id: source.id,
+    text,
+  }));
+  core.proposal_content.claims = [];
+  let remaining = edgeCount;
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.claims.push({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: core.proposal_content.excerpts
+        .slice(0, count)
+        .map((excerpt: any) => excerpt.id),
+    });
+    remaining -= count;
+  }
+  core.proposal_content.account_objects = [{
+    id: "o0",
+    type: "signal",
+    title: "Claim evidence boundary",
+    summary: "Claim evidence boundary",
+    claim_ids: ["c0"],
+  }];
+  return createProposalEnvelope(core);
+}
+
+function materializableAccountObjectClaimFanOutEnvelope(edgeCount: number) {
+  const core = envelopeCore();
+  const source = core.proposal_content.sources[0];
+  setSourceText(source, "shared evidence phrase");
+  core.proposal_content.excerpts = [{
+    id: "e0",
+    source_id: source.id,
+    text: source.raw_text,
+  }];
+  const claimCount = Math.min(50, edgeCount);
+  core.proposal_content.claims = Array.from(
+    { length: claimCount },
+    (_, index) => ({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: ["e0"],
+    }),
+  );
+  core.proposal_content.account_objects = [];
+  let remaining = edgeCount;
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.account_objects.push({
+      id: `o${index}`,
+      type: "signal",
+      title: `object ${index}`,
+      summary: `object ${index}`,
+      claim_ids: core.proposal_content.claims
+        .slice(0, count)
+        .map((claim: any) => claim.id),
+    });
+    remaining -= count;
+  }
+  return createProposalEnvelope(core);
+}
+
 describe("CandidateDelta v1 and pure candidate application", () => {
   test("derives an immutable serializable delta bound to exact envelope/base identities", () => {
     const { envelope, base, delta } = derive();
@@ -86,6 +186,10 @@ describe("CandidateDelta v1 and pure candidate application", () => {
     assert.match(delta.delta_sha256, /^[a-f0-9]{64}$/);
     assert.match(delta.replay_key, /^[a-f0-9]{64}$/);
     assert.equal(delta.quality_gate_status, "borderline");
+    assert.equal(delta.quality_gate_policy.name, CANDIDATE_QUALITY_GATE_POLICY_NAME);
+    assert.equal(delta.quality_gate_policy.version, CANDIDATE_QUALITY_GATE_POLICY_VERSION);
+    assert.match(delta.quality_gate_policy.policy_sha256, /^[a-f0-9]{64}$/);
+    assert.match(delta.quality_gate_report_sha256, /^[a-f0-9]{64}$/);
     assert.equal(Object.isFrozen(delta), true);
     assert.equal(Object.isFrozen(delta.records.account_objects[0]), true);
     assert.equal(delta.authority.proposal_only, true);
@@ -113,6 +217,10 @@ describe("CandidateDelta v1 and pure candidate application", () => {
     assert.equal(transition.quality_gate.status, "borderline");
     assert.equal(transition.delta.quality_gate_status, "borderline");
     assert.equal(transition.quality_gate.ok, false);
+    assert.equal(
+      transition.delta.quality_gate_report_sha256,
+      sha256CanonicalJson(transition.quality_gate as any),
+    );
     assert.deepEqual(
       transition.quality_gate.reasons.map((reason) => reason.code),
       ["accepted_excerpt_rate_below_threshold"],
@@ -128,6 +236,265 @@ describe("CandidateDelta v1 and pure candidate application", () => {
     assert.equal(transition.authority.durable_write_authority, false);
     assert.equal(transition.authority.provider_calls_performed, 0);
     assert.equal(transition.authority.network_operations_performed, 0);
+  });
+
+  test("ambient default mutation cannot change candidate policy and transition creation freezes no caller threshold object", () => {
+    const callerThresholds = {
+      min_accepted_excerpt_rate: 0.25,
+      min_verified_claim_evidence_coverage: 0.75,
+      max_invented_id_failures: 0,
+    };
+    assert.equal(Object.isFrozen(callerThresholds), false);
+    assert.equal(
+      Reflect.set(
+        DEFAULT_QUALITY_GATE_THRESHOLDS as unknown as Record<string, number>,
+        "min_accepted_excerpt_rate",
+        0,
+      ),
+      false,
+    );
+    assert.equal(
+      Reflect.set(
+        DEFAULT_QUALITY_GATE_THRESHOLDS as unknown as Record<string, number>,
+        "min_verified_claim_evidence_coverage",
+        0,
+      ),
+      false,
+    );
+
+    const values = derive();
+    const transition = apply(values);
+    assert.equal(values.delta.quality_gate_status, "borderline");
+    assert.equal(transition.quality_gate.thresholds.min_accepted_excerpt_rate, 0.5);
+    assert.equal(Object.isFrozen(callerThresholds), false);
+
+    const failing = clone(makeValidBundle());
+    failing.sources[0]!.status = "stale";
+    const failingBase = createValidatedCandidate(failing, values.base.subject);
+    assert.throws(
+      () =>
+        createCandidateDelta(
+          values.envelope,
+          failingBase,
+          PUBLIC_PROPOSAL_NOW,
+        ),
+      /fully merged candidate failed the deterministic quality gate/,
+    );
+  });
+
+  test("rejects self-rehashed policy and full-report drift even when status is preserved", () => {
+    const values = derive();
+
+    const policyDrift = clone(values.delta) as any;
+    policyDrift.quality_gate_policy.policy_sha256 = "b".repeat(64);
+    assert.throws(
+      () =>
+        applyCandidateDelta(
+          values.envelope,
+          rehashDelta(policyDrift),
+          values.base,
+          applicationOptions(values.envelope),
+        ),
+      /quality-gate policy identity drift/,
+    );
+
+    const transition = clone(apply(values)) as any;
+    transition.quality_gate.thresholds.min_accepted_excerpt_rate = 0.75;
+    transition.quality_gate.reasons[0].threshold = 0.75;
+    assert.equal(transition.quality_gate.status, "borderline");
+    transition.delta.quality_gate_report_sha256 = sha256CanonicalJson(
+      transition.quality_gate,
+    );
+    transition.delta = rehashDelta(transition.delta);
+    const selfRehashed = rehashTransition(transition);
+    assert.throws(
+      () =>
+        hydrateCandidateTransition(
+          values.envelope,
+          selfRehashed,
+          applicationOptions(values.envelope),
+        ),
+      /exact quality-gate report identity drift/,
+    );
+  });
+
+  test("materializes the exact ClaimEvidence fan-out boundary into a representable delta", () => {
+    const envelope = materializableClaimEvidenceFanOutEnvelope(
+      PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT,
+    );
+    const delta = createCandidateDelta(
+      envelope,
+      makePublicProposalBase(),
+      PUBLIC_PROPOSAL_NOW,
+    );
+    assert.equal(delta.records.claim_evidence.length, 1_000);
+    assert.deepEqual(hydrateCandidateDelta(delta), delta);
+  });
+
+  test("completes create, derive, apply, hydrate, and preview at the exact AccountObjectClaim/preview fan-out boundary", () => {
+    const envelope = materializableAccountObjectClaimFanOutEnvelope(
+      PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT,
+    );
+    const base = makePublicProposalBase();
+    const delta = createCandidateDelta(envelope, base, PUBLIC_PROPOSAL_NOW);
+    assert.equal(delta.records.account_object_claims.length, 1_000);
+
+    const options = applicationOptions(envelope);
+    const transition = applyCandidateDelta(envelope, delta, base, options);
+    const hydrated = hydrateCandidateTransition(envelope, transition, options);
+    const preview = buildWorkshopPublicCuratedProposalPreview(
+      envelope,
+      hydrated,
+      options,
+    );
+
+    assert.equal(preview.report.review_decorated_item_count, 20);
+    assert.equal(
+      preview.view_model.lenses.signals.reduce(
+        (sum, item) => sum + item.evidence_packets.length,
+        0,
+      ),
+      1_000,
+    );
+  });
+
+  test("includes base sources in the exact merged-candidate compositional source budget", () => {
+    assert.equal(CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES, 2_097_152);
+    assert.equal(CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES, 4_194_304);
+    const envelope = makePublicProposalEnvelope();
+    const proposalSourceBytes = Buffer.byteLength(
+      envelope.proposal_content.sources[0]!.raw_text,
+      "utf8",
+    );
+    const baseBundle = emptyGraphBundle();
+    const first = clone(envelope.proposal_content.sources[0]!) as Record<string, any>;
+    first.id = "src_compositional_base_one";
+    setSourceText(
+      first,
+      "a".repeat(CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES),
+    );
+    const second = clone(first);
+    second.id = "src_compositional_base_two";
+    setSourceText(
+      second,
+      "b".repeat(
+        CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES -
+          CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES -
+          proposalSourceBytes,
+      ),
+    );
+    baseBundle.sources.push(first as any, second as any);
+    const subject = {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    };
+    const baseAtBoundary = createValidatedCandidate(baseBundle, subject);
+    const delta = createCandidateDelta(envelope, baseAtBoundary, PUBLIC_PROPOSAL_NOW);
+    const transition = applyCandidateDelta(
+      envelope,
+      delta,
+      baseAtBoundary,
+      applicationOptions(envelope),
+    );
+    assert.deepEqual(
+      hydrateCandidateTransition(
+        envelope,
+        transition,
+        applicationOptions(envelope),
+      ),
+      transition,
+    );
+
+    const overBudgetBundle = clone(baseBundle);
+    setSourceText(
+      overBudgetBundle.sources[1] as unknown as Record<string, any>,
+      `${overBudgetBundle.sources[1]!.raw_text}b`,
+    );
+    const baseOverBoundary = createValidatedCandidate(
+      overBudgetBundle,
+      subject,
+    );
+    assert.throws(
+      () => createCandidateDelta(envelope, baseOverBoundary, PUBLIC_PROPOSAL_NOW),
+      /merged-candidate compositional cumulative source-content UTF-8 budget/,
+    );
+  });
+
+  test("accepts the exact merged per-kind array boundary and rejects its first excess record", () => {
+    const envelope = makePublicProposalEnvelope();
+    const subject = {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    };
+    const baseWithClaims = (count: number) => {
+      const bundle = emptyGraphBundle();
+      bundle.claims = Array.from({ length: count }, (_, index) => ({
+        id: `clm_composition_${index}`,
+        team_id: subject.team_id,
+        account_id: subject.account_id,
+        claim_type: "note",
+        text: `composition claim ${index}`,
+        normalized_subject: `composition:${index}`,
+        confidence: "low" as const,
+        provenance_status: "unverified" as const,
+        status: "active" as const,
+        created_by: "system" as const,
+        created_at: PUBLIC_PROPOSAL_NOW,
+      }));
+      return createValidatedCandidate(bundle, subject);
+    };
+
+    const baseAtBoundary = baseWithClaims(998);
+    const accepted = createCandidateDelta(
+      envelope,
+      baseAtBoundary,
+      PUBLIC_PROPOSAL_NOW,
+    );
+    const transition = applyCandidateDelta(
+      envelope,
+      accepted,
+      baseAtBoundary,
+      applicationOptions(envelope),
+    );
+    assert.equal(transition.candidate.graph_bundle.claims.length, 1_000);
+
+    assert.throws(
+      () =>
+        createCandidateDelta(
+          envelope,
+          baseWithClaims(999),
+          PUBLIC_PROPOSAL_NOW,
+        ),
+      /merged-candidate compositional array budget for claims.*1,000/,
+    );
+  });
+
+  test("rejects at delta creation when the exact prospective transition is not representable", () => {
+    const envelope = makePublicProposalEnvelope();
+    const baseBundle = emptyGraphBundle();
+    for (let index = 0; index < 4; index += 1) {
+      baseBundle.claims.push({
+        id: `clm_large_${index}`,
+        team_id: envelope.scope.team_id,
+        account_id: envelope.scope.account_id,
+        claim_type: "note",
+        text: "x".repeat(1_600_000),
+        normalized_subject: `large:${index}`,
+        confidence: "low",
+        provenance_status: "unverified",
+        status: "active",
+        created_by: "system",
+        created_at: PUBLIC_PROPOSAL_NOW,
+      });
+    }
+    const base = createValidatedCandidate(baseBundle, {
+      team_id: envelope.scope.team_id,
+      account_id: envelope.scope.account_id,
+    });
+    assert.throws(
+      () => createCandidateDelta(envelope, base, PUBLIC_PROPOSAL_NOW),
+      /prospective transition representability budget failed.*cumulative string-size bound/,
+    );
   });
 
   test("requires a caller-supplied exact replay snapshot and refuses reuse", () => {

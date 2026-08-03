@@ -25,6 +25,22 @@ export const PROPOSAL_ENVELOPE_PURPOSE = "candidate_validation" as const;
 export const PROPOSAL_ENVELOPE_MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 export const PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND = 200;
 export const PROPOSAL_ENVELOPE_MAX_REFERENCES_PER_RECORD = 50;
+// These cumulative bounds compose the per-record reference limit with the
+// 1,000-record arrays accepted by CandidateDelta/CandidateTransition.
+export const PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT = 1_000;
+export const PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT = 1_000;
+// Proposal preview joins AccountObjectClaim -> Claim -> ClaimEvidence. Bound
+// the joined packet count separately so two individually bounded edge arrays
+// cannot multiply into an unbounded render.
+export const PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT = 1_000;
+export const PROPOSAL_ENVELOPE_MAX_PREVIEW_EXPANDED_TEXT_UTF8_BYTES =
+  4 * 1024 * 1024;
+// Source text is hashed and copied through envelope, delta, candidate, and
+// transition shapes. These semantic bounds are deliberately below the raw
+// strict-JSON ceiling so failures identify this boundary precisely.
+export const PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES = 1 * 1024 * 1024;
+export const PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES =
+  2 * 1024 * 1024;
 
 export type ProposalProducerKind = "fixture" | "imported" | "model_generated";
 
@@ -312,6 +328,7 @@ function parseSources(
   );
   const out: SourceDocument[] = [];
   const seen = new Set<string>();
+  let totalRawTextBytes = 0;
   for (let index = 0; index < records.length; index += 1) {
     const path = `envelope.proposal_content.sources[${index}]`;
     const record = asObject(records[index], path);
@@ -326,6 +343,18 @@ function parseSources(
       refuse(`${path} is outside the envelope scope`);
     }
     if (source.status !== "active") refuse(`${path}.status must be active`);
+    const rawTextBytes = Buffer.byteLength(source.raw_text, "utf8");
+    if (rawTextBytes > PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES) {
+      refuse(
+        `${path}.raw_text exceeds the source raw_text per-record UTF-8 budget of ${PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES} bytes`,
+      );
+    }
+    totalRawTextBytes += rawTextBytes;
+    if (totalRawTextBytes > PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES) {
+      refuse(
+        `envelope.proposal_content.sources exceeds the cumulative source raw_text UTF-8 budget of ${PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES} bytes`,
+      );
+    }
     if (
       !CANONICAL_SHA256.test(source.origin_content_sha256) ||
       !CANONICAL_SHA256.test(source.stored_content_sha256) ||
@@ -413,6 +442,15 @@ function parseContent(value: StrictJsonValue | undefined, scope: ProposalScope):
       excerpt_ids: references,
     };
   });
+  const claimEvidenceFanOut = claims.reduce(
+    (total, claim) => total + claim.excerpt_ids.length,
+    0,
+  );
+  if (claimEvidenceFanOut > PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT) {
+    refuse(
+      `envelope.proposal_content exceeds the cumulative claim-evidence fan-out budget of ${PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT.toLocaleString("en-US")}`,
+    );
+  }
 
   const objectValues = asArray(
     content.account_objects,
@@ -452,6 +490,59 @@ function parseContent(value: StrictJsonValue | undefined, scope: ProposalScope):
       };
     },
   );
+
+  const accountObjectClaimFanOut = accountObjects.reduce(
+    (total, object) => total + object.claim_ids.length,
+    0,
+  );
+  if (
+    accountObjectClaimFanOut >
+    PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT
+  ) {
+    refuse(
+      `envelope.proposal_content exceeds the cumulative account-object-claim fan-out budget of ${PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT.toLocaleString("en-US")}`,
+    );
+  }
+
+  const claimById = new Map(claims.map((claim) => [claim.id, claim]));
+  const excerptById = new Map(excerpts.map((excerpt) => [excerpt.id, excerpt]));
+  const sourceById = new Map(sources.map((source) => [source.id, source]));
+  let previewPacketFanOut = 0;
+  let previewExpandedTextBytes = 0;
+  for (const object of accountObjects) {
+    previewExpandedTextBytes += Buffer.byteLength(
+      `${object.id}${object.title}${object.summary}`,
+      "utf8",
+    );
+    for (const claimId of object.claim_ids) {
+      const claim = claimById.get(claimId)!;
+      for (const excerptId of claim.excerpt_ids) {
+        previewPacketFanOut += 1;
+        if (
+          previewPacketFanOut >
+          PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT
+        ) {
+          refuse(
+            `envelope.proposal_content exceeds the cumulative proposal-preview evidence-packet fan-out budget of ${PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT.toLocaleString("en-US")}`,
+          );
+        }
+        const excerpt = excerptById.get(excerptId)!;
+        const source = sourceById.get(excerpt.source_id)!;
+        previewExpandedTextBytes += Buffer.byteLength(
+          `${claim.id}${claim.type}${claim.text}${excerpt.id}${excerpt.text}${source.id}${source.title}${source.url}${source.publisher ?? ""}${source.source_type}`,
+          "utf8",
+        );
+        if (
+          previewExpandedTextBytes >
+          PROPOSAL_ENVELOPE_MAX_PREVIEW_EXPANDED_TEXT_UTF8_BYTES
+        ) {
+          refuse(
+            `envelope.proposal_content exceeds the cumulative proposal-preview expanded-text UTF-8 budget of ${PROPOSAL_ENVELOPE_MAX_PREVIEW_EXPANDED_TEXT_UTF8_BYTES} bytes`,
+          );
+        }
+      }
+    }
+  }
 
   return { sources, excerpts, claims, account_objects: accountObjects };
 }
@@ -599,6 +690,15 @@ export function createProposalEnvelope(rawCore: unknown): ProposalEnvelope {
     exact(root, ENVELOPE_CORE_KEYS, "envelope");
     const core = parseCore(root);
     const envelopeSha256 = sha256CanonicalJson(core as unknown as StrictJsonValue);
+    // Hydration snapshots the complete serialized envelope, including the
+    // required integrity digest. Reserve that digest at creation time so a core
+    // that exactly fills a cumulative budget cannot be accepted here and then
+    // refused once its mandatory envelope_sha256 is appended.
+    snapshotStrictJson(
+      { ...core, envelope_sha256: "0".repeat(64) },
+      "prospective_proposal_envelope",
+      LIMITS,
+    );
     return deepFreezeOwnData({ ...core, envelope_sha256: envelopeSha256 });
   } catch (error) {
     if (error instanceof StrictJsonBoundaryError) refuse(error.message);

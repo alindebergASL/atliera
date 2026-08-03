@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS,
+  DEFAULT_QUALITY_GATE_THRESHOLDS,
   runQualityGate,
   summarizeGateRun,
 } from "../../src/gate/quality-gate.ts";
@@ -36,6 +38,33 @@ function relabelIntrinsicOwnership(
 }
 
 describe("runQualityGate", () => {
+  test("freezes public defaults and snapshots caller thresholds without aliasing", () => {
+    assert.equal(Object.isFrozen(DEFAULT_QUALITY_GATE_THRESHOLDS), true);
+    assert.equal(Object.isFrozen(DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS), true);
+    assert.equal(
+      Reflect.set(
+        DEFAULT_QUALITY_GATE_THRESHOLDS as unknown as Record<string, number>,
+        "min_verified_claim_evidence_coverage",
+        0,
+      ),
+      false,
+    );
+
+    const callerThresholds = {
+      min_accepted_excerpt_rate: 0.25,
+      min_verified_claim_evidence_coverage: 0.75,
+      max_invented_id_failures: 0,
+    };
+    const report = runQualityGate(makeValidBundle(), callerThresholds);
+
+    assert.notEqual(report.thresholds, callerThresholds);
+    assert.deepEqual(report.thresholds, callerThresholds);
+    callerThresholds.min_verified_claim_evidence_coverage = 0;
+    assert.equal(report.thresholds.min_verified_claim_evidence_coverage, 0.75);
+    Object.freeze(report.thresholds);
+    assert.equal(Object.isFrozen(callerThresholds), false);
+  });
+
   test("passes the valid baseline and records zero invented ID failures", () => {
     const report = runQualityGate(makeValidBundle());
 

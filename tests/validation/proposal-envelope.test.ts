@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT,
+  PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT,
   PROPOSAL_ENVELOPE_MAX_LIFETIME_MS,
+  PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT,
   PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
+  PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES,
+  PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES,
   ProposalEnvelopeBoundaryError,
   adaptPublicCuratedMaterializationInputToProposalEnvelope,
   createProposalEnvelope,
@@ -11,6 +16,7 @@ import {
   type ProposalEnvelope,
   type ProposalProducerKind,
 } from "../../src/validation/proposal-envelope.ts";
+import { sha256Utf8 } from "../fixtures/valid-graph.ts";
 import {
   loadPublicProposalInput,
   makePublicProposalEnvelope,
@@ -33,6 +39,90 @@ function envelopeForProducer(kind: ProposalProducerKind): ProposalEnvelope {
     producer: { kind, trace_id: `${kind}:trace-001` },
     fixture_binding: kind === "fixture" ? core.fixture_binding : null,
   });
+}
+
+function withSourceText(core: any, sourceIndex: number, rawText: string): void {
+  const source = core.proposal_content.sources[sourceIndex];
+  source.raw_text = rawText;
+  source.origin_content_sha256 = sha256Utf8(rawText);
+  source.stored_content_sha256 = sha256Utf8(rawText);
+  source.transformation_manifest_sha256 = null;
+}
+
+function claimEvidenceFanOutCore(edgeCount: number): any {
+  const core = coreFromEnvelope();
+  const sourceId = core.proposal_content.sources[0].id;
+  const excerptCount = Math.min(50, edgeCount);
+  core.proposal_content.excerpts = Array.from(
+    { length: excerptCount },
+    (_, index) => ({
+      id: `e${index}`,
+      source_id: sourceId,
+      text: `excerpt ${index}`,
+    }),
+  );
+  let remaining = edgeCount;
+  core.proposal_content.claims = [];
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.claims.push({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: core.proposal_content.excerpts
+        .slice(0, count)
+        .map((excerpt: any) => excerpt.id),
+    });
+    remaining -= count;
+  }
+  core.proposal_content.account_objects = [{
+    id: "o0",
+    type: "signal",
+    title: "Fan-out boundary",
+    summary: "Fan-out boundary",
+    claim_ids: ["c0"],
+  }];
+  return core;
+}
+
+function accountObjectClaimFanOutCore(edgeCount: number): any {
+  const core = coreFromEnvelope();
+  const sourceId = core.proposal_content.sources[0].id;
+  core.proposal_content.excerpts = [{
+    id: "e0",
+    source_id: sourceId,
+    text: "shared excerpt",
+  }];
+  const claimCount = Math.min(50, edgeCount);
+  core.proposal_content.claims = Array.from(
+    { length: claimCount },
+    (_, index) => ({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: ["e0"],
+    }),
+  );
+  let remaining = edgeCount;
+  core.proposal_content.account_objects = [];
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.account_objects.push({
+      id: `o${index}`,
+      type: "signal",
+      title: `object ${index}`,
+      summary: `object ${index}`,
+      claim_ids: core.proposal_content.claims
+        .slice(0, count)
+        .map((claim: any) => claim.id),
+    });
+    remaining -= count;
+  }
+  return core;
 }
 
 describe("ProposalEnvelope v1", () => {
@@ -84,6 +174,177 @@ describe("ProposalEnvelope v1", () => {
     const core = coreFromEnvelope();
     core.expires_at = "2026-06-12T00:00:00.001Z";
     assert.throws(() => createProposalEnvelope(core), /lifetime.*maximum/);
+  });
+
+  test("accepts the exact source-content boundaries and rejects the first byte beyond them", () => {
+    const prefix = coreFromEnvelope().proposal_content.sources[0]!.raw_text;
+    const atSingleBoundary = coreFromEnvelope();
+    withSourceText(
+      atSingleBoundary,
+      0,
+      prefix +
+        "x".repeat(
+          PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES -
+            Buffer.byteLength(prefix),
+        ),
+    );
+    assert.equal(
+      Buffer.byteLength(
+        createProposalEnvelope(atSingleBoundary).proposal_content.sources[0]!
+          .raw_text,
+      ),
+      PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES,
+    );
+
+    const overSingleBoundary = clone(atSingleBoundary);
+    withSourceText(
+      overSingleBoundary,
+      0,
+      `${overSingleBoundary.proposal_content.sources[0].raw_text}x`,
+    );
+    assert.throws(
+      () => createProposalEnvelope(overSingleBoundary),
+      /source raw_text per-record UTF-8 budget/,
+    );
+
+    const atTotalBoundary = clone(atSingleBoundary);
+    const second = clone(atTotalBoundary.proposal_content.sources[0]);
+    second.id = "src_compositional_second";
+    atTotalBoundary.proposal_content.sources.push(second);
+    assert.equal(
+      atTotalBoundary.proposal_content.sources.reduce(
+        (sum: number, source: any) => sum + Buffer.byteLength(source.raw_text),
+        0,
+      ),
+      PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES,
+    );
+    assert.equal(createProposalEnvelope(atTotalBoundary).proposal_content.sources.length, 2);
+
+    const overTotalBoundary = clone(atTotalBoundary);
+    const third = clone(overTotalBoundary.proposal_content.sources[0]);
+    third.id = "src_compositional_third";
+    withSourceText({ proposal_content: { sources: [third] } }, 0, "x");
+    overTotalBoundary.proposal_content.sources.push(third);
+    assert.throws(
+      () => createProposalEnvelope(overTotalBoundary),
+      /cumulative source raw_text UTF-8 budget/,
+    );
+  });
+
+  test("refuses at creation the core that only hydration's integrity digest would push over budget", () => {
+    // Regression for the accepted-then-fail shape: a core can sit exactly at
+    // the cumulative string-size budget while the required envelope_sha256
+    // digest adds 64 bytes at hydration. Creation must reserve that digest.
+    const template = coreFromEnvelope().proposal_content.claims[0];
+    const coreWithFourthClaim = (n: number) => {
+      const core = coreFromEnvelope();
+      core.proposal_content.claims = [
+        { ...template, id: "gap-a", text: "a".repeat(2 * 1024 * 1024), subject: "gap:a" },
+        { ...template, id: "gap-b", text: "b".repeat(2 * 1024 * 1024), subject: "gap:b" },
+        { ...template, id: "gap-c", text: "c".repeat(2 * 1024 * 1024), subject: "gap:c" },
+        { ...template, id: "gap-d", text: "d".repeat(n), subject: "gap:d" },
+      ];
+      core.proposal_content.account_objects = [{
+        id: core.proposal_content.account_objects[0].id,
+        type: "signal",
+        title: "Digest reservation",
+        summary: "Digest reservation",
+        claim_ids: ["gap-a"],
+      }];
+      return core;
+    };
+
+    // Binary-search the boundary between accepted and refused claim text sizes.
+    let low = 1;
+    let high = 2 * 1024 * 1024;
+    let accepted: ProposalEnvelope | null = null;
+    let acceptedN = -1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      try {
+        accepted = createProposalEnvelope(coreWithFourthClaim(mid));
+        acceptedN = mid;
+        low = mid + 1;
+      } catch {
+        high = mid - 1;
+      }
+    }
+    assert.ok(accepted !== null, "expected at least one accepted cumulative shape");
+    // Every accepted shape must hydrate: the mandatory digest cannot push it
+    // over a budget that creation already accounted for.
+    assert.deepEqual(hydrateProposalEnvelope(accepted), accepted);
+
+    // The first refused shape must fail at creation, not only at hydration.
+    assert.throws(
+      () => createProposalEnvelope(coreWithFourthClaim(acceptedN + 1)),
+      /prospective_proposal_envelope.*cumulative string-size bound|cumulative string-size bound/,
+    );
+  });
+
+  test("accepts exactly 1,000 ClaimEvidence records and rejects cumulative fan-out 1,001", () => {
+    assert.equal(PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT, 1_000);
+    const accepted = createProposalEnvelope(
+      claimEvidenceFanOutCore(PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT),
+    );
+    assert.equal(
+      accepted.proposal_content.claims.reduce(
+        (sum, claim) => sum + claim.excerpt_ids.length,
+        0,
+      ),
+      1_000,
+    );
+    assert.throws(
+      () => createProposalEnvelope(claimEvidenceFanOutCore(1_001)),
+      /cumulative claim-evidence fan-out budget.*1,000/,
+    );
+  });
+
+  test("accepts exactly 1,000 AccountObjectClaim records and rejects cumulative fan-out 1,001", () => {
+    assert.equal(PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT, 1_000);
+    assert.equal(PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT, 1_000);
+    const accepted = createProposalEnvelope(
+      accountObjectClaimFanOutCore(PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT),
+    );
+    assert.equal(
+      accepted.proposal_content.account_objects.reduce(
+        (sum, object) => sum + object.claim_ids.length,
+        0,
+      ),
+      1_000,
+    );
+    assert.throws(
+      () => createProposalEnvelope(accountObjectClaimFanOutCore(1_001)),
+      /cumulative account-object-claim fan-out budget.*1,000/,
+    );
+  });
+
+  test("rejects preview join multiplication even when both relationship arrays are individually bounded", () => {
+    const core = claimEvidenceFanOutCore(50);
+    core.proposal_content.account_objects = Array.from(
+      { length: 21 },
+      (_, index) => ({
+        id: `o${index}`,
+        type: "signal",
+        title: `object ${index}`,
+        summary: `object ${index}`,
+        claim_ids: ["c0"],
+      }),
+    );
+    assert.throws(
+      () => createProposalEnvelope(core),
+      /proposal-preview evidence-packet fan-out budget.*1,000/,
+    );
+  });
+
+  test("rejects preview expanded text before a bounded join can amplify it", () => {
+    const core = accountObjectClaimFanOutCore(1_000);
+    for (const claim of core.proposal_content.claims) {
+      claim.text = "x".repeat(5_000);
+    }
+    assert.throws(
+      () => createProposalEnvelope(core),
+      /proposal-preview expanded-text UTF-8 budget/,
+    );
   });
 
   test("requires one canonical timestamp spelling and downstream-safe producer trace length", () => {

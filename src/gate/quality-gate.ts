@@ -36,13 +36,13 @@ export interface AggregateQualityGateThresholds {
   max_hard_failure_bundles: number;
 }
 
-export const DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS: AggregateQualityGateThresholds = {
+export const DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS: Readonly<AggregateQualityGateThresholds> = Object.freeze({
   max_zero_output_incident_rate: 0.1,
   min_aggregate_verified_claim_evidence_coverage: 0.8,
   max_hard_failure_bundles: 0,
-};
+});
 
-export const DEFAULT_QUALITY_GATE_THRESHOLDS: QualityGateThresholds = {
+export const DEFAULT_QUALITY_GATE_THRESHOLDS: Readonly<QualityGateThresholds> = Object.freeze({
   // Phase 1.2 is intentionally conservative: a bundle with excerpts but
   // too few accepted excerpts is not automatically unsafe, but should not
   // be treated as a clean pass.
@@ -52,7 +52,7 @@ export const DEFAULT_QUALITY_GATE_THRESHOLDS: QualityGateThresholds = {
   // but does not satisfy this launch-quality metric.
   min_verified_claim_evidence_coverage: 1,
   max_invented_id_failures: 0,
-};
+});
 
 export interface QualityGateMetrics {
   total_sources: number;
@@ -312,20 +312,29 @@ function emptyGateMetrics(validationReport: ValidationReport): QualityGateMetric
 
 export function runQualityGate(
   rawBundle: unknown,
-  thresholds: QualityGateThresholds = DEFAULT_QUALITY_GATE_THRESHOLDS,
+  thresholds: Readonly<QualityGateThresholds> = DEFAULT_QUALITY_GATE_THRESHOLDS,
 ): QualityGateReport {
+  // Reports own their threshold snapshot. This preserves the generic caller-
+  // supplied threshold API without allowing a later mutation (or a report
+  // freezer) to cross the call boundary through a shared object reference.
+  const thresholdSnapshot: QualityGateThresholds = {
+    min_accepted_excerpt_rate: thresholds.min_accepted_excerpt_rate,
+    min_verified_claim_evidence_coverage:
+      thresholds.min_verified_claim_evidence_coverage,
+    max_invented_id_failures: thresholds.max_invented_id_failures,
+  };
   const validationReport = validateGraphBundleRaw(rawBundle, { mode: "fixture" });
   const metrics = isBundleLike(rawBundle)
     ? computeMetrics(rawBundle, validationReport)
     : emptyGateMetrics(validationReport);
-  const reasons = evaluateReasons(metrics, validationReport, thresholds);
+  const reasons = evaluateReasons(metrics, validationReport, thresholdSnapshot);
   const status = worstStatus(reasons.map((r) => r.severity));
 
   return {
     ok: status === "pass",
     status,
     reasons,
-    thresholds,
+    thresholds: thresholdSnapshot,
     metrics,
     validation_report: validationReport,
   };
@@ -443,9 +452,16 @@ function summarizeAggregateGateRun(
 
 export function summarizeGateRun(
   reports: NamedQualityGateReport[],
-  aggregateThresholds: AggregateQualityGateThresholds = DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS,
+  aggregateThresholds: Readonly<AggregateQualityGateThresholds> = DEFAULT_AGGREGATE_QUALITY_GATE_THRESHOLDS,
 ): QualityGateRunReport {
-  const aggregate = summarizeAggregateGateRun(reports, aggregateThresholds);
+  const thresholdSnapshot: AggregateQualityGateThresholds = {
+    max_zero_output_incident_rate:
+      aggregateThresholds.max_zero_output_incident_rate,
+    min_aggregate_verified_claim_evidence_coverage:
+      aggregateThresholds.min_aggregate_verified_claim_evidence_coverage,
+    max_hard_failure_bundles: aggregateThresholds.max_hard_failure_bundles,
+  };
+  const aggregate = summarizeAggregateGateRun(reports, thresholdSnapshot);
   const status = worstStatus([
     ...reports.map((r) => r.status),
     aggregate.status,

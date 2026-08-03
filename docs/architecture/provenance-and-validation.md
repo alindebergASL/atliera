@@ -44,6 +44,107 @@ mutable `GraphBundle` is therefore not render authority. This boundary does
 not claim durable revision or store-read semantics. It does re-run the shared
 source-integrity invariants before the graph may render.
 
+## Proposal authority boundary
+
+All supported fixture, imported, and model-generated proposal content enters
+candidate validation through `ProposalEnvelope` v1. The envelope is strict
+plain own-data with exact keys, bounded arrays, canonical UTC creation/expiry
+timestamps, and a maximum lifetime of 24 hours. Hydration rebuilds and freezes
+the canonical value after revalidating it; no in-process brand is authority.
+Its SHA-256 digest covers every authority-relevant field except the digest
+itself. The envelope, delta, candidate, replay, fixture-content, and transition
+hashes in this boundary are deliberately unkeyed integrity/audit identities;
+they are not authentication, approval, ratification, or permission to present,
+ingest, or write.
+
+Proposal limits are compositional rather than merely per-record. Each source
+`raw_text` is limited to 1 MiB of UTF-8 and all proposal source text together
+is limited to 2 MiB. Each proposal record kind remains limited to 200 records
+and each reference list to 50 entries, but the cumulative
+claim-to-excerpt fan-out is additionally limited to 1,000 derived
+`ClaimEvidence` records and the cumulative account-object-to-claim fan-out to
+1,000 derived `AccountObjectClaim` records. The prospective proposal-preview
+join is independently limited to 1,000 evidence packets and 4 MiB of expanded
+input text. The latter checks prevent two individually valid relationship
+arrays, or a small repeated string, from multiplying into an unbounded preview.
+An envelope that alone proves one of these violations is refused at envelope
+creation, before materialization. Envelope creation also snapshots the exact
+prospective serialized envelope—including the mandatory integrity digest—under
+the same strict limits hydration applies, so no accepted envelope can be
+refused later solely because its own required digest exceeds a budget.
+
+The envelope binds producer kind and a downstream-safe trace id plus exact
+team, account, opaque subject, and `candidate_validation` purpose scope.
+Fixture producers require a declared fixture-content integrity binding whose
+contract states `authenticated_human_approval: false`; the general envelope
+boundary does not authenticate that declaration against a committed fixture or
+prove fixture custody. The explicit public-curated legacy adapter derives the
+binding from the exact adapter input it accepted. Imported and model-generated
+producers cannot carry a fixture binding. Every envelope also records the PR
+#300 assurance truths: an `origin_content_sha256` value alone does not prove
+origin custody, and a `transformation_manifest_sha256` value alone does not
+resolve or verify the corresponding transformation record. All
+effective-authority, trusted-presentation, graph-ingestion, ratification, and
+durable-write markers remain closed.
+
+`CandidateDelta` v1 is derived only from a rehydrated envelope and an explicit
+rehydrated `ValidatedCandidate` base. It binds both exact audit digests, carries
+the same scope/lifetime/producer trace, and has a deterministic replay key and
+delta digest. Canonical application rematerializes the complete envelope,
+refuses any partial disposition or unresolved/duplicate reference, merges with
+the exact base, validates the full result, and runs the deterministic quality
+gate over that full candidate. A graph or quality `fail` refuses application;
+`borderline` remains `borderline` and can only produce visibly untrusted
+candidate preview state.
+
+Candidate derivation uses the private, recursively immutable
+`atliera_candidate_quality_gate` policy version 1: minimum accepted-excerpt
+rate 0.5, minimum verified/high-confidence evidence coverage 1, and maximum
+invented-ID failures 0. It never consults the generic exported default or a
+caller-supplied threshold object. `CandidateDelta` binds the exact policy
+name/version/policy SHA-256 and the SHA-256 identity of the complete canonical
+quality report, in addition to the status. Application re-runs that private
+policy and refuses policy, full-report, or status drift. These SHA-256 values
+remain unkeyed integrity identities, never authentication or approval. The
+generic quality-gate API remains configurable; its public defaults are frozen,
+and each report owns a fresh threshold copy so freezing a report cannot freeze
+a caller-owned threshold object.
+
+The complete merged graph, including all base records and strings, is subject
+to a conservative candidate composition budget: at most 1,000 records in any
+GraphBundle array, 4,000 graph records total, 2 MiB per source `raw_text`, and
+4 MiB of source `raw_text` cumulatively. Before returning a delta, derivation
+also builds and snapshots the exact prospective transition shape—including the
+delta, embedded base, merged candidate, and full quality report—under the same
+strict limits used by application and hydration: arrays of at most 1,000,
+20,000 JSON container nodes, 2 MiB per string, and 12 MiB cumulative string
+content. This exact preflight catches non-source duplication that semantic
+source estimates cannot predict. Hostile base candidates are bounded before
+generic candidate hydration. Consequently, a delta is never returned when its
+same-envelope/same-base transition would fail deterministic application or
+hydration for representability; proposal preview joins were bounded earlier at
+the envelope boundary.
+
+Replay application requires a caller-supplied exact prior recorded-key
+snapshot; omission never defaults open. The pure function checks that snapshot
+and returns `replay_key_to_record`, which the caller must record. It neither
+records the key nor proves that an external ledger did so, and it explicitly
+makes no cross-process durable replay claim. The snapshot is bounded to 1,000
+keys and fails closed above that bound: callers must stop and refuse further
+application rather than truncate the ledger or drop older keys, because doing
+so would reopen replay. This slice adds no replay store or other persistence.
+
+The active public-curated Workshop preview requires the exact proposal envelope
+alongside the transition and caller-supplied prior replay snapshot. Hydration
+re-runs the same deterministic `applyCandidateDelta` path against the embedded
+exact base and requires the resulting transition to match exactly; transition
+self-hashes alone are not authority. The proposal preview then independently
+validates and renders only `transition.delta.records`, so unrelated merged-base
+records cannot inherit proposal-wide trust language. Raw legacy materialization
+input cannot call that boundary. Existing M5a/M5b approval, execution,
+ratification, and durable flows remain separate and are not migrated by this
+boundary.
+
 ## Source identity and stored-content integrity
 
 Canonical `SourceDocument` records carry exactly three SHA-256 identity

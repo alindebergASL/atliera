@@ -2,25 +2,33 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 
-import type { MaterializeProposalForValidationInput } from "../../src/validation/proposal-materialization.ts";
 import { buildWorkshopPublicCuratedProposalPreview } from "../../src/workshop/proposal-preview.ts";
 import {
   WORKSHOP_PUBLIC_PROPOSAL_HUMAN_REVIEW_DECISION_NAME,
   buildWorkshopPublicProposalHumanReviewDecisionArtifact,
   type WorkshopProposalHumanReviewDecisionArtifact,
 } from "../../src/workshop/proposal-review-decision.ts";
+import {
+  makePublicProposalEnvelope,
+  makePublicProposalTransition,
+  PUBLIC_PROPOSAL_NOW,
+} from "../fixtures/proposal-authority.ts";
 
-const INPUT_FIXTURE = "fixtures/validation/proposal-materialization-public-curated-20260611a-input.json";
 const DECISION_FIXTURE = "fixtures/workshop/workshop-public-proposal-human-review-decision-artifact.json";
 const REVIEWED_AT = "2026-06-11T12:00:00Z";
 const VISIBLE_ITEM_ID = "obj_acme-hub-signal";
 
-function loadFixtureInput(): MaterializeProposalForValidationInput {
-  return JSON.parse(readFileSync(INPUT_FIXTURE, "utf8")) as MaterializeProposalForValidationInput;
-}
-
 function buildPreview() {
-  return buildWorkshopPublicCuratedProposalPreview(loadFixtureInput());
+  const envelope = makePublicProposalEnvelope();
+  return buildWorkshopPublicCuratedProposalPreview(
+    envelope,
+    makePublicProposalTransition(),
+    {
+      now: PUBLIC_PROPOSAL_NOW,
+      expected_scope: envelope.scope,
+      prior_recorded_replay_keys: [],
+    },
+  );
 }
 
 function acceptDecision() {

@@ -32,8 +32,9 @@ Boundary markers:
 
 What exists:
 
-- `buildWorkshopPublicCuratedProposalPreview` materializes only a caller-supplied public-curated proposal input, builds the standard Workshop view model, renders validation-preview HTML, and returns a sanitized report.
+- `buildWorkshopPublicCuratedProposalPreview` accepts an exact canonical proposal envelope plus candidate transition and caller-supplied prior replay snapshot, re-runs deterministic candidate application against the embedded base, independently validates the proposal delta records, builds the standard Workshop view model from those delta records only, renders validation-preview HTML, and returns a sanitized report.
 - The committed preview HTML is deterministic and regenerated exactly by tests from the committed public fixture.
+- The committed preview report records the validated canonical envelope/transition contract and declared producer kind without claiming a hand-curated origin or exact/committed fixture provenance. A fixture binding is an unauthenticated integrity declaration, not human approval or custody proof.
 - The committed preview report records `html_rendered: true`, `lens_item_counts.signals: 1`, `review_decorated_item_count: 1`, `verified_object_count: 0`, and all closed provider/private/durable/ingestion/readiness boundary markers.
 - The Workshop card keeps the existing `Unverified` trust pill and adds a separate `Model-proposed · pending human review` review-state pill. This is a decoration, not a new truth-status tier and not a ratification affordance.
 
@@ -51,9 +52,12 @@ Verification coverage:
 
 - the public fixture renders validation-preview HTML with the visible model-proposed/pending-human-review decoration
 - unverified proposal-derived content is not dressed as verified
+- envelope-less self-rehashed transitions and supplied-envelope substitutions are refused before preview rendering
+- unrelated verified/source-backed base records are excluded from the proposal-only preview and its counts
+- arbitrary declared fixture bindings do not become committed/exact fixture provenance claims
 - provider/private/durable/ingestion/production/readiness markers stay closed
 - committed HTML and report artifacts stay in sync with regeneration from the public fixture
-- private fresh-route origins remain rejected by the underlying materialization contract
+- private/non-public legacy origins remain rejected by the explicit public-curated adapter
 
 Recommended next decision:
 

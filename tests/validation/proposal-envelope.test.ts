@@ -1,0 +1,584 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+
+import {
+  PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT,
+  PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT,
+  PROPOSAL_ENVELOPE_MAX_LIFETIME_MS,
+  PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT,
+  PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
+  PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES,
+  PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES,
+  ProposalEnvelopeBoundaryError,
+  adaptPublicCuratedMaterializationInputToProposalEnvelope,
+  createProposalEnvelope,
+  hydrateProposalEnvelope,
+  type ProposalEnvelope,
+  type ProposalProducerKind,
+} from "../../src/validation/proposal-envelope.ts";
+import { sha256Utf8 } from "../fixtures/valid-graph.ts";
+import {
+  loadPublicProposalInput,
+  makePublicProposalEnvelope,
+} from "../fixtures/proposal-authority.ts";
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function coreFromEnvelope(envelope = makePublicProposalEnvelope()): any {
+  const draft = clone(envelope) as any;
+  delete draft.envelope_sha256;
+  return draft;
+}
+
+function envelopeForProducer(kind: ProposalProducerKind): ProposalEnvelope {
+  const core = coreFromEnvelope();
+  return createProposalEnvelope({
+    ...core,
+    producer: { kind, trace_id: `${kind}:trace-001` },
+    fixture_binding: kind === "fixture" ? core.fixture_binding : null,
+  });
+}
+
+function withSourceText(core: any, sourceIndex: number, rawText: string): void {
+  const source = core.proposal_content.sources[sourceIndex];
+  source.raw_text = rawText;
+  source.origin_content_sha256 = sha256Utf8(rawText);
+  source.stored_content_sha256 = sha256Utf8(rawText);
+  source.transformation_manifest_sha256 = null;
+}
+
+function claimEvidenceFanOutCore(edgeCount: number): any {
+  const core = coreFromEnvelope();
+  const sourceId = core.proposal_content.sources[0].id;
+  const excerptCount = Math.min(50, edgeCount);
+  core.proposal_content.excerpts = Array.from(
+    { length: excerptCount },
+    (_, index) => ({
+      id: `e${index}`,
+      source_id: sourceId,
+      text: `excerpt ${index}`,
+    }),
+  );
+  let remaining = edgeCount;
+  core.proposal_content.claims = [];
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.claims.push({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: core.proposal_content.excerpts
+        .slice(0, count)
+        .map((excerpt: any) => excerpt.id),
+    });
+    remaining -= count;
+  }
+  core.proposal_content.account_objects = [{
+    id: "o0",
+    type: "signal",
+    title: "Fan-out boundary",
+    summary: "Fan-out boundary",
+    claim_ids: ["c0"],
+  }];
+  return core;
+}
+
+function accountObjectClaimFanOutCore(edgeCount: number): any {
+  const core = coreFromEnvelope();
+  const sourceId = core.proposal_content.sources[0].id;
+  core.proposal_content.excerpts = [{
+    id: "e0",
+    source_id: sourceId,
+    text: "shared excerpt",
+  }];
+  const claimCount = Math.min(50, edgeCount);
+  core.proposal_content.claims = Array.from(
+    { length: claimCount },
+    (_, index) => ({
+      id: `c${index}`,
+      type: "signal",
+      text: `claim ${index}`,
+      subject: `subject:${index}`,
+      confidence: "medium",
+      excerpt_ids: ["e0"],
+    }),
+  );
+  let remaining = edgeCount;
+  core.proposal_content.account_objects = [];
+  for (let index = 0; remaining > 0; index += 1) {
+    const count = Math.min(50, remaining);
+    core.proposal_content.account_objects.push({
+      id: `o${index}`,
+      type: "signal",
+      title: `object ${index}`,
+      summary: `object ${index}`,
+      claim_ids: core.proposal_content.claims
+        .slice(0, count)
+        .map((claim: any) => claim.id),
+    });
+    remaining -= count;
+  }
+  return core;
+}
+
+describe("ProposalEnvelope v1", () => {
+  test("constructs strict fixture, imported, and model-generated envelopes and rehydrates after JSON", () => {
+    for (const kind of ["fixture", "imported", "model_generated"] as const) {
+      const envelope = envelopeForProducer(kind);
+      const roundTripped = hydrateProposalEnvelope(
+        JSON.parse(JSON.stringify(envelope)),
+      );
+
+      assert.deepEqual(roundTripped, envelope);
+      assert.equal(envelope.producer.kind, kind);
+      assert.match(envelope.envelope_sha256, /^[a-f0-9]{64}$/);
+      assert.equal(envelope.authority.proposal_only, true);
+      assert.equal(envelope.authority.integrity_digest_is_approval, false);
+      assert.equal(envelope.authority.authenticated_human_approval, false);
+      assert.equal(envelope.authority.ratification, false);
+      assert.equal(envelope.authority.durable_write_authority, false);
+      assert.equal(envelope.fixture_binding === null, kind !== "fixture");
+    }
+  });
+
+  test("adapts the exact current public-curated vocabulary into the sole canonical vocabulary", () => {
+    const envelope = makePublicProposalEnvelope();
+
+    assert.equal(envelope.producer.kind, "fixture");
+    assert.equal(envelope.producer.trace_id, "public-curated-20260611a");
+    assert.equal(envelope.scope.subject_id, "subject_acme_robotics");
+    assert.equal(envelope.scope.purpose, "candidate_validation");
+    assert.deepEqual(Object.keys(envelope.proposal_content.excerpts[0]!), [
+      "id",
+      "source_id",
+      "text",
+    ]);
+    assert.deepEqual(Object.keys(envelope.proposal_content.claims[0]!), [
+      "id",
+      "type",
+      "text",
+      "subject",
+      "confidence",
+      "excerpt_ids",
+    ]);
+    assert.equal(envelope.fixture_binding?.authenticated_human_approval, false);
+    assert.match(envelope.fixture_binding?.fixture_content_sha256 ?? "", /^[a-f0-9]{64}$/);
+  });
+
+  test("exports and enforces a conservative bounded lifetime", () => {
+    assert.equal(PROPOSAL_ENVELOPE_MAX_LIFETIME_MS, 86_400_000);
+    const core = coreFromEnvelope();
+    core.expires_at = "2026-06-12T00:00:00.001Z";
+    assert.throws(() => createProposalEnvelope(core), /lifetime.*maximum/);
+  });
+
+  test("accepts the exact source-content boundaries and rejects the first byte beyond them", () => {
+    const prefix = coreFromEnvelope().proposal_content.sources[0]!.raw_text;
+    const atSingleBoundary = coreFromEnvelope();
+    withSourceText(
+      atSingleBoundary,
+      0,
+      prefix +
+        "x".repeat(
+          PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES -
+            Buffer.byteLength(prefix),
+        ),
+    );
+    assert.equal(
+      Buffer.byteLength(
+        createProposalEnvelope(atSingleBoundary).proposal_content.sources[0]!
+          .raw_text,
+      ),
+      PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES,
+    );
+
+    const overSingleBoundary = clone(atSingleBoundary);
+    withSourceText(
+      overSingleBoundary,
+      0,
+      `${overSingleBoundary.proposal_content.sources[0].raw_text}x`,
+    );
+    assert.throws(
+      () => createProposalEnvelope(overSingleBoundary),
+      /source raw_text per-record UTF-8 budget/,
+    );
+
+    const atTotalBoundary = clone(atSingleBoundary);
+    const second = clone(atTotalBoundary.proposal_content.sources[0]);
+    second.id = "src_compositional_second";
+    atTotalBoundary.proposal_content.sources.push(second);
+    assert.equal(
+      atTotalBoundary.proposal_content.sources.reduce(
+        (sum: number, source: any) => sum + Buffer.byteLength(source.raw_text),
+        0,
+      ),
+      PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES,
+    );
+    assert.equal(createProposalEnvelope(atTotalBoundary).proposal_content.sources.length, 2);
+
+    const overTotalBoundary = clone(atTotalBoundary);
+    const third = clone(overTotalBoundary.proposal_content.sources[0]);
+    third.id = "src_compositional_third";
+    withSourceText({ proposal_content: { sources: [third] } }, 0, "x");
+    overTotalBoundary.proposal_content.sources.push(third);
+    assert.throws(
+      () => createProposalEnvelope(overTotalBoundary),
+      /cumulative source raw_text UTF-8 budget/,
+    );
+  });
+
+  test("refuses at creation the core that only hydration's integrity digest would push over budget", () => {
+    // Regression for the accepted-then-fail shape: a core can sit exactly at
+    // the cumulative string-size budget while the required envelope_sha256
+    // digest adds 64 bytes at hydration. Creation must reserve that digest.
+    const template = coreFromEnvelope().proposal_content.claims[0];
+    const coreWithFourthClaim = (n: number) => {
+      const core = coreFromEnvelope();
+      core.proposal_content.claims = [
+        { ...template, id: "gap-a", text: "a".repeat(2 * 1024 * 1024), subject: "gap:a" },
+        { ...template, id: "gap-b", text: "b".repeat(2 * 1024 * 1024), subject: "gap:b" },
+        { ...template, id: "gap-c", text: "c".repeat(2 * 1024 * 1024), subject: "gap:c" },
+        { ...template, id: "gap-d", text: "d".repeat(n), subject: "gap:d" },
+      ];
+      core.proposal_content.account_objects = [{
+        id: core.proposal_content.account_objects[0].id,
+        type: "signal",
+        title: "Digest reservation",
+        summary: "Digest reservation",
+        claim_ids: ["gap-a"],
+      }];
+      return core;
+    };
+
+    // Binary-search the boundary between accepted and refused claim text sizes.
+    let low = 1;
+    let high = 2 * 1024 * 1024;
+    let accepted: ProposalEnvelope | null = null;
+    let acceptedN = -1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      try {
+        accepted = createProposalEnvelope(coreWithFourthClaim(mid));
+        acceptedN = mid;
+        low = mid + 1;
+      } catch {
+        high = mid - 1;
+      }
+    }
+    assert.ok(accepted !== null, "expected at least one accepted cumulative shape");
+    // Every accepted shape must hydrate: the mandatory digest cannot push it
+    // over a budget that creation already accounted for.
+    assert.deepEqual(hydrateProposalEnvelope(accepted), accepted);
+
+    // The first refused shape must fail at creation, not only at hydration.
+    assert.throws(
+      () => createProposalEnvelope(coreWithFourthClaim(acceptedN + 1)),
+      /prospective_proposal_envelope.*cumulative string-size bound|cumulative string-size bound/,
+    );
+  });
+
+  test("accepts exactly 1,000 ClaimEvidence records and rejects cumulative fan-out 1,001", () => {
+    assert.equal(PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT, 1_000);
+    const accepted = createProposalEnvelope(
+      claimEvidenceFanOutCore(PROPOSAL_ENVELOPE_MAX_CLAIM_EVIDENCE_FAN_OUT),
+    );
+    assert.equal(
+      accepted.proposal_content.claims.reduce(
+        (sum, claim) => sum + claim.excerpt_ids.length,
+        0,
+      ),
+      1_000,
+    );
+    assert.throws(
+      () => createProposalEnvelope(claimEvidenceFanOutCore(1_001)),
+      /cumulative claim-evidence fan-out budget.*1,000/,
+    );
+  });
+
+  test("accepts exactly 1,000 AccountObjectClaim records and rejects cumulative fan-out 1,001", () => {
+    assert.equal(PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT, 1_000);
+    assert.equal(PROPOSAL_ENVELOPE_MAX_PREVIEW_EVIDENCE_PACKET_FAN_OUT, 1_000);
+    const accepted = createProposalEnvelope(
+      accountObjectClaimFanOutCore(PROPOSAL_ENVELOPE_MAX_ACCOUNT_OBJECT_CLAIM_FAN_OUT),
+    );
+    assert.equal(
+      accepted.proposal_content.account_objects.reduce(
+        (sum, object) => sum + object.claim_ids.length,
+        0,
+      ),
+      1_000,
+    );
+    assert.throws(
+      () => createProposalEnvelope(accountObjectClaimFanOutCore(1_001)),
+      /cumulative account-object-claim fan-out budget.*1,000/,
+    );
+  });
+
+  test("rejects preview join multiplication even when both relationship arrays are individually bounded", () => {
+    const core = claimEvidenceFanOutCore(50);
+    core.proposal_content.account_objects = Array.from(
+      { length: 21 },
+      (_, index) => ({
+        id: `o${index}`,
+        type: "signal",
+        title: `object ${index}`,
+        summary: `object ${index}`,
+        claim_ids: ["c0"],
+      }),
+    );
+    assert.throws(
+      () => createProposalEnvelope(core),
+      /proposal-preview evidence-packet fan-out budget.*1,000/,
+    );
+  });
+
+  test("rejects preview expanded text before a bounded join can amplify it", () => {
+    const core = accountObjectClaimFanOutCore(1_000);
+    for (const claim of core.proposal_content.claims) {
+      claim.text = "x".repeat(5_000);
+    }
+    assert.throws(
+      () => createProposalEnvelope(core),
+      /proposal-preview expanded-text UTF-8 budget/,
+    );
+  });
+
+  test("requires one canonical timestamp spelling and downstream-safe producer trace length", () => {
+    const nonCanonicalTimestamp = coreFromEnvelope();
+    nonCanonicalTimestamp.created_at = "2026-06-11T00:00:00.000Z";
+    assert.throws(
+      () => createProposalEnvelope(nonCanonicalTimestamp),
+      /must be canonical UTC/,
+    );
+
+    const longestAccepted = coreFromEnvelope();
+    longestAccepted.producer.trace_id = "a".repeat(121);
+    assert.equal(createProposalEnvelope(longestAccepted).producer.trace_id.length, 121);
+
+    const downstreamUnsafe = coreFromEnvelope();
+    downstreamUnsafe.producer.trace_id = "a".repeat(122);
+    assert.throws(
+      () => createProposalEnvelope(downstreamUnsafe),
+      /downstream safe-id bounds/,
+    );
+  });
+
+  test("rejects extra, legacy, missing-version, missing-digest, and missing-binding shapes", () => {
+    const valid = clone(makePublicProposalEnvelope()) as unknown as Record<string, unknown>;
+    const variants: Record<string, unknown>[] = [];
+
+    variants.push({ ...valid, status: "approved" });
+    const legacy: Record<string, unknown> = { ...valid, schema_version: "proposal.v0" };
+    delete legacy.version;
+    variants.push(legacy);
+    const missingVersion = { ...valid };
+    delete missingVersion.version;
+    variants.push(missingVersion);
+    const missingDigest = { ...valid };
+    delete missingDigest.envelope_sha256;
+    variants.push(missingDigest);
+    const missingBinding = { ...valid, fixture_binding: null };
+    variants.push(missingBinding);
+
+    for (const variant of variants) {
+      assert.throws(() => hydrateProposalEnvelope(variant), ProposalEnvelopeBoundaryError);
+    }
+  });
+
+  test("rejects Proxy/accessor input without executing attacker code", () => {
+    let trapCalls = 0;
+    const proxy = new Proxy(clone(makePublicProposalEnvelope()), {
+      get(target, property, receiver) {
+        trapCalls += 1;
+        return Reflect.get(target, property, receiver);
+      },
+      ownKeys(target) {
+        trapCalls += 1;
+        return Reflect.ownKeys(target);
+      },
+    });
+    assert.throws(() => hydrateProposalEnvelope(proxy), ProposalEnvelopeBoundaryError);
+    assert.equal(trapCalls, 0);
+
+    let getterCalls = 0;
+    const accessor = clone(makePublicProposalEnvelope()) as unknown as Record<string, unknown>;
+    Object.defineProperty(accessor, "producer", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return { kind: "fixture", trace_id: "hostile" };
+      },
+    });
+    assert.throws(() => hydrateProposalEnvelope(accessor), ProposalEnvelopeBoundaryError);
+    assert.equal(getterCalls, 0);
+  });
+
+  test("rejects sparse and oversized arrays before trusting their elements", () => {
+    const sparse = coreFromEnvelope();
+    const sparseExcerpts = clone(sparse.proposal_content.excerpts) as unknown[];
+    sparseExcerpts.length += 1;
+    sparse.proposal_content.excerpts = sparseExcerpts as never;
+    assert.throws(() => createProposalEnvelope(sparse), /dense|array/);
+
+    const oversized = coreFromEnvelope();
+    oversized.proposal_content.claims = Array.from(
+      { length: PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND + 1 },
+      () => clone(oversized.proposal_content.claims[0]!),
+    );
+    assert.throws(() => createProposalEnvelope(oversized), /array bound|dense-array/);
+  });
+
+  test("rejects malformed Unicode before hashing", () => {
+    const core = coreFromEnvelope();
+    core.proposal_content.claims[0]!.text += "\ud800";
+    assert.throws(() => createProposalEnvelope(core), /Unicode scalar values/);
+  });
+
+  test("snapshots and freezes construction input, then detects serialized mutation", () => {
+    const core = coreFromEnvelope();
+    const envelope = createProposalEnvelope(core);
+    const originalText = envelope.proposal_content.claims[0]!.text;
+
+    core.proposal_content.claims[0]!.text = "Mutated after construction";
+    assert.equal(envelope.proposal_content.claims[0]!.text, originalText);
+    assert.equal(Object.isFrozen(envelope), true);
+    assert.equal(Object.isFrozen(envelope.proposal_content.claims[0]), true);
+    assert.throws(() => {
+      (envelope.authority as { ratification: boolean }).ratification = true;
+    }, TypeError);
+
+    const serialized = clone(envelope) as any;
+    serialized.proposal_content.claims[0]!.text = "Mutated after serialization";
+    assert.throws(() => hydrateProposalEnvelope(serialized), /integrity digest mismatch/);
+  });
+
+  test("rejects unsafe/duplicate ids and unresolved or duplicate topology references", () => {
+    const cases: Array<(core: any) => void> = [
+      (core) => {
+        core.proposal_content.sources.push(clone(core.proposal_content.sources[0]));
+      },
+      (core) => {
+        core.proposal_content.excerpts[0]!.id = "../../unsafe";
+      },
+      (core) => {
+        core.proposal_content.excerpts[1]!.id = core.proposal_content.excerpts[0]!.id;
+      },
+      (core) => {
+        core.proposal_content.excerpts[0]!.source_id = "src_missing";
+      },
+      (core) => {
+        core.proposal_content.claims[0]!.excerpt_ids = ["missing-excerpt"];
+      },
+      (core) => {
+        const id = core.proposal_content.claims[0]!.excerpt_ids[0]!;
+        core.proposal_content.claims[0]!.excerpt_ids = [id, id];
+      },
+      (core) => {
+        core.proposal_content.claims[1]!.id = core.proposal_content.claims[0]!.id;
+      },
+      (core) => {
+        core.proposal_content.account_objects[0]!.claim_ids = ["missing-claim"];
+      },
+      (core) => {
+        const id = core.proposal_content.account_objects[0]!.claim_ids[0]!;
+        core.proposal_content.account_objects[0]!.claim_ids = [id, id];
+      },
+      (core) => {
+        core.proposal_content.account_objects.push(
+          clone(core.proposal_content.account_objects[0]),
+        );
+      },
+    ];
+
+    for (const mutate of cases) {
+      const core = coreFromEnvelope();
+      mutate(core);
+      assert.throws(
+        () => createProposalEnvelope(core),
+        /unsafe|duplicated|duplicate references|unresolved/,
+      );
+    }
+  });
+
+  test("rejects proposal attempts to inject accepted, verified, ratified, or authorization state", () => {
+    for (const [section, key, value] of [
+      ["excerpts", "validation_status", "accepted"],
+      ["claims", "provenance_status", "verified"],
+      ["account_objects", "ratified", true],
+      ["account_objects", "durable_write_authority", true],
+    ] as const) {
+      const core = coreFromEnvelope() as unknown as Record<string, any>;
+      core.proposal_content[section][0][key] = value;
+      assert.throws(() => createProposalEnvelope(core), /fields must exactly match/);
+    }
+
+    const authority = coreFromEnvelope() as unknown as Record<string, any>;
+    authority.authority.trusted_presentation_authority = true;
+    assert.throws(() => createProposalEnvelope(authority), /non-authorizing/);
+  });
+
+  test("keeps fixture approval and source-custody/transformation assertions explicitly false", () => {
+    const fixture = clone(makePublicProposalEnvelope()) as Record<string, any>;
+    fixture.fixture_binding.authenticated_human_approval = true;
+    assert.throws(() => hydrateProposalEnvelope(fixture), /not authenticated human approval/);
+
+    for (const field of [
+      "origin_content_sha256_proves_origin_custody",
+      "transformation_manifest_sha256_resolves_transformation_record",
+    ]) {
+      const core = coreFromEnvelope() as unknown as Record<string, any>;
+      core.source_assurances[field] = true;
+      assert.throws(() => createProposalEnvelope(core), /assurances.*closed/);
+    }
+  });
+
+  test("imported/model envelopes cannot fabricate fixture binding", () => {
+    for (const kind of ["imported", "model_generated"] as const) {
+      const core = coreFromEnvelope();
+      core.producer = { kind, trace_id: `${kind}:trace` };
+      assert.throws(() => createProposalEnvelope(core), /must not fabricate fixture binding/);
+    }
+  });
+
+  test("the legacy adapter rejects partially accepted legacy input instead of canonizing it", () => {
+    const input = loadPublicProposalInput() as unknown as Record<string, any>;
+    input.proposed_claims[0].supporting_excerpt_proposal_ids = ["missing"];
+    assert.throws(
+      () =>
+        adaptPublicCuratedMaterializationInputToProposalEnvelope(input as any, {
+          subject_id: "subject_acme_robotics",
+        }),
+      /did not materialize completely/,
+    );
+  });
+
+  test("the explicit public-curated adapter refuses non-public/private legacy origins", () => {
+    const input = loadPublicProposalInput() as unknown as Record<string, any>;
+    input.context.origin = "private-fresh-route-proof";
+    assert.throws(
+      () =>
+        adaptPublicCuratedMaterializationInputToProposalEnvelope(input as any, {
+          subject_id: "subject_acme_robotics",
+        }),
+      /public-curated materialization origin only/,
+    );
+  });
+
+  test("the explicit adapter normalizes strict-array failures to its envelope boundary", () => {
+    const input = loadPublicProposalInput() as unknown as Record<string, any>;
+    const sparseSources = clone(input.public_sources) as unknown[];
+    sparseSources.length += 1;
+    input.public_sources = sparseSources;
+    assert.throws(
+      () =>
+        adaptPublicCuratedMaterializationInputToProposalEnvelope(input as any, {
+          subject_id: "subject_acme_robotics",
+        }),
+      ProposalEnvelopeBoundaryError,
+    );
+  });
+});

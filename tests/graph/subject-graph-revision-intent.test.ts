@@ -286,11 +286,45 @@ describe("SubjectGraphRevisionIntent v1 pure prewrite boundary", () => {
     );
   });
 
-  test("successor accepts only canonical positive safe-integer revision tokens and the exact base snapshot", () => {
+  test("successor accepts only canonical positive safe-integer predecessors with a representable next revision", () => {
     const values = derive();
-    for (const revision of ["rev_1", "rev_42", "rev_9007199254740991"]) {
+    for (const revision of ["rev_1", "rev_42", "rev_9007199254740990"]) {
       assert.equal(createIntent(values, "successor", revision).intent.predecessor_basis.expected_prior_revision, revision);
     }
+
+    const boundaryBasis = predecessorBasis(
+      values.transition,
+      "successor",
+      "rev_9007199254740990",
+    );
+    const boundaryReview = makeReview(values.transition, boundaryBasis);
+    const boundaryIntent = createSubjectGraphRevisionIntent(
+      values.envelope,
+      values.transition,
+      values.options,
+      boundaryBasis,
+      { ...boundaryReview, rationale: "r".repeat(8 * 1024) },
+    );
+    assert.deepEqual(
+      hydrateSubjectGraphRevisionIntent(
+        values.envelope,
+        values.transition,
+        values.options,
+        JSON.parse(JSON.stringify(boundaryIntent)),
+      ),
+      boundaryIntent,
+    );
+    assert.throws(
+      () =>
+        createSubjectGraphRevisionIntent(
+          values.envelope,
+          values.transition,
+          values.options,
+          boundaryBasis,
+          { ...boundaryReview, rationale: "r".repeat(8 * 1024 + 1) },
+        ),
+      /rationale must be bounded/,
+    );
 
     const nonemptyBase = createValidatedCandidate(makeValidBundle(), {
       team_id: values.envelope.scope.team_id,
@@ -318,6 +352,7 @@ describe("SubjectGraphRevisionIntent v1 pure prewrite boundary", () => {
       "rev_01",
       "rev_-1",
       "rev_1.0",
+      "rev_9007199254740991",
       "rev_9007199254740992",
       "rev_10000000000000000",
     ]) {
@@ -337,7 +372,7 @@ describe("SubjectGraphRevisionIntent v1 pure prewrite boundary", () => {
     }
   });
 
-  test("requires reviewed_at within a non-degenerate transition live window and no later than application now", () => {
+  test("uses caller-supplied application now to bound reviewed_at within a non-degenerate live window", () => {
     const values = derive();
     const basis = predecessorBasis(values.transition);
     const laterOptions = {

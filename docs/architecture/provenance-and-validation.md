@@ -72,6 +72,13 @@ creation, before materialization. Envelope creation also snapshots the exact
 prospective serialized envelope—including the mandatory integrity digest—under
 the same strict limits hydration applies, so no accepted envelope can be
 refused later solely because its own required digest exceeds a budget.
+Strict snapshots require Unicode scalar values in object-property names and
+string values, cap each at 2 MiB of UTF-8, and charge both to the same 8 MiB
+cumulative string budget per occurrence in the expanded serialization. They
+also cap the envelope at 10,000 expanded JSON value occurrences while retaining
+the separate 5,000-container-node budget. Shared acyclic references are allowed,
+but each expansion is charged; cyclic, Proxy-backed, accessor, symbol-keyed,
+sparse-array, and unsafe-key shapes remain refused.
 
 The envelope binds producer kind and a downstream-safe trace id plus exact
 team, account, opaque subject, and `candidate_validation` purpose scope.
@@ -117,13 +124,15 @@ GraphBundle array, 4,000 graph records total, 2 MiB per source `raw_text`, and
 also builds and snapshots the exact prospective transition shape—including the
 delta, embedded base, merged candidate, and full quality report—under the same
 strict limits used by application and hydration: arrays of at most 1,000,
-20,000 JSON container nodes, 2 MiB per string, and 12 MiB cumulative string
-content. This exact preflight catches non-source duplication that semantic
-source estimates cannot predict. Hostile base candidates are bounded before
-generic candidate hydration. Consequently, a delta is never returned when its
-same-envelope/same-base transition would fail deterministic application or
-hydration for representability; proposal preview joins were bounded earlier at
-the envelope boundary.
+20,000 JSON container nodes, 200,000 expanded JSON value occurrences, 2 MiB per
+property name or string value, and 12 MiB cumulative property-name-plus-value
+UTF-8 content. Every occurrence is charged, including expansion through a
+shared acyclic alias. This exact preflight catches non-source duplication that
+semantic source estimates cannot predict. Hostile base candidates are bounded
+before generic candidate hydration. Consequently, a delta is never returned
+when its same-envelope/same-base transition would fail deterministic application
+or hydration for representability; proposal preview joins were bounded earlier
+at the envelope boundary.
 
 Replay application requires a caller-supplied exact prior recorded-key
 snapshot; omission never defaults open. The pure function checks that snapshot
@@ -162,22 +171,29 @@ Graph identity is the stable structured tuple of exact `team_id`, `account_id`,
 candidate, transition, review, content, or intent hash is a graph identifier,
 physical path, or storage key. Bootstrap intent requires a null prior revision,
 the exact base-candidate digest, and a canonically empty base GraphBundle.
-Successor intent requires a canonical positive `rev_<integer>` expectation and
-the same exact base-candidate digest binding. Both are only caller-declared
-compare-and-swap expectations. This slice does not read stored state and
-provides no anti-rollback protection. A future authorized transaction must
-atomically compare both the durable current revision and the current canonical
-snapshot identity before mapping the structured identity to backend keys and
-committing `proposed_snapshot.graph_bundle`.
+Successor intent requires a canonical positive `rev_<integer>` expectation no
+greater than `rev_9007199254740990`, leaving its next numeric revision exactly
+representable, and the same exact base-candidate digest binding. Both are only
+caller-declared compare-and-swap expectations. This slice does not read stored
+state and provides no anti-rollback protection. A future authorized transaction
+must atomically compare both the durable current revision and the current
+canonical snapshot identity before mapping the structured identity to backend
+keys and committing `proposed_snapshot.graph_bundle`.
 
 The intent embeds one exact, bounded review handoff. Its sole disposition means
 only “accept this transition for a prewrite revision intent.” It binds the
 graph tuple, predecessor basis, envelope/delta/transition/base/proposed
 digests, quality policy and report identities, replay key, reviewer reference,
 canonical review time within the transition live window and no later than the
-validated application snapshot's `now`, rationale, and closed authority
-markers. Creation validates the exact envelope, transition, application
-options, predecessor basis, and review before constructing the intent.
+caller-supplied `application_options.now`, rationale, and closed authority
+markers. `application_options.now` is canonical-shape validation context used
+to bound review time; it is not stored in the intent, authenticated, or proof
+of trusted wall-clock freshness. Trusted time and durable replay enforcement
+remain deferred by the intent's current authority markers. Creation validates
+the exact envelope, transition, application options, predecessor basis, and
+review before constructing the intent. The prospective serialized intent is
+bounded to 210,000 expanded JSON value occurrences and reserves its mandatory
+digest plus wrapper property names and values before creation returns.
 Hydration re-runs `hydrateCandidateTransition` with those exact inputs,
 reconstructs the expected intent, and canonical-compares the complete result.
 Both operations therefore remain fail-closed inside the proposal envelope's

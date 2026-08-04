@@ -10,6 +10,7 @@ import {
   type StrictJsonValue,
 } from "../authority/strict-json.ts";
 import {
+  CANDIDATE_TRANSITION_MAX_EXPANDED_JSON_VALUE_OCCURRENCES,
   CANDIDATE_TRANSITION_MAX_JSON_NODES,
   CANDIDATE_TRANSITION_MAX_TOTAL_STRING_UTF8_BYTES,
   hydrateCandidateTransition,
@@ -30,6 +31,11 @@ export const SUBJECT_GRAPH_REVISION_REVIEW_HANDOFF_KIND =
 export const SUBJECT_GRAPH_REVISION_REVIEW_HANDOFF_VERSION = 1 as const;
 export const SUBJECT_GRAPH_REVISION_REVIEW_DISPOSITION =
   "accept_transition_for_prewrite_revision_intent" as const;
+// The intent owns only the accepted transition's candidate subset. Retain the
+// transition ceiling and reserve an explicit fixed allowance for intent/review
+// wrappers so an accepted upstream artifact cannot fail only on those fields.
+export const SUBJECT_GRAPH_REVISION_INTENT_MAX_EXPANDED_JSON_VALUE_OCCURRENCES =
+  CANDIDATE_TRANSITION_MAX_EXPANDED_JSON_VALUE_OCCURRENCES + 10_000;
 
 // This pure contract intentionally mirrors the existing store seam's public
 // revision spelling without importing an effect-capable store module. Runtime
@@ -150,6 +156,8 @@ export class SubjectGraphRevisionIntentBoundaryError extends Error {
 const INTENT_LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: 1_000,
   max_depth: 18,
+  max_expanded_json_value_occurrences:
+    SUBJECT_GRAPH_REVISION_INTENT_MAX_EXPANDED_JSON_VALUE_OCCURRENCES,
   max_nodes: CANDIDATE_TRANSITION_MAX_JSON_NODES + 256,
   max_object_fields: 128,
   max_string_utf8_bytes: 2 * 1024 * 1024,
@@ -163,6 +171,9 @@ const REVIEW_LIMITS: StrictJsonLimits = Object.freeze({
   // the root exact-key check and are refused as the wrong contract.
   max_array_length: 100,
   max_depth: 8,
+  // The exact review is small; this allowance lets legacy shapes reach the
+  // exact-key refusal while still bounding hostile expanded aliases.
+  max_expanded_json_value_occurrences: 5_000,
   max_nodes: 1_000,
   max_object_fields: 64,
   max_string_utf8_bytes: 16 * 1024,
@@ -450,8 +461,12 @@ function parseRevision(value: unknown, path: string): SubjectGraphRevisionToken 
     refuse(`${path} must match rev_<positive integer> without leading zeros`);
   }
   const revision = Number(match[1]);
-  if (!Number.isSafeInteger(revision) || revision <= 0) {
-    refuse(`${path} must contain a positive safe integer revision`);
+  if (
+    !Number.isSafeInteger(revision) ||
+    revision <= 0 ||
+    revision >= Number.MAX_SAFE_INTEGER
+  ) {
+    refuse(`${path} must contain a positive safe integer with a representable next revision`);
   }
   return value as SubjectGraphRevisionToken;
 }
@@ -799,9 +814,11 @@ export function createSubjectGraphRevisionIntent(
   rawReviewHandoff: unknown,
 ): SubjectGraphRevisionIntent {
   // Snapshotting the application options here is intentional: it safely reads
-  // the review clock, while hydrateCandidateTransition independently validates
-  // the complete options. Strict own-data JSON rejects executable getters and
-  // Proxies before either synchronous snapshot can observe caller code.
+  // caller-supplied validation context used to bound reviewed_at, while
+  // hydrateCandidateTransition independently validates the complete options.
+  // The supplied `now` is not authenticated wall-clock time and is not stored
+  // in the intent. Strict own-data JSON rejects executable getters and Proxies
+  // before either synchronous snapshot can observe caller code.
   const applicationNow = parseApplicationNow(rawApplicationOptions);
   const transition = rehydrateTransition(
     rawEnvelope,

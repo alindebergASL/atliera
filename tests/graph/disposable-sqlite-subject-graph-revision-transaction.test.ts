@@ -479,6 +479,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     for (const [mode, variant] of [
       ["missing", "bad-miss"],
       ["identity_corrupt", "bad-ident"],
+      ["intent_corrupt", "bad-intent"],
     ] as const) {
       const fixture = tempDatabase(t, `current-replay-${variant}`);
       const first = makePipelineRevisionIntent({ variant });
@@ -490,10 +491,14 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
           db.prepare(
             "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
           ).run(first.intent.replay_key_to_record);
-        } else {
+        } else if (mode === "identity_corrupt") {
           db.prepare(
             "UPDATE subject_graph_replay_consumptions SET team_id = ? WHERE replay_key = ?",
           ).run("team_corrupted_link", first.intent.replay_key_to_record);
+        } else {
+          db.prepare(
+            "UPDATE subject_graph_replay_consumptions SET intent_sha256 = ? WHERE replay_key = ?",
+          ).run("0".repeat(64), first.intent.replay_key_to_record);
         }
       } finally {
         db.close();
@@ -528,42 +533,55 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
   });
 
-  test("missing historical replay after a healthy successor is corruption rather than conflict", (t) => {
-    const fixture = tempDatabase(t, "historical-replay-missing");
-    const first = makePipelineRevisionIntent({ variant: "history-link-first" });
-    const successor = makePipelineRevisionIntent({
-      variant: "history-link-next",
-      base: first.intent.proposed_snapshot,
-      expected_prior_revision: "rev_1",
-    });
-    assert.equal(adapter(fixture).consume(first.intent, permit()).outcome, "committed");
-    assert.equal(
-      adapter(fixture).consume(successor.intent, permit()).outcome,
-      "committed",
-    );
-    const db = openRaw(fixture.path, false);
-    try {
-      db.prepare(
-        "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
-      ).run(first.intent.replay_key_to_record);
-    } finally {
-      db.close();
-    }
-    const before = tableCounts(fixture.path);
+  test("missing or corrupt historical replay after a healthy successor is durable corruption", (t) => {
+    for (const [mode, variant] of [
+      ["missing", "hist-miss"],
+      ["intent_corrupt", "hist-intent"],
+    ] as const) {
+      const fixture = tempDatabase(t, variant);
+      const first = makePipelineRevisionIntent({ variant: `${variant}-first` });
+      const successor = makePipelineRevisionIntent({
+        variant: `${variant}-next`,
+        base: first.intent.proposed_snapshot,
+        expected_prior_revision: "rev_1",
+      });
+      assert.equal(adapter(fixture).consume(first.intent, permit()).outcome, "committed");
+      assert.equal(
+        adapter(fixture).consume(successor.intent, permit()).outcome,
+        "committed",
+      );
+      const db = openRaw(fixture.path, false);
+      try {
+        if (mode === "missing") {
+          db.prepare(
+            "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
+          ).run(first.intent.replay_key_to_record);
+        } else {
+          db.prepare(
+            "UPDATE subject_graph_replay_consumptions SET intent_sha256 = ? WHERE replay_key = ?",
+          ).run("0".repeat(64), first.intent.replay_key_to_record);
+        }
+      } finally {
+        db.close();
+      }
+      const before = tableCounts(fixture.path);
 
-    const retry = adapter(fixture).consume(first.intent, permit());
-    assert.equal(retry.outcome, "dependency_failed");
-    if (retry.outcome === "dependency_failed") {
-      assert.equal(retry.committed, false);
-      assert.equal(retry.failure_code, "durable_state_invalid");
+      const retry = adapter(fixture).consume(first.intent, permit());
+      assert.equal(retry.outcome, "dependency_failed");
+      if (retry.outcome === "dependency_failed") {
+        assert.equal(retry.committed, false);
+        assert.equal(retry.failure_code, "durable_state_invalid");
+      }
+      assert.deepEqual(tableCounts(fixture.path), before);
+      const current = adapter(fixture).readCurrent(
+        first.intent.graph_identity,
+        permit(),
+      );
+      assert.equal(current.outcome, "found");
+      if (current.outcome === "found") {
+        assert.equal(current.state.revision, "rev_2");
+      }
     }
-    assert.deepEqual(tableCounts(fixture.path), before);
-    const current = adapter(fixture).readCurrent(
-      first.intent.graph_identity,
-      permit(),
-    );
-    assert.equal(current.outcome, "found");
-    if (current.outcome === "found") assert.equal(current.state.revision, "rev_2");
   });
 
   test("pre-transaction and mid-transaction injected failures leave graph, replay, and audit empty", (t) => {
@@ -946,6 +964,89 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       );
     } finally {
       db.close();
+    }
+  });
+
+  test("rejects malformed or trigger-altered existing catalogs before reads or writes", (t) => {
+    const loose = tempDatabase(t, "catalog-loose");
+    const looseIntent = makePipelineRevisionIntent({ variant: "catalog-loose" });
+    const looseDb = openRaw(loose.path, false);
+    try {
+      looseDb.exec(`
+        CREATE TABLE subject_graph_current_state (junk TEXT);
+        CREATE TABLE subject_graph_replay_consumptions (junk TEXT);
+        CREATE TABLE subject_graph_success_receipts (junk TEXT);
+        INSERT INTO subject_graph_current_state VALUES ('one'), ('two');
+        INSERT INTO subject_graph_replay_consumptions VALUES ('one'), ('two');
+        INSERT INTO subject_graph_success_receipts VALUES ('one'), ('two');
+      `);
+    } finally {
+      looseDb.close();
+    }
+    const looseBefore = tableCounts(loose.path);
+    const looseRead = adapter(loose).readCurrent(
+      looseIntent.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(looseRead.outcome, "dependency_failed");
+    if (looseRead.outcome === "dependency_failed") {
+      assert.equal(looseRead.failure_code, "durable_state_invalid");
+    }
+    const looseWrite = adapter(loose).consume(looseIntent.intent, permit());
+    assert.equal(looseWrite.outcome, "dependency_failed");
+    if (looseWrite.outcome === "dependency_failed") {
+      assert.equal(looseWrite.failure_code, "durable_state_invalid");
+      assert.equal(looseWrite.transaction_state, "not_started");
+    }
+    assert.deepEqual(tableCounts(loose.path), looseBefore);
+
+    for (const [mode, variant] of [
+      ["expected_noop", "catalog-noop"],
+      ["unexpected_mutating", "catalog-extra"],
+    ] as const) {
+      const fixture = tempDatabase(t, variant);
+      const first = makePipelineRevisionIntent({ variant: `${variant}-first` });
+      assert.equal(adapter(fixture).consume(first.intent, permit()).outcome, "committed");
+      const db = openRaw(fixture.path, false);
+      try {
+        if (mode === "expected_noop") {
+          db.exec(`
+            DROP TRIGGER subject_graph_success_receipts_immutable_update;
+            CREATE TRIGGER subject_graph_success_receipts_immutable_update
+            BEFORE UPDATE ON subject_graph_success_receipts
+            BEGIN SELECT 1; END;
+          `);
+        } else {
+          db.exec(`
+            CREATE TRIGGER unexpected_subject_graph_mutation
+            AFTER INSERT ON subject_graph_replay_consumptions
+            BEGIN DELETE FROM subject_graph_current_state; END;
+          `);
+        }
+      } finally {
+        db.close();
+      }
+      const before = tableCounts(fixture.path);
+      const read = adapter(fixture).readCurrent(
+        first.intent.graph_identity,
+        permit(),
+      );
+      assert.equal(read.outcome, "dependency_failed");
+      if (read.outcome === "dependency_failed") {
+        assert.equal(read.failure_code, "durable_state_invalid");
+      }
+      const successor = makePipelineRevisionIntent({
+        variant: `${variant}-next`,
+        base: first.intent.proposed_snapshot,
+        expected_prior_revision: "rev_1",
+      });
+      const write = adapter(fixture).consume(successor.intent, permit());
+      assert.equal(write.outcome, "dependency_failed");
+      if (write.outcome === "dependency_failed") {
+        assert.equal(write.failure_code, "durable_state_invalid");
+        assert.equal(write.transaction_state, "not_started");
+      }
+      assert.deepEqual(tableCounts(fixture.path), before);
     }
   });
 

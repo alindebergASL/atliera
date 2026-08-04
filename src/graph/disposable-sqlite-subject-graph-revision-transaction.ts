@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { lstatSync, realpathSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
@@ -65,6 +66,9 @@ export const SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES =
   256 * 1024;
 export const SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES =
   16 * 1024;
+const DISPOSABLE_SQLITE_SCHEMA_CATALOG_ROW_COUNT = 15;
+const DISPOSABLE_SQLITE_SCHEMA_CATALOG_SHA256 =
+  "7a9fc453e0ee032ca21c8b90df267816aac5bdd9f4957866a0d266c8c60c10ef";
 
 export type DisposableSqliteSubjectGraphRevisionTestFaultPoint =
   | "after_open_before_transaction"
@@ -939,6 +943,29 @@ function validateSafePath(options: DisposableSqliteSubjectGraphRevisionTransacti
   }
 }
 
+function verifyDatabaseCatalog(db: DatabaseSync): void {
+  const rows = db
+    .prepare(
+      "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name, tbl_name",
+    )
+    .all();
+  if (rows.length !== DISPOSABLE_SQLITE_SCHEMA_CATALOG_ROW_COUNT) {
+    throw new DurableReadbackFailure();
+  }
+  const digest = createHash("sha256")
+    .update(JSON.stringify(rows), "utf8")
+    .digest("hex");
+  if (digest !== DISPOSABLE_SQLITE_SCHEMA_CATALOG_SHA256) {
+    throw new DurableReadbackFailure();
+  }
+  const foreignKeys = db.prepare("PRAGMA foreign_keys").get() as
+    | { readonly foreign_keys?: unknown }
+    | undefined;
+  if (foreignKeys?.foreign_keys !== 1) {
+    throw new DurableReadbackFailure();
+  }
+}
+
 function initializeDatabase(databasePath: string): DatabaseSync {
   const db = new DatabaseSync(databasePath, {
     allowExtension: false,
@@ -952,7 +979,10 @@ function initializeDatabase(databasePath: string): DatabaseSync {
     db.exec("PRAGMA foreign_keys = ON");
     db.exec("PRAGMA journal_mode = WAL");
     db.exec("PRAGMA synchronous = FULL");
-    db.exec(`
+    const schemaIsEmpty =
+      db.prepare("SELECT name FROM sqlite_schema LIMIT 1").get() === undefined;
+    if (schemaIsEmpty) {
+      db.exec(`
     CREATE TABLE IF NOT EXISTS subject_graph_success_receipts (
       receipt_sha256 TEXT COLLATE BINARY PRIMARY KEY
         CHECK(length(receipt_sha256) = 64 AND receipt_sha256 NOT GLOB '*[^0-9a-f]*'),
@@ -1028,6 +1058,8 @@ function initializeDatabase(databasePath: string): DatabaseSync {
     BEFORE DELETE ON subject_graph_success_receipts
     BEGIN SELECT RAISE(ABORT, 'immutable receipt'); END;
     `);
+    }
+    verifyDatabaseCatalog(db);
     return db;
   } catch (error) {
     try {
@@ -1461,6 +1493,7 @@ function probeCommitFromIndependentConnection(
   intent: ValidatedIntent,
 ): CommitRecoveryProbe {
   let db: DatabaseSync | undefined;
+  let readTransactionStarted = false;
   try {
     db = new DatabaseSync(databasePath, {
       allowExtension: false,
@@ -1470,21 +1503,37 @@ function probeCommitFromIndependentConnection(
       timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
     });
     db.enableLoadExtension(false);
+    db.exec("BEGIN");
+    readTransactionStarted = true;
+    verifyDatabaseCatalog(db);
     const replay = selectReplay(db, intent.replay_key_to_record);
-    if (replay === undefined) return { status: "absent" };
+    if (replay === undefined) {
+      db.exec("COMMIT");
+      readTransactionStarted = false;
+      return { status: "absent" };
+    }
     const historical = verifiedHistoricalReadback(db, intent);
+    let result: CommitRecoveryProbe;
     try {
       if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
         throw new DurableReadbackFailure();
       }
+      result = { status: "committed", readback: historical };
     } catch {
-      return { status: "committed_readback_failed" };
+      result = { status: "committed_readback_failed" };
     }
-    return { status: "committed", readback: historical };
+    db.exec("COMMIT");
+    readTransactionStarted = false;
+    return result;
   } catch {
+    if (db !== undefined && readTransactionStarted) {
+      rollback(db);
+      readTransactionStarted = false;
+    }
     return { status: "unresolved" };
   } finally {
     if (db !== undefined) {
+      if (readTransactionStarted) rollback(db);
       try {
         db.close();
       } catch {
@@ -1608,6 +1657,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
     }
 
     let db: DatabaseSync | undefined;
+    let readTransactionStarted = false;
     try {
       db = new DatabaseSync(this.#options.database_path, {
         allowExtension: false,
@@ -1617,7 +1667,12 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
       });
       db.enableLoadExtension(false);
+      db.exec("BEGIN");
+      readTransactionStarted = true;
+      verifyDatabaseCatalog(db);
       const readback = verifiedCurrentReadback(db, identity);
+      db.exec("COMMIT");
+      readTransactionStarted = false;
       if (readback === null) {
         return deepFreezeOwnData({
           outcome: "not_found",
@@ -1632,6 +1687,10 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         state: readback.state,
       });
     } catch (error) {
+      if (db !== undefined && readTransactionStarted) {
+        rollback(db);
+        readTransactionStarted = false;
+      }
       return deepFreezeOwnData({
         outcome: "dependency_failed",
         found: "indeterminate",
@@ -1645,6 +1704,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
       });
     } finally {
       if (db !== undefined) {
+        if (readTransactionStarted) rollback(db);
         try {
           db.close();
         } catch {
@@ -1692,11 +1752,20 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
       this.#options.test_only_fault_hook?.("before_transaction");
       db.exec("BEGIN IMMEDIATE");
       transactionStarted = true;
+      verifyDatabaseCatalog(db);
       this.#options.test_only_fault_hook?.("after_begin");
 
       const replayRaw = selectReplay(db, intent.replay_key_to_record);
       if (replayRaw !== undefined) {
         const replay = parseReplayRow(replayRaw);
+        const persistedReceipt = verifyReceiptRow(
+          selectReceipt(db, replay.receipt_sha256),
+        );
+        verifyReplayLink(
+          replay,
+          persistedReceipt,
+          persistedReceipt.graph_identity,
+        );
         if (replay.intent_sha256 !== intent.intent_sha256) {
           rollback(db);
           transactionStarted = false;

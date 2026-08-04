@@ -64,7 +64,14 @@ SQLite uses BINARY text equality across the composite
 `team_id/account_id/subject_id/purpose` primary key; identity is never delimiter
 concatenation or a hash. Foreign keys are enabled, extension loading is
 disabled, tables are `STRICT`, WAL and `synchronous=FULL` are explicit, and lock
-waiting is bounded.
+waiting is bounded. The adapter initializes only an empty catalog. Every
+non-empty database must match the pinned complete `sqlite_schema` catalog
+exactly—including table SQL and `STRICT`/CHECK/FK clauses, PK/UNIQUE
+autoindexes, immutable triggers, and absence of extra objects—and must have
+foreign keys enabled. Reads attest that catalog inside one read transaction;
+writes attest it again under `BEGIN IMMEDIATE` before inspecting or changing
+data. Malformed, duplicate-permitting, missing-trigger, altered-trigger, or
+unexpected-trigger catalogs fail as invalid durable state without repair.
 
 `BEGIN IMMEDIATE` protects one atomic unit that compares both current revision
 and canonical snapshot digest, writes the exact canonical successor snapshot,
@@ -84,9 +91,11 @@ preserves `committed: true` as `committed_readback_failed`. Every existing CAS
 predecessor is admitted through the same graph→receipt→replay verifier, so a new
 revision cannot paper over an unhealthy current head. A receipt left behind for
 an absent requested replay row is corrupt durable evidence, not a fresh intent
-or ordinary conflict. A replay key bound to another intent is refused without a
-graph write. If `COMMIT` throws before its
-outcome is acknowledged, recovery uses a separate read-only connection so it
+or ordinary conflict. Only a fully coherent stored replay/receipt pair may be
+classified as a replay-key collision with another intent; malformed stored
+identity or digest linkage is invalid durable state and never a benign refusal.
+If `COMMIT` throws before its outcome is acknowledged, recovery uses a
+separate read-only connection so it
 cannot mistake the writer connection's uncommitted rows for durable state. A
 successful commit followed by verification failure remains explicitly
 committed-aware. If a valid successor advances the graph before acknowledgement

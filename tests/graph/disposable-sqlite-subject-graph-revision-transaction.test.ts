@@ -338,7 +338,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     });
   });
 
-  test("lost-response retry returns the exact persisted receipt and replay collision applies nothing", (t) => {
+  test("lost-response retry survives later graph advancement while replay collision applies nothing", (t) => {
     const fixture = tempDatabase(t, "replay");
     const initial = makePipelineRevisionIntent({ variant: "replay-initial" });
     const transaction = adapter(fixture);
@@ -371,12 +371,30 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
 
     const successor = makePipelineRevisionIntent({
-      variant: "replay-collision",
+      variant: "replay-successor",
       base: initial.intent.proposed_snapshot,
       expected_prior_revision: "rev_1",
     });
+    assert.equal(
+      adapter(fixture).consume(successor.intent, permit()).outcome,
+      "committed",
+    );
+
+    const lateRetry = adapter(fixture).consume(
+      JSON.parse(JSON.stringify(initial.intent)),
+      permit(),
+    );
+    assert.equal(lateRetry.outcome, "already_committed");
+    if (lateRetry.outcome !== "already_committed") return;
+    assert.deepEqual(lateRetry.receipt, retry.receipt);
+
+    const collisionSource = makePipelineRevisionIntent({
+      variant: "replay-collision",
+      base: successor.intent.proposed_snapshot,
+      expected_prior_revision: "rev_2",
+    });
     const collision = replayCollisionIntent(
-      successor.intent,
+      collisionSource.intent,
       initial.intent.replay_key_to_record,
     );
     const refused = adapter(fixture).consume(collision, permit());
@@ -387,8 +405,8 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
     assert.deepEqual(tableCounts(fixture.path), {
       graph: 1,
-      replay: 1,
-      audit: 1,
+      replay: 2,
+      audit: 2,
     });
   });
 
@@ -396,6 +414,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     for (const [label, faultPoint, expectedState] of [
       ["before", "before_transaction", "not_started"],
       ["during", "after_graph_write", "rolled_back"],
+      ["before-commit", "after_replay_write", "rolled_back"],
     ] as const) {
       const fixture = tempDatabase(t, `fault-${label}`);
       const values = makePipelineRevisionIntent({ variant: `fault-${label}` });
@@ -706,6 +725,69 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       replay: 1,
       audit: 1,
     });
+  });
+
+  test("reads back the expected SQLite catalog and integrity invariants", (t) => {
+    const fixture = tempDatabase(t, "catalog-integrity");
+    const values = makePipelineRevisionIntent({ variant: "catalog-integrity" });
+    assert.equal(adapter(fixture).consume(values.intent, permit()).outcome, "committed");
+
+    const db = openRaw(fixture.path);
+    try {
+      assert.equal(db.prepare("PRAGMA journal_mode").get()?.journal_mode, "wal");
+      assert.deepEqual(
+        db
+          .prepare("PRAGMA integrity_check")
+          .all()
+          .map((row) => row.integrity_check),
+        ["ok"],
+      );
+      assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+
+      const tables = db
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name LIKE 'subject_graph_%' ORDER BY name",
+        )
+        .all() as unknown as ReadonlyArray<{
+          readonly name: string;
+          readonly sql: string;
+        }>;
+      assert.deepEqual(
+        tables.map((row) => row.name),
+        [
+          "subject_graph_current_state",
+          "subject_graph_replay_consumptions",
+          "subject_graph_success_receipts",
+        ],
+      );
+      const currentSql = tables.find(
+        (row) => row.name === "subject_graph_current_state",
+      )?.sql;
+      const replaySql = tables.find(
+        (row) => row.name === "subject_graph_replay_consumptions",
+      )?.sql;
+      assert.match(
+        currentSql ?? "",
+        /PRIMARY KEY\(team_id, account_id, subject_id, purpose\)/,
+      );
+      assert.match(replaySql ?? "", /intent_sha256 TEXT COLLATE BINARY NOT NULL UNIQUE/);
+      assert.match(replaySql ?? "", /receipt_sha256 TEXT COLLATE BINARY NOT NULL UNIQUE/);
+
+      const triggers = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name",
+        )
+        .all() as unknown as ReadonlyArray<{ readonly name: string }>;
+      assert.deepEqual(
+        triggers.map((row) => row.name),
+        [
+          "subject_graph_success_receipts_immutable_delete",
+          "subject_graph_success_receipts_immutable_update",
+        ],
+      );
+    } finally {
+      db.close();
+    }
   });
 
   test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {

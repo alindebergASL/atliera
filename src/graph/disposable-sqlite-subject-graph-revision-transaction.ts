@@ -69,7 +69,7 @@ export const SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES =
   16 * 1024;
 const DISPOSABLE_SQLITE_SCHEMA_CATALOG_ROW_COUNT = 15;
 const DISPOSABLE_SQLITE_SCHEMA_CATALOG_SHA256 =
-  "7a9fc453e0ee032ca21c8b90df267816aac5bdd9f4957866a0d266c8c60c10ef";
+  "fa9df3d0b1412e596acb201eaa3b8338a0d5ea6391b359d41408ee3b5202ea29";
 
 export type DisposableSqliteSubjectGraphRevisionTestFaultPoint =
   | "after_open_before_transaction"
@@ -1283,9 +1283,17 @@ function initializeDatabase(
       replay_key TEXT COLLATE BINARY NOT NULL UNIQUE
         CHECK(length(replay_key) = 64 AND replay_key NOT GLOB '*[^0-9a-f]*'),
       operational_committed_at TEXT COLLATE BINARY NOT NULL,
-      UNIQUE(team_id, account_id, subject_id, purpose, committed_revision_number),
       CHECK(committed_revision_token = 'rev_' || CAST(committed_revision_number AS TEXT))
     ) STRICT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS subject_graph_success_receipts_canonical_identity_revision
+    ON subject_graph_success_receipts (
+      json_extract(receipt_json, '$.graph_identity.team_id') COLLATE BINARY,
+      json_extract(receipt_json, '$.graph_identity.account_id') COLLATE BINARY,
+      json_extract(receipt_json, '$.graph_identity.subject_id') COLLATE BINARY,
+      json_extract(receipt_json, '$.graph_identity.purpose') COLLATE BINARY,
+      committed_revision_number
+    );
 
     CREATE TABLE IF NOT EXISTS subject_graph_current_state (
       team_id TEXT COLLATE BINARY NOT NULL,

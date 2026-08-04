@@ -750,10 +750,10 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
           copiedReceipt.receipt_sha256,
           copiedReceipt.receipt_core_json,
           copiedReceipt.receipt_json,
-          "team_hidden_denormalized",
-          "acc_hidden_denormalized",
-          "subject:hidden:denormalized",
-          copiedReceipt.purpose,
+          targetSeed.intent.graph_identity.team_id,
+          targetSeed.intent.graph_identity.account_id,
+          targetSeed.intent.graph_identity.subject_id,
+          targetSeed.intent.graph_identity.purpose,
           copiedReceipt.predecessor_revision_token,
           copiedReceipt.predecessor_snapshot_sha256,
           copiedReceipt.committed_revision_number,
@@ -788,6 +788,11 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       },
     );
 
+    const targetBootstrap = adapter(target).consume(targetSeed.intent, permit());
+    assert.equal(targetBootstrap.outcome, "committed");
+    const afterTargetBootstrap = tableCounts(target.path);
+    assert.deepEqual(afterTargetBootstrap, { graph: 1, replay: 1, audit: 2 });
+
     const hiddenRetry = adapter(target).consume(sourceCommit.intent, permit());
     assert.equal(hiddenRetry.outcome, "dependency_failed");
     if (hiddenRetry.outcome === "dependency_failed") {
@@ -805,7 +810,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     if (blocked.outcome === "dependency_failed") {
       assert.equal(blocked.failure_code, "durable_state_invalid");
     }
-    assert.deepEqual(tableCounts(target.path), before);
+    assert.deepEqual(tableCounts(target.path), afterTargetBootstrap);
   });
 
   test("missing or corrupt current replay blocks both exact retry and successor", (t) => {

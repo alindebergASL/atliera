@@ -177,6 +177,7 @@ interface VerifiedReadback {
 
 type CommitRecoveryProbe =
   | { readonly status: "committed"; readonly readback: VerifiedReadback }
+  | { readonly status: "committed_readback_failed" }
   | { readonly status: "absent" }
   | { readonly status: "unresolved" };
 
@@ -1358,7 +1359,7 @@ function verifyCurrentReceiptLink(
   }
 }
 
-function verifiedReadback(
+function verifiedHistoricalReadback(
   db: DatabaseSync,
   intent: ValidatedIntent,
 ): VerifiedReadback {
@@ -1376,13 +1377,6 @@ function verifiedReadback(
     intent,
   );
   verifyReplayLink(replay, receipt, intent.graph_identity);
-  // A valid successor may commit after this intent's COMMIT but before its
-  // acknowledgement/read-back. Verify the current head against its own receipt,
-  // but reconstruct the historical state installed by this exact intent from
-  // its immutable receipt and validated snapshot.
-  if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
-    throw new DurableReadbackFailure();
-  }
   const state: SubjectGraphRevisionCommittedState = {
     graph_identity: { ...intent.graph_identity },
     revision: receipt.committed_revision,
@@ -1393,6 +1387,20 @@ function verifiedReadback(
     operational_committed_at: receipt.operational_committed_at,
   };
   return deepFreezeOwnData({ receipt, state });
+}
+
+function verifiedReadback(
+  db: DatabaseSync,
+  intent: ValidatedIntent,
+): VerifiedReadback {
+  // A valid successor may commit after this intent's COMMIT but before its
+  // acknowledgement/read-back. Historical replay plus receipt establish this
+  // intent's commit; current-head verification is a separate health check.
+  const historical = verifiedHistoricalReadback(db, intent);
+  if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
+    throw new DurableReadbackFailure();
+  }
+  return historical;
 }
 
 function verifiedCurrentReadback(
@@ -1439,7 +1447,15 @@ function probeCommitFromIndependentConnection(
     db.enableLoadExtension(false);
     const replay = selectReplay(db, intent.replay_key_to_record);
     if (replay === undefined) return { status: "absent" };
-    return { status: "committed", readback: verifiedReadback(db, intent) };
+    const historical = verifiedHistoricalReadback(db, intent);
+    try {
+      if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
+        throw new DurableReadbackFailure();
+      }
+    } catch {
+      return { status: "committed_readback_failed" };
+    }
+    return { status: "committed", readback: historical };
   } catch {
     return { status: "unresolved" };
   } finally {
@@ -1884,6 +1900,14 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
               commit_acknowledgement: "recovered_after_commit_boundary_failure",
               receipt: probe.readback.receipt,
               state: probe.readback.state,
+            });
+          } else if (probe.status === "committed_readback_failed") {
+            outcome = deepFreezeOwnData({
+              outcome: "committed_readback_failed",
+              committed: true,
+              failure_code: "post_commit_verification_failed",
+              message: "Commit succeeded but durable read-back verification failed",
+              recovery: recoveryIdentity(intent),
             });
           } else if (probe.status === "absent" && rollbackProven) {
             outcome = dependencyFailed("rolled_back", "transaction_failed");

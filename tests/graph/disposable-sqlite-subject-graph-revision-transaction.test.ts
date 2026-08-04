@@ -836,6 +836,50 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     if (current.outcome === "found") assert.equal(current.state.revision, "rev_2");
   });
 
+  test("historical commit proof remains committed-aware when the later current head is invalid", (t) => {
+    const fixture = tempDatabase(t, "ack-invalid-successor");
+    const first = makePipelineRevisionIntent({ variant: "invalid-head-first" });
+    const successor = makePipelineRevisionIntent({
+      variant: "invalid-head-successor",
+      base: first.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    let successorOutcome: string | undefined;
+
+    const recovered = adapter(fixture, (point) => {
+      if (point !== "after_commit_before_acknowledgement") return;
+      const result = adapter(fixture).consume(successor.intent, permit());
+      successorOutcome = result.outcome;
+      const db = openRaw(fixture.path, false);
+      try {
+        db.prepare(
+          "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
+        ).run(successor.intent.replay_key_to_record);
+      } finally {
+        db.close();
+      }
+      throw new Error("lost acknowledgement after current-head corruption");
+    }).consume(first.intent, permit());
+
+    assert.equal(successorOutcome, "committed");
+    assert.equal(recovered.outcome, "committed_readback_failed");
+    if (recovered.outcome === "committed_readback_failed") {
+      assert.equal(recovered.committed, true);
+      assert.equal(
+        recovered.recovery.intent_sha256,
+        first.intent.intent_sha256,
+      );
+    }
+    const current = adapter(fixture).readCurrent(
+      first.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(current.outcome, "dependency_failed");
+    if (current.outcome === "dependency_failed") {
+      assert.equal(current.failure_code, "durable_state_invalid");
+    }
+  });
+
   test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {
     const readbackFixture = tempDatabase(t, "post-commit-readback");
     const readbackIntent = makePipelineRevisionIntent({ variant: "readback-fault" });
@@ -971,6 +1015,21 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       () =>
         new DisposableSqliteSubjectGraphRevisionTransaction(
           new Proxy(mutableOptions, {}),
+        ),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction({
+          ...mutableOptions,
+          unknown_option: true,
+        } as any),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction(
+          Object.assign({ ...mutableOptions }, { [Symbol("hidden")]: true }),
         ),
       /Invalid disposable SQLite transaction options/,
     );

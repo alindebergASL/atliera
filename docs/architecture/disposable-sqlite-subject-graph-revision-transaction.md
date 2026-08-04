@@ -83,7 +83,10 @@ mistake the writer connection's uncommitted rows for durable state. A successful
 commit followed by verification failure remains explicitly committed-aware. If
 a valid successor advances the graph before acknowledgement recovery, the
 historical replay and receipt recover the earlier commit while the latest graph
-head is independently verified against its own receipt.
+head is independently verified against its own receipt. If that later current
+head cannot be verified, historical commit proof is preserved as
+`committed_readback_failed` with `committed: true`, never downgraded to an
+indeterminate commit outcome.
 
 The result union keeps these cases separate:
 

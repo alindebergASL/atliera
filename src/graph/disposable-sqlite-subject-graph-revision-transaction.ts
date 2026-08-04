@@ -2,6 +2,7 @@ import { lstatSync, realpathSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { isProxy } from "node:util/types";
 
 import {
   assertExactKeys,
@@ -82,6 +83,74 @@ export interface DisposableSqliteSubjectGraphRevisionTransactionOptions {
   readonly test_only_fault_hook?: (
     point: DisposableSqliteSubjectGraphRevisionTestFaultPoint,
   ) => void;
+}
+
+function invalidOptions(): never {
+  throw new TypeError("Invalid disposable SQLite transaction options");
+}
+
+function snapshotOptions(
+  raw: DisposableSqliteSubjectGraphRevisionTransactionOptions,
+): DisposableSqliteSubjectGraphRevisionTransactionOptions {
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    isProxy(raw) ||
+    (Object.getPrototypeOf(raw) !== Object.prototype &&
+      Object.getPrototypeOf(raw) !== null) ||
+    Object.getOwnPropertySymbols(raw).length !== 0
+  ) {
+    return invalidOptions();
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(raw);
+  const keys = Object.keys(descriptors).sort();
+  const expectedKeys = [
+    "database_path",
+    "isolated_temporary_directory",
+    ...(Object.hasOwn(descriptors, "test_only_fault_hook")
+      ? ["test_only_fault_hook"]
+      : []),
+  ].sort();
+  if (
+    keys.length !== expectedKeys.length ||
+    keys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    return invalidOptions();
+  }
+  const databasePath = descriptors.database_path;
+  const isolatedDirectory = descriptors.isolated_temporary_directory;
+  const faultHook = descriptors.test_only_fault_hook;
+  if (
+    databasePath === undefined ||
+    isolatedDirectory === undefined ||
+    !("value" in databasePath) ||
+    !("value" in isolatedDirectory) ||
+    !databasePath.enumerable ||
+    !isolatedDirectory.enumerable ||
+    typeof databasePath.value !== "string" ||
+    typeof isolatedDirectory.value !== "string" ||
+    (faultHook !== undefined &&
+      (!("value" in faultHook) ||
+        !faultHook.enumerable ||
+        (faultHook.value !== undefined &&
+          typeof faultHook.value !== "function")))
+  ) {
+    return invalidOptions();
+  }
+  const snapshottedFaultHook =
+    faultHook !== undefined && "value" in faultHook
+      ? faultHook.value
+      : undefined;
+  return Object.freeze({
+    database_path: databasePath.value,
+    isolated_temporary_directory: isolatedDirectory.value,
+    ...(snapshottedFaultHook === undefined
+      ? {}
+      : {
+          test_only_fault_hook:
+            snapshottedFaultHook as DisposableSqliteSubjectGraphRevisionTransactionOptions["test_only_fault_hook"],
+        }),
+  });
 }
 
 interface ValidatedIntent {
@@ -881,6 +950,7 @@ function initializeDatabase(databasePath: string): DatabaseSync {
     db.enableLoadExtension(false);
     db.exec("PRAGMA foreign_keys = ON");
     db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA synchronous = FULL");
     db.exec(`
     CREATE TABLE IF NOT EXISTS subject_graph_success_receipts (
       receipt_sha256 TEXT COLLATE BINARY PRIMARY KEY
@@ -1306,18 +1376,21 @@ function verifiedReadback(
     intent,
   );
   verifyReplayLink(replay, receipt, intent.graph_identity);
-  const graphRaw = selectGraph(db, intent.graph_identity);
-  if (graphRaw === undefined) throw new DurableReadbackFailure();
-  const graph = verifyCurrentGraphRow(graphRaw, intent.graph_identity);
-  verifyCurrentReceiptLink(graph.row, receipt);
+  // A valid successor may commit after this intent's COMMIT but before its
+  // acknowledgement/read-back. Verify the current head against its own receipt,
+  // but reconstruct the historical state installed by this exact intent from
+  // its immutable receipt and validated snapshot.
+  if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
+    throw new DurableReadbackFailure();
+  }
   const state: SubjectGraphRevisionCommittedState = {
     graph_identity: { ...intent.graph_identity },
-    revision: graph.row.revision_token as SubjectGraphRevisionToken,
-    snapshot_sha256: graph.row.snapshot_sha256,
-    snapshot: graph.candidate,
-    intent_sha256: graph.row.intent_sha256,
-    last_receipt_sha256: graph.row.last_receipt_sha256,
-    operational_committed_at: graph.row.operational_committed_at,
+    revision: receipt.committed_revision,
+    snapshot_sha256: intent.proposed_snapshot_sha256,
+    snapshot: intent.proposed_snapshot,
+    intent_sha256: intent.intent_sha256,
+    last_receipt_sha256: receipt.receipt_sha256,
+    operational_committed_at: receipt.operational_committed_at,
   };
   return deepFreezeOwnData({ receipt, state });
 }
@@ -1460,7 +1533,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
   readonly #options: DisposableSqliteSubjectGraphRevisionTransactionOptions;
 
   constructor(options: DisposableSqliteSubjectGraphRevisionTransactionOptions) {
-    this.#options = options;
+    this.#options = snapshotOptions(options);
   }
 
   readCurrent(rawIdentity: unknown, rawPermit: unknown): SubjectGraphRevisionReadResult {

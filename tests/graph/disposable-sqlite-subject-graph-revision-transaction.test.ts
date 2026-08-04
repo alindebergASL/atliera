@@ -8,7 +8,7 @@ import {
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, test, type TestContext } from "node:test";
 import { Worker } from "node:worker_threads";
@@ -794,6 +794,48 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
   });
 
+  test("lost acknowledgement recovers its historical receipt after a successor wins the read-back race", (t) => {
+    const fixture = tempDatabase(t, "ack-successor-race");
+    const first = makePipelineRevisionIntent({ variant: "ack-race-first" });
+    const successor = makePipelineRevisionIntent({
+      variant: "ack-race-successor",
+      base: first.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    let successorOutcome: string | undefined;
+    let successorRevision: string | undefined;
+
+    const recovered = adapter(fixture, (point) => {
+      if (point !== "after_commit_before_acknowledgement") return;
+      const result = adapter(fixture).consume(successor.intent, permit());
+      successorOutcome = result.outcome;
+      if (result.outcome === "committed") successorRevision = result.state.revision;
+      throw new Error("lost revision-one acknowledgement");
+    }).consume(first.intent, permit());
+
+    assert.equal(successorOutcome, "committed");
+    assert.equal(successorRevision, "rev_2");
+    assert.equal(recovered.outcome, "committed");
+    if (recovered.outcome !== "committed") return;
+    assert.equal(
+      recovered.commit_acknowledgement,
+      "recovered_after_commit_boundary_failure",
+    );
+    assert.equal(recovered.receipt.committed_revision, "rev_1");
+    assert.equal(recovered.state.revision, "rev_1");
+    assert.equal(
+      recovered.state.snapshot_sha256,
+      first.intent.proposed_snapshot_sha256,
+    );
+
+    const current = adapter(fixture).readCurrent(
+      first.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(current.outcome, "found");
+    if (current.outcome === "found") assert.equal(current.state.revision, "rev_2");
+  });
+
   test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {
     const readbackFixture = tempDatabase(t, "post-commit-readback");
     const readbackIntent = makePipelineRevisionIntent({ variant: "readback-fault" });
@@ -890,6 +932,48 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       assert.equal(existsSync(fixture.path), false);
     }
     assert.equal(getterExecuted, false);
+
+    const optionFixture = tempDatabase(t, "option-snapshot");
+    const escapedPath = join(
+      tmpdir(),
+      `${basename(optionFixture.directory)}-escaped.sqlite`,
+    );
+    t.after(() => rmSync(escapedPath, { force: true }));
+    const mutableOptions = {
+      database_path: optionFixture.path,
+      isolated_temporary_directory: optionFixture.directory,
+    };
+    const snapshottedAdapter =
+      new DisposableSqliteSubjectGraphRevisionTransaction(mutableOptions);
+    mutableOptions.database_path = escapedPath;
+    const snapshottedResult = snapshottedAdapter.consume(values.intent, permit());
+    assert.equal(snapshottedResult.outcome, "committed");
+    assert.equal(existsSync(optionFixture.path), true);
+    assert.equal(existsSync(escapedPath), false);
+
+    let optionGetterReads = 0;
+    const accessorOptions = {
+      get database_path() {
+        optionGetterReads += 1;
+        return optionFixture.path;
+      },
+      isolated_temporary_directory: optionFixture.directory,
+    };
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction(
+          accessorOptions as any,
+        ),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.equal(optionGetterReads, 0);
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction(
+          new Proxy(mutableOptions, {}),
+        ),
+      /Invalid disposable SQLite transaction options/,
+    );
 
     const permitFixture = tempDatabase(t, "bad-permit");
     const invalidPermit = {

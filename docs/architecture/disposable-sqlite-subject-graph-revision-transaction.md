@@ -29,6 +29,8 @@ It is not approval or ratification.
 
 Before opening or creating a database, the adapter:
 
+- snapshots constructor options from exact own data once and rejects accessors,
+  proxies, symbols, unknown fields, and later caller mutation;
 - snapshots the permit and intent through the strict own-data JSON boundary;
 - requires an absolute direct-child database path under a canonical,
   caller-declared isolated directory beneath the canonical OS temporary root;
@@ -61,7 +63,8 @@ byte limits as defense in depth. Existing strict-JSON limits remain unchanged.
 SQLite uses BINARY text equality across the composite
 `team_id/account_id/subject_id/purpose` primary key; identity is never delimiter
 concatenation or a hash. Foreign keys are enabled, extension loading is
-disabled, tables are `STRICT`, WAL is enabled, and lock waiting is bounded.
+disabled, tables are `STRICT`, WAL and `synchronous=FULL` are explicit, and lock
+waiting is bounded.
 
 `BEGIN IMMEDIATE` protects one atomic unit that compares both current revision
 and canonical snapshot digest, writes the exact canonical successor snapshot,
@@ -77,7 +80,10 @@ persisted success receipt without applying again. A replay key bound to another
 intent is refused without a graph write. If `COMMIT` throws before its outcome
 is acknowledged, recovery uses a separate read-only connection so it cannot
 mistake the writer connection's uncommitted rows for durable state. A successful
-commit followed by verification failure remains explicitly committed-aware.
+commit followed by verification failure remains explicitly committed-aware. If
+a valid successor advances the graph before acknowledgement recovery, the
+historical replay and receipt recover the earlier commit while the latest graph
+head is independently verified against its own receipt.
 
 The result union keeps these cases separate:
 

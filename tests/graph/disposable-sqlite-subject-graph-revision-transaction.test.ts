@@ -414,6 +414,67 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     });
   });
 
+  test("ordinary historical retry preserves commit truth when the later current head is unhealthy", (t) => {
+    for (const [mode, variant] of [
+      ["snapshot_corrupt", "retry-snap"],
+      ["replay_missing", "retry-link"],
+      ["current_missing", "retry-none"],
+    ] as const) {
+      const fixture = tempDatabase(t, `retry-current-${variant}`);
+      const first = makePipelineRevisionIntent({ variant });
+      const successor = makePipelineRevisionIntent({
+        variant: `${variant}-next`,
+        base: first.intent.proposed_snapshot,
+        expected_prior_revision: "rev_1",
+      });
+      assert.equal(adapter(fixture).consume(first.intent, permit()).outcome, "committed");
+      assert.equal(
+        adapter(fixture).consume(successor.intent, permit()).outcome,
+        "committed",
+      );
+
+      const db = openRaw(fixture.path, false);
+      try {
+        if (mode === "snapshot_corrupt") {
+          db.prepare(
+            "UPDATE subject_graph_current_state SET snapshot_json = ?",
+          ).run("{}");
+        } else if (mode === "replay_missing") {
+          db.prepare(
+            "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
+          ).run(successor.intent.replay_key_to_record);
+        } else {
+          db.prepare("DELETE FROM subject_graph_current_state").run();
+        }
+      } finally {
+        db.close();
+      }
+
+      const retry = adapter(fixture).consume(first.intent, permit());
+      assert.equal(retry.outcome, "committed_readback_failed");
+      if (retry.outcome === "committed_readback_failed") {
+        assert.equal(retry.committed, true);
+        assert.equal(
+          retry.recovery.intent_sha256,
+          first.intent.intent_sha256,
+        );
+      }
+
+      const current = adapter(fixture).readCurrent(
+        first.intent.graph_identity,
+        permit(),
+      );
+      if (mode === "current_missing") {
+        assert.equal(current.outcome, "not_found");
+      } else {
+        assert.equal(current.outcome, "dependency_failed");
+        if (current.outcome === "dependency_failed") {
+          assert.equal(current.failure_code, "durable_state_invalid");
+        }
+      }
+    }
+  });
+
   test("pre-transaction and mid-transaction injected failures leave graph, replay, and audit empty", (t) => {
     for (const [label, faultPoint, expectedState] of [
       ["before", "before_transaction", "not_started"],
@@ -602,10 +663,13 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       db.close();
     }
     const result = adapter(fixture).consume(values.intent, permit());
-    assert.equal(result.outcome, "dependency_failed");
-    if (result.outcome === "dependency_failed") {
-      assert.equal(result.transaction_state, "rolled_back");
-      assert.equal(result.failure_code, "durable_state_invalid");
+    assert.equal(result.outcome, "committed_readback_failed");
+    if (result.outcome === "committed_readback_failed") {
+      assert.equal(result.committed, true);
+      assert.equal(
+        result.recovery.intent_sha256,
+        values.intent.intent_sha256,
+      );
     }
     const serialized = JSON.stringify(result);
     assert.equal(serialized.includes(fixture.path), false);

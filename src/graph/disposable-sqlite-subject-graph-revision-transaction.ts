@@ -1677,25 +1677,31 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
           transactionStarted = false;
           return refusal("replay_key_collision", intent);
         }
-        const receipt = verifyReceiptRow(
-          selectReceipt(db, replay.receipt_sha256),
-          intent,
-        );
-        verifyReplayLink(replay, receipt, intent.graph_identity);
-        const currentRaw = selectGraph(db, intent.graph_identity);
-        if (currentRaw === undefined) throw new DurableReadbackFailure();
-        const current = verifyCurrentGraphRow(currentRaw, intent.graph_identity);
-        const currentReceipt = verifyReceiptRow(
-          selectReceipt(db, current.row.last_receipt_sha256),
-        );
-        verifyCurrentReceiptLink(current.row, currentReceipt);
+        const historical = verifiedHistoricalReadback(db, intent);
+        let currentVerified = false;
+        try {
+          currentVerified =
+            verifiedCurrentReadback(db, intent.graph_identity) !== null;
+        } catch {
+          // Historical replay and receipt already prove this exact commit. A
+          // separate current-head integrity failure must not erase that truth.
+        }
         rollback(db);
         transactionStarted = false;
+        if (!currentVerified) {
+          return deepFreezeOwnData({
+            outcome: "committed_readback_failed",
+            committed: true,
+            failure_code: "post_commit_verification_failed",
+            message: "Commit succeeded but durable read-back verification failed",
+            recovery: recoveryIdentity(intent),
+          });
+        }
         return deepFreezeOwnData({
           outcome: "already_committed",
           committed: true,
           applied: false,
-          receipt,
+          receipt: historical.receipt,
         });
       }
 

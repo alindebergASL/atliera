@@ -75,18 +75,22 @@ graph, replay, and success audit commit together or not at all. SQLite supplies
 UTC. That value is operational metadata only, not evidence that the earlier
 `reviewed_at` was trusted.
 
-An exact retry finds the durable replay binding and returns the original
-persisted success receipt without applying again. A replay key bound to another
-intent is refused without a graph write. If `COMMIT` throws before its outcome
-is acknowledged, recovery uses a separate read-only connection so it cannot
-mistake the writer connection's uncommitted rows for durable state. A successful
-commit followed by verification failure remains explicitly committed-aware. If
-a valid successor advances the graph before acknowledgement recovery, the
-historical replay and receipt recover the earlier commit while the latest graph
-head is independently verified against its own receipt. If that later current
-head cannot be verified, historical commit proof is preserved as
-`committed_readback_failed` with `committed: true`, never downgraded to an
-indeterminate commit outcome.
+An exact retry first verifies the durable historical replay/receipt binding without
+applying again, then independently verifies the current head through the same
+receipt and replay-link checks as `readCurrent`. It returns the original
+persisted success receipt as `already_committed` only when both stages pass. If
+historical proof succeeds but the current head is missing or invalid, the retry
+preserves `committed: true` as `committed_readback_failed`. A replay key bound to
+another intent is refused without a graph write. If `COMMIT` throws before its
+outcome is acknowledged, recovery uses a separate read-only connection so it
+cannot mistake the writer connection's uncommitted rows for durable state. A
+successful commit followed by verification failure remains explicitly
+committed-aware. If a valid successor advances the graph before acknowledgement
+recovery, the historical replay and receipt recover the earlier commit while the
+latest graph head is independently verified against its own receipt and replay
+link. If that later current head cannot be verified, historical commit proof is
+preserved as `committed_readback_failed` with `committed: true`, never downgraded
+to an indeterminate commit outcome.
 
 The result union keeps these cases separate:
 

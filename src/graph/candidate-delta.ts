@@ -53,6 +53,10 @@ export const CANDIDATE_COMPOSITION_MAX_SOURCE_RAW_TEXT_UTF8_BYTES =
 export const CANDIDATE_COMPOSITION_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES =
   4 * 1024 * 1024;
 export const CANDIDATE_TRANSITION_MAX_JSON_NODES = 20_000;
+// A transition can embed at most roughly 8,000 graph records across its delta,
+// base, and merged candidate. This leaves over 20 expanded values per record
+// plus fixed wrappers while stopping million-scalar alias amplification early.
+export const CANDIDATE_TRANSITION_MAX_EXPANDED_JSON_VALUE_OCCURRENCES = 200_000;
 export const CANDIDATE_TRANSITION_MAX_TOTAL_STRING_UTF8_BYTES =
   12 * 1024 * 1024;
 
@@ -141,6 +145,8 @@ export class CandidateDeltaBoundaryError extends Error {
 const LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: CANDIDATE_COMPOSITION_MAX_RECORDS_PER_GRAPH_KIND,
   max_depth: 16,
+  max_expanded_json_value_occurrences:
+    CANDIDATE_TRANSITION_MAX_EXPANDED_JSON_VALUE_OCCURRENCES,
   max_nodes: CANDIDATE_TRANSITION_MAX_JSON_NODES,
   max_object_fields: 128,
   max_string_utf8_bytes: 2 * 1024 * 1024,

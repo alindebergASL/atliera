@@ -41,6 +41,10 @@ export const PROPOSAL_ENVELOPE_MAX_PREVIEW_EXPANDED_TEXT_UTF8_BYTES =
 export const PROPOSAL_ENVELOPE_MAX_SOURCE_RAW_TEXT_UTF8_BYTES = 1 * 1024 * 1024;
 export const PROPOSAL_ENVELOPE_MAX_TOTAL_SOURCE_RAW_TEXT_UTF8_BYTES =
   2 * 1024 * 1024;
+// The maximum-cardinality v1 envelope expands to fewer than 9,000 JSON value
+// occurrences. Keep a small explicit wrapper allowance without admitting
+// hostile million-value alias expansion.
+export const PROPOSAL_ENVELOPE_MAX_EXPANDED_JSON_VALUE_OCCURRENCES = 10_000;
 
 export type ProposalProducerKind = "fixture" | "imported" | "model_generated";
 
@@ -136,6 +140,8 @@ export class ProposalEnvelopeBoundaryError extends Error {
 const LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: PROPOSAL_ENVELOPE_MAX_RECORDS_PER_KIND,
   max_depth: 10,
+  max_expanded_json_value_occurrences:
+    PROPOSAL_ENVELOPE_MAX_EXPANDED_JSON_VALUE_OCCURRENCES,
   max_nodes: 5_000,
   max_object_fields: 64,
   max_string_utf8_bytes: 2 * 1024 * 1024,

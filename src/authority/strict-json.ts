@@ -12,6 +12,7 @@ export type StrictJsonValue =
 export interface StrictJsonLimits {
   readonly max_array_length: number;
   readonly max_depth: number;
+  readonly max_expanded_json_value_occurrences: number;
   readonly max_nodes: number;
   readonly max_object_fields: number;
   readonly max_string_utf8_bytes: number;
@@ -48,27 +49,35 @@ function childPath(path: string, key: string): string {
 }
 
 interface SnapshotBudget {
+  expandedJsonValueOccurrences: number;
   nodes: number;
   stringBytes: number;
 }
+
+type SnapshotStringKind = "property name" | "string value";
 
 function snapshotString(
   value: string,
   path: string,
   limits: StrictJsonLimits,
   budget: SnapshotBudget,
+  kind: SnapshotStringKind,
 ): string {
   if (hasUnpairedUtf16Surrogate(value)) {
     throw new StrictJsonBoundaryError(
-      `${path} must contain Unicode scalar values only`,
+      `${path} ${kind} must contain Unicode scalar values only`,
     );
   }
   const bytes = Buffer.byteLength(value, "utf8");
   if (bytes > limits.max_string_utf8_bytes) {
-    throw new StrictJsonBoundaryError(`${path} exceeds the string-size bound`);
+    throw new StrictJsonBoundaryError(
+      `${path} ${kind} exceeds the string-size bound`,
+    );
   }
   if (bytes > limits.max_total_string_utf8_bytes - budget.stringBytes) {
-    throw new StrictJsonBoundaryError(`${path} exceeds the cumulative string-size bound`);
+    throw new StrictJsonBoundaryError(
+      `${path} ${kind} exceeds the cumulative string-size bound`,
+    );
   }
   budget.stringBytes += bytes;
   return value;
@@ -82,11 +91,22 @@ function snapshotValue(
   depth: number,
   ancestors: WeakSet<object>,
 ): StrictJsonValue {
+  if (
+    budget.expandedJsonValueOccurrences >=
+    limits.max_expanded_json_value_occurrences
+  ) {
+    throw new StrictJsonBoundaryError(
+      `${path} exceeds the expanded serialized-value-occurrence bound`,
+    );
+  }
+  budget.expandedJsonValueOccurrences += 1;
   if (depth > limits.max_depth) {
     throw new StrictJsonBoundaryError(`${path} exceeds the nesting-depth bound`);
   }
   if (value === null || typeof value === "boolean") return value;
-  if (typeof value === "string") return snapshotString(value, path, limits, budget);
+  if (typeof value === "string") {
+    return snapshotString(value, path, limits, budget, "string value");
+  }
   if (typeof value === "number") {
     if (!Number.isFinite(value) || Object.is(value, -0)) {
       throw new StrictJsonBoundaryError(`${path} must be a stable finite JSON number`);
@@ -99,6 +119,14 @@ function snapshotValue(
   if (nodeUtilTypes.isProxy(value)) {
     throw new StrictJsonBoundaryError(`${path} must not be Proxy-backed`);
   }
+  let prototype: object | null;
+  let isArray: boolean;
+  try {
+    prototype = Object.getPrototypeOf(value) as object | null;
+    isArray = Array.isArray(value);
+  } catch {
+    throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+  }
   if (budget.nodes >= limits.max_nodes) {
     throw new StrictJsonBoundaryError(`${path} exceeds the node-count bound`);
   }
@@ -109,28 +137,16 @@ function snapshotValue(
   ancestors.add(value);
 
   try {
-    let prototype: object | null;
-    let symbols: symbol[];
-    let descriptors: Record<string, PropertyDescriptor>;
-    try {
-      prototype = Object.getPrototypeOf(value) as object | null;
-      symbols = Object.getOwnPropertySymbols(value);
-      descriptors = Object.getOwnPropertyDescriptors(value) as Record<
-        string,
-        PropertyDescriptor
-      >;
-    } catch {
-      throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
-    }
-    if (symbols.length !== 0) {
-      throw new StrictJsonBoundaryError(`${path} must not carry symbol keys`);
-    }
-
-    if (Array.isArray(value)) {
+    if (isArray) {
       if (prototype !== Array.prototype) {
         throw new StrictJsonBoundaryError(`${path} must use Array.prototype`);
       }
-      const lengthDescriptor = descriptors.length;
+      let lengthDescriptor: PropertyDescriptor | undefined;
+      try {
+        lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+      } catch {
+        throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+      }
       const length =
         lengthDescriptor !== undefined && "value" in lengthDescriptor
           ? lengthDescriptor.value
@@ -143,15 +159,44 @@ function snapshotValue(
       ) {
         throw new StrictJsonBoundaryError(`${path} exceeds the dense-array bound`);
       }
-      const descriptorKeys = Object.keys(descriptors);
-      if (descriptorKeys.length !== length + 1) {
+      let propertyNames: string[];
+      let symbols: symbol[];
+      try {
+        propertyNames = Object.getOwnPropertyNames(value);
+        symbols = Object.getOwnPropertySymbols(value);
+      } catch {
+        throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+      }
+      if (symbols.length !== 0) {
+        throw new StrictJsonBoundaryError(`${path} must not carry symbol keys`);
+      }
+      if (propertyNames.length !== length + 1) {
         throw new StrictJsonBoundaryError(
           `${path} must be dense and carry indexed elements only`,
         );
       }
+      for (const key of propertyNames) {
+        if (key === "length") continue;
+        const index = Number(key);
+        if (
+          !Number.isSafeInteger(index) ||
+          index < 0 ||
+          index >= length ||
+          String(index) !== key
+        ) {
+          throw new StrictJsonBoundaryError(
+            `${path} must be dense and carry indexed elements only`,
+          );
+        }
+      }
       const out: StrictJsonValue[] = [];
       for (let index = 0; index < length; index += 1) {
-        const descriptor = descriptors[String(index)];
+        let descriptor: PropertyDescriptor | undefined;
+        try {
+          descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+        } catch {
+          throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+        }
         if (
           descriptor === undefined ||
           !("value" in descriptor) ||
@@ -176,16 +221,41 @@ function snapshotValue(
     if (prototype !== Object.prototype) {
       throw new StrictJsonBoundaryError(`${path} must use Object.prototype`);
     }
-    const entries = Object.entries(descriptors);
-    if (entries.length > limits.max_object_fields) {
+    let propertyNames: string[];
+    let symbols: symbol[];
+    try {
+      propertyNames = Object.getOwnPropertyNames(value);
+      symbols = Object.getOwnPropertySymbols(value);
+    } catch {
+      throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+    }
+    if (symbols.length !== 0) {
+      throw new StrictJsonBoundaryError(`${path} must not carry symbol keys`);
+    }
+    if (propertyNames.length > limits.max_object_fields) {
       throw new StrictJsonBoundaryError(`${path} exceeds the object-field bound`);
     }
-    const out: { [key: string]: StrictJsonValue } = {};
-    for (const [key, descriptor] of entries) {
+    for (const key of propertyNames) {
       if (DANGEROUS_KEYS.has(key)) {
         throw new StrictJsonBoundaryError(`${path} carries a forbidden property key`);
       }
-      if (!("value" in descriptor) || descriptor.enumerable !== true) {
+    }
+    for (const key of propertyNames) {
+      snapshotString(key, path, limits, budget, "property name");
+    }
+    const out: { [key: string]: StrictJsonValue } = {};
+    for (const key of propertyNames) {
+      let descriptor: PropertyDescriptor | undefined;
+      try {
+        descriptor = Object.getOwnPropertyDescriptor(value, key);
+      } catch {
+        throw new StrictJsonBoundaryError(`${path} own-data descriptors are unavailable`);
+      }
+      if (
+        descriptor === undefined ||
+        !("value" in descriptor) ||
+        descriptor.enumerable !== true
+      ) {
         throw new StrictJsonBoundaryError(
           `${childPath(path, key)} must be enumerable own-data`,
         );
@@ -219,7 +289,7 @@ export function snapshotStrictJson(
     value,
     path,
     limits,
-    { nodes: 0, stringBytes: 0 },
+    { expandedJsonValueOccurrences: 0, nodes: 0, stringBytes: 0 },
     0,
     new WeakSet<object>(),
   );

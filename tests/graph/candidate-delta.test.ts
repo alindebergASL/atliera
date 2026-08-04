@@ -469,31 +469,79 @@ describe("CandidateDelta v1 and pure candidate application", () => {
     );
   });
 
-  test("rejects at delta creation when the exact prospective transition is not representable", () => {
+  test("reserves exact transition keys/digest and refuses the first cumulative byte excess during delta creation", () => {
     const envelope = makePublicProposalEnvelope();
-    const baseBundle = emptyGraphBundle();
-    for (let index = 0; index < 4; index += 1) {
-      baseBundle.claims.push({
-        id: `clm_large_${index}`,
+    const fixedPadding = "x".repeat(2 * 1024 * 1024);
+    const baseWithPadding = (variableBytes: number) => {
+      const baseBundle = makeValidBundle();
+      const payload = baseBundle.account_objects[0]!.payload_json;
+      payload.padding_a = fixedPadding;
+      payload.padding_b = fixedPadding;
+      payload.padding_c = "y".repeat(variableBytes);
+      return createValidatedCandidate(baseBundle, {
         team_id: envelope.scope.team_id,
         account_id: envelope.scope.account_id,
-        claim_type: "note",
-        text: "x".repeat(1_600_000),
-        normalized_subject: `large:${index}`,
-        confidence: "low",
-        provenance_status: "unverified",
-        status: "active",
-        created_by: "system",
-        created_at: PUBLIC_PROPOSAL_NOW,
       });
+    };
+
+    let low = 0;
+    let high = 2 * 1024 * 1024;
+    let acceptedN = -1;
+    let acceptedBase: ReturnType<typeof baseWithPadding> | null = null;
+    let acceptedDelta: ReturnType<typeof createCandidateDelta> | null = null;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      const base = baseWithPadding(mid);
+      try {
+        acceptedDelta = createCandidateDelta(envelope, base, PUBLIC_PROPOSAL_NOW);
+        acceptedBase = base;
+        acceptedN = mid;
+        low = mid + 1;
+      } catch {
+        high = mid - 1;
+      }
     }
-    const base = createValidatedCandidate(baseBundle, {
+
+    assert.ok(acceptedBase !== null && acceptedDelta !== null);
+    const options = applicationOptions(envelope);
+    const transition = applyCandidateDelta(
+      envelope,
+      acceptedDelta,
+      acceptedBase,
+      options,
+    );
+    assert.deepEqual(
+      hydrateCandidateTransition(
+        envelope,
+        JSON.parse(JSON.stringify(transition)),
+        options,
+      ),
+      transition,
+    );
+
+    assert.throws(
+      () =>
+        createCandidateDelta(
+          envelope,
+          baseWithPadding(acceptedN + 1),
+          PUBLIC_PROPOSAL_NOW,
+        ),
+      /prospective transition representability budget failed.*cumulative string-size bound/,
+    );
+  });
+
+  test("rejects a 13 MiB payload property name before producing a transition or intent input", () => {
+    const envelope = makePublicProposalEnvelope();
+    const bundle = makeValidBundle();
+    bundle.account_objects[0]!.payload_json["k".repeat(13 * 1024 * 1024)] = null;
+    const base = createValidatedCandidate(bundle, {
       team_id: envelope.scope.team_id,
       account_id: envelope.scope.account_id,
     });
+
     assert.throws(
       () => createCandidateDelta(envelope, base, PUBLIC_PROPOSAL_NOW),
-      /prospective transition representability budget failed.*cumulative string-size bound/,
+      /base candidate.*payload_json property name exceeds the string-size bound/,
     );
   });
 

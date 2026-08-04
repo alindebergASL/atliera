@@ -31,6 +31,7 @@ export * from "./graph/report.ts";
 export * from "./graph/validate.ts";
 export * from "./graph/validated-candidate.ts";
 export * from "./graph/candidate-delta.ts";
+export * from "./graph/subject-graph-revision-intent.ts";
 export * from "./graph/store.ts";
 export * from "./graph/versioned-store.ts";
 export * from "./graph/database-versioned-store.ts";

@@ -68,7 +68,8 @@ waiting is bounded. The adapter initializes only an empty catalog. Every
 non-empty database must match the pinned complete `sqlite_schema` catalog
 exactly—including table SQL and `STRICT`/CHECK/FK clauses, PK/UNIQUE
 autoindexes, immutable triggers, and absence of extra objects—and must have
-foreign keys enabled. Reads attest that catalog inside one read transaction;
+foreign keys enabled. Public reads, direct post-commit acknowledgements, and
+independent recovery probes attest that catalog inside one read transaction;
 writes attest it again under `BEGIN IMMEDIATE` before inspecting or changing
 data. Malformed, duplicate-permitting, missing-trigger, altered-trigger, or
 unexpected-trigger catalogs fail as invalid durable state without repair.

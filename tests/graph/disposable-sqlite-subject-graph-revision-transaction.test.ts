@@ -1136,6 +1136,41 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
   });
 
+  test("post-commit catalog drift cannot receive a direct acknowledgement", (t) => {
+    const fixture = tempDatabase(t, "post-commit-catalog-drift");
+    const values = makePipelineRevisionIntent({ variant: "post-catalog" });
+    const result = adapter(fixture, (point) => {
+      if (point !== "after_commit_before_readback") return;
+      const db = openRaw(fixture.path, false);
+      try {
+        db.exec(
+          "CREATE TABLE unexpected_postcommit_object (id INTEGER) STRICT",
+        );
+      } finally {
+        db.close();
+      }
+    }).consume(values.intent, permit());
+
+    assert.equal(result.outcome, "committed_readback_failed");
+    if (result.outcome === "committed_readback_failed") {
+      assert.equal(result.committed, true);
+      assert.equal(result.failure_code, "post_commit_verification_failed");
+    }
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+    const current = adapter(fixture).readCurrent(
+      values.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(current.outcome, "dependency_failed");
+    if (current.outcome === "dependency_failed") {
+      assert.equal(current.failure_code, "durable_state_invalid");
+    }
+  });
+
   test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {
     const readbackFixture = tempDatabase(t, "post-commit-readback");
     const readbackIntent = makePipelineRevisionIntent({ variant: "readback-fault" });

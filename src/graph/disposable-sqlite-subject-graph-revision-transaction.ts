@@ -1440,14 +1440,25 @@ function verifiedReadback(
   db: DatabaseSync,
   intent: ValidatedIntent,
 ): VerifiedReadback {
-  // A valid successor may commit after this intent's COMMIT but before its
-  // acknowledgement/read-back. Historical replay plus receipt establish this
-  // intent's commit; current-head verification is a separate health check.
-  const historical = verifiedHistoricalReadback(db, intent);
-  if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
-    throw new DurableReadbackFailure();
+  let readTransactionStarted = false;
+  try {
+    db.exec("BEGIN");
+    readTransactionStarted = true;
+    verifyDatabaseCatalog(db);
+    // A valid successor may commit after this intent's COMMIT but before its
+    // acknowledgement/read-back. Historical replay plus receipt establish this
+    // intent's commit; current-head verification is a separate health check.
+    const historical = verifiedHistoricalReadback(db, intent);
+    if (verifiedCurrentReadback(db, intent.graph_identity) === null) {
+      throw new DurableReadbackFailure();
+    }
+    db.exec("COMMIT");
+    readTransactionStarted = false;
+    return historical;
+  } catch (error) {
+    if (readTransactionStarted) rollback(db);
+    throw error;
   }
-  return historical;
 }
 
 function verifiedCurrentDurableState(

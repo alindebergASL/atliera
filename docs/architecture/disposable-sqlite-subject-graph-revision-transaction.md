@@ -37,12 +37,20 @@ Before opening or creating a database, the adapter:
 - checks exact intent/review kind, version, fields, closed non-authorizing
   markers, canonical SHA-256 spellings, and representable revision tokens;
 - recomputes the canonical intent core and review-handoff digests;
+- requires the exact repository-owned candidate quality-gate policy identity;
 - hydrates and revalidates the proposed candidate, recomputes its digest, and
   binds its team/account subject to the four-column graph identity;
 - cross-matches identity, predecessor, snapshot, transition, quality-gate, and
   replay references between the intent and review handoff; and
 - measures the actual UTF-8 bytes of canonical snapshot and prospective receipt
   JSON, including JSON escaping overhead.
+
+This boundary consumes the commit description itself; it does not receive or
+rehydrate the original proposal envelope, transition, or application options.
+Their unkeyed digest fields therefore remain audit identities, not proof of
+source or transformation custody. A later composition that needs that stronger
+claim must supply and rehydrate those exact artifacts rather than infer it from
+this receipt.
 
 The snapshot JSON ceiling is 256 KiB and the receipt JSON ceiling is 16 KiB.
 SQLite `CHECK(length(CAST(value AS BLOB)))` constraints enforce the same encoded
@@ -60,8 +68,9 @@ and canonical snapshot digest, writes the exact canonical successor snapshot,
 consumes the replay key bound to the intent digest, and writes an immutable
 success receipt/audit row. `COMMIT` returning successfully is the effect point:
 graph, replay, and success audit commit together or not at all. SQLite supplies
-`operational_committed_at` inside the transaction. That value is operational
-metadata only, not evidence that the earlier `reviewed_at` was trusted.
+`operational_committed_at` inside the transaction as canonical whole-second
+UTC. That value is operational metadata only, not evidence that the earlier
+`reviewed_at` was trusted.
 
 An exact retry finds the durable replay binding and returns the original
 persisted success receipt without applying again. A replay key bound to another

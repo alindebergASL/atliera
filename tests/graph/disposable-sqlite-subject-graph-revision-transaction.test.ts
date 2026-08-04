@@ -157,6 +157,10 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       committed.receipt.operational_committed_at,
       first.intent.review_handoff.reviewed_at,
     );
+    assert.match(
+      committed.receipt.operational_committed_at,
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
+    );
     assertRecursivelyFrozen(committed);
 
     const restartedRead = adapter(fixture).readCurrent(
@@ -869,6 +873,14 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     const cyclic = clone(values.intent) as Record<string, any>;
     cyclic.loop = cyclic;
     hostileInputs.push(cyclic);
+
+    const forgedPolicy = clone(values.intent) as Record<string, any>;
+    forgedPolicy.quality_gate_policy.policy_sha256 = "f".repeat(64);
+    forgedPolicy.review_handoff.quality_gate_policy.policy_sha256 = "f".repeat(64);
+    forgedPolicy.review_handoff_sha256 = sha256CanonicalJson(
+      forgedPolicy.review_handoff as StrictJsonValue,
+    );
+    hostileInputs.push(rehashIntent(forgedPolicy));
 
     for (const [index, hostile] of hostileInputs.entries()) {
       const fixture = tempDatabase(t, `hostile-${index}`);

@@ -15,11 +15,10 @@ import {
   type StrictJsonValue,
 } from "../authority/strict-json.ts";
 import {
-  CANDIDATE_QUALITY_GATE_POLICY_NAME,
-  CANDIDATE_QUALITY_GATE_POLICY_VERSION,
   CANDIDATE_TRANSITION_MAX_EXPANDED_JSON_VALUE_OCCURRENCES,
   CANDIDATE_TRANSITION_MAX_JSON_NODES,
   CANDIDATE_TRANSITION_MAX_TOTAL_STRING_UTF8_BYTES,
+  candidateQualityGatePolicyIdentity,
   validatedCandidateSha256,
 } from "./candidate-delta.ts";
 import {
@@ -145,7 +144,7 @@ const SAFE_REVIEWER_REF = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/;
 const CANONICAL_UTC_TIMESTAMP =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const MAX_RATIONALE_UTF8_BYTES = 8 * 1024;
-const OPERATIONAL_TIME_PLACEHOLDER = "2000-01-01T00:00:00.000Z";
+const OPERATIONAL_TIME_PLACEHOLDER = "2000-01-01T00:00:00Z";
 
 const INTENT_LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: 1_000,
@@ -517,17 +516,15 @@ function validateQualityGatePolicy(
 ): { readonly name: string; readonly version: number; readonly policy_sha256: string } {
   const value = object(raw, "intent.quality_gate_policy");
   exact(value, QUALITY_GATE_POLICY_KEYS, "intent.quality_gate_policy");
+  const expected = candidateQualityGatePolicyIdentity();
   if (
-    value.name !== CANDIDATE_QUALITY_GATE_POLICY_NAME ||
-    value.version !== CANDIDATE_QUALITY_GATE_POLICY_VERSION
+    value.name !== expected.name ||
+    value.version !== expected.version ||
+    value.policy_sha256 !== expected.policy_sha256
   ) {
     throw new IntentRefusal();
   }
-  return {
-    name: CANDIDATE_QUALITY_GATE_POLICY_NAME,
-    version: CANDIDATE_QUALITY_GATE_POLICY_VERSION,
-    policy_sha256: digest(value.policy_sha256),
-  };
+  return expected;
 }
 
 function validateTimestamp(raw: StrictJsonValue | undefined): void {
@@ -1634,8 +1631,11 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         return conflictResult(intent, mismatch, expected, actual);
       }
 
+      // Whole-second UTC is deliberately used here. It is canonical for the
+      // receipt validator even at an exact second boundary, whereas SQLite's
+      // `%f` spelling can produce non-canonical `.000Z`.
       const timeRow = db
-        .prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AS committed_at")
+        .prepare("SELECT strftime('%Y-%m-%dT%H:%M:%SZ', 'now') AS committed_at")
         .get();
       const committedAt = timeRow?.committed_at;
       if (

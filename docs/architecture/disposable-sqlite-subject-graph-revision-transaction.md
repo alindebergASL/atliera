@@ -80,8 +80,12 @@ applying again, then independently verifies the current head through the same
 receipt and replay-link checks as `readCurrent`. It returns the original
 persisted success receipt as `already_committed` only when both stages pass. If
 historical proof succeeds but the current head is missing or invalid, the retry
-preserves `committed: true` as `committed_readback_failed`. A replay key bound to
-another intent is refused without a graph write. If `COMMIT` throws before its
+preserves `committed: true` as `committed_readback_failed`. Every existing CAS
+predecessor is admitted through the same graph→receipt→replay verifier, so a new
+revision cannot paper over an unhealthy current head. A receipt left behind for
+an absent requested replay row is corrupt durable evidence, not a fresh intent
+or ordinary conflict. A replay key bound to another intent is refused without a
+graph write. If `COMMIT` throws before its
 outcome is acknowledged, recovery uses a separate read-only connection so it
 cannot mistake the writer connection's uncommitted rows for durable state. A
 successful commit followed by verification failure remains explicitly

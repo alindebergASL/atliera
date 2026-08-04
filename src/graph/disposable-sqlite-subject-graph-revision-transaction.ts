@@ -1251,6 +1251,21 @@ function selectReceipt(db: DatabaseSync, receiptSha256: string) {
     .get(receiptSha256);
 }
 
+function selectReceiptByReplayKey(db: DatabaseSync, replayKey: string) {
+  return db
+    .prepare(`
+      SELECT receipt_sha256, receipt_core_json, receipt_json,
+             team_id, account_id, subject_id, purpose,
+             predecessor_revision_token, predecessor_snapshot_sha256,
+             committed_revision_number, committed_revision_token,
+             proposed_snapshot_sha256, intent_sha256,
+             review_handoff_sha256, replay_key, operational_committed_at
+      FROM subject_graph_success_receipts
+      WHERE replay_key = ?
+    `)
+    .get(replayKey);
+}
+
 function verifyReceiptRow(
   raw: Record<string, unknown> | undefined,
   expectedIntent?: ValidatedIntent,
@@ -1403,10 +1418,10 @@ function verifiedReadback(
   return historical;
 }
 
-function verifiedCurrentReadback(
+function verifiedCurrentDurableState(
   db: DatabaseSync,
   identity: TransactionGraphIdentity,
-): VerifiedReadback | null {
+) {
   const graphRaw = selectGraph(db, identity);
   if (graphRaw === undefined) return null;
   const graph = verifyCurrentGraphRow(graphRaw, identity);
@@ -1417,6 +1432,16 @@ function verifiedCurrentReadback(
   const replayRaw = selectReplay(db, receipt.replay_key);
   if (replayRaw === undefined) throw new DurableReadbackFailure();
   verifyReplayLink(parseReplayRow(replayRaw), receipt, identity);
+  return { graph, receipt };
+}
+
+function verifiedCurrentReadback(
+  db: DatabaseSync,
+  identity: TransactionGraphIdentity,
+): VerifiedReadback | null {
+  const current = verifiedCurrentDurableState(db, identity);
+  if (current === null) return null;
+  const { graph, receipt } = current;
   return deepFreezeOwnData({
     receipt,
     state: {
@@ -1705,15 +1730,19 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         });
       }
 
-      const graphRaw = selectGraph(db, intent.graph_identity);
-      let graph: ReturnType<typeof verifyCurrentGraphRow> | null = null;
-      if (graphRaw !== undefined) {
-        graph = verifyCurrentGraphRow(graphRaw, intent.graph_identity);
-        const currentReceipt = verifyReceiptRow(
-          selectReceipt(db, graph.row.last_receipt_sha256),
-        );
-        verifyCurrentReceiptLink(graph.row, currentReceipt);
+      // A receipt with this replay key but no replay-consumption row is
+      // orphaned durable evidence, not a fresh intent or an ordinary CAS miss.
+      const orphanedReceipt = selectReceiptByReplayKey(
+        db,
+        intent.replay_key_to_record,
+      );
+      if (orphanedReceipt !== undefined) {
+        verifyReceiptRow(orphanedReceipt, intent);
+        throw new DurableReadbackFailure();
       }
+
+      const current = verifiedCurrentDurableState(db, intent.graph_identity);
+      const graph = current?.graph ?? null;
       const expected: SubjectGraphRevisionConflictDimensions = {
         revision: intent.predecessor_basis.expected_prior_revision,
         snapshot_sha256: intent.predecessor_basis.expected_base_snapshot_sha256,

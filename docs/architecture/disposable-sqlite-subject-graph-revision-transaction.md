@@ -31,11 +31,17 @@ Before opening or creating a database, the adapter:
 
 - snapshots constructor options from exact own data once and rejects accessors,
   proxies, symbols, unknown fields, and later caller mutation;
+- accepts no executable fault callback; the optional test seam is an exact,
+  snapshotted data-only plan of unique allowed fault points and fixed `throw` or
+  bounded `sleep` actions, with no caller-supplied function invocation;
 - snapshots the permit and intent through the strict own-data JSON boundary;
 - requires an absolute direct-child database path under a canonical,
-  caller-declared isolated directory beneath the canonical OS temporary root;
-- rejects non-temporary paths, `:memory:`, symlink database files, and unsafe
-  existing files;
+  caller-declared, exact-owner mode-0700 isolated directory beneath the
+  canonical OS temporary root;
+- permits only the exact database and SQLite's exact `-wal`, `-shm`, and
+  `-journal` siblings in that dedicated directory, and rejects unexpected
+  entries plus symlink, non-regular, hardlinked, or wrong-owner database and
+  sidecar objects before opening SQLite and again at relevant boundaries;
 - checks exact intent/review kind, version, fields, closed non-authorizing
   markers, canonical SHA-256 spellings, and representable revision tokens;
 - recomputes the canonical intent core and review-handoff digests;
@@ -74,6 +80,17 @@ writes attest it again under `BEGIN IMMEDIATE` before inspecting or changing
 data. Malformed, duplicate-permitting, missing-trigger, altered-trigger, or
 unexpected-trigger catalogs fail as invalid durable state without repair.
 
+Every catalog attestation also requires `PRAGMA encoding` to report `UTF-8`,
+WAL to remain active, and the connection's synchronous setting to be `FULL`.
+Initialization checks encoding before any file-altering WAL pragma, configures
+and verifies WAL outside a transaction with bounded busy retry, then takes a
+`BEGIN IMMEDIATE` lock. Under that lock it decides whether the catalog is
+empty; a genuinely new empty database is explicitly fixed to UTF-8 before the
+schema is created. Schema creation and exact catalog attestation commit as one
+transaction. A catalog-empty database whose header was already fixed to UTF-16
+fails closed without schema or data writes, and a non-empty partial catalog is
+never completed or repaired.
+
 `BEGIN IMMEDIATE` protects one atomic unit that compares both current revision
 and canonical snapshot digest, writes the exact canonical successor snapshot,
 consumes the replay key bound to the intent digest, and writes an immutable
@@ -95,6 +112,12 @@ an absent requested replay row is corrupt durable evidence, not a fresh intent
 or ordinary conflict. Only a fully coherent stored replay/receipt pair may be
 classified as a replay-key collision with another intent; malformed stored
 identity or digest linkage is invalid durable state and never a benign refusal.
+Likewise, absence of the current graph row is `not_found` only when neither
+receipt nor replay history exists for that same four-column identity. Any such
+identity-bound historical evidence makes the durable state invalid. An exact
+retry can still preserve coherent historical commit proof as
+`committed_readback_failed` with `committed: true`, while a different bootstrap
+or successor is prevented from writing over the orphaned identity.
 If `COMMIT` throws before its outcome is acknowledged, recovery uses a
 separate read-only connection so it
 cannot mistake the writer connection's uncommitted rows for durable state. A
@@ -128,7 +151,7 @@ identity columns are cross-checked against both the receipt and graph identity;
 corrupt links fail closed rather than becoming Workshop state.
 
 Errors and results omit database paths, SQL text, payload text, and underlying
-or injected error messages. Refusal/conflict receipts are deterministic but are
+or declaratively injected error messages. Refusal/conflict receipts are deterministic but are
 not falsely described as durable audit. Crashes before the transaction boundary
 do not produce a durable refusal audit.
 
@@ -141,8 +164,9 @@ do not produce a durable refusal audit.
 - Revision CAS and monotonicity protect ordinary writes in this database only.
   They do not protect against database restore, file replacement, privileged
   operators, external rollback, or infrastructure compromise.
-- Pre-open path checks are a lab containment measure, not a hardened defense
-  against a privileged actor racing filesystem replacement.
+- Artifact checks are lab containment and accidental-corruption defenses, not
+  anti-tamper guarantees. A same-UID process can still race replacement between
+  checks, and a privileged actor can bypass ownership and directory controls.
 - No repair or override authority exists.
 - No provider, MCP, network acquisition, deployment, production, real-account,
   Workshop presentation, synthetic Workshop, M5a, or M5b flow is present.

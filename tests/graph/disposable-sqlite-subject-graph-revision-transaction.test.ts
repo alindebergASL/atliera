@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   existsSync,
+  linkSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
@@ -21,9 +24,10 @@ import {
 } from "../../src/authority/strict-json.ts";
 import {
   DisposableSqliteSubjectGraphRevisionTransaction,
+  DISPOSABLE_SQLITE_TEST_FAULT_MAX_DELAY_MS,
   SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES,
   SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES,
-  type DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+  type DisposableSqliteSubjectGraphRevisionTestFaultInstruction,
 } from "../../src/graph/disposable-sqlite-subject-graph-revision-transaction.ts";
 import {
   createDisposableSqliteSubjectGraphRevisionLabPermit,
@@ -52,12 +56,12 @@ function tempDatabase(t: TestContext, label: string): TempDatabase {
 
 function adapter(
   fixture: TempDatabase,
-  hook?: (point: DisposableSqliteSubjectGraphRevisionTestFaultPoint) => void,
+  faultPlan?: readonly DisposableSqliteSubjectGraphRevisionTestFaultInstruction[],
 ): DisposableSqliteSubjectGraphRevisionTransaction {
   return new DisposableSqliteSubjectGraphRevisionTransaction({
     database_path: fixture.path,
     isolated_temporary_directory: fixture.directory,
-    test_only_fault_hook: hook,
+    ...(faultPlan === undefined ? {} : { test_only_fault_plan: faultPlan }),
   });
 }
 
@@ -131,6 +135,51 @@ function runWorker(input: Record<string, unknown>): Promise<SubjectGraphRevision
       if (code !== 0) reject(new Error(`revision worker exited with code ${code}`));
     });
   });
+}
+
+const TEST_SLEEP_ARRAY = new Int32Array(
+  new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
+);
+
+function testSleep(durationMs: number): void {
+  Atomics.wait(TEST_SLEEP_ARRAY, 0, 0, durationMs);
+}
+
+function releaseWorkersWhenReady(
+  view: Int32Array,
+  expectedWorkers: number,
+): void {
+  const deadline = Date.now() + 10_000;
+  while (Atomics.load(view, 0) !== expectedWorkers) {
+    const observed = Atomics.load(view, 0);
+    const remaining = deadline - Date.now();
+    assert.ok(remaining > 0, "workers did not reach the external start barrier");
+    Atomics.wait(view, 0, observed, remaining);
+  }
+  Atomics.store(view, 1, 1);
+  Atomics.notify(view, 1, expectedWorkers);
+}
+
+function waitForCurrentRevision(path: string, revision: string): void {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (existsSync(path)) {
+      let db: DatabaseSync | undefined;
+      try {
+        db = openRaw(path);
+        const row = db
+          .prepare("SELECT revision_token FROM subject_graph_current_state")
+          .get();
+        if (row?.revision_token === revision) return;
+      } catch {
+        // Initialization or the write transaction may still hold the catalog.
+      } finally {
+        db?.close();
+      }
+    }
+    testSleep(10);
+  }
+  assert.fail(`did not observe durable ${revision}`);
 }
 
 describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
@@ -464,13 +513,31 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
         first.intent.graph_identity,
         permit(),
       );
+      assert.equal(current.outcome, "dependency_failed");
+      if (current.outcome === "dependency_failed") {
+        assert.equal(current.failure_code, "durable_state_invalid");
+      }
       if (mode === "current_missing") {
-        assert.equal(current.outcome, "not_found");
-      } else {
-        assert.equal(current.outcome, "dependency_failed");
-        if (current.outcome === "dependency_failed") {
-          assert.equal(current.failure_code, "durable_state_invalid");
+        const next = makePipelineRevisionIntent({
+          variant: `${variant}-blocked-next`,
+          base: successor.intent.proposed_snapshot,
+          expected_prior_revision: "rev_2",
+        });
+        const blockedSuccessor = adapter(fixture).consume(next.intent, permit());
+        assert.equal(blockedSuccessor.outcome, "dependency_failed");
+        if (blockedSuccessor.outcome === "dependency_failed") {
+          assert.equal(blockedSuccessor.failure_code, "durable_state_invalid");
         }
+        const blockedBootstrap = adapter(fixture).consume(
+          makePipelineRevisionIntent({ variant: `${variant}-bb` }).intent,
+          permit(),
+        );
+        assert.equal(blockedBootstrap.outcome, "dependency_failed");
+        assert.deepEqual(tableCounts(fixture.path), {
+          graph: 0,
+          replay: 2,
+          audit: 2,
+        });
       }
     }
   });
@@ -592,10 +659,9 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     ] as const) {
       const fixture = tempDatabase(t, `fault-${label}`);
       const values = makePipelineRevisionIntent({ variant: `fault-${label}` });
-      const secret = `INJECTED_SECRET_${label}`;
-      const result = adapter(fixture, (point) => {
-        if (point === faultPoint) throw new Error(secret);
-      }).consume(values.intent, permit());
+      const result = adapter(fixture, [
+        { point: faultPoint, action: "throw" },
+      ]).consume(values.intent, permit());
       assert.equal(result.outcome, "dependency_failed");
       if (result.outcome === "dependency_failed") {
         assert.equal(result.transaction_state, expectedState);
@@ -606,7 +672,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
         audit: 0,
       });
       const serialized = JSON.stringify(result);
-      assert.doesNotMatch(serialized, new RegExp(secret));
+      assert.doesNotMatch(serialized, /Declarative disposable SQLite test fault/);
       assert.doesNotMatch(serialized, /INSERT|SELECT|subject_graph_current_state/);
       assert.equal(serialized.includes(fixture.path), false);
     }
@@ -626,28 +692,24 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       base: initial.intent.proposed_snapshot,
       expected_prior_revision: "rev_1",
     });
-    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
-    const view = new Int32Array(barrier);
-    const holderPromise = runWorker({
+    const startBarrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const view = new Int32Array(startBarrier);
+    const firstPromise = runWorker({
       database_path: fixture.path,
       isolated_temporary_directory: fixture.directory,
       intent: competitorA.intent,
       permit: permit(),
-      barrier,
-      role: "holder",
+      start_barrier: startBarrier,
     });
-    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
-    assert.equal(Atomics.load(view, 0), 1);
-    const contenderPromise = runWorker({
+    const secondPromise = runWorker({
       database_path: fixture.path,
       isolated_temporary_directory: fixture.directory,
       intent: competitorB.intent,
       permit: permit(),
-      barrier,
-      role: "contender",
+      start_barrier: startBarrier,
     });
-    const results = await Promise.all([holderPromise, contenderPromise]);
-    assert.equal(Atomics.load(view, 1), 1);
+    releaseWorkersWhenReady(view, 2);
+    const results = await Promise.all([firstPromise, secondPromise]);
     assert.deepEqual(
       results.map((result) => result.outcome).sort(),
       ["committed", "conflicted"],
@@ -664,40 +726,84 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     });
   });
 
-  test("overlapping bootstrap contenders create exactly one initial graph, replay, and audit row", async (t) => {
-    const fixture = tempDatabase(t, "worker-bootstrap");
-    const bootstrapA = makePipelineRevisionIntent({ variant: "bootstrap-worker-a" });
-    const bootstrapB = makePipelineRevisionIntent({ variant: "bootstrap-worker-b" });
-    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
-    const view = new Int32Array(barrier);
-    const holderPromise = runWorker({
-      database_path: fixture.path,
-      isolated_temporary_directory: fixture.directory,
-      intent: bootstrapA.intent,
-      permit: permit(),
-      barrier,
-      role: "holder",
-    });
-    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
-    const contenderPromise = runWorker({
-      database_path: fixture.path,
-      isolated_temporary_directory: fixture.directory,
-      intent: bootstrapB.intent,
-      permit: permit(),
-      barrier,
-      role: "contender",
-    });
-    const results = await Promise.all([holderPromise, contenderPromise]);
-    assert.equal(Atomics.load(view, 1), 1);
-    assert.deepEqual(
-      results.map((result) => result.outcome).sort(),
-      ["committed", "conflicted"],
-    );
-    assert.deepEqual(tableCounts(fixture.path), {
-      graph: 1,
-      replay: 1,
-      audit: 1,
-    });
+  test("repeated six-way fresh cold starts atomically initialize one healthy catalog and one bootstrap", async (t) => {
+    const rounds = 6;
+    const contenders = 6;
+    for (let round = 0; round < rounds; round += 1) {
+      const fixture = tempDatabase(t, `cold-start-${round}`);
+      const startBarrier = new SharedArrayBuffer(
+        Int32Array.BYTES_PER_ELEMENT * 2,
+      );
+      const view = new Int32Array(startBarrier);
+      const bootstraps = Array.from({ length: contenders }, (_, contender) =>
+        makePipelineRevisionIntent({
+          variant: `cold-${round}-${contender}`,
+        }),
+      );
+      const promises = bootstraps.map((bootstrap) => {
+        return runWorker({
+          database_path: fixture.path,
+          isolated_temporary_directory: fixture.directory,
+          intent: bootstrap.intent,
+          permit: permit(),
+          start_barrier: startBarrier,
+        });
+      });
+      releaseWorkersWhenReady(view, contenders);
+      const results = await Promise.all(promises);
+      assert.equal(
+        results.filter((result) => result.outcome === "committed").length,
+        1,
+      );
+      assert.equal(
+        results.filter((result) => result.outcome === "conflicted").length,
+        contenders - 1,
+      );
+      for (const conflict of results.filter(
+        (result) => result.outcome === "conflicted",
+      )) {
+        if (conflict.outcome !== "conflicted") continue;
+        assert.equal(conflict.conflict_kind, "revision_and_snapshot_mismatch");
+        assert.equal(conflict.actual.revision, "rev_1");
+      }
+      assert.equal(
+        results.some(
+          (result) =>
+            result.outcome === "dependency_failed" ||
+            result.outcome === "indeterminate" ||
+            result.outcome === "committed_readback_failed",
+        ),
+        false,
+      );
+      assert.deepEqual(tableCounts(fixture.path), {
+        graph: 1,
+        replay: 1,
+        audit: 1,
+      });
+      const current = adapter(fixture).readCurrent(
+        bootstraps[0]!.intent.graph_identity,
+        permit(),
+      );
+      assert.equal(current.outcome, "found");
+      if (current.outcome === "found") {
+        assert.equal(current.state.revision, "rev_1");
+      }
+      const db = openRaw(fixture.path);
+      try {
+        assert.equal(db.prepare("PRAGMA encoding").get()?.encoding, "UTF-8");
+        assert.equal(db.prepare("PRAGMA journal_mode").get()?.journal_mode, "wal");
+        assert.deepEqual(
+          db
+            .prepare("PRAGMA integrity_check")
+            .all()
+            .map((row) => row.integrity_check),
+          ["ok"],
+        );
+        assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+      } finally {
+        db.close();
+      }
+    }
   });
 
   test("overlapping independent connections both commit different structured graph identities", async (t) => {
@@ -714,28 +820,25 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       account_id: "acc_independent_b",
       subject_id: "subject:independent:b",
     });
-    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
-    const view = new Int32Array(barrier);
-    const holderPromise = runWorker({
+    const startBarrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const view = new Int32Array(startBarrier);
+    const firstPromise = runWorker({
       database_path: fixture.path,
       isolated_temporary_directory: fixture.directory,
       intent: identityA.intent,
       permit: permit(),
-      barrier,
-      role: "holder",
+      start_barrier: startBarrier,
     });
-    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
-    const contenderPromise = runWorker({
+    const secondPromise = runWorker({
       database_path: fixture.path,
       isolated_temporary_directory: fixture.directory,
       intent: identityB.intent,
       permit: permit(),
-      barrier,
-      role: "contender",
+      start_barrier: startBarrier,
     });
-    const results = await Promise.all([holderPromise, contenderPromise]);
+    releaseWorkersWhenReady(view, 2);
+    const results = await Promise.all([firstPromise, secondPromise]);
     assert.deepEqual(results.map((result) => result.outcome), ["committed", "committed"]);
-    assert.equal(Atomics.load(view, 1), 1);
     assert.deepEqual(tableCounts(fixture.path), {
       graph: 2,
       replay: 2,
@@ -911,6 +1014,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
 
     const db = openRaw(fixture.path);
     try {
+      assert.equal(db.prepare("PRAGMA encoding").get()?.encoding, "UTF-8");
       assert.equal(db.prepare("PRAGMA journal_mode").get()?.journal_mode, "wal");
       assert.deepEqual(
         db
@@ -964,6 +1068,227 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       );
     } finally {
       db.close();
+    }
+  });
+
+  test("rejects a catalog-empty database whose header encoding is fixed to UTF-16 without writing it", (t) => {
+    const fixture = tempDatabase(t, "utf16-empty");
+    const values = makePipelineRevisionIntent({ variant: "utf16-empty" });
+    const db = openRaw(fixture.path, false);
+    try {
+      db.exec(`
+        PRAGMA encoding = 'UTF-16';
+        CREATE TABLE encoding_marker (id INTEGER);
+        DROP TABLE encoding_marker;
+      `);
+      assert.match(
+        String(db.prepare("PRAGMA encoding").get()?.encoding),
+        /^UTF-16(?:le|be)$/,
+      );
+      assert.equal(
+        db.prepare("SELECT name FROM sqlite_schema LIMIT 1").get(),
+        undefined,
+      );
+    } finally {
+      db.close();
+    }
+    const before = readFileSync(fixture.path);
+    const result = adapter(fixture).consume(values.intent, permit());
+    assert.equal(result.outcome, "dependency_failed");
+    if (result.outcome === "dependency_failed") {
+      assert.equal(result.transaction_state, "not_started");
+      assert.equal(result.failure_code, "durable_state_invalid");
+    }
+    assert.deepEqual(readFileSync(fixture.path), before);
+    const reopened = openRaw(fixture.path);
+    try {
+      assert.match(
+        String(reopened.prepare("PRAGMA encoding").get()?.encoding),
+        /^UTF-16(?:le|be)$/,
+      );
+      assert.equal(
+        reopened.prepare("SELECT name FROM sqlite_schema LIMIT 1").get(),
+        undefined,
+      );
+    } finally {
+      reopened.close();
+    }
+  });
+
+  test("filesystem admission rejects unsafe database and sidecar artifacts before outside effects", (t) => {
+    const values = makePipelineRevisionIntent({ variant: "filesystem-admission" });
+    const outsideBytes = Buffer.from("OUTSIDE_BYTES_MUST_NOT_CHANGE", "utf8");
+
+    for (const [label, artifact] of [
+      ["database-symlink", "database-symlink"],
+      ["database-hardlink", "database-hardlink"],
+      ["sidecar-symlink", "sidecar-symlink"],
+      ["sidecar-hardlink", "sidecar-hardlink"],
+    ] as const) {
+      const fixture = tempDatabase(t, label);
+      const outside = join(tmpdir(), `${basename(fixture.directory)}-outside.bin`);
+      t.after(() => rmSync(outside, { force: true }));
+      writeFileSync(outside, outsideBytes, { mode: 0o600 });
+      if (artifact === "database-symlink") {
+        symlinkSync(outside, fixture.path);
+      } else if (artifact === "database-hardlink") {
+        linkSync(outside, fixture.path);
+      } else if (artifact === "sidecar-symlink") {
+        symlinkSync(outside, `${fixture.path}-wal`);
+      } else {
+        linkSync(outside, `${fixture.path}-journal`);
+      }
+      const result = adapter(fixture).consume(values.intent, permit());
+      assert.equal(result.outcome, "refused", label);
+      if (result.outcome === "refused") {
+        assert.equal(result.reason, "unsafe_database_path", label);
+      }
+      assert.deepEqual(readFileSync(outside), outsideBytes, label);
+      if (artifact.startsWith("sidecar")) {
+        assert.equal(existsSync(fixture.path), false, label);
+      }
+    }
+
+    const unexpected = tempDatabase(t, "unexpected-entry");
+    const unexpectedPath = join(unexpected.directory, "not-sqlite-owned.txt");
+    writeFileSync(unexpectedPath, outsideBytes, { mode: 0o600 });
+    const unexpectedResult = adapter(unexpected).consume(values.intent, permit());
+    assert.equal(unexpectedResult.outcome, "refused");
+    assert.deepEqual(readFileSync(unexpectedPath), outsideBytes);
+    assert.equal(existsSync(unexpected.path), false);
+
+    const publicDirectory = tempDatabase(t, "public-directory");
+    chmodSync(publicDirectory.directory, 0o755);
+    const publicResult = adapter(publicDirectory).consume(values.intent, permit());
+    assert.equal(publicResult.outcome, "refused");
+    assert.equal(existsSync(publicDirectory.path), false);
+    chmodSync(publicDirectory.directory, 0o700);
+
+    const safeRestart = tempDatabase(t, "safe-sidecars");
+    assert.equal(
+      adapter(safeRestart).consume(values.intent, permit()).outcome,
+      "committed",
+    );
+    const keeper = openRaw(safeRestart.path, false);
+    try {
+      keeper.prepare("SELECT count(*) FROM subject_graph_current_state").get();
+      assert.equal(existsSync(`${safeRestart.path}-wal`), true);
+      assert.equal(existsSync(`${safeRestart.path}-shm`), true);
+      const read = adapter(safeRestart).readCurrent(
+        values.intent.graph_identity,
+        permit(),
+      );
+      assert.equal(read.outcome, "found");
+    } finally {
+      keeper.close();
+    }
+
+    const shmHardlink = tempDatabase(t, "shm-hardlink-read");
+    const shmValues = makePipelineRevisionIntent({ variant: "shm-hardlink-read" });
+    assert.equal(
+      adapter(shmHardlink).consume(shmValues.intent, permit()).outcome,
+      "committed",
+    );
+    rmSync(`${shmHardlink.path}-shm`, { force: true });
+    const shmOutside = join(
+      tmpdir(),
+      `${basename(shmHardlink.directory)}-outside-shm.bin`,
+    );
+    t.after(() => rmSync(shmOutside, { force: true }));
+    const shmOutsideBytes = Buffer.alloc(32 * 1024, 0x41);
+    writeFileSync(shmOutside, shmOutsideBytes, { mode: 0o600 });
+    linkSync(shmOutside, `${shmHardlink.path}-shm`);
+    const shmRead = adapter(shmHardlink).readCurrent(
+      shmValues.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(shmRead.outcome, "refused");
+    if (shmRead.outcome === "refused") {
+      assert.equal(shmRead.reason, "unsafe_database_path");
+    }
+    assert.deepEqual(readFileSync(shmOutside), shmOutsideBytes);
+  });
+
+  test("constructor rejects executable and malformed fault plans and snapshots valid instructions", (t) => {
+    const fixture = tempDatabase(t, "fault-plan-validation");
+    const values = makePipelineRevisionIntent({ variant: "fault-plan-validation" });
+    let callbackInvoked = false;
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction({
+          database_path: fixture.path,
+          isolated_temporary_directory: fixture.directory,
+          test_only_fault_hook() {
+            callbackInvoked = true;
+          },
+        } as any),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.equal(callbackInvoked, false);
+
+    let getterInvoked = false;
+    const accessorInstruction = {
+      point: "before_transaction",
+      get action() {
+        getterInvoked = true;
+        return "throw";
+      },
+    };
+    const invalidPlans: unknown[] = [
+      new Proxy([], {}),
+      [new Proxy({ point: "before_transaction", action: "throw" }, {})],
+      [accessorInstruction],
+      [{ point: "unknown", action: "throw" }],
+      [{ point: "before_transaction", action: "unknown" }],
+      [{ point: "before_transaction", action: () => undefined }],
+      [{ point: "before_transaction", action: "throw", unknown: true }],
+      [
+        { point: "before_transaction", action: "throw" },
+        { point: "before_transaction", action: "sleep", duration_ms: 1 },
+      ],
+      [{ point: "before_transaction", action: "sleep", duration_ms: 0 }],
+      [
+        {
+          point: "before_transaction",
+          action: "sleep",
+          duration_ms: DISPOSABLE_SQLITE_TEST_FAULT_MAX_DELAY_MS + 1,
+        },
+      ],
+      [
+        Object.assign(
+          { point: "before_transaction", action: "throw" },
+          { [Symbol("hidden")]: true },
+        ),
+      ],
+    ];
+    for (const faultPlan of invalidPlans) {
+      assert.throws(
+        () =>
+          new DisposableSqliteSubjectGraphRevisionTransaction({
+            database_path: fixture.path,
+            isolated_temporary_directory: fixture.directory,
+            test_only_fault_plan: faultPlan as any,
+          }),
+        /Invalid disposable SQLite transaction options/,
+      );
+    }
+    assert.equal(getterInvoked, false);
+
+    const mutablePlan: Array<Record<string, unknown>> = [
+      { point: "before_transaction", action: "throw" },
+    ];
+    const snapshotted = new DisposableSqliteSubjectGraphRevisionTransaction({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      test_only_fault_plan: mutablePlan as any,
+    });
+    mutablePlan[0]!.point = "after_begin";
+    mutablePlan[0]!.action = "sleep";
+    mutablePlan[0]!.duration_ms = 1;
+    const result = snapshotted.consume(values.intent, permit());
+    assert.equal(result.outcome, "dependency_failed");
+    if (result.outcome === "dependency_failed") {
+      assert.equal(result.transaction_state, "not_started");
     }
   });
 
@@ -1050,7 +1375,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
   });
 
-  test("lost acknowledgement recovers its historical receipt after a successor wins the read-back race", (t) => {
+  test("lost acknowledgement recovers its historical receipt after a successor wins the read-back race", async (t) => {
     const fixture = tempDatabase(t, "ack-successor-race");
     const first = makePipelineRevisionIntent({ variant: "ack-race-first" });
     const successor = makePipelineRevisionIntent({
@@ -1058,19 +1383,27 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       base: first.intent.proposed_snapshot,
       expected_prior_revision: "rev_1",
     });
-    let successorOutcome: string | undefined;
-    let successorRevision: string | undefined;
+    const recoveredPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: first.intent,
+      permit: permit(),
+      fault_plan: [
+        {
+          point: "after_commit_before_acknowledgement",
+          action: "throw",
+          delay_ms: 1_500,
+        },
+      ],
+    });
+    waitForCurrentRevision(fixture.path, "rev_1");
+    const successorResult = adapter(fixture).consume(successor.intent, permit());
+    const recovered = await recoveredPromise;
 
-    const recovered = adapter(fixture, (point) => {
-      if (point !== "after_commit_before_acknowledgement") return;
-      const result = adapter(fixture).consume(successor.intent, permit());
-      successorOutcome = result.outcome;
-      if (result.outcome === "committed") successorRevision = result.state.revision;
-      throw new Error("lost revision-one acknowledgement");
-    }).consume(first.intent, permit());
-
-    assert.equal(successorOutcome, "committed");
-    assert.equal(successorRevision, "rev_2");
+    assert.equal(successorResult.outcome, "committed");
+    if (successorResult.outcome === "committed") {
+      assert.equal(successorResult.state.revision, "rev_2");
+    }
     assert.equal(recovered.outcome, "committed");
     if (recovered.outcome !== "committed") return;
     assert.equal(
@@ -1092,7 +1425,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     if (current.outcome === "found") assert.equal(current.state.revision, "rev_2");
   });
 
-  test("historical commit proof remains committed-aware when the later current head is invalid", (t) => {
+  test("historical commit proof remains committed-aware when the later current head is invalid", async (t) => {
     const fixture = tempDatabase(t, "ack-invalid-successor");
     const first = makePipelineRevisionIntent({ variant: "invalid-head-first" });
     const successor = makePipelineRevisionIntent({
@@ -1100,24 +1433,32 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       base: first.intent.proposed_snapshot,
       expected_prior_revision: "rev_1",
     });
-    let successorOutcome: string | undefined;
+    const recoveredPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: first.intent,
+      permit: permit(),
+      fault_plan: [
+        {
+          point: "after_commit_before_acknowledgement",
+          action: "throw",
+          delay_ms: 1_500,
+        },
+      ],
+    });
+    waitForCurrentRevision(fixture.path, "rev_1");
+    const successorResult = adapter(fixture).consume(successor.intent, permit());
+    assert.equal(successorResult.outcome, "committed");
+    const db = openRaw(fixture.path, false);
+    try {
+      db.prepare(
+        "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
+      ).run(successor.intent.replay_key_to_record);
+    } finally {
+      db.close();
+    }
+    const recovered = await recoveredPromise;
 
-    const recovered = adapter(fixture, (point) => {
-      if (point !== "after_commit_before_acknowledgement") return;
-      const result = adapter(fixture).consume(successor.intent, permit());
-      successorOutcome = result.outcome;
-      const db = openRaw(fixture.path, false);
-      try {
-        db.prepare(
-          "DELETE FROM subject_graph_replay_consumptions WHERE replay_key = ?",
-        ).run(successor.intent.replay_key_to_record);
-      } finally {
-        db.close();
-      }
-      throw new Error("lost acknowledgement after current-head corruption");
-    }).consume(first.intent, permit());
-
-    assert.equal(successorOutcome, "committed");
     assert.equal(recovered.outcome, "committed_readback_failed");
     if (recovered.outcome === "committed_readback_failed") {
       assert.equal(recovered.committed, true);
@@ -1136,20 +1477,30 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     }
   });
 
-  test("post-commit catalog drift cannot receive a direct acknowledgement", (t) => {
+  test("post-commit catalog drift cannot receive a direct acknowledgement", async (t) => {
     const fixture = tempDatabase(t, "post-commit-catalog-drift");
     const values = makePipelineRevisionIntent({ variant: "post-catalog" });
-    const result = adapter(fixture, (point) => {
-      if (point !== "after_commit_before_readback") return;
-      const db = openRaw(fixture.path, false);
-      try {
-        db.exec(
-          "CREATE TABLE unexpected_postcommit_object (id INTEGER) STRICT",
-        );
-      } finally {
-        db.close();
-      }
-    }).consume(values.intent, permit());
+    const resultPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: values.intent,
+      permit: permit(),
+      fault_plan: [
+        {
+          point: "after_commit_before_readback",
+          action: "sleep",
+          duration_ms: 1_500,
+        },
+      ],
+    });
+    waitForCurrentRevision(fixture.path, "rev_1");
+    const db = openRaw(fixture.path, false);
+    try {
+      db.exec("CREATE TABLE unexpected_postcommit_object (id INTEGER) STRICT");
+    } finally {
+      db.close();
+    }
+    const result = await resultPromise;
 
     assert.equal(result.outcome, "committed_readback_failed");
     if (result.outcome === "committed_readback_failed") {
@@ -1174,9 +1525,9 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
   test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {
     const readbackFixture = tempDatabase(t, "post-commit-readback");
     const readbackIntent = makePipelineRevisionIntent({ variant: "readback-fault" });
-    const readbackFailure = adapter(readbackFixture, (point) => {
-      if (point === "after_commit_before_readback") throw new Error("SECRET_READBACK");
-    }).consume(readbackIntent.intent, permit());
+    const readbackFailure = adapter(readbackFixture, [
+      { point: "after_commit_before_readback", action: "throw" },
+    ]).consume(readbackIntent.intent, permit());
     assert.equal(readbackFailure.outcome, "committed_readback_failed");
     if (readbackFailure.outcome === "committed_readback_failed") {
       assert.equal(readbackFailure.committed, true);
@@ -1192,11 +1543,9 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
 
     const recoveredFixture = tempDatabase(t, "commit-recovered");
     const recoveredIntent = makePipelineRevisionIntent({ variant: "ack-recovered" });
-    const recovered = adapter(recoveredFixture, (point) => {
-      if (point === "after_commit_before_acknowledgement") {
-        throw new Error("SECRET_COMMIT_ACK");
-      }
-    }).consume(recoveredIntent.intent, permit());
+    const recovered = adapter(recoveredFixture, [
+      { point: "after_commit_before_acknowledgement", action: "throw" },
+    ]).consume(recoveredIntent.intent, permit());
     assert.equal(recovered.outcome, "committed");
     if (recovered.outcome === "committed") {
       assert.equal(
@@ -1207,14 +1556,10 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
 
     const indeterminateFixture = tempDatabase(t, "commit-indeterminate");
     const indeterminateIntent = makePipelineRevisionIntent({ variant: "indeterminate" });
-    const indeterminate = adapter(indeterminateFixture, (point) => {
-      if (
-        point === "after_commit_before_acknowledgement" ||
-        point === "before_commit_recovery_probe"
-      ) {
-        throw new Error("SECRET_UNRESOLVED_COMMIT");
-      }
-    }).consume(indeterminateIntent.intent, permit());
+    const indeterminate = adapter(indeterminateFixture, [
+      { point: "after_commit_before_acknowledgement", action: "throw" },
+      { point: "before_commit_recovery_probe", action: "throw" },
+    ]).consume(indeterminateIntent.intent, permit());
     assert.equal(indeterminate.outcome, "indeterminate");
     if (indeterminate.outcome === "indeterminate") {
       assert.equal(indeterminate.committed, "indeterminate");

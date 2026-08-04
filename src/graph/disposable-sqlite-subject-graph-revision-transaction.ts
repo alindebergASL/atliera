@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstatSync, realpathSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -62,6 +62,7 @@ import {
 } from "./validated-candidate.ts";
 
 export const DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS = 1_500;
+export const DISPOSABLE_SQLITE_TEST_FAULT_MAX_DELAY_MS = 2_000;
 export const SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES =
   256 * 1024;
 export const SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES =
@@ -80,17 +81,192 @@ export type DisposableSqliteSubjectGraphRevisionTestFaultPoint =
   | "after_commit_before_readback"
   | "before_commit_recovery_probe";
 
+export type DisposableSqliteSubjectGraphRevisionTestFaultInstruction =
+  | {
+      readonly point: DisposableSqliteSubjectGraphRevisionTestFaultPoint;
+      readonly action: "throw";
+      readonly delay_ms?: number;
+    }
+  | {
+      readonly point: DisposableSqliteSubjectGraphRevisionTestFaultPoint;
+      readonly action: "sleep";
+      readonly duration_ms: number;
+    };
+
 export interface DisposableSqliteSubjectGraphRevisionTransactionOptions {
   readonly database_path: string;
   readonly isolated_temporary_directory: string;
-  /** Explicit test-only seam. It is not a runtime failure-injection surface. */
-  readonly test_only_fault_hook?: (
-    point: DisposableSqliteSubjectGraphRevisionTestFaultPoint,
-  ) => void;
+  /** Data-only, bounded test seam. It is not a runtime failure-injection surface. */
+  readonly test_only_fault_plan?: readonly DisposableSqliteSubjectGraphRevisionTestFaultInstruction[];
 }
 
 function invalidOptions(): never {
   throw new TypeError("Invalid disposable SQLite transaction options");
+}
+
+const TEST_FAULT_POINTS = new Set<DisposableSqliteSubjectGraphRevisionTestFaultPoint>([
+  "after_open_before_transaction",
+  "before_transaction",
+  "after_begin",
+  "after_graph_write",
+  "after_replay_write",
+  "after_commit_before_acknowledgement",
+  "after_commit_before_readback",
+  "before_commit_recovery_probe",
+]);
+
+const SLEEP_ARRAY = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+
+function boundedSleep(durationMs: number): void {
+  Atomics.wait(SLEEP_ARRAY, 0, 0, durationMs);
+}
+
+function exactOwnDataObject(
+  raw: unknown,
+  expectedKeys: readonly string[],
+): Record<string, PropertyDescriptor> {
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    isProxy(raw) ||
+    (Object.getPrototypeOf(raw) !== Object.prototype &&
+      Object.getPrototypeOf(raw) !== null) ||
+    Object.getOwnPropertySymbols(raw).length !== 0
+  ) {
+    return invalidOptions();
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(raw);
+  const keys = Object.getOwnPropertyNames(raw).sort();
+  const expected = [...expectedKeys].sort();
+  if (
+    keys.length !== expected.length ||
+    keys.some((key, index) => key !== expected[index]) ||
+    expected.some((key) => {
+      const descriptor = descriptors[key];
+      return (
+        descriptor === undefined ||
+        !("value" in descriptor) ||
+        !descriptor.enumerable
+      );
+    })
+  ) {
+    return invalidOptions();
+  }
+  return descriptors;
+}
+
+function snapshotFaultPlan(
+  raw: unknown,
+): readonly DisposableSqliteSubjectGraphRevisionTestFaultInstruction[] {
+  if (
+    !Array.isArray(raw) ||
+    isProxy(raw) ||
+    Object.getPrototypeOf(raw) !== Array.prototype ||
+    Object.getOwnPropertySymbols(raw).length !== 0 ||
+    raw.length > TEST_FAULT_POINTS.size
+  ) {
+    return invalidOptions();
+  }
+  const arrayDescriptors = Object.getOwnPropertyDescriptors(raw) as Record<
+    string,
+    PropertyDescriptor
+  >;
+  const expectedArrayKeys = [
+    ...Array.from({ length: raw.length }, (_, index) => String(index)),
+    "length",
+  ].sort();
+  const arrayKeys = Object.getOwnPropertyNames(raw).sort();
+  if (
+    arrayKeys.length !== expectedArrayKeys.length ||
+    arrayKeys.some((key, index) => key !== expectedArrayKeys[index]) ||
+    !("value" in arrayDescriptors.length!) ||
+    arrayDescriptors.length!.value !== raw.length
+  ) {
+    return invalidOptions();
+  }
+
+  const seen = new Set<DisposableSqliteSubjectGraphRevisionTestFaultPoint>();
+  const snapshot: DisposableSqliteSubjectGraphRevisionTestFaultInstruction[] = [];
+  for (let index = 0; index < raw.length; index += 1) {
+    const arrayItem = arrayDescriptors[String(index)];
+    if (
+      arrayItem === undefined ||
+      !("value" in arrayItem) ||
+      !arrayItem.enumerable
+    ) {
+      return invalidOptions();
+    }
+    const item = arrayItem.value as unknown;
+    if (typeof item !== "object" || item === null || isProxy(item)) {
+      return invalidOptions();
+    }
+    const preliminary = Object.getOwnPropertyDescriptors(item);
+    const actionDescriptor = preliminary.action;
+    if (
+      actionDescriptor === undefined ||
+      !("value" in actionDescriptor) ||
+      typeof actionDescriptor.value !== "string"
+    ) {
+      return invalidOptions();
+    }
+    const action = actionDescriptor.value;
+    const keys =
+      action === "sleep"
+        ? ["point", "action", "duration_ms"]
+        : action === "throw"
+          ? Object.hasOwn(preliminary, "delay_ms")
+            ? ["point", "action", "delay_ms"]
+            : ["point", "action"]
+          : [];
+    if (keys.length === 0) return invalidOptions();
+    const descriptors = exactOwnDataObject(item, keys);
+    const point = descriptors.point!.value;
+    if (
+      typeof point !== "string" ||
+      !TEST_FAULT_POINTS.has(
+        point as DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+      ) ||
+      seen.has(point as DisposableSqliteSubjectGraphRevisionTestFaultPoint)
+    ) {
+      return invalidOptions();
+    }
+    seen.add(point as DisposableSqliteSubjectGraphRevisionTestFaultPoint);
+    if (action === "sleep") {
+      const durationMs = descriptors.duration_ms!.value;
+      if (
+        !Number.isSafeInteger(durationMs) ||
+        durationMs < 1 ||
+        durationMs > DISPOSABLE_SQLITE_TEST_FAULT_MAX_DELAY_MS
+      ) {
+        return invalidOptions();
+      }
+      snapshot.push(
+        Object.freeze({
+          point: point as DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+          action: "sleep" as const,
+          duration_ms: durationMs as number,
+        }),
+      );
+    } else {
+      const delayMs = descriptors.delay_ms?.value;
+      if (
+        delayMs !== undefined &&
+        (!Number.isSafeInteger(delayMs) ||
+          delayMs < 1 ||
+          delayMs > DISPOSABLE_SQLITE_TEST_FAULT_MAX_DELAY_MS)
+      ) {
+        return invalidOptions();
+      }
+      snapshot.push(
+        Object.freeze({
+          point: point as DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+          action: "throw" as const,
+          ...(delayMs === undefined ? {} : { delay_ms: delayMs as number }),
+        }),
+      );
+    }
+  }
+  return Object.freeze(snapshot);
 }
 
 function snapshotOptions(
@@ -111,8 +287,8 @@ function snapshotOptions(
   const expectedKeys = [
     "database_path",
     "isolated_temporary_directory",
-    ...(Object.hasOwn(descriptors, "test_only_fault_hook")
-      ? ["test_only_fault_hook"]
+    ...(Object.hasOwn(descriptors, "test_only_fault_plan")
+      ? ["test_only_fault_plan"]
       : []),
   ].sort();
   if (
@@ -123,7 +299,7 @@ function snapshotOptions(
   }
   const databasePath = descriptors.database_path;
   const isolatedDirectory = descriptors.isolated_temporary_directory;
-  const faultHook = descriptors.test_only_fault_hook;
+  const faultPlan = descriptors.test_only_fault_plan;
   if (
     databasePath === undefined ||
     isolatedDirectory === undefined ||
@@ -133,28 +309,38 @@ function snapshotOptions(
     !isolatedDirectory.enumerable ||
     typeof databasePath.value !== "string" ||
     typeof isolatedDirectory.value !== "string" ||
-    (faultHook !== undefined &&
-      (!("value" in faultHook) ||
-        !faultHook.enumerable ||
-        (faultHook.value !== undefined &&
-          typeof faultHook.value !== "function")))
+    (faultPlan !== undefined &&
+      (!("value" in faultPlan) || !faultPlan.enumerable))
   ) {
     return invalidOptions();
   }
-  const snapshottedFaultHook =
-    faultHook !== undefined && "value" in faultHook
-      ? faultHook.value
+  const snapshottedFaultPlan =
+    faultPlan !== undefined && "value" in faultPlan
+      ? snapshotFaultPlan(faultPlan.value)
       : undefined;
   return Object.freeze({
     database_path: databasePath.value,
     isolated_temporary_directory: isolatedDirectory.value,
-    ...(snapshottedFaultHook === undefined
+    ...(snapshottedFaultPlan === undefined
       ? {}
       : {
-          test_only_fault_hook:
-            snapshottedFaultHook as DisposableSqliteSubjectGraphRevisionTransactionOptions["test_only_fault_hook"],
+          test_only_fault_plan: snapshottedFaultPlan,
         }),
   });
+}
+
+function applyTestFault(
+  plan: readonly DisposableSqliteSubjectGraphRevisionTestFaultInstruction[] | undefined,
+  point: DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+): void {
+  const instruction = plan?.find((candidate) => candidate.point === point);
+  if (instruction === undefined) return;
+  if (instruction.action === "sleep") {
+    boundedSleep(instruction.duration_ms);
+    return;
+  }
+  if (instruction.delay_ms !== undefined) boundedSleep(instruction.delay_ms);
+  throw new Error("Declarative disposable SQLite test fault");
 }
 
 interface ValidatedIntent {
@@ -913,7 +1099,8 @@ function validateSafePath(options: DisposableSqliteSubjectGraphRevisionTransacti
     dirname(databasePath) !== canonicalIsolatedDirectory ||
     basename(databasePath) === "" ||
     basename(databasePath) === "." ||
-    basename(databasePath) === ".."
+    basename(databasePath) === ".." ||
+    (directoryStat.mode & 0o7777) !== 0o700
   ) {
     throw new IntentRefusal();
   }
@@ -921,29 +1108,90 @@ function validateSafePath(options: DisposableSqliteSubjectGraphRevisionTransacti
     throw new IntentRefusal();
   }
 
-  try {
-    const databaseLstat = lstatSync(databasePath);
-    if (
-      databaseLstat.isSymbolicLink() ||
-      !databaseLstat.isFile() ||
-      databaseLstat.nlink !== 1
-    ) {
+  const databaseName = basename(databasePath);
+  const allowedEntries = new Set([
+    databaseName,
+    `${databaseName}-wal`,
+    `${databaseName}-shm`,
+    `${databaseName}-journal`,
+  ]);
+  for (const entry of readdirSync(canonicalIsolatedDirectory)) {
+    if (!allowedEntries.has(entry)) throw new IntentRefusal();
+    let artifact;
+    try {
+      artifact = lstatSync(resolve(canonicalIsolatedDirectory, entry));
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        // SQLite may unlink a safe sidecar between the directory listing and
+        // lstat. Its absence needs no admission.
+        continue;
+      }
       throw new IntentRefusal();
     }
-  } catch (error) {
-    if (error instanceof IntentRefusal) throw error;
     if (
-      typeof error !== "object" ||
-      error === null ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
+      artifact.isSymbolicLink() ||
+      !artifact.isFile() ||
+      artifact.nlink !== 1 ||
+      (typeof process.getuid === "function" && artifact.uid !== process.getuid())
     ) {
       throw new IntentRefusal();
     }
   }
 }
 
+function pragmaValue(
+  db: DatabaseSync,
+  sql: string,
+  key: string,
+): unknown {
+  return (db.prepare(sql).get() as Record<string, unknown> | undefined)?.[key];
+}
+
+function verifyUtf8Encoding(db: DatabaseSync): void {
+  if (pragmaValue(db, "PRAGMA encoding", "encoding") !== "UTF-8") {
+    throw new DurableReadbackFailure();
+  }
+}
+
+function withBoundedBusyRetry<T>(operation: () => T): T {
+  const attempts = 4;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (!isBusyLike(error) || attempt === attempts - 1) throw error;
+      boundedSleep(25 * (attempt + 1));
+    }
+  }
+  throw new Error("unreachable SQLite retry state");
+}
+
+function configureAndVerifyWal(db: DatabaseSync): void {
+  const attempts = 4;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const mode = pragmaValue(
+        db,
+        "PRAGMA journal_mode = WAL",
+        "journal_mode",
+      );
+      if (mode === "wal") return;
+      if (attempt === attempts - 1) throw new DurableReadbackFailure();
+    } catch (error) {
+      if (!isBusyLike(error) || attempt === attempts - 1) throw error;
+    }
+    boundedSleep(25 * (attempt + 1));
+  }
+  throw new DurableReadbackFailure();
+}
+
 function verifyDatabaseCatalog(db: DatabaseSync): void {
+  verifyUtf8Encoding(db);
   const rows = db
     .prepare(
       "SELECT type, name, tbl_name, sql FROM sqlite_schema ORDER BY type, name, tbl_name",
@@ -964,24 +1212,41 @@ function verifyDatabaseCatalog(db: DatabaseSync): void {
   if (foreignKeys?.foreign_keys !== 1) {
     throw new DurableReadbackFailure();
   }
+  if (pragmaValue(db, "PRAGMA journal_mode", "journal_mode") !== "wal") {
+    throw new DurableReadbackFailure();
+  }
+  if (pragmaValue(db, "PRAGMA synchronous", "synchronous") !== 2) {
+    throw new DurableReadbackFailure();
+  }
 }
 
-function initializeDatabase(databasePath: string): DatabaseSync {
-  const db = new DatabaseSync(databasePath, {
+function initializeDatabase(
+  options: DisposableSqliteSubjectGraphRevisionTransactionOptions,
+): DatabaseSync {
+  const db = new DatabaseSync(options.database_path, {
     allowExtension: false,
     enableDoubleQuotedStringLiterals: false,
     enableForeignKeyConstraints: true,
     readBigInts: false,
     timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
   });
+  let initializationTransactionStarted = false;
   try {
     db.enableLoadExtension(false);
     db.exec("PRAGMA foreign_keys = ON");
-    db.exec("PRAGMA journal_mode = WAL");
+    db.exec(`PRAGMA busy_timeout = ${DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS}`);
+    // Check the persistent encoding before any pragma that can alter the file.
+    // A catalog-empty UTF-16 database is not a fresh database for this adapter.
+    verifyUtf8Encoding(db);
+    configureAndVerifyWal(db);
     db.exec("PRAGMA synchronous = FULL");
+    withBoundedBusyRetry(() => db.exec("BEGIN IMMEDIATE"));
+    initializationTransactionStarted = true;
     const schemaIsEmpty =
       db.prepare("SELECT name FROM sqlite_schema LIMIT 1").get() === undefined;
     if (schemaIsEmpty) {
+      db.exec("PRAGMA encoding = 'UTF-8'");
+      verifyUtf8Encoding(db);
       db.exec(`
     CREATE TABLE IF NOT EXISTS subject_graph_success_receipts (
       receipt_sha256 TEXT COLLATE BINARY PRIMARY KEY
@@ -1060,8 +1325,15 @@ function initializeDatabase(databasePath: string): DatabaseSync {
     `);
     }
     verifyDatabaseCatalog(db);
+    db.exec("COMMIT");
+    initializationTransactionStarted = false;
+    validateSafePath(options);
     return db;
   } catch (error) {
+    if (initializationTransactionStarted) {
+      rollback(db);
+      initializationTransactionStarted = false;
+    }
     try {
       db.close();
     } catch {
@@ -1466,7 +1738,34 @@ function verifiedCurrentDurableState(
   identity: TransactionGraphIdentity,
 ) {
   const graphRaw = selectGraph(db, identity);
-  if (graphRaw === undefined) return null;
+  if (graphRaw === undefined) {
+    const identityValues = [
+      identity.team_id,
+      identity.account_id,
+      identity.subject_id,
+      identity.purpose,
+    ] as const;
+    const receiptEvidence = db
+      .prepare(`
+        SELECT 1 AS present
+        FROM subject_graph_success_receipts
+        WHERE team_id = ? AND account_id = ? AND subject_id = ? AND purpose = ?
+        LIMIT 1
+      `)
+      .get(...identityValues);
+    const replayEvidence = db
+      .prepare(`
+        SELECT 1 AS present
+        FROM subject_graph_replay_consumptions
+        WHERE team_id = ? AND account_id = ? AND subject_id = ? AND purpose = ?
+        LIMIT 1
+      `)
+      .get(...identityValues);
+    if (receiptEvidence !== undefined || replayEvidence !== undefined) {
+      throw new DurableReadbackFailure();
+    }
+    return null;
+  }
   const graph = verifyCurrentGraphRow(graphRaw, identity);
   const receipt = verifyReceiptRow(
     selectReceipt(db, graph.row.last_receipt_sha256),
@@ -1500,13 +1799,14 @@ function verifiedCurrentReadback(
 }
 
 function probeCommitFromIndependentConnection(
-  databasePath: string,
+  options: DisposableSqliteSubjectGraphRevisionTransactionOptions,
   intent: ValidatedIntent,
 ): CommitRecoveryProbe {
   let db: DatabaseSync | undefined;
   let readTransactionStarted = false;
   try {
-    db = new DatabaseSync(databasePath, {
+    validateSafePath(options);
+    db = new DatabaseSync(options.database_path, {
       allowExtension: false,
       enableDoubleQuotedStringLiterals: false,
       enableForeignKeyConstraints: true,
@@ -1514,6 +1814,9 @@ function probeCommitFromIndependentConnection(
       timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
     });
     db.enableLoadExtension(false);
+    db.exec("PRAGMA foreign_keys = ON");
+    db.exec("PRAGMA synchronous = FULL");
+    validateSafePath(options);
     db.exec("BEGIN");
     readTransactionStarted = true;
     verifyDatabaseCatalog(db);
@@ -1678,6 +1981,9 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
       });
       db.enableLoadExtension(false);
+      db.exec("PRAGMA foreign_keys = ON");
+      db.exec("PRAGMA synchronous = FULL");
+      validateSafePath(this.#options);
       db.exec("BEGIN");
       readTransactionStarted = true;
       verifyDatabaseCatalog(db);
@@ -1758,13 +2064,18 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
     let commitKnownSuccessful = false;
     let outcome: SubjectGraphRevisionTransactionResult | undefined;
     try {
-      db = initializeDatabase(this.#options.database_path);
-      this.#options.test_only_fault_hook?.("after_open_before_transaction");
-      this.#options.test_only_fault_hook?.("before_transaction");
+      db = initializeDatabase(this.#options);
+      applyTestFault(
+        this.#options.test_only_fault_plan,
+        "after_open_before_transaction",
+      );
+      applyTestFault(this.#options.test_only_fault_plan, "before_transaction");
+      validateSafePath(this.#options);
       db.exec("BEGIN IMMEDIATE");
       transactionStarted = true;
       verifyDatabaseCatalog(db);
-      this.#options.test_only_fault_hook?.("after_begin");
+      validateSafePath(this.#options);
+      applyTestFault(this.#options.test_only_fault_plan, "after_begin");
 
       const replayRaw = selectReplay(db, intent.replay_key_to_record);
       if (replayRaw !== undefined) {
@@ -1938,7 +2249,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         );
         if (update.changes !== 1) throw new DurableReadbackFailure();
       }
-      this.#options.test_only_fault_hook?.("after_graph_write");
+      applyTestFault(this.#options.test_only_fault_plan, "after_graph_write");
 
       db.prepare(`
         INSERT INTO subject_graph_replay_consumptions (
@@ -1954,7 +2265,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         intent.graph_identity.subject_id,
         intent.graph_identity.purpose,
       );
-      this.#options.test_only_fault_hook?.("after_replay_write");
+      applyTestFault(this.#options.test_only_fault_plan, "after_replay_write");
 
       // COMMIT is the effect point. A throw before this helper returns leaves
       // acknowledgement uncertain, so the catch path performs durable replay
@@ -1962,13 +2273,18 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
       commitAttempted = true;
       db.exec("COMMIT");
       transactionStarted = false;
-      this.#options.test_only_fault_hook?.(
+      applyTestFault(
+        this.#options.test_only_fault_plan,
         "after_commit_before_acknowledgement",
       );
       commitKnownSuccessful = true;
 
       try {
-        this.#options.test_only_fault_hook?.("after_commit_before_readback");
+        applyTestFault(
+          this.#options.test_only_fault_plan,
+          "after_commit_before_readback",
+        );
+        validateSafePath(this.#options);
         const readback = verifiedReadback(db, intent);
         outcome = deepFreezeOwnData({
           outcome: "committed",
@@ -2003,9 +2319,12 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
         const rollbackProven = transactionStarted ? rollback(db) : false;
         transactionStarted = false;
         try {
-          this.#options.test_only_fault_hook?.("before_commit_recovery_probe");
+          applyTestFault(
+            this.#options.test_only_fault_plan,
+            "before_commit_recovery_probe",
+          );
           const probe = probeCommitFromIndependentConnection(
-            this.#options.database_path,
+            this.#options,
             intent,
           );
           if (probe.status === "committed") {

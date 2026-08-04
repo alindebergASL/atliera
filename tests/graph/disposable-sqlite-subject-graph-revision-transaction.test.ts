@@ -3,10 +3,12 @@ import {
   chmodSync,
   existsSync,
   linkSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -93,6 +95,30 @@ function tableCounts(path: string) {
   } finally {
     db.close();
   }
+}
+
+function validEmptyWalForDatabase(path: string): Buffer {
+  const databaseHeader = readFileSync(path).subarray(16, 18);
+  const encodedPageSize = databaseHeader.readUInt16BE(0);
+  const pageSize = encodedPageSize === 1 ? 65_536 : encodedPageSize;
+  const header = Buffer.alloc(32);
+  header.writeUInt32BE(0x377f0683, 0);
+  header.writeUInt32BE(3_007_000, 4);
+  header.writeUInt32BE(pageSize, 8);
+  header.writeUInt32BE(0, 12);
+  header.writeUInt32BE(0x11223344, 16);
+  header.writeUInt32BE(0x55667788, 20);
+  let checksum1 = 0;
+  let checksum2 = 0;
+  for (let offset = 0; offset < 24; offset += 8) {
+    checksum1 =
+      (checksum1 + header.readUInt32LE(offset) + checksum2) >>> 0;
+    checksum2 =
+      (checksum2 + header.readUInt32LE(offset + 4) + checksum1) >>> 0;
+  }
+  header.writeUInt32BE(checksum1, 24);
+  header.writeUInt32BE(checksum2, 28);
+  return header;
 }
 
 function assertRecursivelyFrozen(
@@ -540,6 +566,246 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
         });
       }
     }
+  });
+
+  test("missing-current taxonomy is identity-scoped across retained evidence combinations", (t) => {
+    for (const [evidence, label] of [
+      ["receipt_and_replay", "both"],
+      ["receipt_only", "receipt"],
+      ["replay_only", "replay"],
+    ] as const) {
+      const fixture = tempDatabase(t, `missing-current-${evidence}`);
+      const first = makePipelineRevisionIntent({
+        variant: `miss-${label}`,
+        team_id: `team_miss_${label}`,
+        account_id: `acc_miss_${label}`,
+        subject_id: `subject:miss:${label}`,
+      });
+      assert.equal(
+        adapter(fixture).consume(first.intent, permit()).outcome,
+        "committed",
+      );
+
+      const db = openRaw(fixture.path, false);
+      try {
+        db.exec("PRAGMA foreign_keys = OFF");
+        db.prepare("DELETE FROM subject_graph_current_state").run();
+        if (evidence === "receipt_only") {
+          db.prepare("DELETE FROM subject_graph_replay_consumptions").run();
+        } else if (evidence === "replay_only") {
+          const triggerSql = db
+            .prepare(
+              "SELECT sql FROM sqlite_schema WHERE type = 'trigger' AND name = ?",
+            )
+            .get("subject_graph_success_receipts_immutable_delete")?.sql;
+          assert.equal(typeof triggerSql, "string");
+          db.exec("DROP TRIGGER subject_graph_success_receipts_immutable_delete");
+          db.prepare("DELETE FROM subject_graph_success_receipts").run();
+          db.exec(triggerSql as string);
+        }
+      } finally {
+        db.close();
+      }
+      const before = tableCounts(fixture.path);
+
+      const read = adapter(fixture).readCurrent(
+        first.intent.graph_identity,
+        permit(),
+      );
+      assert.equal(read.outcome, "dependency_failed", evidence);
+      if (read.outcome === "dependency_failed") {
+        assert.equal(read.failure_code, "durable_state_invalid", evidence);
+      }
+      assert.deepEqual(tableCounts(fixture.path), before, evidence);
+
+      const retry = adapter(fixture).consume(first.intent, permit());
+      if (evidence === "receipt_and_replay") {
+        assert.equal(retry.outcome, "committed_readback_failed");
+        if (retry.outcome === "committed_readback_failed") {
+          assert.equal(retry.committed, true);
+        }
+      } else {
+        assert.equal(retry.outcome, "dependency_failed", evidence);
+        if (retry.outcome === "dependency_failed") {
+          assert.equal(retry.committed, false);
+          assert.equal(retry.failure_code, "durable_state_invalid", evidence);
+        }
+      }
+      assert.deepEqual(tableCounts(fixture.path), before, evidence);
+
+      const successor = makePipelineRevisionIntent({
+        variant: `miss-${label}-next`,
+        team_id: first.intent.graph_identity.team_id,
+        account_id: first.intent.graph_identity.account_id,
+        subject_id: first.intent.graph_identity.subject_id,
+        base: first.intent.proposed_snapshot,
+        expected_prior_revision: "rev_1",
+      });
+      const blockedSuccessor = adapter(fixture).consume(successor.intent, permit());
+      assert.equal(blockedSuccessor.outcome, "dependency_failed", evidence);
+      if (blockedSuccessor.outcome === "dependency_failed") {
+        assert.equal(blockedSuccessor.committed, false);
+        assert.equal(
+          blockedSuccessor.failure_code,
+          "durable_state_invalid",
+          evidence,
+        );
+      }
+      assert.deepEqual(tableCounts(fixture.path), before, evidence);
+
+      const bootstrap = makePipelineRevisionIntent({
+        variant: `miss-${label}-boot`,
+        team_id: first.intent.graph_identity.team_id,
+        account_id: first.intent.graph_identity.account_id,
+        subject_id: first.intent.graph_identity.subject_id,
+      });
+      const blockedBootstrap = adapter(fixture).consume(bootstrap.intent, permit());
+      assert.equal(blockedBootstrap.outcome, "dependency_failed", evidence);
+      if (blockedBootstrap.outcome === "dependency_failed") {
+        assert.equal(blockedBootstrap.committed, false);
+        assert.equal(
+          blockedBootstrap.failure_code,
+          "durable_state_invalid",
+          evidence,
+        );
+      }
+      assert.deepEqual(tableCounts(fixture.path), before, evidence);
+
+      const unusedIdentity = {
+        ...first.intent.graph_identity,
+        subject_id: `subject:unused:${label}`,
+      };
+      assert.deepEqual(
+        adapter(fixture).readCurrent(unusedIdentity, permit()),
+        {
+          outcome: "not_found",
+          found: false,
+          graph_identity: unusedIdentity,
+        },
+        evidence,
+      );
+      assert.deepEqual(tableCounts(fixture.path), before, evidence);
+    }
+  });
+
+  test("canonical receipt identity cannot be hidden by corrupt denormalized columns", (t) => {
+    const source = tempDatabase(t, "hidden-receipt-source");
+    const target = tempDatabase(t, "hidden-receipt-target");
+    const sourceCommit = makePipelineRevisionIntent({
+      variant: "hidden-receipt-source",
+      team_id: "team_hidden_a",
+      account_id: "acc_hidden_a",
+      subject_id: "subject:hidden:a",
+    });
+    const targetSeed = makePipelineRevisionIntent({
+      variant: "hidden-receipt-target",
+      team_id: "team_hidden_target",
+      account_id: "acc_hidden_target",
+      subject_id: "subject:hidden:target",
+    });
+    assert.equal(
+      adapter(source).consume(sourceCommit.intent, permit()).outcome,
+      "committed",
+    );
+    const initializedOnly = adapter(target, [
+      { point: "before_transaction", action: "throw" },
+    ]).consume(targetSeed.intent, permit());
+    assert.equal(initializedOnly.outcome, "dependency_failed");
+    assert.deepEqual(tableCounts(target.path), { graph: 0, replay: 0, audit: 0 });
+
+    const sourceDb = openRaw(source.path);
+    let copiedReceipt: Record<string, any>;
+    try {
+      const row = sourceDb
+        .prepare(`
+          SELECT receipt_sha256, receipt_core_json, receipt_json,
+                 team_id, account_id, subject_id, purpose,
+                 predecessor_revision_token, predecessor_snapshot_sha256,
+                 committed_revision_number, committed_revision_token,
+                 proposed_snapshot_sha256, intent_sha256,
+                 review_handoff_sha256, replay_key, operational_committed_at
+          FROM subject_graph_success_receipts
+        `)
+        .get();
+      assert.ok(row);
+      copiedReceipt = row as Record<string, unknown>;
+    } finally {
+      sourceDb.close();
+    }
+
+    const targetDb = openRaw(target.path, false);
+    try {
+      targetDb
+        .prepare(`
+          INSERT INTO subject_graph_success_receipts (
+            receipt_sha256, receipt_core_json, receipt_json,
+            team_id, account_id, subject_id, purpose,
+            predecessor_revision_token, predecessor_snapshot_sha256,
+            committed_revision_number, committed_revision_token,
+            proposed_snapshot_sha256, intent_sha256,
+            review_handoff_sha256, replay_key, operational_committed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          copiedReceipt.receipt_sha256,
+          copiedReceipt.receipt_core_json,
+          copiedReceipt.receipt_json,
+          "team_hidden_denormalized",
+          "acc_hidden_denormalized",
+          "subject:hidden:denormalized",
+          copiedReceipt.purpose,
+          copiedReceipt.predecessor_revision_token,
+          copiedReceipt.predecessor_snapshot_sha256,
+          copiedReceipt.committed_revision_number,
+          copiedReceipt.committed_revision_token,
+          copiedReceipt.proposed_snapshot_sha256,
+          copiedReceipt.intent_sha256,
+          copiedReceipt.review_handoff_sha256,
+          copiedReceipt.replay_key,
+          copiedReceipt.operational_committed_at,
+        );
+    } finally {
+      targetDb.close();
+    }
+    const before = tableCounts(target.path);
+    assert.deepEqual(before, { graph: 0, replay: 0, audit: 1 });
+
+    const hiddenRead = adapter(target).readCurrent(
+      sourceCommit.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(hiddenRead.outcome, "dependency_failed");
+    if (hiddenRead.outcome === "dependency_failed") {
+      assert.equal(hiddenRead.failure_code, "durable_state_invalid");
+    }
+
+    assert.deepEqual(
+      adapter(target).readCurrent(targetSeed.intent.graph_identity, permit()),
+      {
+        outcome: "not_found",
+        found: false,
+        graph_identity: targetSeed.intent.graph_identity,
+      },
+    );
+
+    const hiddenRetry = adapter(target).consume(sourceCommit.intent, permit());
+    assert.equal(hiddenRetry.outcome, "dependency_failed");
+    if (hiddenRetry.outcome === "dependency_failed") {
+      assert.equal(hiddenRetry.failure_code, "durable_state_invalid");
+    }
+
+    const replacementBootstrap = makePipelineRevisionIntent({
+      variant: "hidden-receipt-replacement",
+      team_id: sourceCommit.intent.graph_identity.team_id,
+      account_id: sourceCommit.intent.graph_identity.account_id,
+      subject_id: sourceCommit.intent.graph_identity.subject_id,
+    });
+    const blocked = adapter(target).consume(replacementBootstrap.intent, permit());
+    assert.equal(blocked.outcome, "dependency_failed");
+    if (blocked.outcome === "dependency_failed") {
+      assert.equal(blocked.failure_code, "durable_state_invalid");
+    }
+    assert.deepEqual(tableCounts(target.path), before);
   });
 
   test("missing or corrupt current replay blocks both exact retry and successor", (t) => {
@@ -1164,6 +1430,35 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     assert.equal(existsSync(publicDirectory.path), false);
     chmodSync(publicDirectory.directory, 0o700);
 
+    const nonRegular = tempDatabase(t, "non-regular-sidecar");
+    mkdirSync(`${nonRegular.path}-journal`);
+    const nonRegularResult = adapter(nonRegular).consume(values.intent, permit());
+    assert.equal(nonRegularResult.outcome, "refused");
+    if (nonRegularResult.outcome === "refused") {
+      assert.equal(nonRegularResult.reason, "unsafe_database_path");
+    }
+    assert.equal(existsSync(nonRegular.path), false);
+
+    const ownershipMismatch = tempDatabase(t, "ownership-mismatch");
+    const ownerStat = statSync(ownershipMismatch.directory);
+    assert.equal(ownerStat.mode & 0o7777, 0o700);
+    const originalGetuid = process.getuid!;
+    assert.equal(typeof originalGetuid, "function");
+    const ownerUid = originalGetuid();
+    assert.equal(ownerStat.uid, ownerUid);
+    let ownershipResult;
+    try {
+      process.getuid = () => ownerUid + 1;
+      ownershipResult = adapter(ownershipMismatch).consume(values.intent, permit());
+    } finally {
+      process.getuid = originalGetuid;
+    }
+    assert.equal(ownershipResult?.outcome, "refused");
+    if (ownershipResult?.outcome === "refused") {
+      assert.equal(ownershipResult.reason, "unsafe_database_path");
+    }
+    assert.equal(existsSync(ownershipMismatch.path), false);
+
     const safeRestart = tempDatabase(t, "safe-sidecars");
     assert.equal(
       adapter(safeRestart).consume(values.intent, permit()).outcome,
@@ -1207,6 +1502,79 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       assert.equal(shmRead.reason, "unsafe_database_path");
     }
     assert.deepEqual(readFileSync(shmOutside), shmOutsideBytes);
+
+    for (const sidecar of ["wal", "shm"] as const) {
+      const fixture = tempDatabase(t, `decisive-${sidecar}-hardlink`);
+      const initial = makePipelineRevisionIntent({
+        variant: `side-${sidecar}-a`,
+      });
+      assert.equal(
+        adapter(fixture).consume(initial.intent, permit()).outcome,
+        "committed",
+      );
+      const sidecarPath = `${fixture.path}-${sidecar}`;
+      rmSync(sidecarPath, { force: true });
+      const outside = join(
+        tmpdir(),
+        `${basename(fixture.directory)}-outside-${sidecar}.bin`,
+      );
+      t.after(() => rmSync(outside, { force: true }));
+      const outsideBefore =
+        sidecar === "wal"
+          ? validEmptyWalForDatabase(fixture.path)
+          : Buffer.alloc(32 * 1024, 0x41);
+      writeFileSync(outside, outsideBefore, { mode: 0o600 });
+      linkSync(outside, sidecarPath);
+      const successor = makePipelineRevisionIntent({
+        variant: `side-${sidecar}-b`,
+        base: initial.intent.proposed_snapshot,
+        expected_prior_revision: "rev_1",
+      });
+      const result = adapter(fixture).consume(successor.intent, permit());
+      assert.equal(result.outcome, "refused", sidecar);
+      if (result.outcome === "refused") {
+        assert.equal(result.reason, "unsafe_database_path", sidecar);
+      }
+      assert.deepEqual(readFileSync(outside), outsideBefore, sidecar);
+    }
+  });
+
+  test("independent commit recovery revalidates sidecars immediately before opening", async (t) => {
+    const fixture = tempDatabase(t, "recovery-sidecar-admission");
+    const values = makePipelineRevisionIntent({ variant: "recovery-sidecar-admission" });
+    const outside = join(
+      tmpdir(),
+      `${basename(fixture.directory)}-outside-journal.bin`,
+    );
+    t.after(() => rmSync(outside, { force: true }));
+    const outsideBefore = Buffer.from("RECOVERY_OUTSIDE_BYTES_MUST_NOT_CHANGE", "utf8");
+    writeFileSync(outside, outsideBefore, { mode: 0o600 });
+
+    const resultPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: values.intent,
+      permit: permit(),
+      fault_plan: [
+        { point: "after_commit_before_acknowledgement", action: "throw" },
+        {
+          point: "before_commit_recovery_probe",
+          action: "sleep",
+          duration_ms: 500,
+        },
+      ],
+    });
+    waitForCurrentRevision(fixture.path, "rev_1");
+    linkSync(outside, `${fixture.path}-journal`);
+    const result = await resultPromise;
+    assert.equal(result.outcome, "indeterminate");
+    assert.deepEqual(readFileSync(outside), outsideBefore);
+    rmSync(`${fixture.path}-journal`, { force: true });
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
   });
 
   test("constructor rejects executable and malformed fault plans and snapshots valid instructions", (t) => {
@@ -1226,6 +1594,42 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
     );
     assert.equal(callbackInvoked, false);
 
+    let optionGetterInvoked = false;
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction({
+          database_path: fixture.path,
+          isolated_temporary_directory: fixture.directory,
+          get test_only_fault_plan() {
+            optionGetterInvoked = true;
+            return [];
+          },
+        }),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.equal(optionGetterInvoked, false);
+
+    let proxyTrapInvoked = false;
+    assert.throws(
+      () =>
+        new DisposableSqliteSubjectGraphRevisionTransaction(
+          new Proxy(
+            {
+              database_path: fixture.path,
+              isolated_temporary_directory: fixture.directory,
+            },
+            {
+              get() {
+                proxyTrapInvoked = true;
+                throw new Error("must not run");
+              },
+            },
+          ),
+        ),
+      /Invalid disposable SQLite transaction options/,
+    );
+    assert.equal(proxyTrapInvoked, false);
+
     let getterInvoked = false;
     const accessorInstruction = {
       point: "before_transaction",
@@ -1235,6 +1639,7 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       },
     };
     const invalidPlans: unknown[] = [
+      () => undefined,
       new Proxy([], {}),
       [new Proxy({ point: "before_transaction", action: "throw" }, {})],
       [accessorInstruction],

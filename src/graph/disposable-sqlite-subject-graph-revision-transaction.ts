@@ -1144,6 +1144,21 @@ function validateSafePath(options: DisposableSqliteSubjectGraphRevisionTransacti
   }
 }
 
+function openDatabaseImmediatelyAfterSafePathValidation(
+  options: DisposableSqliteSubjectGraphRevisionTransactionOptions,
+  readOnly: boolean,
+): DatabaseSync {
+  validateSafePath(options);
+  return new DatabaseSync(options.database_path, {
+    allowExtension: false,
+    enableDoubleQuotedStringLiterals: false,
+    enableForeignKeyConstraints: true,
+    readBigInts: false,
+    readOnly,
+    timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
+  });
+}
+
 function pragmaValue(
   db: DatabaseSync,
   sql: string,
@@ -1223,13 +1238,7 @@ function verifyDatabaseCatalog(db: DatabaseSync): void {
 function initializeDatabase(
   options: DisposableSqliteSubjectGraphRevisionTransactionOptions,
 ): DatabaseSync {
-  const db = new DatabaseSync(options.database_path, {
-    allowExtension: false,
-    enableDoubleQuotedStringLiterals: false,
-    enableForeignKeyConstraints: true,
-    readBigInts: false,
-    timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
-  });
+  const db = openDatabaseImmediatelyAfterSafePathValidation(options, false);
   let initializationTransactionStarted = false;
   try {
     db.enableLoadExtension(false);
@@ -1570,6 +1579,45 @@ function selectReceiptByReplayKey(db: DatabaseSync, replayKey: string) {
     .get(replayKey);
 }
 
+function hasEmbeddedReceiptIdentityEvidence(
+  db: DatabaseSync,
+  identity: TransactionGraphIdentity,
+): boolean {
+  const identityValues = [
+    identity.team_id,
+    identity.account_id,
+    identity.subject_id,
+    identity.purpose,
+  ] as const;
+  const row = db
+    .prepare(`
+      SELECT 1 AS present
+      FROM subject_graph_success_receipts
+      WHERE (
+        CASE WHEN json_valid(receipt_json) = 1
+          THEN json_extract(receipt_json, '$.graph_identity.team_id') END = ?
+        AND CASE WHEN json_valid(receipt_json) = 1
+          THEN json_extract(receipt_json, '$.graph_identity.account_id') END = ?
+        AND CASE WHEN json_valid(receipt_json) = 1
+          THEN json_extract(receipt_json, '$.graph_identity.subject_id') END = ?
+        AND CASE WHEN json_valid(receipt_json) = 1
+          THEN json_extract(receipt_json, '$.graph_identity.purpose') END = ?
+      ) OR (
+        CASE WHEN json_valid(receipt_core_json) = 1
+          THEN json_extract(receipt_core_json, '$.graph_identity.team_id') END = ?
+        AND CASE WHEN json_valid(receipt_core_json) = 1
+          THEN json_extract(receipt_core_json, '$.graph_identity.account_id') END = ?
+        AND CASE WHEN json_valid(receipt_core_json) = 1
+          THEN json_extract(receipt_core_json, '$.graph_identity.subject_id') END = ?
+        AND CASE WHEN json_valid(receipt_core_json) = 1
+          THEN json_extract(receipt_core_json, '$.graph_identity.purpose') END = ?
+      )
+      LIMIT 1
+    `)
+    .get(...identityValues, ...identityValues);
+  return row !== undefined;
+}
+
 function verifyReceiptRow(
   raw: Record<string, unknown> | undefined,
   expectedIntent?: ValidatedIntent,
@@ -1745,14 +1793,6 @@ function verifiedCurrentDurableState(
       identity.subject_id,
       identity.purpose,
     ] as const;
-    const receiptEvidence = db
-      .prepare(`
-        SELECT 1 AS present
-        FROM subject_graph_success_receipts
-        WHERE team_id = ? AND account_id = ? AND subject_id = ? AND purpose = ?
-        LIMIT 1
-      `)
-      .get(...identityValues);
     const replayEvidence = db
       .prepare(`
         SELECT 1 AS present
@@ -1761,7 +1801,11 @@ function verifiedCurrentDurableState(
         LIMIT 1
       `)
       .get(...identityValues);
-    if (receiptEvidence !== undefined || replayEvidence !== undefined) {
+    const embeddedReceiptEvidence = hasEmbeddedReceiptIdentityEvidence(db, identity);
+    if (
+      replayEvidence !== undefined ||
+      embeddedReceiptEvidence
+    ) {
       throw new DurableReadbackFailure();
     }
     return null;
@@ -1805,14 +1849,7 @@ function probeCommitFromIndependentConnection(
   let db: DatabaseSync | undefined;
   let readTransactionStarted = false;
   try {
-    validateSafePath(options);
-    db = new DatabaseSync(options.database_path, {
-      allowExtension: false,
-      enableDoubleQuotedStringLiterals: false,
-      enableForeignKeyConstraints: true,
-      readOnly: true,
-      timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
-    });
+    db = openDatabaseImmediatelyAfterSafePathValidation(options, true);
     db.enableLoadExtension(false);
     db.exec("PRAGMA foreign_keys = ON");
     db.exec("PRAGMA synchronous = FULL");
@@ -1973,13 +2010,7 @@ export class DisposableSqliteSubjectGraphRevisionTransaction
     let db: DatabaseSync | undefined;
     let readTransactionStarted = false;
     try {
-      db = new DatabaseSync(this.#options.database_path, {
-        allowExtension: false,
-        enableDoubleQuotedStringLiterals: false,
-        enableForeignKeyConstraints: true,
-        readOnly: true,
-        timeout: DISPOSABLE_SQLITE_BUSY_TIMEOUT_MS,
-      });
+      db = openDatabaseImmediatelyAfterSafePathValidation(this.#options, true);
       db.enableLoadExtension(false);
       db.exec("PRAGMA foreign_keys = ON");
       db.exec("PRAGMA synchronous = FULL");

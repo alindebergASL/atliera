@@ -1,0 +1,890 @@
+import assert from "node:assert/strict";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { describe, test, type TestContext } from "node:test";
+import { Worker } from "node:worker_threads";
+
+import {
+  canonicalJson,
+  sha256CanonicalJson,
+  snapshotStrictJson,
+  type StrictJsonValue,
+} from "../../src/authority/strict-json.ts";
+import {
+  DisposableSqliteSubjectGraphRevisionTransaction,
+  SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES,
+  SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES,
+  type DisposableSqliteSubjectGraphRevisionTestFaultPoint,
+} from "../../src/graph/disposable-sqlite-subject-graph-revision-transaction.ts";
+import {
+  createDisposableSqliteSubjectGraphRevisionLabPermit,
+  type SubjectGraphRevisionTransactionResult,
+} from "../../src/graph/subject-graph-revision-transaction.ts";
+import { clone } from "../fixtures/valid-graph.ts";
+import { makePipelineRevisionIntent } from "./subject-graph-revision-transaction-fixture.ts";
+
+interface TempDatabase {
+  readonly directory: string;
+  readonly path: string;
+}
+
+const WORKER_URL = new URL(
+  "./subject-graph-revision-transaction-worker.ts",
+  import.meta.url,
+);
+
+function tempDatabase(t: TestContext, label: string): TempDatabase {
+  const directory = mkdtempSync(
+    join(tmpdir(), `atliera-subject-graph-revision-${label}-`),
+  );
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  return { directory, path: join(directory, "state.sqlite") };
+}
+
+function adapter(
+  fixture: TempDatabase,
+  hook?: (point: DisposableSqliteSubjectGraphRevisionTestFaultPoint) => void,
+): DisposableSqliteSubjectGraphRevisionTransaction {
+  return new DisposableSqliteSubjectGraphRevisionTransaction({
+    database_path: fixture.path,
+    isolated_temporary_directory: fixture.directory,
+    test_only_fault_hook: hook,
+  });
+}
+
+function permit() {
+  return createDisposableSqliteSubjectGraphRevisionLabPermit();
+}
+
+function openRaw(path: string, readOnly = true): DatabaseSync {
+  return new DatabaseSync(path, {
+    allowExtension: false,
+    enableForeignKeyConstraints: true,
+    readOnly,
+  });
+}
+
+function tableCounts(path: string) {
+  const db = openRaw(path);
+  try {
+    const count = (table: string): number => {
+      const row = db.prepare(`SELECT count(*) AS count FROM ${table}`).get();
+      assert.equal(typeof row?.count, "number");
+      return row!.count as number;
+    };
+    return {
+      graph: count("subject_graph_current_state"),
+      replay: count("subject_graph_replay_consumptions"),
+      audit: count("subject_graph_success_receipts"),
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function assertRecursivelyFrozen(
+  value: unknown,
+  seen = new WeakSet<object>(),
+): void {
+  if (typeof value !== "object" || value === null || seen.has(value)) return;
+  seen.add(value);
+  assert.equal(Object.isFrozen(value), true);
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) {
+    if ("value" in descriptor) assertRecursivelyFrozen(descriptor.value, seen);
+  }
+}
+
+function rehashIntent(rawIntent: unknown): Record<string, any> {
+  const intent = clone(rawIntent) as Record<string, any>;
+  delete intent.intent_sha256;
+  intent.intent_sha256 = sha256CanonicalJson(intent as StrictJsonValue);
+  return intent;
+}
+
+function replayCollisionIntent(rawIntent: unknown, replayKey: string) {
+  const intent = clone(rawIntent) as Record<string, any>;
+  intent.replay_key_to_record = replayKey;
+  intent.review_handoff.replay_key_to_record = replayKey;
+  intent.review_handoff_sha256 = sha256CanonicalJson(
+    intent.review_handoff as StrictJsonValue,
+  );
+  return rehashIntent(intent);
+}
+
+function runWorker(input: Record<string, unknown>): Promise<SubjectGraphRevisionTransactionResult> {
+  return new Promise((resolveResult, reject) => {
+    const worker = new Worker(WORKER_URL, { workerData: input });
+    worker.once("message", (message) => {
+      resolveResult(message as SubjectGraphRevisionTransactionResult);
+    });
+    worker.once("error", reject);
+    worker.once("exit", (code) => {
+      if (code !== 0) reject(new Error(`revision worker exited with code ${code}`));
+    });
+  });
+}
+
+describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
+  test("bootstraps, canonically reads back, advances by revision plus digest, and persists across restart", (t) => {
+    const fixture = tempDatabase(t, "bootstrap-successor");
+    const first = makePipelineRevisionIntent({ variant: "first" });
+    const transaction = adapter(fixture);
+    const committed = transaction.consume(first.intent, permit());
+
+    assert.equal(committed.outcome, "committed");
+    if (committed.outcome !== "committed") return;
+    assert.equal(committed.state.revision, "rev_1");
+    assert.equal(
+      committed.state.snapshot_sha256,
+      first.intent.proposed_snapshot_sha256,
+    );
+    assert.deepEqual(committed.state.snapshot, first.intent.proposed_snapshot);
+    assert.notEqual(committed.state.snapshot, first.intent.proposed_snapshot);
+    assert.equal(
+      committed.receipt.operational_committed_at,
+      committed.state.operational_committed_at,
+    );
+    assert.notEqual(
+      committed.receipt.operational_committed_at,
+      first.intent.review_handoff.reviewed_at,
+    );
+    assertRecursivelyFrozen(committed);
+
+    const restartedRead = adapter(fixture).readCurrent(
+      first.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(restartedRead.outcome, "found");
+    if (restartedRead.outcome !== "found") return;
+    assert.deepEqual(restartedRead.state, committed.state);
+    assert.deepEqual(restartedRead.receipt, committed.receipt);
+    assert.notEqual(restartedRead.state.snapshot, first.intent.proposed_snapshot);
+    assertRecursivelyFrozen(restartedRead);
+
+    const absentRead = adapter(fixture).readCurrent(
+      {
+        ...first.intent.graph_identity,
+        subject_id: "subject_missing",
+      },
+      permit(),
+    );
+    assert.deepEqual(absentRead, {
+      outcome: "not_found",
+      found: false,
+      graph_identity: {
+        ...first.intent.graph_identity,
+        subject_id: "subject_missing",
+      },
+    });
+    assertRecursivelyFrozen(absentRead);
+
+    const second = makePipelineRevisionIntent({
+      variant: "second",
+      base: first.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const restarted = adapter(fixture);
+    const successor = restarted.consume(second.intent, permit());
+    assert.equal(successor.outcome, "committed");
+    if (successor.outcome !== "committed") return;
+    assert.equal(successor.state.revision, "rev_2");
+    assert.equal(
+      successor.receipt.predecessor_basis.expected_base_snapshot_sha256,
+      first.intent.proposed_snapshot_sha256,
+    );
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 2,
+      audit: 2,
+    });
+
+    const db = openRaw(fixture.path);
+    try {
+      const row = db
+        .prepare("SELECT snapshot_json, revision_token FROM subject_graph_current_state")
+        .get();
+      assert.equal(row?.revision_token, "rev_2");
+      assert.equal(
+        row?.snapshot_json,
+        canonicalJson(
+          snapshotStrictJson(
+            second.intent.proposed_snapshot,
+            "test_candidate",
+            {
+              max_array_length: 1_000,
+              max_depth: 18,
+              max_expanded_json_value_occurrences: 210_000,
+              max_nodes: 20_256,
+              max_object_fields: 128,
+              max_string_utf8_bytes: 2 * 1024 * 1024,
+              max_total_string_utf8_bytes: 13 * 1024 * 1024,
+            },
+          ),
+        ),
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  test("classifies missing, revision-only, snapshot-only, both-dimension, and bootstrap conflicts truthfully", (t) => {
+    const missingFixture = tempDatabase(t, "missing");
+    const unrelatedBase = makePipelineRevisionIntent({ variant: "base-missing" });
+    const missingIntent = makePipelineRevisionIntent({
+      variant: "missing-next",
+      base: unrelatedBase.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const missing = adapter(missingFixture).consume(missingIntent.intent, permit());
+    assert.equal(missing.outcome, "conflicted");
+    if (missing.outcome === "conflicted") {
+      assert.equal(missing.conflict_kind, "missing_graph");
+      assert.deepEqual(missing.actual, { revision: null, snapshot_sha256: null });
+    }
+    assert.deepEqual(tableCounts(missingFixture.path), {
+      graph: 0,
+      replay: 0,
+      audit: 0,
+    });
+
+    const fixture = tempDatabase(t, "dimension-conflicts");
+    const initial = makePipelineRevisionIntent({ variant: "dim-initial" });
+    assert.equal(adapter(fixture).consume(initial.intent, permit()).outcome, "committed");
+
+    const alternate = makePipelineRevisionIntent({ variant: "dim-alternate" });
+    const wrongDigest = makePipelineRevisionIntent({
+      variant: "wrong-digest",
+      base: alternate.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const snapshotConflict = adapter(fixture).consume(wrongDigest.intent, permit());
+    assert.equal(snapshotConflict.outcome, "conflicted");
+    if (snapshotConflict.outcome === "conflicted") {
+      assert.equal(snapshotConflict.conflict_kind, "snapshot_mismatch");
+      assert.equal(snapshotConflict.actual.revision, "rev_1");
+      assert.equal(snapshotConflict.actual.snapshot_sha256, initial.intent.proposed_snapshot_sha256);
+    }
+    const repeatedSnapshotConflict = adapter(fixture).consume(
+      wrongDigest.intent,
+      permit(),
+    );
+    assert.equal(repeatedSnapshotConflict.outcome, "conflicted");
+    if (
+      snapshotConflict.outcome === "conflicted" &&
+      repeatedSnapshotConflict.outcome === "conflicted"
+    ) {
+      assert.deepEqual(
+        repeatedSnapshotConflict.receipt,
+        snapshotConflict.receipt,
+      );
+    }
+
+    const successor = makePipelineRevisionIntent({
+      variant: "dim-successor",
+      base: initial.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    assert.equal(adapter(fixture).consume(successor.intent, permit()).outcome, "committed");
+    const staleRevision = makePipelineRevisionIntent({
+      variant: "stale-revision",
+      base: successor.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const revisionConflict = adapter(fixture).consume(staleRevision.intent, permit());
+    assert.equal(revisionConflict.outcome, "conflicted");
+    if (revisionConflict.outcome === "conflicted") {
+      assert.equal(revisionConflict.conflict_kind, "revision_mismatch");
+      assert.equal(
+        revisionConflict.actual.snapshot_sha256,
+        staleRevision.intent.base_snapshot_sha256,
+      );
+    }
+
+    const bothConflictIntent = makePipelineRevisionIntent({
+      variant: "both-mismatch",
+      base: initial.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const both = adapter(fixture).consume(bothConflictIntent.intent, permit());
+    assert.equal(both.outcome, "conflicted");
+    if (both.outcome === "conflicted") {
+      assert.equal(both.conflict_kind, "revision_and_snapshot_mismatch");
+      assert.equal(both.receipt.persisted, false);
+      assertRecursivelyFrozen(both);
+    }
+
+    const bootstrapAgain = makePipelineRevisionIntent({ variant: "bootstrap-again" });
+    const bootstrapConflict = adapter(fixture).consume(bootstrapAgain.intent, permit());
+    assert.equal(bootstrapConflict.outcome, "conflicted");
+    if (bootstrapConflict.outcome === "conflicted") {
+      assert.equal(
+        bootstrapConflict.conflict_kind,
+        "revision_and_snapshot_mismatch",
+      );
+    }
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 2,
+      audit: 2,
+    });
+  });
+
+  test("lost-response retry returns the exact persisted receipt and replay collision applies nothing", (t) => {
+    const fixture = tempDatabase(t, "replay");
+    const initial = makePipelineRevisionIntent({ variant: "replay-initial" });
+    const transaction = adapter(fixture);
+    assert.throws(
+      () => {
+        const lost = transaction.consume(initial.intent, permit());
+        assert.equal(lost.outcome, "committed");
+        throw new Error("SIMULATED_CALLER_RESPONSE_LOSS");
+      },
+      /SIMULATED_CALLER_RESPONSE_LOSS/,
+    );
+    const retry = adapter(fixture).consume(
+      JSON.parse(JSON.stringify(initial.intent)),
+      permit(),
+    );
+    assert.equal(retry.outcome, "already_committed");
+    if (retry.outcome !== "already_committed") return;
+
+    const db = openRaw(fixture.path);
+    try {
+      const persisted = db
+        .prepare("SELECT receipt_json FROM subject_graph_success_receipts")
+        .get();
+      assert.equal(
+        persisted?.receipt_json,
+        canonicalJson(retry.receipt as unknown as StrictJsonValue),
+      );
+    } finally {
+      db.close();
+    }
+
+    const successor = makePipelineRevisionIntent({
+      variant: "replay-collision",
+      base: initial.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const collision = replayCollisionIntent(
+      successor.intent,
+      initial.intent.replay_key_to_record,
+    );
+    const refused = adapter(fixture).consume(collision, permit());
+    assert.equal(refused.outcome, "refused");
+    if (refused.outcome === "refused") {
+      assert.equal(refused.reason, "replay_key_collision");
+      assert.equal(refused.receipt.persisted, false);
+    }
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+  });
+
+  test("pre-transaction and mid-transaction injected failures leave graph, replay, and audit empty", (t) => {
+    for (const [label, faultPoint, expectedState] of [
+      ["before", "before_transaction", "not_started"],
+      ["during", "after_graph_write", "rolled_back"],
+    ] as const) {
+      const fixture = tempDatabase(t, `fault-${label}`);
+      const values = makePipelineRevisionIntent({ variant: `fault-${label}` });
+      const secret = `INJECTED_SECRET_${label}`;
+      const result = adapter(fixture, (point) => {
+        if (point === faultPoint) throw new Error(secret);
+      }).consume(values.intent, permit());
+      assert.equal(result.outcome, "dependency_failed");
+      if (result.outcome === "dependency_failed") {
+        assert.equal(result.transaction_state, expectedState);
+      }
+      assert.deepEqual(tableCounts(fixture.path), {
+        graph: 0,
+        replay: 0,
+        audit: 0,
+      });
+      const serialized = JSON.stringify(result);
+      assert.doesNotMatch(serialized, new RegExp(secret));
+      assert.doesNotMatch(serialized, /INSERT|SELECT|subject_graph_current_state/);
+      assert.equal(serialized.includes(fixture.path), false);
+    }
+  });
+
+  test("actual overlapping independent SQLite connections allow exactly one same-predecessor competitor", async (t) => {
+    const fixture = tempDatabase(t, "worker-contention");
+    const initial = makePipelineRevisionIntent({ variant: "worker-initial" });
+    assert.equal(adapter(fixture).consume(initial.intent, permit()).outcome, "committed");
+    const competitorA = makePipelineRevisionIntent({
+      variant: "worker-a",
+      base: initial.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const competitorB = makePipelineRevisionIntent({
+      variant: "worker-b",
+      base: initial.intent.proposed_snapshot,
+      expected_prior_revision: "rev_1",
+    });
+    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const view = new Int32Array(barrier);
+    const holderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: competitorA.intent,
+      permit: permit(),
+      barrier,
+      role: "holder",
+    });
+    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
+    assert.equal(Atomics.load(view, 0), 1);
+    const contenderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: competitorB.intent,
+      permit: permit(),
+      barrier,
+      role: "contender",
+    });
+    const results = await Promise.all([holderPromise, contenderPromise]);
+    assert.equal(Atomics.load(view, 1), 1);
+    assert.deepEqual(
+      results.map((result) => result.outcome).sort(),
+      ["committed", "conflicted"],
+    );
+    const conflict = results.find((result) => result.outcome === "conflicted");
+    assert.equal(conflict?.outcome, "conflicted");
+    if (conflict?.outcome === "conflicted") {
+      assert.equal(conflict.conflict_kind, "revision_and_snapshot_mismatch");
+    }
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 2,
+      audit: 2,
+    });
+  });
+
+  test("overlapping bootstrap contenders create exactly one initial graph, replay, and audit row", async (t) => {
+    const fixture = tempDatabase(t, "worker-bootstrap");
+    const bootstrapA = makePipelineRevisionIntent({ variant: "bootstrap-worker-a" });
+    const bootstrapB = makePipelineRevisionIntent({ variant: "bootstrap-worker-b" });
+    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const view = new Int32Array(barrier);
+    const holderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: bootstrapA.intent,
+      permit: permit(),
+      barrier,
+      role: "holder",
+    });
+    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
+    const contenderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: bootstrapB.intent,
+      permit: permit(),
+      barrier,
+      role: "contender",
+    });
+    const results = await Promise.all([holderPromise, contenderPromise]);
+    assert.equal(Atomics.load(view, 1), 1);
+    assert.deepEqual(
+      results.map((result) => result.outcome).sort(),
+      ["committed", "conflicted"],
+    );
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+  });
+
+  test("overlapping independent connections both commit different structured graph identities", async (t) => {
+    const fixture = tempDatabase(t, "worker-independent");
+    const identityA = makePipelineRevisionIntent({
+      variant: "independent-a",
+      team_id: "team_independent_a",
+      account_id: "acc_independent_a",
+      subject_id: "subject:independent:a",
+    });
+    const identityB = makePipelineRevisionIntent({
+      variant: "independent-b",
+      team_id: "team_independent_b",
+      account_id: "acc_independent_b",
+      subject_id: "subject:independent:b",
+    });
+    const barrier = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 2);
+    const view = new Int32Array(barrier);
+    const holderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: identityA.intent,
+      permit: permit(),
+      barrier,
+      role: "holder",
+    });
+    assert.equal(Atomics.wait(view, 0, 0, 5_000), "ok");
+    const contenderPromise = runWorker({
+      database_path: fixture.path,
+      isolated_temporary_directory: fixture.directory,
+      intent: identityB.intent,
+      permit: permit(),
+      barrier,
+      role: "contender",
+    });
+    const results = await Promise.all([holderPromise, contenderPromise]);
+    assert.deepEqual(results.map((result) => result.outcome), ["committed", "committed"]);
+    assert.equal(Atomics.load(view, 1), 1);
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 2,
+      replay: 2,
+      audit: 2,
+    });
+    const db = openRaw(fixture.path);
+    try {
+      const identities = db
+        .prepare(`
+          SELECT team_id, account_id, subject_id, purpose
+          FROM subject_graph_current_state ORDER BY team_id
+        `)
+        .all();
+      assert.deepEqual(
+        identities.map((row) => Object.values(row)),
+        [
+          ["team_independent_a", "acc_independent_a", "subject:independent:a", "candidate_validation"],
+          ["team_independent_b", "acc_independent_b", "subject:independent:b", "candidate_validation"],
+        ],
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  test("stored corruption fails closed with sanitized dependency results", (t) => {
+    const fixture = tempDatabase(t, "corruption");
+    const values = makePipelineRevisionIntent({ variant: "corrupt" });
+    assert.equal(adapter(fixture).consume(values.intent, permit()).outcome, "committed");
+    const db = openRaw(fixture.path, false);
+    try {
+      db.prepare("UPDATE subject_graph_current_state SET snapshot_json = ?").run("{}");
+    } finally {
+      db.close();
+    }
+    const result = adapter(fixture).consume(values.intent, permit());
+    assert.equal(result.outcome, "dependency_failed");
+    if (result.outcome === "dependency_failed") {
+      assert.equal(result.transaction_state, "rolled_back");
+      assert.equal(result.failure_code, "durable_state_invalid");
+    }
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes(fixture.path), false);
+    assert.doesNotMatch(serialized, /snapshot_json|UPDATE|\{\}/);
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+
+    const replayFixture = tempDatabase(t, "corrupt-replay-identity");
+    const replayValues = makePipelineRevisionIntent({ variant: "corrupt-replay" });
+    assert.equal(
+      adapter(replayFixture).consume(replayValues.intent, permit()).outcome,
+      "committed",
+    );
+    const replayDb = openRaw(replayFixture.path, false);
+    try {
+      replayDb
+        .prepare("UPDATE subject_graph_replay_consumptions SET team_id = ?")
+        .run("team_corrupted_link");
+    } finally {
+      replayDb.close();
+    }
+    const corruptRetry = adapter(replayFixture).consume(
+      replayValues.intent,
+      permit(),
+    );
+    assert.equal(corruptRetry.outcome, "dependency_failed");
+    if (corruptRetry.outcome === "dependency_failed") {
+      assert.equal(corruptRetry.failure_code, "durable_state_invalid");
+    }
+    const corruptRead = adapter(replayFixture).readCurrent(
+      replayValues.intent.graph_identity,
+      permit(),
+    );
+    assert.equal(corruptRead.outcome, "dependency_failed");
+    if (corruptRead.outcome === "dependency_failed") {
+      assert.equal(corruptRead.failure_code, "durable_state_invalid");
+    }
+  });
+
+  test("uses actual canonical UTF-8 JSON byte limits, including escaping overhead and DB checks", (t) => {
+    const fixture = tempDatabase(t, "bytes");
+    const escapingSuffix = '\\"'.repeat(70_000);
+    assert.ok(
+      Buffer.byteLength(escapingSuffix, "utf8") <
+        SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES,
+    );
+    const oversized = makePipelineRevisionIntent({
+      variant: "escaped-bytes",
+      raw_text_suffix: escapingSuffix,
+    });
+    const canonicalSnapshot = canonicalJson(
+      oversized.intent.proposed_snapshot as unknown as StrictJsonValue,
+    );
+    assert.ok(
+      Buffer.byteLength(canonicalSnapshot, "utf8") >
+        SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES,
+    );
+    const refused = adapter(fixture).consume(oversized.intent, permit());
+    assert.equal(refused.outcome, "refused");
+    if (refused.outcome === "refused") {
+      assert.equal(refused.reason, "snapshot_storage_limit_exceeded");
+    }
+    assert.equal(existsSync(fixture.path), false);
+
+    const normal = makePipelineRevisionIntent({ variant: "byte-normal" });
+    assert.equal(adapter(fixture).consume(normal.intent, permit()).outcome, "committed");
+    const db = openRaw(fixture.path, false);
+    try {
+      assert.throws(() =>
+        db
+          .prepare("UPDATE subject_graph_current_state SET snapshot_json = ?")
+          .run("x".repeat(SUBJECT_GRAPH_REVISION_MAX_CANONICAL_SNAPSHOT_JSON_UTF8_BYTES + 1)),
+      );
+      assert.throws(() =>
+        db
+          .prepare("UPDATE subject_graph_success_receipts SET receipt_json = ?")
+          .run("x".repeat(SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES + 1)),
+      );
+      const digestA = "a".repeat(64);
+      const digestB = "b".repeat(64);
+      const digestC = "c".repeat(64);
+      const digestD = "d".repeat(64);
+      const digestE = "e".repeat(64);
+      assert.throws(() =>
+        db.prepare(`
+          INSERT INTO subject_graph_success_receipts (
+            receipt_sha256, receipt_core_json, receipt_json,
+            team_id, account_id, subject_id, purpose,
+            predecessor_revision_token, predecessor_snapshot_sha256,
+            committed_revision_number, committed_revision_token,
+            proposed_snapshot_sha256, intent_sha256, review_handoff_sha256,
+            replay_key, operational_committed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          digestA,
+          "{}",
+          "x".repeat(SUBJECT_GRAPH_REVISION_MAX_CANONICAL_RECEIPT_JSON_UTF8_BYTES + 1),
+          "team_byte_check",
+          "acc_byte_check",
+          "subject:byte-check",
+          "candidate_validation",
+          null,
+          digestB,
+          1,
+          "rev_1",
+          digestC,
+          digestD,
+          digestE,
+          "f".repeat(64),
+          "2000-01-01T00:00:00.000Z",
+        ),
+      );
+    } finally {
+      db.close();
+    }
+    assert.deepEqual(tableCounts(fixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+  });
+
+  test("known post-commit failure, recovered acknowledgement, and indeterminate commit remain distinct", (t) => {
+    const readbackFixture = tempDatabase(t, "post-commit-readback");
+    const readbackIntent = makePipelineRevisionIntent({ variant: "readback-fault" });
+    const readbackFailure = adapter(readbackFixture, (point) => {
+      if (point === "after_commit_before_readback") throw new Error("SECRET_READBACK");
+    }).consume(readbackIntent.intent, permit());
+    assert.equal(readbackFailure.outcome, "committed_readback_failed");
+    if (readbackFailure.outcome === "committed_readback_failed") {
+      assert.equal(readbackFailure.committed, true);
+      assert.equal(readbackFailure.recovery.intent_sha256, readbackIntent.intent.intent_sha256);
+    }
+    assert.deepEqual(tableCounts(readbackFixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+    const retry = adapter(readbackFixture).consume(readbackIntent.intent, permit());
+    assert.equal(retry.outcome, "already_committed");
+
+    const recoveredFixture = tempDatabase(t, "commit-recovered");
+    const recoveredIntent = makePipelineRevisionIntent({ variant: "ack-recovered" });
+    const recovered = adapter(recoveredFixture, (point) => {
+      if (point === "after_commit_before_acknowledgement") {
+        throw new Error("SECRET_COMMIT_ACK");
+      }
+    }).consume(recoveredIntent.intent, permit());
+    assert.equal(recovered.outcome, "committed");
+    if (recovered.outcome === "committed") {
+      assert.equal(
+        recovered.commit_acknowledgement,
+        "recovered_after_commit_boundary_failure",
+      );
+    }
+
+    const indeterminateFixture = tempDatabase(t, "commit-indeterminate");
+    const indeterminateIntent = makePipelineRevisionIntent({ variant: "indeterminate" });
+    const indeterminate = adapter(indeterminateFixture, (point) => {
+      if (
+        point === "after_commit_before_acknowledgement" ||
+        point === "before_commit_recovery_probe"
+      ) {
+        throw new Error("SECRET_UNRESOLVED_COMMIT");
+      }
+    }).consume(indeterminateIntent.intent, permit());
+    assert.equal(indeterminate.outcome, "indeterminate");
+    if (indeterminate.outcome === "indeterminate") {
+      assert.equal(indeterminate.committed, "indeterminate");
+    }
+    assert.deepEqual(tableCounts(indeterminateFixture.path), {
+      graph: 1,
+      replay: 1,
+      audit: 1,
+    });
+    assert.doesNotMatch(JSON.stringify(indeterminate), /SECRET|sqlite|INSERT/i);
+  });
+
+  test("hostile intent, exact permit, and temporary-path refusals all precede database effect", (t) => {
+    const values = makePipelineRevisionIntent({ variant: "hostile" });
+    const hostileInputs: unknown[] = [];
+    let getterExecuted = false;
+    const getterIntent = clone(values.intent) as unknown as Record<string, unknown>;
+    Object.defineProperty(getterIntent, "kind", {
+      enumerable: true,
+      get() {
+        getterExecuted = true;
+        return values.intent.kind;
+      },
+    });
+    hostileInputs.push(
+      getterIntent,
+      new Proxy(clone(values.intent), {}),
+      Object.assign(clone(values.intent), { [Symbol("hidden")]: true }),
+    );
+    const sparse = clone(values.intent) as Record<string, any>;
+    sparse.proposed_snapshot.graph_bundle.sources = new Array(1);
+    hostileInputs.push(sparse);
+    const cyclic = clone(values.intent) as Record<string, any>;
+    cyclic.loop = cyclic;
+    hostileInputs.push(cyclic);
+
+    for (const [index, hostile] of hostileInputs.entries()) {
+      const fixture = tempDatabase(t, `hostile-${index}`);
+      const result = adapter(fixture).consume(hostile, permit());
+      assert.equal(result.outcome, "refused");
+      if (result.outcome === "refused") assert.equal(result.reason, "malformed_intent");
+      assert.equal(existsSync(fixture.path), false);
+    }
+    assert.equal(getterExecuted, false);
+
+    const permitFixture = tempDatabase(t, "bad-permit");
+    const invalidPermit = {
+      ...permit(),
+      production_authority: true,
+    };
+    const permitRefusal = adapter(permitFixture).consume(values.intent, invalidPermit);
+    assert.equal(permitRefusal.outcome, "refused");
+    if (permitRefusal.outcome === "refused") {
+      assert.equal(permitRefusal.reason, "invalid_lab_permit");
+    }
+    assert.equal(existsSync(permitFixture.path), false);
+
+    const pathFixture = tempDatabase(t, "bad-path");
+    const outsidePath = join(tmpdir(), `${relative(tmpdir(), pathFixture.directory)}-outside.sqlite`);
+    const pathRefusal = new DisposableSqliteSubjectGraphRevisionTransaction({
+      database_path: outsidePath,
+      isolated_temporary_directory: pathFixture.directory,
+    }).consume(values.intent, permit());
+    assert.equal(pathRefusal.outcome, "refused");
+    if (pathRefusal.outcome === "refused") {
+      assert.equal(pathRefusal.reason, "unsafe_database_path");
+    }
+    assert.equal(existsSync(outsidePath), false);
+
+    const symlinkFixture = tempDatabase(t, "symlink-path");
+    symlinkSync(join(symlinkFixture.directory, "target.sqlite"), symlinkFixture.path);
+    const symlinkRefusal = adapter(symlinkFixture).consume(values.intent, permit());
+    assert.equal(symlinkRefusal.outcome, "refused");
+    if (symlinkRefusal.outcome === "refused") {
+      assert.equal(symlinkRefusal.reason, "unsafe_database_path");
+    }
+  });
+
+  test("accepts MAX_SAFE_INTEGER-1 as the last predecessor and refuses an unrepresentable successor", (t) => {
+    const fixture = tempDatabase(t, "max-revision");
+    const base = makePipelineRevisionIntent({ variant: "max-base" });
+    const lastRepresentable = makePipelineRevisionIntent({
+      variant: "max-next",
+      base: base.intent.proposed_snapshot,
+      expected_prior_revision: `rev_${Number.MAX_SAFE_INTEGER - 1}`,
+    });
+    const conflict = adapter(fixture).consume(lastRepresentable.intent, permit());
+    assert.equal(conflict.outcome, "conflicted");
+    if (conflict.outcome === "conflicted") {
+      assert.equal(
+        conflict.expected.revision,
+        `rev_${Number.MAX_SAFE_INTEGER - 1}`,
+      );
+    }
+
+    const malformed = clone(lastRepresentable.intent) as Record<string, any>;
+    malformed.predecessor_basis.expected_prior_revision = `rev_${Number.MAX_SAFE_INTEGER}`;
+    malformed.review_handoff.predecessor_basis.expected_prior_revision =
+      `rev_${Number.MAX_SAFE_INTEGER}`;
+    malformed.review_handoff_sha256 = sha256CanonicalJson(
+      malformed.review_handoff as StrictJsonValue,
+    );
+    const rehashed = rehashIntent(malformed);
+    const refused = adapter(fixture).consume(rehashed, permit());
+    assert.equal(refused.outcome, "refused");
+    if (refused.outcome === "refused") assert.equal(refused.reason, "malformed_intent");
+  });
+
+  test("is absent from the public barrel, runtime composition, CLIs, scripts, and package scripts", () => {
+    const portName = "subject-graph-revision-transaction";
+    const adapterName = "disposable-sqlite-subject-graph-revision-transaction";
+    const publicBarrel = readFileSync("src/index.ts", "utf8");
+    const packageJson = readFileSync("package.json", "utf8");
+    assert.equal(publicBarrel.includes(portName), false);
+    assert.equal(publicBarrel.includes(adapterName), false);
+    assert.equal(packageJson.includes(portName), false);
+    assert.equal(packageJson.includes(adapterName), false);
+
+    const sourceFiles = readdirSync("src", {
+      recursive: true,
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+      .map((entry) => join(entry.parentPath, entry.name))
+      .filter(
+        (path) =>
+          !path.endsWith(`${portName}.ts`) &&
+          !path.endsWith(`${adapterName}.ts`),
+      );
+    for (const path of sourceFiles) {
+      const source = readFileSync(path, "utf8");
+      assert.equal(source.includes(portName), false, path);
+      assert.equal(source.includes(adapterName), false, path);
+    }
+  });
+});

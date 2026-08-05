@@ -242,7 +242,7 @@ function strictSnapshot(raw: unknown, path: string): StrictJsonValue {
   }
 }
 
-function candidateQualityGatePolicyIdentity(): CandidateQualityGatePolicyIdentity {
+export function candidateQualityGatePolicyIdentity(): CandidateQualityGatePolicyIdentity {
   return {
     name: CANDIDATE_QUALITY_GATE_POLICY_NAME,
     version: CANDIDATE_QUALITY_GATE_POLICY_VERSION,

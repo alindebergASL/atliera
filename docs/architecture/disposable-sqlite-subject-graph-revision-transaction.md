@@ -1,0 +1,172 @@
+# Disposable SQLite subject-graph revision transaction
+
+This PR adds a lab-only consumer boundary for an exact
+`SubjectGraphRevisionIntent` and one disposable file-backed SQLite adapter. The
+intent is a commit description, not write authority. Its canonical hashes are
+unkeyed self-integrity identities; they do not establish authenticated origin,
+human approval, ratification, or production authority.
+
+The adapter is intentionally unreachable from product/runtime composition. It
+is not exported by `src/index.ts`, imported by a CLI or runtime module, or wired
+to a package script. Focused tests deep-import it directly. It does not replace
+`VersionedGraphStore`, either existing versioned-store adapter, or the
+historical Workshop JSONL writer.
+
+The same deep-imported lab adapter exposes a read-only `readCurrent` restart
+boundary. It takes the structured identity and exact lab permit, opens the
+existing database read-only, and validates the current graph, success receipt,
+and replay row as one linked read-back. This is the only state handoff intended
+for the immediate Workshop proof; it does not re-submit an intent or admit a
+write.
+
+## Lab admission and validation
+
+Every consume call requires the exact fixture/test-only permit. The permit is
+effect admission only for disposable isolated SQLite; it explicitly says that
+authenticated human approval, ratification, production authority, real-account
+effects, providers, network, MCP, deployment, and M5a/M5b flows are not allowed.
+It is not approval or ratification.
+
+Before opening or creating a database, the adapter:
+
+- snapshots constructor options from exact own data once and rejects accessors,
+  proxies, symbols, unknown fields, and later caller mutation;
+- accepts no executable fault callback; the optional test seam is an exact,
+  snapshotted data-only plan of unique allowed fault points and fixed `throw` or
+  bounded `sleep` actions, with no caller-supplied function invocation;
+- snapshots the permit and intent through the strict own-data JSON boundary;
+- requires an absolute direct-child database path under a canonical,
+  caller-declared, exact-owner mode-0700 isolated directory beneath the
+  canonical OS temporary root;
+- permits only the exact database and SQLite's exact `-wal`, `-shm`, and
+  `-journal` siblings in that dedicated directory, and rejects unexpected
+  entries plus symlink, non-regular, hardlinked, or wrong-owner database and
+  sidecar objects before opening SQLite and again at relevant boundaries;
+- checks exact intent/review kind, version, fields, closed non-authorizing
+  markers, canonical SHA-256 spellings, and representable revision tokens;
+- recomputes the canonical intent core and review-handoff digests;
+- requires the exact repository-owned candidate quality-gate policy identity;
+- hydrates and revalidates the proposed candidate, recomputes its digest, and
+  binds its team/account subject to the four-column graph identity;
+- cross-matches identity, predecessor, snapshot, transition, quality-gate, and
+  replay references between the intent and review handoff; and
+- measures the actual UTF-8 bytes of canonical snapshot and prospective receipt
+  JSON, including JSON escaping overhead.
+
+This boundary consumes the commit description itself; it does not receive or
+rehydrate the original proposal envelope, transition, or application options.
+Their unkeyed digest fields therefore remain audit identities, not proof of
+source or transformation custody. A later composition that needs that stronger
+claim must supply and rehydrate those exact artifacts rather than infer it from
+this receipt.
+
+The snapshot JSON ceiling is 256 KiB and the receipt JSON ceiling is 16 KiB.
+SQLite `CHECK(length(CAST(value AS BLOB)))` constraints enforce the same encoded
+byte limits as defense in depth. Existing strict-JSON limits remain unchanged.
+
+## Atomic state and commit truth
+
+SQLite uses BINARY text equality across the composite
+`team_id/account_id/subject_id/purpose` primary key; identity is never delimiter
+concatenation or a hash. Foreign keys are enabled, extension loading is
+disabled, tables are `STRICT`, WAL and `synchronous=FULL` are explicit, and lock
+waiting is bounded. The adapter initializes only an empty catalog. Every
+non-empty database must match the pinned complete `sqlite_schema` catalog
+exactly—including table SQL and `STRICT`/CHECK/FK clauses, PK/UNIQUE
+autoindexes, immutable triggers, and absence of extra objects—and must have
+foreign keys enabled. Public reads, direct post-commit acknowledgements, and
+independent recovery probes attest that catalog inside one read transaction;
+writes attest it again under `BEGIN IMMEDIATE` before inspecting or changing
+data. Malformed, duplicate-permitting, missing-trigger, altered-trigger, or
+unexpected-trigger catalogs fail as invalid durable state without repair.
+
+Every catalog attestation also requires `PRAGMA encoding` to report `UTF-8`,
+WAL to remain active, and the connection's synchronous setting to be `FULL`.
+Initialization checks encoding before any file-altering WAL pragma, configures
+and verifies WAL outside a transaction with bounded busy retry, then takes a
+`BEGIN IMMEDIATE` lock. Under that lock it decides whether the catalog is
+empty; a genuinely new empty database is explicitly fixed to UTF-8 before the
+schema is created. Schema creation and exact catalog attestation commit as one
+transaction. A catalog-empty database whose header was already fixed to UTF-16
+fails closed without schema or data writes, and a non-empty partial catalog is
+never completed or repaired.
+
+`BEGIN IMMEDIATE` protects one atomic unit that compares both current revision
+and canonical snapshot digest, writes the exact canonical successor snapshot,
+consumes the replay key bound to the intent digest, and writes an immutable
+success receipt/audit row. `COMMIT` returning successfully is the effect point:
+graph, replay, and success audit commit together or not at all. SQLite supplies
+`operational_committed_at` inside the transaction as canonical whole-second
+UTC. That value is operational metadata only, not evidence that the earlier
+`reviewed_at` was trusted.
+
+An exact retry first verifies the durable historical replay/receipt binding without
+applying again, then independently verifies the current head through the same
+receipt and replay-link checks as `readCurrent`. It returns the original
+persisted success receipt as `already_committed` only when both stages pass. If
+historical proof succeeds but the current head is missing or invalid, the retry
+preserves `committed: true` as `committed_readback_failed`. Every existing CAS
+predecessor is admitted through the same graph→receipt→replay verifier, so a new
+revision cannot paper over an unhealthy current head. A receipt left behind for
+an absent requested replay row is corrupt durable evidence, not a fresh intent
+or ordinary conflict. Only a fully coherent stored replay/receipt pair may be
+classified as a replay-key collision with another intent; malformed stored
+identity or digest linkage is invalid durable state and never a benign refusal.
+Likewise, absence of the current graph row is `not_found` only when neither
+receipt nor replay history exists for that same four-column identity. Any such
+identity-bound historical evidence makes the durable state invalid. An exact
+retry can still preserve coherent historical commit proof as
+`committed_readback_failed` with `committed: true`, while a different bootstrap
+or successor is prevented from writing over the orphaned identity.
+If `COMMIT` throws before its outcome is acknowledged, recovery uses a
+separate read-only connection so it
+cannot mistake the writer connection's uncommitted rows for durable state. A
+successful commit followed by verification failure remains explicitly
+committed-aware. If a valid successor advances the graph before acknowledgement
+recovery, the historical replay and receipt recover the earlier commit while the
+latest graph head is independently verified against its own receipt and replay
+link. If that later current head cannot be verified, historical commit proof is
+preserved as `committed_readback_failed` with `committed: true`, never downgraded
+to an indeterminate commit outcome.
+
+The result union keeps these cases separate:
+
+- `committed`: a new commit, directly acknowledged or recovered from durable
+  replay and receipt state;
+- `already_committed`: no new application and the original persisted receipt;
+- `conflicted`: deterministic revision/snapshot CAS conflict; its receipt is
+  returned but not persisted;
+- `refused`: deterministic malformed-input, path/permit, storage, or replay
+  collision refusal; its receipt is returned but not persisted;
+- `dependency_failed`: no transaction began or rollback is proven complete;
+- `committed_readback_failed`: commit is known successful but verification did
+  not complete, with a recovery identity; and
+- `indeterminate`: the commit outcome could not be established after an
+  independent recovery probe.
+
+Read-back separately returns `found`, `not_found`, a pre-open `refused`, or a
+sanitized `dependency_failed`. `found` includes the owned, frozen current
+candidate and the exact success receipt that installed it. Persisted replay
+identity columns are cross-checked against both the receipt and graph identity;
+corrupt links fail closed rather than becoming Workshop state.
+
+Errors and results omit database paths, SQL text, payload text, and underlying
+or declaratively injected error messages. Refusal/conflict receipts are deterministic but are
+not falsely described as durable audit. Crashes before the transaction boundary
+do not produce a durable refusal audit.
+
+## Deliberate limitations
+
+- Only disposable SQLite files inside isolated OS temporary directories are
+  supported. There is no production or real-account backend.
+- Node 22's built-in `node:sqlite` API is experimental. It is pinned-toolchain
+  lab technology, not a production-backend selection.
+- Revision CAS and monotonicity protect ordinary writes in this database only.
+  They do not protect against database restore, file replacement, privileged
+  operators, external rollback, or infrastructure compromise.
+- Artifact checks are lab containment and accidental-corruption defenses, not
+  anti-tamper guarantees. A same-UID process can still race replacement between
+  checks, and a privileged actor can bypass ownership and directory controls.
+- No repair or override authority exists.
+- No provider, MCP, network acquisition, deployment, production, real-account,
+  Workshop presentation, synthetic Workshop, M5a, or M5b flow is present.

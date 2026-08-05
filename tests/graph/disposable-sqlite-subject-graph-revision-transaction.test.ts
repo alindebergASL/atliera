@@ -2146,6 +2146,8 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
   test("is absent from the public barrel, runtime composition, CLIs, scripts, and package scripts", () => {
     const portName = "subject-graph-revision-transaction";
     const adapterName = "disposable-sqlite-subject-graph-revision-transaction";
+    const boundedLabComposition =
+      "src/workshop/synthetic-transaction-workshop-proof.ts";
     const publicBarrel = readFileSync("src/index.ts", "utf8");
     const packageJson = readFileSync("package.json", "utf8");
     assert.equal(publicBarrel.includes(portName), false);
@@ -2162,12 +2164,16 @@ describe("disposable SQLite SubjectGraphRevisionIntent transaction", () => {
       .filter(
         (path) =>
           !path.endsWith(`${portName}.ts`) &&
-          !path.endsWith(`${adapterName}.ts`),
+          !path.endsWith(`${adapterName}.ts`) &&
+          path !== boundedLabComposition,
       );
     for (const path of sourceFiles) {
       const source = readFileSync(path, "utf8");
       assert.equal(source.includes(portName), false, path);
       assert.equal(source.includes(adapterName), false, path);
     }
+    const labSource = readFileSync(boundedLabComposition, "utf8");
+    assert.equal(labSource.includes(portName), true);
+    assert.equal(labSource.includes(adapterName), true);
   });
 });

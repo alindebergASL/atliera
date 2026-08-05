@@ -37,6 +37,9 @@ interface PipelineIntentOptions {
   readonly base?: ValidatedCandidate;
   readonly expected_prior_revision?: `rev_${number}` | null;
   readonly raw_text_suffix?: string;
+  readonly object_title?: string;
+  readonly include_three_lanes?: boolean;
+  readonly map_title?: string;
 }
 
 function sha256Utf8(value: string): string {
@@ -73,6 +76,29 @@ function variantInput(options: PipelineIntentOptions): MaterializeProposalForVal
     claimExpansion,
     claimLogistics,
   ];
+  if (options.object_title !== undefined) {
+    input.proposed_account_objects[0].title = options.object_title;
+  }
+  if (options.include_three_lanes === true) {
+    input.proposed_account_objects.push(
+      {
+        proposal_id: `hub-map-${suffix}`,
+        object_type: "initiative",
+        title: options.map_title ?? "European distribution operating map",
+        summary:
+          "The European hub is part of Acme Robotics' current distribution footprint.",
+        supporting_claim_proposal_ids: [claimExpansion],
+      },
+      {
+        proposal_id: `hub-play-${suffix}`,
+        object_type: "play",
+        title: "Review the synthetic hub evidence",
+        summary:
+          "Review the fixture evidence before preparing any later synthetic update.",
+        supporting_claim_proposal_ids: [claimLogistics],
+      },
+    );
+  }
   if (options.raw_text_suffix !== undefined) {
     input.public_sources[0].raw_text += options.raw_text_suffix;
     const contentSha256 = sha256Utf8(
@@ -171,5 +197,14 @@ export function makePipelineRevisionIntent(options: PipelineIntentOptions) {
     basis,
     review,
   );
-  return { intent, envelope, base, delta, transition, basis, review };
+  return {
+    intent,
+    envelope,
+    base,
+    delta,
+    transition,
+    applicationOptions,
+    basis,
+    review,
+  };
 }

@@ -11,6 +11,8 @@ import {
 } from "../../src/authority/strict-json.ts";
 import {
   SYNTHETIC_HUMAN_REVIEW_ASSURANCE,
+  SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_KIND,
+  SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_VERSION,
   createSyntheticHumanReviewLabVerifier,
   executeSyntheticHumanReviewLoop,
   renderSyntheticHumanReviewPendingProposal,
@@ -50,12 +52,14 @@ type Pipeline = ReturnType<typeof makePipelineRevisionIntent>;
 
 function verificationInput(
   pipeline: Pipeline,
+  fixture: TempDatabase,
   request: SyntheticHumanReviewDecisionRequest,
   authorization: string | undefined = `Bearer ${SECRET}`,
 ) {
   return {
     request,
     headers: authorization === undefined ? {} : { authorization },
+    database: databaseOptions(fixture),
     envelope: pipeline.envelope,
     delta: pipeline.delta,
     transition: pipeline.transition,
@@ -70,6 +74,20 @@ function effectInput(
   decisionArtifact: unknown,
   authContext: unknown,
 ) {
+  return effectInputWithDatabase(
+    pipeline,
+    databaseOptions(fixture),
+    decisionArtifact,
+    authContext,
+  );
+}
+
+function effectInputWithDatabase(
+  pipeline: Pipeline,
+  database: unknown,
+  decisionArtifact: unknown,
+  authContext: unknown,
+) {
   return {
     auth_context: authContext,
     decision_artifact: decisionArtifact,
@@ -78,8 +96,14 @@ function effectInput(
     transition: pipeline.transition,
     application_options: pipeline.applicationOptions,
     intent: pipeline.intent,
-    database: databaseOptions(fixture),
+    database,
   };
+}
+
+function tableCountsOrZero(path: string) {
+  return existsSync(path)
+    ? tableCounts(path)
+    : { current: 0, receipts: 0, replays: 0 };
 }
 
 function verifier(
@@ -100,13 +124,14 @@ function verifier(
 
 function verify(
   pipeline: Pipeline,
+  fixture: TempDatabase,
   clock: { now: string },
   decision: SyntheticHumanReviewDecisionRequest["decision"] =
     "accept_for_graph_candidate",
   reason = 'Store only this <synthetic & "bounded"> fixture.',
 ) {
   const result = verifySyntheticHumanReviewDecision(
-    verificationInput(pipeline, { decision, reason }),
+    verificationInput(pipeline, fixture, { decision, reason }),
     verifier(clock),
   );
   assert.equal(result.outcome, "verified");
@@ -250,7 +275,7 @@ describe("synthetic human-review loop", () => {
     assert.doesNotMatch(pendingHtml, new RegExp(SECRET));
 
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     const committed = executeSyntheticHumanReviewLoop(
       effectInput(
         pipeline,
@@ -287,11 +312,21 @@ describe("synthetic human-review loop", () => {
       object_title: '<img src=x onerror="objectAttack()">',
     });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     const artifact = verified.decision_artifact;
 
     assert.equal(artifact.decision, "accept_for_graph_candidate");
     assert.equal(artifact.assurance, "verified-local-lab-bearer-only");
+    assert.equal(
+      artifact.database_target_sha256,
+      sha256CanonicalJson({
+        kind: SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_KIND,
+        version: SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_VERSION,
+        database_path: fixture.path,
+        isolated_temporary_directory: fixture.directory,
+      }),
+    );
+    assert.match(artifact.database_target_sha256, /^[0-9a-f]{64}$/);
     assert.equal(artifact.effect_contract.lifecycle_state, "operator-armed");
     assert.equal(
       artifact.effect_contract.current_effective_authorization,
@@ -416,7 +451,12 @@ describe("synthetic human-review loop", () => {
 
     const serialized = `${JSON.stringify(verified)}\n${JSON.stringify(result)}\n${verified.html}\n${result.workshop.html}`;
     assert.doesNotMatch(serialized, new RegExp(SECRET));
-    assert.equal(readFileSync(fixture.path).includes(Buffer.from(SECRET, "utf8")), false);
+    assert.doesNotMatch(serialized, new RegExp(fixture.path));
+    assert.doesNotMatch(serialized, new RegExp(fixture.directory));
+    const sqliteBytes = readFileSync(fixture.path);
+    assert.equal(sqliteBytes.includes(Buffer.from(SECRET, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(fixture.path, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(fixture.directory, "utf8")), false);
     assertZeroEffects(verified);
     assertZeroEffects(result);
   });
@@ -425,7 +465,7 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-replay" });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     const first = executeSyntheticHumanReviewLoop(
       effectInput(pipeline, fixture, verified.decision_artifact, verified.auth_context),
     );
@@ -443,12 +483,113 @@ describe("synthetic human-review loop", () => {
     assert.deepEqual(tableCounts(fixture.path), { current: 1, receipts: 1, replays: 1 });
   });
 
+  test("one verifier-issued accepted decision is usable only at its exact disposable SQLite target", (t) => {
+    const bound = tempDatabase(t);
+    const second = tempDatabase(t);
+    const pipeline = makePipelineRevisionIntent({ variant: "human-loop-target-binding" });
+    const clock = { now: REVIEWED_AT };
+    const verified = verify(pipeline, bound, clock);
+    const secondTargetDecision = verify(pipeline, second, clock);
+    assert.notEqual(
+      secondTargetDecision.decision_artifact.database_target_sha256,
+      verified.decision_artifact.database_target_sha256,
+    );
+    assert.notEqual(
+      secondTargetDecision.decision_artifact.auth_context_id,
+      verified.decision_artifact.auth_context_id,
+    );
+    assert.notEqual(
+      secondTargetDecision.decision_artifact.decision_replay_identity,
+      verified.decision_artifact.decision_replay_identity,
+    );
+    assert.notEqual(
+      secondTargetDecision.decision_artifact.intent_sha256,
+      verified.decision_artifact.intent_sha256,
+    );
+    assert.notEqual(
+      secondTargetDecision.decision_artifact.review_handoff_sha256,
+      verified.decision_artifact.review_handoff_sha256,
+    );
+
+    const committed = executeSyntheticHumanReviewLoop(
+      effectInput(pipeline, bound, verified.decision_artifact, verified.auth_context),
+    );
+    assert.equal(committed.outcome, "committed");
+    assert.deepEqual(tableCounts(bound.path), {
+      current: 1,
+      receipts: 1,
+      replays: 1,
+    });
+
+    const crossTarget = executeSyntheticHumanReviewLoop(
+      effectInput(pipeline, second, verified.decision_artifact, verified.auth_context),
+    );
+    assert.equal(crossTarget.outcome, "refused");
+    assert.equal(crossTarget.preflight, null);
+    assert.equal(crossTarget.transaction, null);
+    assert.equal(crossTarget.readback, null);
+    assert.match(crossTarget.workshop.html, /exact-target binding/);
+    assert.equal(existsSync(second.path), false);
+    assert.deepEqual(tableCountsOrZero(second.path), {
+      current: 0,
+      receipts: 0,
+      replays: 0,
+    });
+
+    const changedPath = join(bound.directory, "different-state.sqlite");
+    const pathSubstitution = executeSyntheticHumanReviewLoop(
+      effectInputWithDatabase(
+        pipeline,
+        {
+          database_path: changedPath,
+          isolated_temporary_directory: bound.directory,
+        },
+        verified.decision_artifact,
+        verified.auth_context,
+      ),
+    );
+    assert.equal(pathSubstitution.outcome, "refused");
+    assert.equal(pathSubstitution.preflight, null);
+    assert.equal(pathSubstitution.transaction, null);
+    assert.equal(existsSync(changedPath), false);
+
+    const directorySubstitution = executeSyntheticHumanReviewLoop(
+      effectInputWithDatabase(
+        pipeline,
+        {
+          database_path: bound.path,
+          isolated_temporary_directory: second.directory,
+        },
+        verified.decision_artifact,
+        verified.auth_context,
+      ),
+    );
+    assert.equal(directorySubstitution.outcome, "refused");
+    assert.equal(directorySubstitution.preflight, null);
+    assert.equal(directorySubstitution.transaction, null);
+    assert.deepEqual(tableCounts(bound.path), {
+      current: 1,
+      receipts: 1,
+      replays: 1,
+    });
+
+    const publicSurface = `${JSON.stringify(verified)}\n${JSON.stringify(secondTargetDecision)}\n${JSON.stringify(committed)}\n${verified.html}\n${committed.workshop.html}`;
+    for (const rawPath of [bound.path, bound.directory, second.path, second.directory]) {
+      assert.equal(publicSurface.includes(rawPath), false);
+    }
+    const sqliteBytes = readFileSync(bound.path);
+    assert.equal(sqliteBytes.includes(Buffer.from(SECRET, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(bound.path, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(bound.directory, "utf8")), false);
+  });
+
   test("a different verified actor or reason cannot borrow the first durable ratification", (t) => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "decision-collision" });
     const clock = { now: REVIEWED_AT };
     const first = verify(
       pipeline,
+      fixture,
       clock,
       "accept_for_graph_candidate",
       "First actor accepts only this exact synthetic storage attempt.",
@@ -461,7 +602,7 @@ describe("synthetic human-review loop", () => {
     const secondActor = "second-reviewer-must-not-borrow";
     const secondReason = "A different reason must produce a different durable intent.";
     const second = verifySyntheticHumanReviewDecision(
-      verificationInput(pipeline, {
+      verificationInput(pipeline, fixture, {
         decision: "accept_for_graph_candidate",
         reason: secondReason,
       }),
@@ -517,12 +658,27 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-reject" });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock, "reject", "Reject this fixture.");
+    const verified = verify(
+      pipeline,
+      fixture,
+      clock,
+      "reject",
+      "Reject this fixture.",
+    );
     assert.equal(verified.decision_artifact.effect_contract.lifecycle_state, "rejected");
     assert.equal(verified.decision_artifact.effect_contract.current_effective_authorization, "none");
     assert.equal(verified.decision_artifact.transaction_intent, null);
     assert.equal(verified.decision_artifact.transaction_review_handoff, null);
     assert.equal(verified.decision_artifact.intent_sha256, null);
+    assert.match(verified.decision_artifact.database_target_sha256, /^[0-9a-f]{64}$/);
+    assert.equal(
+      JSON.stringify(verified.decision_artifact).includes(fixture.path),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(verified.decision_artifact).includes(fixture.directory),
+      false,
+    );
     const result = executeSyntheticHumanReviewLoop(
       effectInput(pipeline, fixture, verified.decision_artifact, verified.auth_context),
     );
@@ -549,6 +705,7 @@ describe("synthetic human-review loop", () => {
         {
           ...verificationInput(
             pipeline,
+            fixture,
             { decision: "accept_for_graph_candidate", reason: label },
           ),
           headers: auth === null ? {} : { authorization: auth },
@@ -561,9 +718,10 @@ describe("synthetic human-review loop", () => {
       assert.doesNotMatch(result.html, /human-ratified/);
     }
 
+    const verificationFixture = tempDatabase(t);
     const disabledClock = { now: REVIEWED_AT };
     const disabled = verifySyntheticHumanReviewDecision(
-      verificationInput(pipeline, {
+      verificationInput(pipeline, verificationFixture, {
         decision: "accept_for_graph_candidate",
         reason: "disabled",
       }),
@@ -573,7 +731,7 @@ describe("synthetic human-review loop", () => {
     if (disabled.outcome === "refused") assert.equal(disabled.reason, "disabled_local_dev");
 
     const expired = verifySyntheticHumanReviewDecision(
-      verificationInput(pipeline, {
+      verificationInput(pipeline, verificationFixture, {
         decision: "accept_for_graph_candidate",
         reason: "expired",
       }),
@@ -583,7 +741,7 @@ describe("synthetic human-review loop", () => {
     if (expired.outcome === "refused") assert.equal(expired.reason, "expired_at_verification");
 
     const notYet = verifySyntheticHumanReviewDecision(
-      verificationInput(pipeline, {
+      verificationInput(pipeline, verificationFixture, {
         decision: "accept_for_graph_candidate",
         reason: "early",
       }),
@@ -613,7 +771,7 @@ describe("synthetic human-review loop", () => {
 
     const callerAuthority = verifySyntheticHumanReviewDecision(
       {
-        ...verificationInput(pipeline, {
+        ...verificationInput(pipeline, verificationFixture, {
           decision: "accept_for_graph_candidate",
           reason: "caller authority",
         }),
@@ -634,7 +792,7 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-effect-expiry" });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     clock.now = EXPIRES_AT;
     const result = executeSyntheticHumanReviewLoop(
       effectInput(pipeline, fixture, verified.decision_artifact, verified.auth_context),
@@ -646,10 +804,40 @@ describe("synthetic human-review loop", () => {
     assert.match(result.workshop.html, /expired or was not valid at effect time/);
   });
 
+  test("effect time cannot regress before reviewed_at, while equality with reviewed_at is valid", (t) => {
+    const fixture = tempDatabase(t);
+    const pipeline = makePipelineRevisionIntent({ variant: "human-loop-effect-clock" });
+    const clock = { now: REVIEWED_AT };
+    const verified = verify(pipeline, fixture, clock);
+
+    clock.now = "2026-06-10T23:59:59.999Z";
+    const regressed = executeSyntheticHumanReviewLoop(
+      effectInput(pipeline, fixture, verified.decision_artifact, verified.auth_context),
+    );
+    assert.equal(regressed.outcome, "refused");
+    assert.equal(regressed.preflight, null);
+    assert.equal(regressed.transaction, null);
+    assert.equal(regressed.readback, null);
+    assert.equal(existsSync(fixture.path), false);
+    assert.match(regressed.workshop.html, /regressed before the verified review time/);
+
+    clock.now = REVIEWED_AT;
+    const exactReviewTime = executeSyntheticHumanReviewLoop(
+      effectInput(pipeline, fixture, verified.decision_artifact, verified.auth_context),
+    );
+    assert.equal(exactReviewTime.outcome, "committed");
+    assert.deepEqual(tableCounts(fixture.path), {
+      current: 1,
+      receipts: 1,
+      replays: 1,
+    });
+  });
+
   test("all exact decision bindings reject substitution and self-rehashed mutation before mutation", (t) => {
+    const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-bindings" });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     const mutations: readonly [string, (draft: Record<string, any>) => void][] = [
       ["team", (d) => { d.graph_identity.team_id = "team_other"; }],
       ["account", (d) => { d.graph_identity.account_id = "acc_other"; }],
@@ -675,6 +863,7 @@ describe("synthetic human-review loop", () => {
       ["quality-report", (d) => { d.quality_gate_report.metrics.total_sources += 1; }],
       ["actor", (d) => { d.verified_actor = "another-actor"; }],
       ["auth-context", (d) => { d.auth_context_id = "a".repeat(64); }],
+      ["database-target", (d) => { d.database_target_sha256 = "0".repeat(64); }],
       ["session", (d) => { d.session_id = "another-session"; }],
       ["decision", (d) => { d.decision = "reject"; }],
       ["reason", (d) => { d.reason = "substituted"; }],
@@ -685,7 +874,6 @@ describe("synthetic human-review loop", () => {
       ["decision-replay", (d) => { d.decision_replay_identity = "c".repeat(64); }],
     ];
     for (const [label, mutate] of mutations) {
-      const fixture = tempDatabase(t);
       const hostile = mutateAndRehash(verified.decision_artifact, mutate);
       const result = executeSyntheticHumanReviewLoop(
         effectInput(pipeline, fixture, hostile, verified.auth_context),
@@ -704,7 +892,7 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-hostile" });
     const clock = { now: REVIEWED_AT };
-    const verified = verify(pipeline, clock);
+    const verified = verify(pipeline, fixture, clock);
     let proxyCalls = 0;
     const hostileArtifact = new Proxy(verified.decision_artifact, {
       get() {
@@ -746,14 +934,14 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const clock = { now: REVIEWED_AT };
     const firstPipeline = makePipelineRevisionIntent({ variant: "human-loop-current" });
-    const firstVerified = verify(firstPipeline, clock);
+    const firstVerified = verify(firstPipeline, fixture, clock);
     const first = executeSyntheticHumanReviewLoop(
       effectInput(firstPipeline, fixture, firstVerified.decision_artifact, firstVerified.auth_context),
     );
     assert.equal(first.outcome, "committed");
 
     const stalePipeline = makePipelineRevisionIntent({ variant: "human-loop-stale" });
-    const staleVerified = verify(stalePipeline, clock);
+    const staleVerified = verify(stalePipeline, fixture, clock);
     const stale = executeSyntheticHumanReviewLoop(
       effectInput(stalePipeline, fixture, staleVerified.decision_artifact, staleVerified.auth_context),
     );
@@ -790,7 +978,7 @@ describe("synthetic human-review loop", () => {
     const fixture = tempDatabase(t);
     const clock = { now: REVIEWED_AT };
     const revisionOne = makePipelineRevisionIntent({ variant: "human-loop-history-1" });
-    const decisionOne = verify(revisionOne, clock);
+    const decisionOne = verify(revisionOne, fixture, clock);
     assert.equal(
       executeSyntheticHumanReviewLoop(
         effectInput(revisionOne, fixture, decisionOne.decision_artifact, decisionOne.auth_context),
@@ -803,7 +991,7 @@ describe("synthetic human-review loop", () => {
       expected_prior_revision: "rev_1",
       object_title: "LATER_STORAGE_CURRENT_MARKER",
     });
-    const decisionTwo = verify(revisionTwo, clock);
+    const decisionTwo = verify(revisionTwo, fixture, clock);
     assert.equal(
       executeSyntheticHumanReviewLoop(
         effectInput(revisionTwo, fixture, decisionTwo.decision_artifact, decisionTwo.auth_context),
@@ -818,9 +1006,29 @@ describe("synthetic human-review loop", () => {
     assert.equal(historical.workshop.storage_currentness, "historical_or_overtaken");
     assert.match(historical.workshop.html, /No human ratification, currentness, or quality result from it is attributed/);
     assert.match(historical.workshop.html, /LATER_STORAGE_CURRENT_MARKER/);
+    assert.match(historical.workshop.html, /Storage-current only · no decision attribution/);
+    assert.match(historical.workshop.html, /<h3>Evidence &amp; provenance<\/h3>/);
+    assert.match(historical.workshop.html, /Unverified proposed evidence/);
+    assert.match(historical.workshop.html, /Proposed excerpt \(pending human review\)/);
+    assert.match(historical.workshop.html, /Factual, source, and provenance verification remain pending/);
+    assert.match(historical.workshop.html, /not fact\/source or provenance verified/);
+    assert.match(historical.workshop.html, /provenance not verified/);
+    assert.match(historical.workshop.html, /Acme Robotics opens European distribution hub/);
+    assert.match(historical.workshop.html, /The hub supports same-week delivery for enterprise warehouse customers/);
     assert.doesNotMatch(historical.workshop.html, /human-ratified/);
-    assert.doesNotMatch(historical.workshop.html, /pending human review/);
+    assert.doesNotMatch(historical.workshop.html, /Human acceptance by/);
+    assert.doesNotMatch(historical.workshop.html, /Store only this/);
+    assert.doesNotMatch(historical.workshop.html, /lab-reviewer:/);
     assert.doesNotMatch(historical.workshop.html, /Borderline \(ok=false\)/);
+    assert.doesNotMatch(historical.workshop.html, /Policy\/candidate admission/);
+    assert.doesNotMatch(historical.workshop.html, /Accepted excerpts/);
+    assert.doesNotMatch(historical.workshop.html, /Decision SHA-256/);
+    assert.equal(
+      (historical.workshop.html.match(/One safe next action/g) ?? []).length,
+      1,
+    );
+    assert.match(historical.workshop.html, /overflow-wrap:anywhere/);
+    assert.match(historical.workshop.html, /@media\(max-width:560px\)/);
     assert.deepEqual(tableCounts(fixture.path), { current: 1, receipts: 2, replays: 2 });
   });
 

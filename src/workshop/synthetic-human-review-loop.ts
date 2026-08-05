@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { types as nodeUtilTypes } from "node:util";
 
 import {
@@ -67,6 +68,9 @@ export const SYNTHETIC_HUMAN_REVIEW_ASSURANCE =
 export const SYNTHETIC_HUMAN_REVIEW_DECISION_KIND =
   "atliera_synthetic_human_review_decision" as const;
 export const SYNTHETIC_HUMAN_REVIEW_DECISION_VERSION = 1 as const;
+export const SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_KIND =
+  "atliera-synthetic-human-review-disposable-sqlite-target" as const;
+export const SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_VERSION = 1 as const;
 
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const SAFE_SHA256 = /^[0-9a-f]{64}$/;
@@ -88,6 +92,7 @@ const ARTIFACT_LIMITS: StrictJsonLimits = Object.freeze({
 const ROOT_VERIFY_KEYS = [
   "request",
   "headers",
+  "database",
   "envelope",
   "delta",
   "transition",
@@ -152,6 +157,7 @@ const ARTIFACT_CORE_KEYS = [
   "verified_actor",
   "assurance",
   "auth_context_id",
+  "database_target_sha256",
   "session_id",
   "issued_at",
   "reviewed_at",
@@ -222,6 +228,7 @@ interface AuthContextState {
   readonly reviewed_at: string;
   readonly expires_at: string;
   readonly auth_context_id: string;
+  readonly database_target_sha256: string;
   readonly request: SyntheticHumanReviewDecisionRequest;
   readonly clock: () => string;
 }
@@ -255,6 +262,8 @@ export interface SyntheticHumanReviewDecisionArtifactCore {
   readonly verified_actor: string;
   readonly assurance: typeof SYNTHETIC_HUMAN_REVIEW_ASSURANCE;
   readonly auth_context_id: string;
+  /** Digest-only binding to the exact disposable SQLite target; no raw path is exposed. */
+  readonly database_target_sha256: string;
   readonly session_id: string;
   readonly issued_at: string;
   readonly reviewed_at: string;
@@ -527,11 +536,34 @@ function snapshotDatabase(
   const record = exactOwnDataObject(raw, DATABASE_REQUIRED_KEYS);
   if (
     typeof record.database_path !== "string" ||
-    typeof record.isolated_temporary_directory !== "string"
+    record.database_path === "" ||
+    record.database_path.includes("\u0000") ||
+    typeof record.isolated_temporary_directory !== "string" ||
+    record.isolated_temporary_directory === "" ||
+    record.isolated_temporary_directory.includes("\u0000")
+  ) invalidInput();
+  const databasePath = resolve(record.database_path);
+  const isolatedTemporaryDirectory = resolve(
+    record.isolated_temporary_directory,
+  );
+  if (
+    databasePath !== record.database_path ||
+    isolatedTemporaryDirectory !== record.isolated_temporary_directory
   ) invalidInput();
   return Object.freeze({
-    database_path: record.database_path,
-    isolated_temporary_directory: record.isolated_temporary_directory,
+    database_path: databasePath,
+    isolated_temporary_directory: isolatedTemporaryDirectory,
+  });
+}
+
+function databaseTargetSha256(
+  database: SyntheticHumanReviewDatabaseOptions,
+): string {
+  return sha256CanonicalJson({
+    kind: SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_KIND,
+    version: SYNTHETIC_HUMAN_REVIEW_DATABASE_TARGET_VERSION,
+    database_path: database.database_path,
+    isolated_temporary_directory: database.isolated_temporary_directory,
   });
 }
 
@@ -587,6 +619,7 @@ function contextIdentityCore(config: {
   readonly session_id: string;
   readonly issued_at: string;
   readonly expires_at: string;
+  readonly database_target_sha256: string;
 }): StrictJsonValue {
   return {
     kind: "atliera_synthetic_human_review_auth_context",
@@ -595,6 +628,7 @@ function contextIdentityCore(config: {
     session_id: config.session_id,
     issued_at: config.issued_at,
     expires_at: config.expires_at,
+    database_target_sha256: config.database_target_sha256,
   };
 }
 
@@ -676,6 +710,7 @@ function decisionReplayIdentity(
     reason: context.request.reason,
     verified_actor: context.actor_id,
     auth_context_id: context.auth_context_id,
+    database_target_sha256: context.database_target_sha256,
     session_id: context.session_id,
     issued_at: context.issued_at,
     reviewed_at: context.reviewed_at,
@@ -717,6 +752,7 @@ function buildDecisionArtifact(
     verified_actor: context.actor_id,
     assurance: context.assurance,
     auth_context_id: context.auth_context_id,
+    database_target_sha256: context.database_target_sha256,
     session_id: context.session_id,
     issued_at: context.issued_at,
     reviewed_at: context.reviewed_at,
@@ -851,6 +887,7 @@ export function verifySyntheticHumanReviewDecision(
   raw: {
     readonly request: unknown;
     readonly headers: unknown;
+    readonly database: unknown;
     readonly envelope: unknown;
     readonly delta: unknown;
     readonly transition: unknown;
@@ -867,10 +904,12 @@ export function verifySyntheticHumanReviewDecision(
   let root: Readonly<Record<(typeof ROOT_VERIFY_KEYS)[number], unknown>>;
   let request: SyntheticHumanReviewDecisionRequest;
   let headers: HttpHeadersLike;
+  let database: SyntheticHumanReviewDatabaseOptions;
   try {
     root = exactOwnDataObject(raw, ROOT_VERIFY_KEYS);
     request = snapshotRequest(root.request);
     headers = snapshotHeaders(root.headers);
+    database = snapshotDatabase(root.database);
   } catch {
     return refusedVerification("invalid_request_or_binding");
   }
@@ -906,9 +945,11 @@ export function verifySyntheticHumanReviewDecision(
   } catch {
     return refusedVerification("invalid_request_or_binding");
   }
-  const authContextId = sha256CanonicalJson(
-    contextIdentityCore(verifierState),
-  );
+  const databaseTarget = databaseTargetSha256(database);
+  const authContextId = sha256CanonicalJson(contextIdentityCore({
+    ...verifierState,
+    database_target_sha256: databaseTarget,
+  }));
   const contextState: AuthContextState = Object.freeze({
     actor_id: verifierState.actor_id,
     assurance: verifierState.assurance,
@@ -917,6 +958,7 @@ export function verifySyntheticHumanReviewDecision(
     reviewed_at: reviewedAt,
     expires_at: verifierState.expires_at,
     auth_context_id: authContextId,
+    database_target_sha256: databaseTarget,
     request,
     clock: verifierState.clock,
   });
@@ -972,7 +1014,7 @@ function workshopLanes(
 
 function workshopEvidence(
   viewModel: WorkshopViewModel,
-  state: "pending" | "ratified-current",
+  state: WorkshopContentState,
 ): string {
   const packets = [
     ...viewModel.lenses.maps,
@@ -982,10 +1024,13 @@ function workshopEvidence(
   if (packets.length === 0) {
     return "<section><h3>Evidence &amp; provenance</h3><p>No bounded proposed evidence packet is available.</p></section>";
   }
-  const excerptLabel = state === "pending"
-    ? "Proposed excerpt (pending human review)"
-    : "Proposed excerpt · pending human review";
-  return `<section><h3>Evidence &amp; provenance</h3><p>Proposed evidence remains pending human review and is not fact/source verified.</p><ul>${packets.map((packet) => `<li><strong>${escapeHtml(packet.claim.text)}</strong><br />${escapeHtml(packet.excerpt.text)}<br /><small>${escapeHtml(packet.source.title)} · ${escapeHtml(excerptLabel)} · provenance not verified</small></li>`).join("")}</ul></section>`;
+  const excerptLabel = state === "ratified-current"
+    ? "Proposed excerpt · pending human review"
+    : "Proposed excerpt (pending human review)";
+  const truth = state === "storage-only"
+    ? "<strong>Unverified proposed evidence.</strong> The later storage-current proposal has no decision attribution. Factual, source, and provenance verification remain pending; it is not fact/source or provenance verified."
+    : "Proposed evidence remains pending human review and is not fact/source verified.";
+  return `<section><h3>Evidence &amp; provenance</h3><p>${truth}</p><ul>${packets.map((packet) => `<li><strong>${escapeHtml(packet.claim.text)}</strong><br />${escapeHtml(packet.excerpt.text)}<br /><small>${escapeHtml(packet.source.title)} · ${escapeHtml(excerptLabel)} · provenance not verified</small></li>`).join("")}</ul></section>`;
 }
 
 /**
@@ -1102,7 +1147,7 @@ function acceptedWorkshop(
       view_model: viewModel,
       html: basePage(
         "Historical accepted decision",
-        `<p>This earlier synthetic decision is not the storage-current revision. No human ratification, currentness, or quality result from it is attributed to the later state.</p>${workshopLanes(viewModel, "storage-only")}`,
+        `<p>This earlier synthetic decision is not the storage-current revision. No human ratification, currentness, or quality result from it is attributed to the later state.</p>${workshopLanes(viewModel, "storage-only")}${workshopEvidence(viewModel, "storage-only")}`,
         "Review the later storage-current proposal on its own evidence and decision bindings.",
       ),
     });
@@ -1228,6 +1273,7 @@ export function executeSyntheticHumanReviewLoop(
   const effectTimeMs = new Date(effectTime).getTime();
   if (
     effectTimeMs < new Date(contextState.issued_at).getTime() ||
+    effectTimeMs < new Date(contextState.reviewed_at).getTime() ||
     effectTimeMs >= new Date(contextState.expires_at).getTime()
   ) {
     return loopResult({
@@ -1238,15 +1284,35 @@ export function executeSyntheticHumanReviewLoop(
       readback: null,
       workshop: terminalWorkshop(
         "refused",
-        "The verifier-issued lab auth context expired or was not valid at effect time.",
+        "The verifier-issued lab auth context expired or was not valid at effect time, including when the trusted clock regressed before the verified review time.",
         "Verify a new decision in a currently valid lab session.",
+      ),
+    });
+  }
+  let database: SyntheticHumanReviewDatabaseOptions;
+  try {
+    database = snapshotDatabase(root.database);
+    if (
+      databaseTargetSha256(database) !==
+      contextState.database_target_sha256
+    ) invalidInput();
+  } catch {
+    return loopResult({
+      outcome: "refused",
+      decision_artifact: null,
+      preflight: null,
+      transaction: null,
+      readback: null,
+      workshop: terminalWorkshop(
+        "refused",
+        "The disposable SQLite target did not match the verifier-issued exact-target binding.",
+        "Verify a new decision for this exact disposable SQLite target.",
       ),
     });
   }
   let pipeline: HydratedPipeline;
   let artifactSnapshot: StrictJsonValue;
   let expectedArtifact: SyntheticHumanReviewDecisionArtifact;
-  let database: SyntheticHumanReviewDatabaseOptions;
   try {
     pipeline = hydratePipeline({
       envelope: root.envelope,
@@ -1261,7 +1327,6 @@ export function executeSyntheticHumanReviewLoop(
       canonicalJson(artifactSnapshot) !==
       canonicalJson(expectedArtifact as unknown as StrictJsonValue)
     ) invalidInput();
-    database = snapshotDatabase(root.database);
   } catch {
     return loopResult({
       outcome: "refused",
@@ -1271,7 +1336,7 @@ export function executeSyntheticHumanReviewLoop(
       readback: null,
       workshop: terminalWorkshop(
         "refused",
-        "The decision or one of its exact proposal, quality, identity, predecessor, timestamp, or replay bindings did not match.",
+        "The decision or one of its exact proposal, quality, identity, predecessor, timestamp, target, or replay bindings did not match.",
         "Rehydrate the fixture chain and verify a new exact decision.",
       ),
     });

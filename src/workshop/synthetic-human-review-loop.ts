@@ -1,3 +1,4 @@
+import { lstatSync } from "node:fs";
 import { resolve } from "node:path";
 import { types as nodeUtilTypes } from "node:util";
 
@@ -390,6 +391,24 @@ export interface SyntheticHumanReviewLoopResult {
 
 const verifierStates = new WeakMap<object, SyntheticHumanReviewLabVerifierConfig>();
 const authContextStates = new WeakMap<object, AuthContextState>();
+
+interface DurableTargetFileIdentity {
+  readonly device: bigint;
+  readonly inode: bigint;
+  readonly birthtime_nanoseconds: bigint;
+}
+
+type AuthContextAttemptState =
+  | { readonly status: "ready" }
+  | { readonly status: "spent" }
+  | {
+      readonly status: "successful";
+      readonly target_file_identity: DurableTargetFileIdentity;
+    };
+
+const READY_ATTEMPT: AuthContextAttemptState = Object.freeze({ status: "ready" });
+const SPENT_ATTEMPT: AuthContextAttemptState = Object.freeze({ status: "spent" });
+const authContextAttemptStates = new WeakMap<object, AuthContextAttemptState>();
 
 function zeroCounters(): SyntheticHumanReviewZeroEffectCounters {
   return Object.freeze({
@@ -828,7 +847,7 @@ function verificationPage(
 }
 
 function basePage(title: string, body: string, nextAction: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Atliera Workshop — ${escapeHtml(title)}</title><style>:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color-scheme:dark;background:#090b12;color:#edf2ff}html,body{max-width:100%;overflow-x:hidden}body{margin:0}main{box-sizing:border-box;max-width:960px;margin:auto;padding:24px 16px;overflow-wrap:anywhere}.boundary,section{box-sizing:border-box;min-width:0;max-width:100%;border:1px solid #34415e;border-radius:14px;background:#101728;padding:16px;margin:12px 0}.boundary{border-color:#a16207;background:#2b1d08}.next{border-color:#15803d}.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.lanes section{margin:0}ul{padding-left:20px}small{color:#b8c3dc}@media(max-width:720px){.lanes{grid-template-columns:1fr}}@media(max-width:560px){main{padding:14px 10px}}</style></head><body><main><div class="boundary">Synthetic fixture · disposable lab SQLite · non-production<br />Verified local lab bearer only; no production identity or authentication claim.</div><h1>Atliera Workshop</h1><section><h2>${escapeHtml(title)}</h2>${body}</section><section class="next"><h2>One safe next action</h2><p>${escapeHtml(nextAction)}</p></section><small>Provider calls 0 · MCP 0 · product/network operations 0 · production effects 0</small></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Atliera Workshop — ${escapeHtml(title)}</title><style>:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color-scheme:dark;background:#090b12;color:#edf2ff}html,body{max-width:100%;overflow-x:hidden}body{margin:0}main{box-sizing:border-box;max-width:960px;margin:auto;padding:24px 16px;overflow-wrap:anywhere}.boundary,section{box-sizing:border-box;min-width:0;max-width:100%;border:1px solid #34415e;border-radius:14px;background:#101728;padding:16px;margin:12px 0}.boundary{border-color:#a16207;background:#2b1d08}.next{border-color:#15803d}.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.lanes section{margin:0}ul{padding-left:20px}small{color:#b8c3dc}@media(max-width:720px){.lanes{grid-template-columns:1fr}}@media(max-width:560px){main{padding:14px 10px}}</style></head><body><main><div class="boundary">Synthetic fixture · disposable lab SQLite · non-production<br />Verified local lab bearer only; no production identity or authentication claim.</div><h1>Atliera Workshop</h1><h2>${escapeHtml(title)}</h2><section class="next"><h2>One safe next action</h2><p>${escapeHtml(nextAction)}</p></section><section class="detail">${body}</section><small>Provider calls 0 · MCP 0 · product/network operations 0 · production effects 0</small></main></body></html>`;
 }
 
 function refusedVerification(
@@ -970,6 +989,7 @@ export function verifySyntheticHumanReviewDecision(
     return refusedVerification("invalid_request_or_binding");
   }
   authContextStates.set(context, contextState);
+  authContextAttemptStates.set(context, READY_ATTEMPT);
   return deepFreezeOwnData({
     outcome: "verified" as const,
     verified: true as const,
@@ -1097,6 +1117,42 @@ export function renderSyntheticHumanReviewPendingProposal(
   });
 }
 
+function exactDecisionBoundReadback(
+  artifact: SyntheticHumanReviewDecisionArtifact,
+  readback: SubjectGraphRevisionReadResult,
+): boolean {
+  return readback.outcome === "found" &&
+    readback.state.intent_sha256 === artifact.intent_sha256 &&
+    readback.state.snapshot_sha256 === artifact.candidate_sha256 &&
+    readback.receipt.replay_key === artifact.transaction_replay_key &&
+    readback.receipt.review_handoff_sha256 === artifact.review_handoff_sha256;
+}
+
+function durableTargetFileIdentity(
+  database: SyntheticHumanReviewDatabaseOptions,
+): DurableTargetFileIdentity | null {
+  try {
+    const stats = lstatSync(database.database_path, { bigint: true });
+    if (!stats.isFile()) return null;
+    return Object.freeze({
+      device: stats.dev,
+      inode: stats.ino,
+      birthtime_nanoseconds: stats.birthtimeNs,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function sameDurableTargetFile(
+  left: DurableTargetFileIdentity,
+  right: DurableTargetFileIdentity,
+): boolean {
+  return left.device === right.device &&
+    left.inode === right.inode &&
+    left.birthtime_nanoseconds === right.birthtime_nanoseconds;
+}
+
 function acceptedWorkshop(
   artifact: SyntheticHumanReviewDecisionArtifact,
   proof: SyntheticTransactionWorkshopProof,
@@ -1116,11 +1172,8 @@ function acceptedWorkshop(
     proof.transaction.outcome === "committed" ||
     proof.transaction.outcome === "already_committed";
   const readFound = proof.readback.outcome === "found";
-  const exactCurrent = successful && readFound &&
-    proof.readback.state.intent_sha256 === artifact.intent_sha256 &&
-    proof.readback.state.snapshot_sha256 === artifact.candidate_sha256 &&
-    proof.readback.receipt.replay_key === artifact.transaction_replay_key &&
-    proof.readback.receipt.review_handoff_sha256 === artifact.review_handoff_sha256;
+  const exactCurrent = successful &&
+    exactDecisionBoundReadback(artifact, proof.readback);
   const historical = successful && readFound && !exactCurrent;
   if (viewModel === null || (!exactCurrent && !historical && outcome !== "conflicted")) {
     const committedUncertain =
@@ -1372,6 +1425,30 @@ export function executeSyntheticHumanReviewLoop(
     });
   }
 
+  const context = root.auth_context as object;
+  const attemptState = authContextAttemptStates.get(context);
+  if (attemptState === undefined || attemptState.status === "spent") {
+    return loopResult({
+      outcome: "refused",
+      decision_artifact: expectedArtifact,
+      preflight: null,
+      transaction: null,
+      readback: null,
+      workshop: terminalWorkshop(
+        "refused",
+        "This accepted local-lab auth context has already reached a terminal zero-retry outcome and cannot open another preflight or transaction attempt.",
+        "Verify a new exact accepted decision before any repaired disposable-database attempt.",
+      ),
+    });
+  }
+  const priorSuccessfulTarget = attemptState.status === "successful"
+    ? attemptState.target_file_identity
+    : null;
+  // Atomically spend the process-local authorization before the first
+  // potentially terminal read. Only a proven commit or exact durable replay
+  // transitions it back to the successful replayable state.
+  authContextAttemptStates.set(context, SPENT_ATTEMPT);
+
   const preflightProof = preflightSyntheticTransactionWorkshopRead({
     graph_identity: transactionIntent.graph_identity,
     database,
@@ -1382,6 +1459,28 @@ export function executeSyntheticHumanReviewLoop(
   // proceed only when the path still does not exist. Any existing unreadable,
   // malformed, busy, or corrupt database fails closed before consume().
   const absentBootstrap = preflightProof.absent_disposable_database;
+  if (priorSuccessfulTarget !== null) {
+    const currentTarget = preflight.outcome === "found"
+      ? durableTargetFileIdentity(database)
+      : null;
+    if (
+      currentTarget === null ||
+      !sameDurableTargetFile(priorSuccessfulTarget, currentTarget)
+    ) {
+      return loopResult({
+        outcome: "refused",
+        decision_artifact: expectedArtifact,
+        preflight,
+        transaction: null,
+        readback: null,
+        workshop: terminalWorkshop(
+          "refused",
+          "The successful decision can replay only against its same still-existing disposable SQLite file; an absent, recreated, or unreadable target cannot bootstrap another commit.",
+          "Verify a new exact accepted decision for the repaired disposable target.",
+        ),
+      });
+    }
+  }
   if (
     preflight.outcome === "refused" ||
     (preflight.outcome === "dependency_failed" && !absentBootstrap)
@@ -1409,6 +1508,18 @@ export function executeSyntheticHumanReviewLoop(
     database,
   });
   const outcome: SyntheticHumanReviewLoopOutcome = proof.transaction.outcome;
+  const exactAlreadyCommitted =
+    proof.transaction.outcome === "already_committed" &&
+    exactDecisionBoundReadback(expectedArtifact, proof.readback);
+  if (proof.transaction.outcome === "committed" || exactAlreadyCommitted) {
+    const targetFileIdentity = durableTargetFileIdentity(database);
+    if (targetFileIdentity !== null) {
+      authContextAttemptStates.set(context, Object.freeze({
+        status: "successful" as const,
+        target_file_identity: targetFileIdentity,
+      }));
+    }
+  }
   return loopResult({
     outcome,
     decision_artifact: expectedArtifact,

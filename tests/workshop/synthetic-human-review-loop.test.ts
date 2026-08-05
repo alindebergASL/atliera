@@ -195,6 +195,26 @@ function assertZeroEffects(value: {
   });
 }
 
+function assertSingleEarlySafeAction(
+  html: string,
+  detailMarkers: readonly string[],
+): void {
+  const heading = "<h2>One safe next action</h2>";
+  const actionIndex = html.indexOf(heading);
+  assert.notEqual(actionIndex, -1);
+  assert.equal((html.match(/<h2>One safe next action<\/h2>/g) ?? []).length, 1);
+  assert.ok(html.indexOf("<div class=\"boundary\">") < actionIndex);
+  assert.ok(html.indexOf("<h1>Atliera Workshop</h1>") < actionIndex);
+  assert.ok(html.indexOf("<h2>") < actionIndex);
+  assert.ok(html.indexOf("<section class=\"detail\">") > actionIndex);
+  for (const marker of detailMarkers) {
+    const detailIndex = html.indexOf(marker);
+    assert.notEqual(detailIndex, -1, marker);
+    assert.ok(actionIndex < detailIndex, marker);
+  }
+  assert.doesNotMatch(html, /<(?:a\b|form\b|script\b)/i);
+}
+
 describe("synthetic human-review loop", () => {
   test("renders the zero-effect pending proposal before verified acceptance and exact-current ratified read-back", (t) => {
     const fixture = tempDatabase(t);
@@ -245,6 +265,12 @@ describe("synthetic human-review loop", () => {
     assert.equal(Object.isFrozen(pending.quality_gate_report), true);
 
     const pendingHtml = pending.workshop.html;
+    assertSingleEarlySafeAction(pendingHtml, [
+      "<h3>Maps</h3>",
+      "<h3>Signals</h3>",
+      "<h3>Plays</h3>",
+      "<h3>Evidence &amp; provenance</h3>",
+    ]);
     assert.match(pendingHtml, /<strong>Unverified<\/strong>/);
     assert.match(pendingHtml, /Model-proposed · pending human review/);
     assert.match(pendingHtml, /Proposed excerpt \(pending human review\)/);
@@ -432,6 +458,12 @@ describe("synthetic human-review loop", () => {
     assert.match(result.workshop.html, /Store only this &lt;synthetic &amp; &quot;bounded&quot;&gt; fixture/);
     assert.doesNotMatch(result.workshop.html, /<img src=x onerror="objectAttack\(\)">/);
     assert.match(result.workshop.html, /One safe next action/);
+    assertSingleEarlySafeAction(result.workshop.html, [
+      "<h3>Maps</h3>",
+      "<h3>Signals</h3>",
+      "<h3>Plays</h3>",
+      "<h3>Evidence &amp; provenance</h3>",
+    ]);
     assert.match(result.workshop.html, /overflow-wrap:anywhere/);
     assert.match(result.workshop.html, /@media\(max-width:560px\)/);
     assert.equal(Object.isFrozen(result), true);
@@ -930,7 +962,7 @@ describe("synthetic human-review loop", () => {
     assert.equal(existsSync(fixture.path), false);
   });
 
-  test("stale predecessor conflicts and corrupt preflight read-back creates no new revision", (t) => {
+  test("a predecessor conflict spends the zero-retry context before any repaired-target reuse", (t) => {
     const fixture = tempDatabase(t);
     const clock = { now: REVIEWED_AT };
     const firstPipeline = makePipelineRevisionIntent({ variant: "human-loop-current" });
@@ -952,6 +984,47 @@ describe("synthetic human-review loop", () => {
     assert.doesNotMatch(stale.workshop.html, /Quality result/);
     assert.deepEqual(tableCounts(fixture.path), { current: 1, receipts: 1, replays: 1 });
 
+    rmSync(fixture.path);
+    const repairedDecision = verify(firstPipeline, fixture, clock);
+    const repaired = executeSyntheticHumanReviewLoop(
+      effectInput(
+        firstPipeline,
+        fixture,
+        repairedDecision.decision_artifact,
+        repairedDecision.auth_context,
+      ),
+    );
+    assert.equal(repaired.outcome, "committed");
+    const beforeReuse = tableCounts(fixture.path);
+
+    const staleReuse = executeSyntheticHumanReviewLoop(
+      effectInput(
+        stalePipeline,
+        fixture,
+        staleVerified.decision_artifact,
+        staleVerified.auth_context,
+      ),
+    );
+    assert.equal(staleReuse.outcome, "refused");
+    assert.equal(staleReuse.preflight, null);
+    assert.equal(staleReuse.transaction, null);
+    assert.equal(staleReuse.readback, null);
+    assert.match(staleReuse.workshop.html, /terminal zero-retry outcome/);
+    assert.deepEqual(tableCounts(fixture.path), beforeReuse);
+  });
+
+  test("corrupt preflight spends its context; repair requires a newly verified decision", (t) => {
+    const fixture = tempDatabase(t);
+    const clock = { now: REVIEWED_AT };
+    const pipeline = makePipelineRevisionIntent({ variant: "human-loop-corrupt-spend" });
+    const initial = verify(pipeline, fixture, clock);
+    assert.equal(
+      executeSyntheticHumanReviewLoop(
+        effectInput(pipeline, fixture, initial.decision_artifact, initial.auth_context),
+      ).outcome,
+      "committed",
+    );
+
     const db = new DatabaseSync(fixture.path, {
       allowExtension: false,
       enableForeignKeyConstraints: true,
@@ -961,9 +1034,15 @@ describe("synthetic human-review loop", () => {
     } finally {
       db.close();
     }
+    const corruptDecision = verify(pipeline, fixture, clock);
     const before = tableCounts(fixture.path);
     const corruptPreflight = executeSyntheticHumanReviewLoop(
-      effectInput(firstPipeline, fixture, firstVerified.decision_artifact, firstVerified.auth_context),
+      effectInput(
+        pipeline,
+        fixture,
+        corruptDecision.decision_artifact,
+        corruptDecision.auth_context,
+      ),
     );
     assert.equal(corruptPreflight.outcome, "dependency_failed");
     assert.equal(corruptPreflight.preflight?.outcome, "dependency_failed");
@@ -972,6 +1051,133 @@ describe("synthetic human-review loop", () => {
     assert.match(corruptPreflight.workshop.html, /transaction was not attempted/);
     assert.doesNotMatch(corruptPreflight.workshop.html, /human-ratified/);
     assert.deepEqual(tableCounts(fixture.path), before);
+
+    rmSync(fixture.path);
+    const spentReuse = executeSyntheticHumanReviewLoop(
+      effectInput(
+        pipeline,
+        fixture,
+        corruptDecision.decision_artifact,
+        corruptDecision.auth_context,
+      ),
+    );
+    assert.equal(spentReuse.outcome, "refused");
+    assert.equal(spentReuse.preflight, null);
+    assert.equal(spentReuse.transaction, null);
+    assert.equal(spentReuse.readback, null);
+    assert.equal(existsSync(fixture.path), false);
+    assert.match(spentReuse.workshop.html, /terminal zero-retry outcome/);
+
+    const newDecision = verify(pipeline, fixture, clock);
+    assert.notEqual(newDecision.auth_context, corruptDecision.auth_context);
+    const recovered = executeSyntheticHumanReviewLoop(
+      effectInput(
+        pipeline,
+        fixture,
+        newDecision.decision_artifact,
+        newDecision.auth_context,
+      ),
+    );
+    assert.equal(recovered.outcome, "committed");
+    assert.deepEqual(tableCounts(fixture.path), {
+      current: 1,
+      receipts: 1,
+      replays: 1,
+    });
+
+    const publicSurface = JSON.stringify({
+      corruptDecision,
+      corruptPreflight,
+      spentReuse,
+      newDecision,
+      recovered,
+    });
+    assert.equal(publicSurface.includes(SECRET), false);
+    assert.equal(publicSurface.includes(fixture.path), false);
+    assert.equal(publicSurface.includes(fixture.directory), false);
+    assert.doesNotMatch(publicSurface, /attempt_state|target_file_identity|birthtime_nanoseconds/);
+    const sqliteBytes = readFileSync(fixture.path);
+    assert.equal(sqliteBytes.includes(Buffer.from(SECRET, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(fixture.path, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from(fixture.directory, "utf8")), false);
+    assert.equal(sqliteBytes.includes(Buffer.from("target_file_identity", "utf8")), false);
+  });
+
+  test("a successful context cannot bootstrap again after its target is deleted or recreated", (t) => {
+    const fixture = tempDatabase(t);
+    const clock = { now: REVIEWED_AT };
+    const pipeline = makePipelineRevisionIntent({ variant: "human-loop-success-delete" });
+    const successfulDecision = verify(pipeline, fixture, clock);
+    assert.equal(
+      executeSyntheticHumanReviewLoop(
+        effectInput(
+          pipeline,
+          fixture,
+          successfulDecision.decision_artifact,
+          successfulDecision.auth_context,
+        ),
+      ).outcome,
+      "committed",
+    );
+
+    rmSync(fixture.path);
+    const deletedTargetReplay = executeSyntheticHumanReviewLoop(
+      effectInput(
+        pipeline,
+        fixture,
+        successfulDecision.decision_artifact,
+        successfulDecision.auth_context,
+      ),
+    );
+    assert.equal(deletedTargetReplay.outcome, "refused");
+    assert.equal(deletedTargetReplay.transaction, null);
+    assert.equal(existsSync(fixture.path), false);
+    assert.match(deletedTargetReplay.workshop.html, /cannot bootstrap another commit/);
+
+    const recreatedFixture = tempDatabase(t);
+    const recreatedPipeline = makePipelineRevisionIntent({
+      variant: "success-recreated",
+    });
+    const originalDecision = verify(recreatedPipeline, recreatedFixture, clock);
+    assert.equal(
+      executeSyntheticHumanReviewLoop(
+        effectInput(
+          recreatedPipeline,
+          recreatedFixture,
+          originalDecision.decision_artifact,
+          originalDecision.auth_context,
+        ),
+      ).outcome,
+      "committed",
+    );
+    rmSync(recreatedFixture.path);
+
+    const replacementDecision = verify(recreatedPipeline, recreatedFixture, clock);
+    assert.equal(
+      executeSyntheticHumanReviewLoop(
+        effectInput(
+          recreatedPipeline,
+          recreatedFixture,
+          replacementDecision.decision_artifact,
+          replacementDecision.auth_context,
+        ),
+      ).outcome,
+      "committed",
+    );
+    const replacementCounts = tableCounts(recreatedFixture.path);
+    const recreatedTargetReuse = executeSyntheticHumanReviewLoop(
+      effectInput(
+        recreatedPipeline,
+        recreatedFixture,
+        originalDecision.decision_artifact,
+        originalDecision.auth_context,
+      ),
+    );
+    assert.equal(recreatedTargetReuse.outcome, "refused");
+    assert.equal(recreatedTargetReuse.preflight?.outcome, "found");
+    assert.equal(recreatedTargetReuse.transaction, null);
+    assert.match(recreatedTargetReuse.workshop.html, /absent, recreated, or unreadable target/);
+    assert.deepEqual(tableCounts(recreatedFixture.path), replacementCounts);
   });
 
   test("historical replay beside a later current revision borrows no approval, currentness, or quality", (t) => {
@@ -1027,6 +1233,12 @@ describe("synthetic human-review loop", () => {
       (historical.workshop.html.match(/One safe next action/g) ?? []).length,
       1,
     );
+    assertSingleEarlySafeAction(historical.workshop.html, [
+      "<h3>Maps</h3>",
+      "<h3>Signals</h3>",
+      "<h3>Plays</h3>",
+      "<h3>Evidence &amp; provenance</h3>",
+    ]);
     assert.match(historical.workshop.html, /overflow-wrap:anywhere/);
     assert.match(historical.workshop.html, /@media\(max-width:560px\)/);
     assert.deepEqual(tableCounts(fixture.path), { current: 1, receipts: 2, replays: 2 });

@@ -42,6 +42,8 @@ At effect time, the supplied database options are snapshotted once and their tar
 
 The existing intent, review handoff, disposable permit, and PR #303 receipt remain truthfully non-authorizing: their `authenticated_human_approval` and `ratification` claims remain false. The opaque verified decision is a separate lab effect gate. Acceptance means human ratification of this exact synthetic proposal for one disposable durable-storage attempt only. It does not mean a quality pass, factual or source verification, production approval, or permission for another effect.
 
+The opaque auth context also keys a module-private, process-local attempt state. A verified accepted context begins ready and is synchronously marked spent before its first preflight. A terminal preflight failure or any transaction result other than `committed` or an exact `already_committed` durable replay leaves it spent, so reuse is refused before another preflight even after repair. A successful result records the already-guarded disposable file's process-local device/inode/birthtime identity. That context may perform exact durable replay while the same file still exists—including truthful historical/overtaken read-back after a later revision—but it cannot bootstrap against an absent or recreated file. A new verifier-issued context is required after failure or replacement. This state is neither an approval store nor a replay namespace and is not serialized into artifacts, HTML, or SQLite.
+
 ## Transaction and presentation truth
 
 The bounded fixture is required to remain `Borderline`, with `quality_gate.ok=false`, zero accepted excerpts, accepted-excerpt rate `0`, and threshold `0.5`.
@@ -50,22 +52,23 @@ The bounded fixture is required to remain `Borderline`, with `quality_gate.ok=fa
 | --- | --- | --- |
 | Pending proposal | No auth, database, permit, transaction, or effect | Shows `Unverified`, `Model-proposed · pending human review`, all proposal lanes, and proposed evidence without storage-current or ratification claims |
 | Exact accept | One PR #303 consume; PR #304 creates a new adapter/read-only connection for restart read-back | Shows `Model-proposed · human-ratified · evidence pending` only when current storage is exactly bound to the decision |
-| Exact replay | Existing durable replay returns `already_committed`; no second revision | Says no second write or graph revision |
+| Exact replay | Existing durable replay on the same still-existing disposable file returns `already_committed`; no second revision | Says no second write or graph revision |
 | Reject | No preflight, consume, intent consumption, or graph revision | Claims neither ratification nor durable application |
 | Auth refusal/expiry/forgery | No database or graph open | Claims neither ratification nor durable application |
 | Target mismatch or regressed effect clock | Refused before preflight; no database creation or consume | Claims neither ratification nor durable application and exposes no raw database path |
-| Conflict | Stale revision/digest returns conflict; no new revision | Does not lend the decision's ratification or quality result to storage-current state |
-| Corrupt existing preflight | Fresh read fails before `consume` | Dependency failure; no current approval claim |
+| Conflict | Stale revision/digest returns conflict; no new revision; context is terminally spent | Does not lend the decision's ratification or quality result to storage-current state; retry requires a new decision |
+| Corrupt existing preflight | Fresh read fails before `consume`; context is terminally spent | Dependency failure; no current approval claim; repaired-target reuse requires a new decision |
+| Successful target absent/recreated | Refused without bootstrap or transaction; successful context becomes terminally spent | Claims no new application or replay |
 | Post-commit read uncertainty | Preserves the transaction's committed/indeterminate truth | Does not misstate this as no commit and renders no ratified/current content |
 | Historical/overtaken | Earlier replay receipt remains valid while a later revision is current | Later storage-current lanes remain storage-only/no-decision-attribution and expose their own unverified proposed evidence as pending human review; they receive no borrowed ratification, currentness, quality, actor, or reason |
 
 Only after the non-regressing clock and exact-target digest checks does the accepted effect use a fresh PR #303 adapter for a read-only preflight. A brand-new guarded disposable path has no SQLite file yet, so the read-only adapter reports an open dependency failure; bootstrap may continue only if that path still does not exist. If a database file exists, any refused, busy, malformed, unreadable, or corrupt preflight blocks `consume`. The transaction adapter repeats its own disposable-path guard and durable validation at the effect boundary.
 
-All Workshop HTML escapes actor, reason, identifiers, and graph content; uses responsive wrapping without horizontal overflow; presents exactly one safe next action; and reports provider calls `0`, MCP invocations `0`, product/network operations `0`, and production effects `0`. No bearer token, token hash, secret, or credential material is copied into artifacts, results, HTML, SQLite values, logs, or error messages.
+All Workshop HTML escapes actor, reason, identifiers, and graph content; uses responsive wrapping without horizontal overflow; and reports provider calls `0`, MCP invocations `0`, product/network operations `0`, and production effects `0`. The shared page composition presents exactly one safe next action immediately after the boundary, Workshop heading, and state title, before detailed truth, lanes, or evidence, so the action is rapidly comprehensible on desktop and mobile. It creates no active link, form, or script. No bearer token, token hash, secret, credential material, raw database path, or process-local attempt state is copied into artifacts, results, HTML, SQLite values, logs, or error messages.
 
 ## Deliberate limitations
 
-This is a synthetic fixture proof only. The in-memory opaque context registry does not survive process restart; durable identity/session infrastructure is intentionally not chosen. There is no production authentication, authorization service, approval workflow, approval store, new replay table, retry service, network call, provider call, or production graph effect. A production design requires a separate reviewed decision about identity, session durability, revocation, audit retention, and backend ownership.
+This is a synthetic fixture proof only. The in-memory opaque context and attempt-state registries do not survive process restart; durable identity/session infrastructure is intentionally not chosen. There is no production authentication, authorization service, approval workflow, approval store, new replay table, retry service, network call, provider call, or production graph effect. A production design requires a separate reviewed decision about identity, session durability, revocation, audit retention, and backend ownership.
 
 ## Frozen M5b and operator-arming reconciliation
 

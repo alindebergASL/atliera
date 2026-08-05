@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { types as nodeUtilTypes } from "node:util";
 
 import {
@@ -35,6 +36,11 @@ import {
 } from "./view-model.ts";
 import { WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT } from "./render-html.ts";
 
+export type {
+  SubjectGraphRevisionReadResult,
+  SubjectGraphRevisionTransactionResult,
+} from "../graph/subject-graph-revision-transaction.ts";
+
 export type SyntheticTransactionWorkshopState =
   | "committed"
   | "already committed"
@@ -67,6 +73,16 @@ export interface ExecuteSyntheticTransactionWorkshopProofInput {
   readonly database: DisposableSqliteSubjectGraphRevisionTransactionOptions;
 }
 
+export interface SyntheticTransactionWorkshopReadPreflight {
+  readonly readback: SubjectGraphRevisionReadResult;
+  /**
+   * The guarded read-only adapter cannot open a database that does not exist.
+   * This distinguishes that bootstrap condition from an existing unreadable
+   * or corrupt durable dependency without creating schema or graph state.
+   */
+  readonly absent_disposable_database: boolean;
+}
+
 interface ProjectionAttemptContext {
   readonly transition: CandidateTransition;
   readonly intent: SubjectGraphRevisionIntent;
@@ -85,6 +101,7 @@ const PROOF_DATABASE_REQUIRED_KEYS = [
   "isolated_temporary_directory",
 ] as const;
 const PROOF_DATABASE_OPTIONAL_KEY = "test_only_fault_plan" as const;
+const READ_PREFLIGHT_KEYS = ["graph_identity", "database"] as const;
 
 function invalidProofInput(): never {
   throw new TypeError("Invalid synthetic transaction Workshop proof input");
@@ -200,6 +217,36 @@ function snapshotProofDatabase(
             DisposableSqliteSubjectGraphRevisionTransactionOptions["test_only_fault_plan"],
         }
       : {}),
+  });
+}
+
+/**
+ * Fresh read-only PR #303 preflight for bounded lab compositions. Adapter and
+ * path-guard ownership remain encapsulated in this PR #304 module.
+ */
+export function preflightSyntheticTransactionWorkshopRead(
+  raw: {
+    readonly graph_identity: unknown;
+    readonly database: unknown;
+  },
+): SyntheticTransactionWorkshopReadPreflight {
+  const input = snapshotExactOwnDataObject(raw, READ_PREFLIGHT_KEYS);
+  const database = snapshotProofDatabase(input.database);
+  const permit = createDisposableSqliteSubjectGraphRevisionLabPermit();
+  const freshReadAdapter = new DisposableSqliteSubjectGraphRevisionTransaction({
+    database_path: database.database_path,
+    isolated_temporary_directory: database.isolated_temporary_directory,
+  });
+  const readback = freshReadAdapter.readCurrent(input.graph_identity, permit);
+  // readCurrent returns `refused` before this point for an unsafe path. Only a
+  // path that passed the adapter guard can reach this absent-bootstrap probe.
+  const absentDisposableDatabase =
+    readback.outcome === "dependency_failed" &&
+    readback.failure_code === "transaction_failed" &&
+    !existsSync(database.database_path);
+  return Object.freeze({
+    readback,
+    absent_disposable_database: absentDisposableDatabase,
   });
 }
 

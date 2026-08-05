@@ -1242,6 +1242,44 @@ describe("synthetic human-review loop", () => {
     assert.match(historical.workshop.html, /overflow-wrap:anywhere/);
     assert.match(historical.workshop.html, /@media\(max-width:560px\)/);
     assert.deepEqual(tableCounts(fixture.path), { current: 1, receipts: 2, replays: 2 });
+
+    const repeatedHistorical = executeSyntheticHumanReviewLoop(
+      effectInput(
+        revisionOne,
+        fixture,
+        decisionOne.decision_artifact,
+        decisionOne.auth_context,
+      ),
+    );
+    assert.equal(repeatedHistorical.outcome, "already_committed");
+    assert.equal(repeatedHistorical.transaction?.outcome, "already_committed");
+    assert.equal(
+      repeatedHistorical.workshop.storage_currentness,
+      "historical_or_overtaken",
+    );
+    assert.match(repeatedHistorical.workshop.html, /LATER_STORAGE_CURRENT_MARKER/);
+    assert.match(repeatedHistorical.workshop.html, /Storage-current only · no decision attribution/);
+    assert.match(repeatedHistorical.workshop.html, /<h3>Evidence &amp; provenance<\/h3>/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /human-ratified/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Human acceptance by/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Store only this/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /lab-reviewer:/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Decision SHA-256/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Borderline \(ok=false\)/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Launch quality/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Policy\/candidate admission/);
+    assert.doesNotMatch(repeatedHistorical.workshop.html, /Accepted excerpts/);
+    assertSingleEarlySafeAction(repeatedHistorical.workshop.html, [
+      "<h3>Maps</h3>",
+      "<h3>Signals</h3>",
+      "<h3>Plays</h3>",
+      "<h3>Evidence &amp; provenance</h3>",
+    ]);
+    assert.deepEqual(tableCounts(fixture.path), {
+      current: 1,
+      receipts: 2,
+      replays: 2,
+    });
   });
 
   test("module remains an internal lab seam with no product, CLI, route, or package wiring", () => {

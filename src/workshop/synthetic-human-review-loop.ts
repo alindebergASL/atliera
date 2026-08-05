@@ -1128,6 +1128,42 @@ function exactDecisionBoundReadback(
     readback.receipt.review_handoff_sha256 === artifact.review_handoff_sha256;
 }
 
+function exactDecisionBoundSuccessReceipt(
+  artifact: SyntheticHumanReviewDecisionArtifact,
+  transaction: SubjectGraphRevisionTransactionResult,
+): boolean {
+  if (
+    transaction.outcome !== "committed" &&
+    transaction.outcome !== "already_committed"
+  ) return false;
+  if (
+    artifact.intent_sha256 === null ||
+    artifact.review_handoff_sha256 === null ||
+    artifact.transaction_intent === null
+  ) return false;
+  const receipt = transaction.receipt;
+  const { receipt_sha256: receiptSha256, ...receiptCore } = receipt;
+  return receipt.kind === "atliera_subject_graph_revision_success_receipt" &&
+    receipt.version === 1 &&
+    receipt.outcome === "committed" &&
+    receipt.intent_sha256 === artifact.intent_sha256 &&
+    receipt.intent_sha256 === artifact.transaction_intent.intent_sha256 &&
+    receipt.proposed_snapshot_sha256 === artifact.candidate_sha256 &&
+    receipt.proposed_snapshot_sha256 ===
+      artifact.transaction_intent.proposed_snapshot_sha256 &&
+    receipt.replay_key === artifact.transaction_replay_key &&
+    receipt.replay_key === artifact.transaction_intent.replay_key_to_record &&
+    receipt.review_handoff_sha256 === artifact.review_handoff_sha256 &&
+    receipt.review_handoff_sha256 ===
+      artifact.transaction_intent.review_handoff_sha256 &&
+    canonicalJson(receipt.graph_identity as unknown as StrictJsonValue) ===
+      canonicalJson(artifact.graph_identity as unknown as StrictJsonValue) &&
+    canonicalJson(receipt.predecessor_basis as unknown as StrictJsonValue) ===
+      canonicalJson(artifact.predecessor_basis as unknown as StrictJsonValue) &&
+    sha256CanonicalJson(receiptCore as unknown as StrictJsonValue) ===
+      receiptSha256;
+}
+
 function durableTargetFileIdentity(
   database: SyntheticHumanReviewDatabaseOptions,
 ): DurableTargetFileIdentity | null {
@@ -1508,10 +1544,7 @@ export function executeSyntheticHumanReviewLoop(
     database,
   });
   const outcome: SyntheticHumanReviewLoopOutcome = proof.transaction.outcome;
-  const exactAlreadyCommitted =
-    proof.transaction.outcome === "already_committed" &&
-    exactDecisionBoundReadback(expectedArtifact, proof.readback);
-  if (proof.transaction.outcome === "committed" || exactAlreadyCommitted) {
+  if (exactDecisionBoundSuccessReceipt(expectedArtifact, proof.transaction)) {
     const targetFileIdentity = durableTargetFileIdentity(database);
     if (targetFileIdentity !== null) {
       authContextAttemptStates.set(context, Object.freeze({

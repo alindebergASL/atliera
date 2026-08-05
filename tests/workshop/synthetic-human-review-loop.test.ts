@@ -287,15 +287,19 @@ describe("synthetic human-review loop", () => {
     assert.match(pendingHtml, /Pending signal proposal/);
     assert.match(pendingHtml, /Review the synthetic hub evidence/);
     assert.match(pendingHtml, /<h3>Evidence &amp; provenance<\/h3>/);
-    assert.match(pendingHtml, /No human decision or ratification has occurred/);
+    assert.match(pendingHtml, /contains no authoritative decision or durable-state evidence/);
+    assert.match(pendingHtml, /Rendering itself performs no authentication, database operation, or effect/);
+    assert.match(pendingHtml, /does not establish or claim whether a decision or effect occurred elsewhere/);
     assert.match(pendingHtml, /does not verify facts or sources or grant production approval/);
+    assert.doesNotMatch(pendingHtml, /No human decision or ratification has occurred/);
+    assert.doesNotMatch(pendingHtml, /no database effect has occurred/i);
     assert.doesNotMatch(pendingHtml, /human-ratified/);
     assert.doesNotMatch(pendingHtml, /storage-current/);
     assert.doesNotMatch(pendingHtml, /durable storage/i);
     assert.equal((pendingHtml.match(/One safe next action/g) ?? []).length, 1);
     assert.match(
       pendingHtml,
-      /Use a verified local lab-auth session to accept or reject this exact proposal\./,
+      /Inspect the Borderline result, bound reasons, and proposed evidence before accepting or rejecting\./,
     );
     assert.doesNotMatch(JSON.stringify(pending), new RegExp(SECRET));
     assert.doesNotMatch(pendingHtml, new RegExp(SECRET));
@@ -321,7 +325,8 @@ describe("synthetic human-review loop", () => {
       committed.workshop.html,
       /Model-proposed · human-ratified · evidence pending/,
     );
-    assert.match(committed.workshop.html, /fresh adapter and read-only connection/i);
+    assert.match(committed.workshop.html, /fresh adapter verified the exact decision-bound commit/i);
+    assert.doesNotMatch(committed.workshop.html, /read-only connection/i);
     assert.deepEqual(tableCounts(fixture.path), {
       current: 1,
       receipts: 1,
@@ -493,7 +498,7 @@ describe("synthetic human-review loop", () => {
     assertZeroEffects(result);
   });
 
-  test("exact accepted replay uses the durable transaction replay and creates no second revision", (t) => {
+  test("exact accepted replay presents bounded idempotence and the original retained decision", (t) => {
     const fixture = tempDatabase(t);
     const pipeline = makePipelineRevisionIntent({ variant: "human-loop-replay" });
     const clock = { now: REVIEWED_AT };
@@ -507,7 +512,15 @@ describe("synthetic human-review loop", () => {
     );
     assert.equal(replay.outcome, "already_committed");
     assert.equal(replay.transaction?.outcome, "already_committed");
-    assert.match(replay.workshop.html, /No second write or graph revision occurred/);
+    assert.match(replay.workshop.html, /Original retained human decision/);
+    assert.match(replay.workshop.html, /lab-reviewer:&lt;Ada &amp; &quot;team&quot;&gt;/);
+    assert.match(replay.workshop.html, /Store only this &lt;synthetic &amp; &quot;bounded&quot;&gt; fixture/);
+    assert.match(replay.workshop.html, new RegExp(verified.decision_artifact.decision_sha256));
+    assert.match(replay.workshop.html, new RegExp(verified.decision_artifact.decision_replay_identity));
+    assert.match(replay.workshop.html, /Idempotent durable replay under the stated V1 lab boundary: no second committed graph revision, receipt, replay-consumption row, admission, acceptance, ratification, approval, or authority\./);
+    assert.match(replay.workshop.html, /Replay creates no new ratification or authority\./);
+    assert.doesNotMatch(replay.workshop.html, /No second write/);
+    assert.doesNotMatch(replay.workshop.html, /read-only connection/i);
     assert.equal(
       replay.workshop.storage_currentness,
       "exact_decision_bound_current_commit",
@@ -1210,7 +1223,16 @@ describe("synthetic human-review loop", () => {
     );
     assert.equal(historical.outcome, "already_committed");
     assert.equal(historical.workshop.storage_currentness, "historical_or_overtaken");
-    assert.match(historical.workshop.html, /No human ratification, currentness, or quality result from it is attributed/);
+    assert.match(historical.workshop.html, /Original retained human decision/);
+    assert.match(historical.workshop.html, /<dt>Actor<\/dt><dd>lab-reviewer:&lt;Ada &amp; &quot;team&quot;&gt;<\/dd>/);
+    assert.match(historical.workshop.html, /<dt>Bound reason<\/dt><dd>Store only this &lt;synthetic &amp; &quot;bounded&quot;&gt; fixture\.<\/dd>/);
+    assert.match(historical.workshop.html, new RegExp(decisionOne.decision_artifact.decision_sha256));
+    assert.match(historical.workshop.html, new RegExp(decisionOne.decision_artifact.decision_replay_identity));
+    assert.match(historical.workshop.html, /Idempotent durable replay under the stated V1 lab boundary: no second committed graph revision, receipt, replay-consumption row, admission, acceptance, ratification, approval, or authority\./);
+    assert.match(historical.workshop.html, /Replay creates no new ratification or authority\./);
+    assert.match(historical.workshop.html, /None of the original retained human-decision attribution applies to or ratifies the later storage-current state/);
+    assert.match(historical.workshop.html, /later state remains storage-only, unverified, and pending human review/);
+    assert.match(historical.workshop.html, /no borrowed ratification, currentness, quality, admission, acceptance, approval, or authority/);
     assert.match(historical.workshop.html, /LATER_STORAGE_CURRENT_MARKER/);
     assert.match(historical.workshop.html, /Storage-current only · no decision attribution/);
     assert.match(historical.workshop.html, /<h3>Evidence &amp; provenance<\/h3>/);
@@ -1223,12 +1245,9 @@ describe("synthetic human-review loop", () => {
     assert.match(historical.workshop.html, /The hub supports same-week delivery for enterprise warehouse customers/);
     assert.doesNotMatch(historical.workshop.html, /human-ratified/);
     assert.doesNotMatch(historical.workshop.html, /Human acceptance by/);
-    assert.doesNotMatch(historical.workshop.html, /Store only this/);
-    assert.doesNotMatch(historical.workshop.html, /lab-reviewer:/);
     assert.doesNotMatch(historical.workshop.html, /Borderline \(ok=false\)/);
     assert.doesNotMatch(historical.workshop.html, /Policy\/candidate admission/);
     assert.doesNotMatch(historical.workshop.html, /Accepted excerpts/);
-    assert.doesNotMatch(historical.workshop.html, /Decision SHA-256/);
     assert.equal(
       (historical.workshop.html.match(/One safe next action/g) ?? []).length,
       1,
@@ -1260,11 +1279,12 @@ describe("synthetic human-review loop", () => {
     assert.match(repeatedHistorical.workshop.html, /LATER_STORAGE_CURRENT_MARKER/);
     assert.match(repeatedHistorical.workshop.html, /Storage-current only · no decision attribution/);
     assert.match(repeatedHistorical.workshop.html, /<h3>Evidence &amp; provenance<\/h3>/);
+    assert.match(repeatedHistorical.workshop.html, /Original retained human decision/);
+    assert.match(repeatedHistorical.workshop.html, new RegExp(decisionOne.decision_artifact.decision_sha256));
+    assert.match(repeatedHistorical.workshop.html, new RegExp(decisionOne.decision_artifact.decision_replay_identity));
+    assert.match(repeatedHistorical.workshop.html, /Replay creates no new ratification or authority\./);
     assert.doesNotMatch(repeatedHistorical.workshop.html, /human-ratified/);
     assert.doesNotMatch(repeatedHistorical.workshop.html, /Human acceptance by/);
-    assert.doesNotMatch(repeatedHistorical.workshop.html, /Store only this/);
-    assert.doesNotMatch(repeatedHistorical.workshop.html, /lab-reviewer:/);
-    assert.doesNotMatch(repeatedHistorical.workshop.html, /Decision SHA-256/);
     assert.doesNotMatch(repeatedHistorical.workshop.html, /Borderline \(ok=false\)/);
     assert.doesNotMatch(repeatedHistorical.workshop.html, /Launch quality/);
     assert.doesNotMatch(repeatedHistorical.workshop.html, /Policy\/candidate admission/);
@@ -1280,6 +1300,23 @@ describe("synthetic human-review loop", () => {
       receipts: 2,
       replays: 2,
     });
+  });
+
+  test("architecture contract states the bounded V1 threat model and future prerequisites", () => {
+    const architecture = readFileSync(
+      "docs/architecture/synthetic-human-review-loop-v1.md",
+      "utf8",
+    );
+    for (const boundary of [
+      "trusted single process with serialized coordinator calls;",
+      "process-owned private mode-0700 disposable directory;",
+      "synthetic data only;",
+      "no concurrent same-UID or out-of-band filesystem mutation;",
+      "no runtime, route, deployment, real-data, or production authority.",
+    ]) assert.match(architecture, new RegExp(boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(architecture, /Idempotent durable replay under the stated V1 lab boundary: no second committed graph revision, receipt, replay-consumption row, admission, acceptance, ratification, approval, or authority\./);
+    assert.match(architecture, /Hostile concurrent filesystem replacement, true handle-bound read-only replay, and physical database\/SQLite sidecar immutability must be solved before multi-process, real-data, runtime, or production use\./);
+    assert.match(architecture, /These are not V1 merge blockers under the stated lab boundary\./);
   });
 
   test("module remains an internal lab seam with no product, CLI, route, or package wiring", () => {

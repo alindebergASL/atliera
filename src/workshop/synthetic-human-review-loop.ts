@@ -77,6 +77,8 @@ const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const SAFE_SHA256 = /^[0-9a-f]{64}$/;
 const MAX_ID_LENGTH = 200;
 const MAX_REASON_LENGTH = 500;
+const DURABLE_REPLAY_BOUNDARY_CLAIM =
+  "Idempotent durable replay under the stated V1 lab boundary: no second committed graph revision, receipt, replay-consumption row, admission, acceptance, ratification, approval, or authority.";
 
 const ARTIFACT_LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: 1_000,
@@ -1054,8 +1056,8 @@ function workshopEvidence(
 }
 
 /**
- * Pure pending-proposal surface. It performs no auth, database read, permit
- * creation, transaction, or other effect.
+ * Pure pending-proposal surface. Rendering performs no authentication,
+ * database operation, or effect.
  */
 export function renderSyntheticHumanReviewPendingProposal(
   raw: {
@@ -1094,8 +1096,8 @@ export function renderSyntheticHumanReviewPendingProposal(
   const quality = pipeline.transition.quality_gate;
   const html = basePage(
     "Pending synthetic proposal",
-    `<p><strong>Unverified</strong></p><p><strong>${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</strong></p><p>This exact synthetic fixture is awaiting a human decision. No human decision or ratification has occurred; no database effect has occurred; and this surface does not verify facts or sources or grant production approval.</p><dl><dt>Structural validation</dt><dd>Succeeded</dd><dt>Policy/candidate admission</dt><dd>Admitted because launch quality was non-failing; this is not a quality pass.</dd><dt>Launch quality</dt><dd>Borderline (ok=false)</dd><dt>Accepted excerpts</dt><dd>${quality.metrics.accepted_excerpts}</dd><dt>Accepted-excerpt rate</dt><dd>${quality.metrics.accepted_excerpt_rate}</dd><dt>Threshold</dt><dd>${quality.thresholds.min_accepted_excerpt_rate}</dd><dt>Source/provenance</dt><dd>Unverified proposed evidence; not fact/source verified</dd></dl>${workshopLanes(viewModel, "pending")}${workshopEvidence(viewModel, "pending")}`,
-    "Use a verified local lab-auth session to accept or reject this exact proposal.",
+    `<p><strong>Unverified</strong></p><p><strong>${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</strong></p><p>This pending projection contains no authoritative decision or durable-state evidence. Rendering itself performs no authentication, database operation, or effect. It does not establish or claim whether a decision or effect occurred elsewhere. This surface does not verify facts or sources or grant production approval.</p><dl><dt>Structural validation</dt><dd>Succeeded</dd><dt>Policy/candidate admission</dt><dd>Admitted because launch quality was non-failing; this is not a quality pass.</dd><dt>Launch quality</dt><dd>Borderline (ok=false)</dd><dt>Accepted excerpts</dt><dd>${quality.metrics.accepted_excerpts}</dd><dt>Accepted-excerpt rate</dt><dd>${quality.metrics.accepted_excerpt_rate}</dd><dt>Threshold</dt><dd>${quality.thresholds.min_accepted_excerpt_rate}</dd><dt>Source/provenance</dt><dd>Unverified proposed evidence; not fact/source verified</dd></dl>${workshopLanes(viewModel, "pending")}${workshopEvidence(viewModel, "pending")}`,
+    "Inspect the Borderline result, bound reasons, and proposed evidence before accepting or rejecting.",
   );
   return deepFreezeOwnData({
     kind: "synthetic-human-review-pending-proposal" as const,
@@ -1236,7 +1238,7 @@ function acceptedWorkshop(
       view_model: viewModel,
       html: basePage(
         "Historical accepted decision",
-        `<p>This earlier synthetic decision is not the storage-current revision. No human ratification, currentness, or quality result from it is attributed to the later state.</p>${workshopLanes(viewModel, "storage-only")}${workshopEvidence(viewModel, "storage-only")}`,
+        `<section><h3>Original retained human decision</h3><dl><dt>Actor</dt><dd>${escapeHtml(artifact.verified_actor)}</dd><dt>Bound reason</dt><dd>${escapeHtml(artifact.reason)}</dd><dt>Decision SHA-256</dt><dd>${escapeHtml(artifact.decision_sha256)}</dd><dt>Decision replay identity</dt><dd>${escapeHtml(artifact.decision_replay_identity)}</dd></dl></section><p>${DURABLE_REPLAY_BOUNDARY_CLAIM}</p><p>Replay creates no new ratification or authority.</p><p>This earlier synthetic decision is not the storage-current revision. None of the original retained human-decision attribution applies to or ratifies the later storage-current state. That later state remains storage-only, unverified, and pending human review, with no borrowed ratification, currentness, quality, admission, acceptance, approval, or authority.</p>${workshopLanes(viewModel, "storage-only")}${workshopEvidence(viewModel, "storage-only")}`,
         "Review the later storage-current proposal on its own evidence and decision bindings.",
       ),
     });
@@ -1258,6 +1260,15 @@ function acceptedWorkshop(
   }
   const quality = artifact.quality_gate_report;
   const replay = outcome === "already_committed";
+  const decisionHeading = replay
+    ? "Original retained human decision"
+    : "Human decision";
+  const replayTruth = replay
+    ? `<p>${DURABLE_REPLAY_BOUNDARY_CLAIM}</p><p>Replay creates no new ratification or authority.</p>`
+    : "<p>A fresh adapter verified the exact decision-bound commit after restart.</p>";
+  const decisionAttribution = replay
+    ? `The original retained human decision records acceptance by ${escapeHtml(artifact.verified_actor)} and ratification of this exact synthetic proposal for durable storage only.`
+    : `Human acceptance by ${escapeHtml(artifact.verified_actor)} ratifies this exact synthetic proposal for durable storage only.`;
   return deepFreezeOwnData({
     surface: "Workshop" as const,
     outcome,
@@ -1265,7 +1276,7 @@ function acceptedWorkshop(
     view_model: viewModel,
     html: basePage(
       replay ? "Accepted decision already committed" : "Accepted decision committed",
-      `<p><strong>Model-proposed · human-ratified · evidence pending</strong></p><p>Human acceptance by ${escapeHtml(artifact.verified_actor)} ratifies this exact synthetic proposal for durable storage only. It does not pass quality, verify facts or sources, grant production approval, or authorize any other effect.</p><p><strong>Bound reason:</strong> ${escapeHtml(artifact.reason)}</p><p>${replay ? "Durable replay matched the original transaction. No second write or graph revision occurred." : "A fresh adapter and read-only connection verified the exact decision-bound commit after restart."}</p><dl><dt>Structural validation</dt><dd>Succeeded</dd><dt>Policy/candidate admission</dt><dd>Admitted because launch quality was non-failing; this is not a quality pass.</dd><dt>Launch quality</dt><dd>Borderline (ok=false)</dd><dt>Accepted excerpts</dt><dd>${quality.metrics.accepted_excerpts}</dd><dt>Accepted-excerpt rate</dt><dd>${quality.metrics.accepted_excerpt_rate}</dd><dt>Threshold</dt><dd>${quality.thresholds.min_accepted_excerpt_rate}</dd><dt>Source/provenance</dt><dd>Proposed evidence; not fact/source verified</dd><dt>Decision SHA-256</dt><dd>${escapeHtml(artifact.decision_sha256)}</dd><dt>Decision replay identity</dt><dd>${escapeHtml(artifact.decision_replay_identity)}</dd></dl>${workshopLanes(viewModel, "ratified-current")}${workshopEvidence(viewModel, "ratified-current")}`,
+      `<p><strong>Model-proposed · human-ratified · evidence pending</strong></p><h3>${decisionHeading}</h3><p>${decisionAttribution} It does not pass quality, verify facts or sources, grant production approval, or authorize any other effect.</p><dl><dt>Bound reason</dt><dd>${escapeHtml(artifact.reason)}</dd><dt>Decision SHA-256</dt><dd>${escapeHtml(artifact.decision_sha256)}</dd><dt>Decision replay identity</dt><dd>${escapeHtml(artifact.decision_replay_identity)}</dd></dl>${replayTruth}<dl><dt>Structural validation</dt><dd>Succeeded</dd><dt>Policy/candidate admission</dt><dd>Admitted because launch quality was non-failing; this is not a quality pass.</dd><dt>Launch quality</dt><dd>Borderline (ok=false)</dd><dt>Accepted excerpts</dt><dd>${quality.metrics.accepted_excerpts}</dd><dt>Accepted-excerpt rate</dt><dd>${quality.metrics.accepted_excerpt_rate}</dd><dt>Threshold</dt><dd>${quality.thresholds.min_accepted_excerpt_rate}</dd><dt>Source/provenance</dt><dd>Proposed evidence; not fact/source verified</dd></dl>${workshopLanes(viewModel, "ratified-current")}${workshopEvidence(viewModel, "ratified-current")}`,
       "Review and independently verify the proposed source evidence before any later production decision.",
     ),
   });
@@ -1490,8 +1501,8 @@ export function executeSyntheticHumanReviewLoop(
     database,
   });
   const preflight = preflightProof.readback;
-  // A brand-new safe disposable path has no database to read yet. PR #303's
-  // read-only adapter truthfully reports that open failure; bootstrap may
+  // A brand-new safe disposable path has no database to read yet. The
+  // preflight truthfully reports that open failure; bootstrap may
   // proceed only when the path still does not exist. Any existing unreadable,
   // malformed, busy, or corrupt database fails closed before consume().
   const absentBootstrap = preflightProof.absent_disposable_database;

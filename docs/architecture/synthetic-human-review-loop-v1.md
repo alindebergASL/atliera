@@ -10,7 +10,15 @@ The composition lives in `src/workshop/synthetic-human-review-loop.ts`. It is no
 
 This slice reuses the existing authority and transaction chain. It hydrates the exact `ProposalEnvelope`, `CandidateDelta`, `CandidateTransition`, and `SubjectGraphRevisionIntent`; calls `authorizeBearerTokenRequest`; uses `PINNED_DURABLE_WRITE_TRUST_LABEL`; and delegates its only graph transaction and post-transaction read-back to `executeSyntheticTransactionWorkshopProof`. The PR #303 disposable SQLite replay key remains the only durable one-shot namespace. The decision replay identity is an audit binding only and is never stored as another replay record.
 
-Before authentication or decision handling, `renderSyntheticHumanReviewPendingProposal` provides the pure pending step. It accepts only those five exact pipeline artifacts, rehydrates the same fixture chain, builds the existing Workshop view model directly from the proposed candidate, and performs no auth, database, permit, transaction, provider, MCP, network, or production operation. Its pending labels are not storage-current or ratified labels.
+## Supported V1 threat model
+
+- trusted single process with serialized coordinator calls;
+- process-owned private mode-0700 disposable directory;
+- synthetic data only;
+- no concurrent same-UID or out-of-band filesystem mutation;
+- no runtime, route, deployment, real-data, or production authority.
+
+Before authentication or decision handling, `renderSyntheticHumanReviewPendingProposal` provides the pure pending step. It accepts only those five exact pipeline artifacts and rehydrates the same fixture chain to build the existing Workshop view model directly from the proposed candidate. This pending projection contains no authoritative decision or durable-state evidence. Rendering itself performs no authentication, database operation, or effect, and it does not establish or claim whether a decision or effect occurred elsewhere. Its pending labels are not storage-current or ratified labels. Its sole safe action is: “Inspect the Borderline result, bound reasons, and proposed evidence before accepting or rejecting.”
 
 ## Bounded authentication claim
 
@@ -50,9 +58,9 @@ The bounded fixture is required to remain `Borderline`, with `quality_gate.ok=fa
 
 | State | Transaction truth | Workshop truth |
 | --- | --- | --- |
-| Pending proposal | No auth, database, permit, transaction, or effect | Shows `Unverified`, `Model-proposed · pending human review`, all proposal lanes, and proposed evidence without storage-current or ratification claims |
-| Exact accept | One PR #303 consume; PR #304 creates a new adapter/read-only connection for restart read-back | Shows `Model-proposed · human-ratified · evidence pending` only when current storage is exactly bound to the decision |
-| Exact replay | Existing durable replay on the same still-existing disposable file returns `already_committed`; no second revision | Says no second write or graph revision |
+| Pending proposal | The local rendering performs no authentication, database operation, or effect; it makes no claim about decisions or effects elsewhere | Shows `Unverified`, `Model-proposed · pending human review`, all proposal lanes, and proposed evidence, but contains no authoritative decision or durable-state evidence |
+| Exact accept | One PR #303 consume followed by fresh restart read-back | Shows `Model-proposed · human-ratified · evidence pending` only when current storage is exactly bound to the decision |
+| Exact replay | Existing durable replay on the same still-existing disposable file returns `already_committed` | Identifies the original retained human decision and states: “Idempotent durable replay under the stated V1 lab boundary: no second committed graph revision, receipt, replay-consumption row, admission, acceptance, ratification, approval, or authority.” Replay creates no new ratification or authority |
 | Reject | No preflight, consume, intent consumption, or graph revision | Claims neither ratification nor durable application |
 | Auth refusal/expiry/forgery | No database or graph open | Claims neither ratification nor durable application |
 | Target mismatch or regressed effect clock | Refused before preflight; no database creation or consume | Claims neither ratification nor durable application and exposes no raw database path |
@@ -60,15 +68,19 @@ The bounded fixture is required to remain `Borderline`, with `quality_gate.ok=fa
 | Corrupt existing preflight | Fresh read fails before `consume`; context is terminally spent | Dependency failure; no current approval claim; repaired-target reuse requires a new decision |
 | Successful target absent/recreated | Refused without bootstrap or transaction; successful context becomes terminally spent | Claims no new application or replay |
 | Post-commit read uncertainty | Preserves the transaction's committed/indeterminate truth | Does not misstate this as no commit and renders no ratified/current content |
-| Historical/overtaken | Earlier replay receipt remains valid while a later revision is current | Later storage-current lanes remain storage-only/no-decision-attribution and expose their own unverified proposed evidence as pending human review; they receive no borrowed ratification, currentness, quality, actor, or reason |
+| Historical/overtaken | Earlier replay receipt remains valid while a later revision is current | Separately attributes the original retained human decision by actor, bound reason, decision SHA-256, and decision replay identity; none of that attribution applies to or ratifies the later storage-current state, whose lanes remain storage-only, unverified, and pending without borrowed ratification, currentness, quality, admission, acceptance, approval, or authority |
 
-Only after the non-regressing clock and exact-target digest checks does the accepted effect use a fresh PR #303 adapter for a read-only preflight. A brand-new guarded disposable path has no SQLite file yet, so the read-only adapter reports an open dependency failure; bootstrap may continue only if that path still does not exist. If a database file exists, any refused, busy, malformed, unreadable, or corrupt preflight blocks `consume`. The transaction adapter repeats its own disposable-path guard and durable validation at the effect boundary.
+Only after the non-regressing clock and exact-target digest checks does the accepted effect use a fresh PR #303 adapter for preflight. A brand-new guarded disposable path has no SQLite file yet, so preflight reports an open dependency failure; bootstrap may continue only if that path still does not exist. If a database file exists, any refused, busy, malformed, unreadable, or corrupt preflight blocks `consume`. The transaction adapter repeats its own disposable-path guard and durable validation at the effect boundary. V1 does not claim that replay uses a handle-bound read-only connection.
 
 All Workshop HTML escapes actor, reason, identifiers, and graph content; uses responsive wrapping without horizontal overflow; and reports provider calls `0`, MCP invocations `0`, product/network operations `0`, and production effects `0`. The shared page composition presents exactly one safe next action immediately after the boundary, Workshop heading, and state title, before detailed truth, lanes, or evidence, so the action is rapidly comprehensible on desktop and mobile. It creates no active link, form, or script. No bearer token, token hash, secret, credential material, raw database path, or process-local attempt state is copied into artifacts, results, HTML, SQLite values, logs, or error messages.
 
 ## Deliberate limitations
 
 This is a synthetic fixture proof only. The in-memory opaque context and attempt-state registries do not survive process restart; durable identity/session infrastructure is intentionally not chosen. There is no production authentication, authorization service, approval workflow, approval store, new replay table, retry service, network call, provider call, or production graph effect. A production design requires a separate reviewed decision about identity, session durability, revocation, audit retention, and backend ownership.
+
+## Future prerequisites
+
+Hostile concurrent filesystem replacement, true handle-bound read-only replay, and physical database/SQLite sidecar immutability must be solved before multi-process, real-data, runtime, or production use. These are not V1 merge blockers under the stated lab boundary.
 
 ## Frozen M5b and operator-arming reconciliation
 

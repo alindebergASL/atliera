@@ -42,38 +42,59 @@ Workshop is built only when that independent read returns `found`.
 
 ## Presentation truth
 
-The default page makes four questions primary:
+The page keeps five claims separate:
 
-- Maps: what is known in current durable state;
-- Signals: what changed durably in this transaction;
-- Evidence: why candidate validation accepted the change, without claiming
-  authenticated human approval; and
-- Plays: exactly one safe transaction-aware next action.
+1. structural validation says whether the graph is structurally valid;
+2. launch quality reports the exact bound quality-gate result;
+3. candidate admission says only that the existing policy admitted a
+   non-failing result (the policy rejects `fail`, while `borderline` is
+   non-failing for admission);
+4. durable commit and fresh read-back establish storage truth and identity,
+   not factual or source verification; and
+5. authenticated human approval or ratification is a separate action that
+   this proof never performs or implies.
+
+For the exact `makePipelineRevisionIntent` fixture, structural validation
+succeeds (`validation_report.ok = true`) while the bound launch-quality result
+is `borderline` and `quality_gate.ok = false`. It reports 0 accepted excerpts,
+an accepted-excerpt rate of 0, a required minimum of 0.5, and reason code
+`accepted_excerpt_rate_below_threshold` with the concise message “accepted
+excerpt rate is below launch-quality threshold.” The committed page therefore
+shows **Borderline**, not Pass, and explains that admission occurred only
+because Borderline is non-failing under the unchanged policy.
 
 The page plainly labels `committed`, `already committed`, `conflicted` or
-`refused`. It also labels every rendered graph item with its existing trust
-state. Revision tokens, snapshot and intent hashes, policy identity, persisted
-and attempt receipts, conflict/refusal detail and operational commit time live
-inside a closed `<details>` element. SQLite time is presented only as
-operational metadata.
+`refused`. Every affected item retains the existing `Unverified` trust label
+and adds the established `Model-proposed · pending human review` decoration.
+Proposed evidence uses `Proposed excerpt (pending human review)`. These are
+review decorations, not a new trust tier. Revision tokens, snapshot and intent
+hashes, policy identity, persisted and attempt receipts, conflict/refusal
+detail and operational commit time live inside a closed `<details>` element.
+SQLite time is presented only as operational metadata.
 
 Committed and exact-retry views may identify changed Signals only when the
 attempt context binds fully to its receipt and that receipt is also the current
 durable receipt: graph, revision, snapshot, intent, receipt digest and
-operational commit time must agree. Those are separate claims. After a valid
-successor advances the graph, an exact historical retry still truthfully
-reports `already committed` with its historical receipt, while Workshop says
-the retry changed nothing, identifies the later verified revision as current,
-and renders only that current read-back. It does not attribute current Signals,
-Evidence or candidate policy to the historical retry. The same rule applies if
-a successful commit is overtaken by a newer verified revision before the fresh
-read-back.
+operational commit time must agree. Only then may the page render the attempt's
+bound quality report. An immediate exact retry shows that same original bound
+Borderline result, says the retry changed nothing, and claims no new admission,
+approval, acceptance or ratification. After a valid successor advances the
+graph, an exact historical retry still truthfully reports `already committed`
+with its historical receipt, while Workshop identifies the later revision as
+storage-current and renders only that fresh read-back. It does not attribute
+the earlier attempt's Signals, Evidence, quality result, admission, acceptance
+or candidate policy to the later snapshot. The same no-attribution rule applies
+if a successful commit is overtaken by a newer storage-current revision before
+the fresh read-back.
 
 Conflict and refusal views never project attempted candidate content: they say
-that no durable change occurred and render only the independently verified
-current state. If current read-back is absent, refused or failed—or if the
-transaction result is dependency-failed, read-back-failed or indeterminate—the
-composition returns no Workshop projection.
+that no durable change occurred and render only the freshly read
+storage-current snapshot. They do not borrow the attempt's quality result or
+attribute admission, acceptance, approval or ratification to that snapshot;
+their one safe action directs review of storage-current proposed evidence. If
+current read-back is absent, refused or failed—or if the transaction result is
+dependency-failed, read-back-failed or indeterminate—the composition returns
+no Workshop projection.
 
 ## Deliberate limits
 
@@ -82,5 +103,5 @@ authority, external anti-rollback, repair or override. It does not generalize
 the transaction into a workflow or event system and does not alter the PR #303
 adapter, permit, validation, catalog or result taxonomy. SQLite operational
 time means receipts differ across independent databases; rendering is
-deterministic for a given verified read-back and contains no ambient time,
+deterministic for a given verified storage read-back and contains no ambient time,
 network or provider input.

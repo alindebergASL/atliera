@@ -66,6 +66,14 @@ function tableCounts(path: string) {
   }
 }
 
+function assertNoPassingOrAcceptanceClaim(html: string): void {
+  assert.doesNotMatch(html, /Why the change was accepted/i);
+  assert.doesNotMatch(html, /quality gate passed/i);
+  assert.doesNotMatch(html, /passed deterministic candidate validation/i);
+  assert.doesNotMatch(html, /Accepted for this synthetic commit/i);
+  assert.doesNotMatch(html, /<dd>Pass<\/dd>/);
+}
+
 describe("synthetic transaction Workshop proof", () => {
   test("snapshots exact own input and database data without invoking hostile reads or allowing database identity switching", (t) => {
     const fixture = tempDatabase(t);
@@ -220,6 +228,35 @@ describe("synthetic transaction Workshop proof", () => {
       include_three_lanes: true,
       map_title: 'Known <img src=x onerror="known()"> & baseline',
     });
+    const qualityGate = accepted.transition.quality_gate;
+    assert.equal(qualityGate.status, "borderline");
+    assert.equal(qualityGate.ok, false);
+    assert.equal(qualityGate.metrics.accepted_excerpts, 0);
+    assert.equal(qualityGate.metrics.accepted_excerpt_rate, 0);
+    assert.equal(qualityGate.thresholds.min_accepted_excerpt_rate, 0.5);
+    assert.equal(qualityGate.validation_report.ok, true);
+    assert.deepEqual(qualityGate.reasons, [
+      {
+        code: "accepted_excerpt_rate_below_threshold",
+        severity: "borderline",
+        message: "accepted excerpt rate is below launch-quality threshold",
+        observed: 0,
+        threshold: 0.5,
+      },
+    ]);
+    assert.ok(
+      accepted.transition.candidate.graph_bundle.account_objects.every(
+        (object) =>
+          object.payload_json.review_state ===
+            "model_proposed_pending_human_review" &&
+          object.provenance_status === "unverified",
+      ),
+    );
+    assert.ok(
+      accepted.transition.candidate.graph_bundle.excerpts.every(
+        (excerpt) => excerpt.validation_status === "proposed",
+      ),
+    );
 
     const committed = executeSyntheticTransactionWorkshopProof(
       proofInput(accepted, fixture),
@@ -242,6 +279,19 @@ describe("synthetic transaction Workshop proof", () => {
     assert.ok(evidenceItem);
     const evidencePacket = evidenceItem.evidence_packets[0];
     assert.ok(evidencePacket);
+    assert.ok(lensItems.length > 0);
+    assert.ok(
+      lensItems.every(
+        (item) =>
+          item.trust.label === "Unverified" &&
+          item.review_state === "model_proposed_pending_human_review",
+      ),
+    );
+    assert.ok(
+      lensItems.flatMap((item) => item.evidence_packets).every(
+        (packet) => packet.excerpt.validation_status === "proposed",
+      ),
+    );
     assert.equal(Object.isFrozen(committed), true);
     assert.equal(Object.isFrozen(committed.workshop), true);
     assert.equal(Object.isFrozen(viewModel), true);
@@ -285,9 +335,37 @@ describe("synthetic transaction Workshop proof", () => {
     const html = committed.workshop!.html;
     assert.match(html, /Synthetic fixture · disposable lab SQLite · non-production/);
     assert.match(html, /Transaction state: committed/);
-    assert.match(html, /<h2>Maps<\/h2><p>What was known/);
+    assert.match(html, /<h2>Maps<\/h2><p>Storage-current items/);
     assert.match(html, /What changed durably in this transaction\./);
-    assert.match(html, /Why the change was accepted\./);
+    assert.match(html, /<dt>Structural validation<\/dt><dd>Succeeded<\/dd>/);
+    assert.match(html, /Candidate admission occurred because the existing policy rejects only a failing launch-quality status; Borderline was non-failing for admission\./);
+    assert.match(html, /<dt>Launch-quality result<\/dt><dd>Borderline<\/dd>/);
+    assert.match(html, /<dt>Accepted excerpts<\/dt><dd>0<\/dd>/);
+    assert.match(html, /<dt>Accepted-excerpt rate<\/dt><dd>0%<\/dd>/);
+    assert.match(html, /<dt>Required threshold<\/dt><dd>50%<\/dd>/);
+    assert.match(
+      html,
+      /<dt>Bound reason<\/dt><dd>accepted excerpt rate is below launch-quality threshold<\/dd>/,
+    );
+    assert.match(
+      html,
+      /storage truth only; they are not factual or source verification, authenticated human approval, or ratification/i,
+    );
+    assert.match(
+      html,
+      /Review the proposed evidence and the Borderline launch-quality finding; this review does not approve or ratify either\./,
+    );
+    assert.equal(
+      (html.match(/Model-proposed · pending human review/g) ?? []).length,
+      lensItems.length,
+    );
+    assert.equal(
+      (html.match(/data-review-state="model_proposed_pending_human_review"/g) ?? []).length,
+      lensItems.length,
+    );
+    assert.match(html, /Trust: Unverified/);
+    assert.match(html, /Proposed excerpt \(pending human review\)/);
+    assertNoPassingOrAcceptanceClaim(html);
     assert.match(html, /<h2>Plays<\/h2><p><strong>One next safe action:/);
     assert.match(
       html,
@@ -309,22 +387,37 @@ describe("synthetic transaction Workshop proof", () => {
     assert.match(retryHtml, /No second write or application occurred/);
     assert.match(
       retryHtml,
-      /This exact retry changed nothing\. The displayed signals belong to the original verified commit; no new write, application, or acceptance occurred\./,
+      /This exact retry changed nothing\. The displayed signals belong to the original storage commit; no new write, application, admission, approval, acceptance, or ratification occurred\./,
     );
     assert.match(
       retryHtml,
-      /The displayed evidence belongs to the original verified commit\./,
+      /The displayed evidence belongs to the original storage commit\./,
     );
     assert.match(
       retryHtml,
-      /The original verified commit passed deterministic candidate validation\. This exact retry received no new acceptance\./,
+      /Original bound launch-quality result for this unchanged retry\./,
+    );
+    assert.match(
+      retryHtml,
+      /Original candidate admission occurred because the existing policy rejects only a failing launch-quality status; Borderline was non-failing for admission\. This retry created no new admission, approval, acceptance, or ratification\./,
+    );
+    assert.match(retryHtml, /<dt>Launch-quality result<\/dt><dd>Borderline<\/dd>/);
+    assert.match(retryHtml, /<dt>Accepted excerpts<\/dt><dd>0<\/dd>/);
+    assert.match(retryHtml, /<dt>Accepted-excerpt rate<\/dt><dd>0%<\/dd>/);
+    assert.match(retryHtml, /<dt>Required threshold<\/dt><dd>50%<\/dd>/);
+    assert.match(
+      retryHtml,
+      /accepted excerpt rate is below launch-quality threshold/,
+    );
+    assert.match(
+      retryHtml,
+      /Review the proposed evidence and the original bound Borderline launch-quality finding; this no-op retry does not approve or ratify either\./,
     );
     assert.doesNotMatch(
       retryHtml,
       /What changed durably in this transaction\./,
     );
-    assert.doesNotMatch(retryHtml, /Why the change was accepted\./);
-    assert.doesNotMatch(retryHtml, /Accepted for this synthetic commit/);
+    assertNoPassingOrAcceptanceClaim(retryHtml);
     if (retry.transaction.outcome !== "already_committed") return;
     assert.equal(
       retry.transaction.receipt.receipt_sha256,
@@ -360,14 +453,28 @@ describe("synthetic transaction Workshop proof", () => {
     );
     assert.match(
       conflict.workshop.html,
-      /This attempt was not accepted\. Current durable evidence is shown below\./,
+      /This attempt made no durable change\. Storage-current evidence is shown below\./,
+    );
+    assert.match(
+      conflict.workshop.html,
+      /No evidence from this attempt is attributed here\. Evidence shown belongs only to the storage-current snapshot\./,
     );
     assert.match(conflict.workshop.html, /No durable signal changed in this attempt/);
     assert.doesNotMatch(
       conflict.workshop.html,
       /What changed durably in this transaction\./,
     );
-    assert.doesNotMatch(conflict.workshop.html, /Why the change was accepted\./);
+    assertNoPassingOrAcceptanceClaim(conflict.workshop.html);
+    assert.doesNotMatch(conflict.workshop.html, /Launch-quality result/);
+    assert.doesNotMatch(conflict.workshop.html, /Candidate admission/);
+    assert.doesNotMatch(
+      conflict.workshop.html,
+      /accepted excerpt rate is below launch-quality threshold/,
+    );
+    assert.match(
+      conflict.workshop.html,
+      /Review the storage-current proposed evidence, then reload that state before rebuilding a new intent\./,
+    );
     assert.doesNotMatch(conflict.workshop.html, /STALE_ATTEMPT_ONLY/);
     assert.doesNotMatch(conflict.workshop.html, /workshop-stale/);
     if (conflict.readback.outcome !== "found") return;
@@ -380,7 +487,7 @@ describe("synthetic transaction Workshop proof", () => {
     });
   });
 
-  test("renders a valid historical exact retry only as unchanged beside its later verified current revision", (t) => {
+  test("renders a valid historical exact retry only as unchanged beside its later storage-current revision", (t) => {
     const fixture = tempDatabase(t);
     const revisionOne = makePipelineRevisionIntent({
       variant: "workshop-hist-rev1",
@@ -420,18 +527,29 @@ describe("synthetic transaction Workshop proof", () => {
       "already committed",
     );
     const html = historicalRetry.workshop.html;
-    assert.match(html, /This retry changed nothing, and a later verified revision is current\./);
+    assert.match(html, /This retry changed nothing, and a later storage-current revision is shown\./);
     assert.match(
       html,
-      /This exact retry changed nothing\. A later verified revision is current; only its durable signals are shown\./,
+      /This exact retry changed nothing\. A later storage-current revision is shown; only its durable signals are shown\./,
     );
     assert.match(html, /SUCCESSOR_ONLY_CURRENT_MARKER/);
     assert.match(html, /No current Signals or Evidence are attributed to this historical retry\./);
     assert.doesNotMatch(html, /What changed durably in this transaction\./);
-    assert.doesNotMatch(html, /Why the change was accepted\./);
-    assert.doesNotMatch(html, /Accepted for this synthetic commit/);
-    assert.doesNotMatch(html, /displayed signals belong to the original verified commit/);
-    assert.doesNotMatch(html, /original verified commit passed deterministic candidate validation/);
+    assertNoPassingOrAcceptanceClaim(html);
+    assert.doesNotMatch(html, /displayed signals belong to the original storage commit/);
+    assert.doesNotMatch(html, /Original bound launch-quality result/);
+    assert.doesNotMatch(html, /Launch-quality result/);
+    assert.doesNotMatch(html, /Candidate admission/);
+    assert.doesNotMatch(
+      html,
+      /accepted excerpt rate is below launch-quality threshold/,
+    );
+    assert.match(
+      html,
+      /Review the storage-current proposed evidence without attributing this earlier attempt&#39;s quality result or admission to it\./,
+    );
+    assert.match(html, /Model-proposed · pending human review/);
+    assert.match(html, /Proposed excerpt \(pending human review\)/);
     assert.match(html, /Candidate policy<\/dt><dd>not applicable to this non-current attempt/);
     assert.deepEqual(tableCounts(fixture.path), {
       current: 1,
@@ -513,14 +631,33 @@ describe("synthetic transaction Workshop proof", () => {
     );
     assert.match(
       refused.workshop.html,
-      /This attempt was not accepted\. Current durable evidence is shown below\./,
+      /This attempt made no durable change\. Storage-current evidence is shown below\./,
+    );
+    assert.match(
+      refused.workshop.html,
+      /No evidence from this attempt is attributed here\. Evidence shown belongs only to the storage-current snapshot\./,
     );
     assert.match(refused.workshop.html, /No durable signal changed in this attempt/);
     assert.doesNotMatch(
       refused.workshop.html,
       /What changed durably in this transaction\./,
     );
-    assert.doesNotMatch(refused.workshop.html, /Why the change was accepted\./);
+    assertNoPassingOrAcceptanceClaim(refused.workshop.html);
+    assert.doesNotMatch(refused.workshop.html, /Launch-quality result/);
+    assert.doesNotMatch(refused.workshop.html, /Candidate admission/);
+    assert.doesNotMatch(
+      refused.workshop.html,
+      /accepted excerpt rate is below launch-quality threshold/,
+    );
+    assert.match(
+      refused.workshop.html,
+      /Review the storage-current proposed evidence; do not treat the refused attempt as durable, then correct and revalidate its fixture input\./,
+    );
+    assert.match(refused.workshop.html, /Model-proposed · pending human review/);
+    assert.match(
+      refused.workshop.html,
+      /Proposed excerpt \(pending human review\)/,
+    );
     assert.doesNotMatch(refused.workshop.html, /REFUSED_ATTEMPT_ONLY/);
     if (
       committed.readback.outcome === "found" &&

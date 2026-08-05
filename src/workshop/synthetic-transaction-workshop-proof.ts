@@ -29,9 +29,11 @@ import {
 import { hydrateProposalEnvelope } from "../validation/proposal-envelope.ts";
 import {
   buildWorkshopViewModel,
+  WORKSHOP_REVIEW_STATE_MODEL_PROPOSED,
   type WorkshopLensItemViewModel,
   type WorkshopViewModel,
 } from "./view-model.ts";
+import { WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT } from "./render-html.ts";
 
 export type SyntheticTransactionWorkshopState =
   | "committed"
@@ -325,16 +327,34 @@ function transactionState(
   }
 }
 
-function guidance(state: SyntheticTransactionWorkshopState): string {
+function guidance(
+  state: SyntheticTransactionWorkshopState,
+  attemptIsCurrent: boolean,
+  laterRevisionIsCurrent: boolean,
+  qualityStatus: CandidateTransition["quality_gate"]["status"] | undefined,
+): string {
+  if (attemptIsCurrent && qualityStatus !== undefined) {
+    const result = qualityStatus === "borderline"
+      ? "Borderline"
+      : qualityStatus === "pass"
+        ? "Pass"
+        : "Fail";
+    return state === "already committed"
+      ? `Review the proposed evidence and the original bound ${result} launch-quality finding; this no-op retry does not approve or ratify either.`
+      : `Review the proposed evidence and the ${result} launch-quality finding; this review does not approve or ratify either.`;
+  }
+  if (laterRevisionIsCurrent) {
+    return "Review the storage-current proposed evidence without attributing this earlier attempt's quality result or admission to it.";
+  }
   switch (state) {
     case "committed":
-      return "Review the verified read-back before preparing another synthetic fixture update.";
+      return "Review the storage-current proposed evidence without inferring a launch-quality result for it.";
     case "already committed":
-      return "Keep the original receipt; do not submit or apply this exact fixture again.";
+      return "Review the storage-current proposed evidence; keep the original receipt and do not apply this exact fixture again.";
     case "conflicted":
-      return "Reload the current durable state, rebuild from that state, and submit a new intent.";
+      return "Review the storage-current proposed evidence, then reload that state before rebuilding a new intent.";
     case "refused":
-      return "Correct and revalidate the fixture input; do not treat the refused attempt as durable.";
+      return "Review the storage-current proposed evidence; do not treat the refused attempt as durable, then correct and revalidate its fixture input.";
   }
 }
 
@@ -344,18 +364,18 @@ function statusExplanation(
 ): string {
   if (laterRevisionIsCurrent) {
     return state === "already committed"
-      ? "This exact synthetic change was already committed. This retry changed nothing, and a later verified revision is current."
-      : "The synthetic change committed, but a later verified revision is current. Only that verified current state is shown.";
+      ? "This exact synthetic change was already committed. This retry changed nothing, and a later storage-current revision is shown."
+      : "The synthetic change committed, but a later storage-current revision is shown; nothing from the earlier attempt is attributed to it.";
   }
   switch (state) {
     case "committed":
-      return "The synthetic change committed once and was verified through a fresh SQLite read boundary.";
+      return "The synthetic change committed once, and a fresh SQLite read-back verified its storage identity. Storage verification is not factual or source verification and is not authenticated human approval or ratification.";
     case "already committed":
-      return "This exact synthetic change was already committed. No second write or application occurred.";
+      return "This exact synthetic change was already committed. No second write or application occurred; the durable read-back establishes storage truth only, not factual verification, authenticated human approval, or ratification.";
     case "conflicted":
-      return "The stale synthetic attempt was not applied. The verified current durable state is shown below.";
+      return "The stale synthetic attempt was not applied. Only the freshly read storage-current state is shown below; storage verification is not factual verification.";
     case "refused":
-      return "The synthetic attempt was refused and was not persisted. The verified current durable state is shown below.";
+      return "The synthetic attempt was refused and was not persisted. Only the freshly read storage-current state is shown below; storage verification is not factual verification.";
   }
 }
 
@@ -365,10 +385,17 @@ function renderItems(
 ): string {
   if (items.length === 0) return `<p class="empty">${escapeHtml(emptyMessage)}</p>`;
   return `<ul>${items
-    .map(
-      (item) =>
-        `<li><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary)}</span><small>Trust: ${escapeHtml(item.trust.label)} · ${escapeHtml(item.trust.confidence)} confidence</small></li>`,
-    )
+    .map((item) => {
+      const reviewDecorated =
+        item.review_state === WORKSHOP_REVIEW_STATE_MODEL_PROPOSED;
+      const reviewAttribute = reviewDecorated
+        ? ` data-review-state="${WORKSHOP_REVIEW_STATE_MODEL_PROPOSED}"`
+        : "";
+      const reviewLabel = reviewDecorated
+        ? `<small>${escapeHtml(WORKSHOP_MODEL_PROPOSED_REVIEW_BADGE_TEXT)}</small>`
+        : "";
+      return `<li${reviewAttribute}><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary)}</span><small>Trust: ${escapeHtml(item.trust.label)} · ${escapeHtml(item.trust.confidence)} confidence</small>${reviewLabel}</li>`;
+    })
     .join("")}</ul>`;
 }
 
@@ -380,12 +407,64 @@ function renderEvidence(
   const packetHtml = packets.length === 0
     ? '<p class="empty">No current evidence packet is available.</p>'
     : `<ul>${packets
-        .map(
-          (packet) =>
-            `<li><strong>${escapeHtml(packet.claim.text)}</strong><span>${escapeHtml(packet.excerpt.text)}</span><small>${escapeHtml(packet.source.title)} · ${escapeHtml(packet.excerpt.validation_status)}</small></li>`,
-        )
+        .map((packet) => {
+          const excerptLabel = packet.excerpt.validation_status === "proposed"
+            ? "Proposed excerpt (pending human review)"
+            : "Accepted excerpt";
+          return `<li><strong>${escapeHtml(packet.claim.text)}</strong><span>${escapeHtml(packet.excerpt.text)}</span><small>${escapeHtml(packet.source.title)} · ${escapeHtml(excerptLabel)}</small></li>`;
+        })
         .join("")}</ul>`;
   return `<p>${escapeHtml(explanation)}</p>${packetHtml}`;
+}
+
+function percentage(value: number | null): string {
+  return value === null ? "not available" : `${value * 100}%`;
+}
+
+function qualityStatusLabel(
+  status: CandidateTransition["quality_gate"]["status"],
+): string {
+  switch (status) {
+    case "pass":
+      return "Pass";
+    case "borderline":
+      return "Borderline";
+    case "fail":
+      return "Fail";
+  }
+}
+
+function renderBoundQualityGate(
+  qualityGate: CandidateTransition["quality_gate"],
+  exactRetry: boolean,
+): string {
+  const reasons = qualityGate.reasons.length === 0
+    ? "No launch-quality reason was reported."
+    : qualityGate.reasons.map((reason) => reason.message).join("; ");
+  const structuralResult = qualityGate.validation_report.ok
+    ? "Succeeded"
+    : "Failed";
+  const admission = qualityGate.status === "fail"
+    ? "Candidate admission did not occur because the launch-quality status was failing."
+    : exactRetry
+      ? `Original candidate admission occurred because the existing policy rejects only a failing launch-quality status; ${qualityStatusLabel(qualityGate.status)} was non-failing for admission. This retry created no new admission, approval, acceptance, or ratification.`
+      : `Candidate admission occurred because the existing policy rejects only a failing launch-quality status; ${qualityStatusLabel(qualityGate.status)} was non-failing for admission.`;
+  const introduction = exactRetry
+    ? "Original bound launch-quality result for this unchanged retry."
+    : "Bound launch-quality result for this committed candidate.";
+  return `<div class="quality-summary">
+    <p>${escapeHtml(introduction)}</p>
+    <dl>
+      <dt>Structural validation</dt><dd>${escapeHtml(structuralResult)}</dd>
+      <dt>Candidate admission</dt><dd>${escapeHtml(admission)}</dd>
+      <dt>Launch-quality result</dt><dd>${escapeHtml(qualityStatusLabel(qualityGate.status))}</dd>
+      <dt>Accepted excerpts</dt><dd>${qualityGate.metrics.accepted_excerpts}</dd>
+      <dt>Accepted-excerpt rate</dt><dd>${escapeHtml(percentage(qualityGate.metrics.accepted_excerpt_rate))}</dd>
+      <dt>Required threshold</dt><dd>${escapeHtml(percentage(qualityGate.thresholds.min_accepted_excerpt_rate))}</dd>
+      <dt>Bound reason</dt><dd>${escapeHtml(reasons)}</dd>
+    </dl>
+    <p>Durable commit and fresh read-back establish storage truth only; they are not factual or source verification, authenticated human approval, or ratification.</p>
+  </div>`;
 }
 
 function receiptFor(
@@ -489,11 +568,14 @@ function buildSyntheticTransactionWorkshopProjection(
   const currentEvidenceItems = attemptIsCurrent
     ? changedSignals
     : viewModel.lenses.signals;
+  const boundQualityGate = attemptIsCurrent && context !== undefined
+    ? context.transition.quality_gate
+    : undefined;
   const signalsBody = attemptIsCurrent
     ? renderItems(changedSignals, "No signal object changed in this commit.")
     : `<p class="no-change">${escapeHtml(
         laterRevisionIsCurrent && result.outcome === "committed"
-          ? "This commit occurred, but its changed items are not attributed to the later verified current revision."
+          ? "This commit occurred, but its changed items are not attributed to the later storage-current revision."
           : "No durable signal changed in this attempt.",
       )}</p>${renderItems(
         viewModel.lenses.signals,
@@ -501,31 +583,31 @@ function buildSyntheticTransactionWorkshopProjection(
       )}`;
   const signalsIntroduction = laterRevisionIsCurrent &&
       result.outcome === "already_committed"
-    ? "This exact retry changed nothing. A later verified revision is current; only its durable signals are shown."
+    ? "This exact retry changed nothing. A later storage-current revision is shown; only its durable signals are shown."
     : laterRevisionIsCurrent && result.outcome === "committed"
-      ? "This commit occurred, but a later verified revision is current; only that revision's durable signals are shown."
+      ? "This commit occurred, but a later storage-current revision is shown; only that revision's durable signals are shown."
       : result.outcome === "already_committed"
-    ? "This exact retry changed nothing. The displayed signals belong to the original verified commit; no new write, application, or acceptance occurred."
+    ? "This exact retry changed nothing. The displayed signals belong to the original storage commit; no new write, application, admission, approval, acceptance, or ratification occurred."
     : result.outcome === "committed"
       ? "What changed durably in this transaction."
       : "This attempt changed nothing. Current durable signals are shown below.";
   const evidenceIntroduction = laterRevisionIsCurrent &&
       result.outcome === "already_committed"
-    ? "No current Signals or Evidence are attributed to this historical retry. Evidence from the later verified current revision is shown."
+    ? "No current Signals or Evidence are attributed to this historical retry. Evidence from the later storage-current revision is shown."
     : laterRevisionIsCurrent && result.outcome === "committed"
-      ? "No current Signals or Evidence are attributed to this earlier commit. Evidence from the later verified current revision is shown."
+      ? "No current Signals or Evidence are attributed to this earlier commit. Evidence from the later storage-current revision is shown."
       : result.outcome === "already_committed"
-    ? "The displayed evidence belongs to the original verified commit."
+    ? "The displayed evidence belongs to the original storage commit."
     : result.outcome === "committed"
-      ? "Why the change was accepted."
-      : "This attempt was not accepted. Current durable evidence is shown below.";
+      ? "The committed candidate's bound launch-quality finding and proposed evidence."
+      : "This attempt made no durable change. Storage-current evidence is shown below.";
   const evidenceExplanation = laterRevisionIsCurrent
-    ? "Only the independently verified current durable state's evidence is rendered here; it is not acceptance evidence for this earlier attempt."
+    ? "Only storage-current evidence is rendered here; no quality result, admission, approval, acceptance, or ratification is attributed to that later snapshot or to this earlier attempt."
     : result.outcome === "already_committed"
-    ? "The original verified commit passed deterministic candidate validation. This exact retry received no new acceptance."
+    ? "The original commit's proposed evidence remains unchanged. This exact retry created no new admission, approval, acceptance, or ratification."
     : attemptIsCurrent
-      ? "Accepted for this synthetic commit because the deterministic candidate quality gate passed. This is candidate validation, not authenticated human approval."
-      : "This attempt was not accepted. Evidence shown here belongs only to the verified current durable state.";
+      ? "This evidence remains proposed and pending human review; durable storage does not make it approved or ratified."
+      : "No evidence from this attempt is attributed here. Evidence shown belongs only to the storage-current snapshot.";
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -548,11 +630,11 @@ function buildSyntheticTransactionWorkshopProjection(
   <div class="boundary"><strong>Synthetic fixture · disposable lab SQLite · non-production</strong><br />No provider calls, network operations, real accounts, or production authority.</div>
   <header><h1>Atliera Workshop</h1><p class="state">Transaction state: ${escapeHtml(state)}</p><p>${escapeHtml(statusExplanation(state, laterRevisionIsCurrent))}</p></header>
   <div class="grid">
-    <section data-workshop-lens="maps"><h2>Maps</h2><p>What was known and remains in verified durable state.</p>${renderItems(viewModel.lenses.maps, "No current durable map items.")}</section>
+    <section data-workshop-lens="maps"><h2>Maps</h2><p>Storage-current items from the fresh durable read-back; storage verification is not factual or source verification.</p>${renderItems(viewModel.lenses.maps, "No storage-current map items.")}</section>
     <section data-workshop-lens="signals"><h2>Signals</h2><p>${escapeHtml(signalsIntroduction)}</p>${signalsBody}</section>
   </div>
-  <section data-workshop-lens="evidence"><h2>Evidence</h2><p>${escapeHtml(evidenceIntroduction)}</p>${renderEvidence(currentEvidenceItems, evidenceExplanation)}</section>
-  <section class="next-action" data-workshop-lens="plays"><h2>Plays</h2><p><strong>One next safe action:</strong> ${escapeHtml(guidance(state))}</p></section>
+  <section data-workshop-lens="evidence"><h2>Evidence</h2><p>${escapeHtml(evidenceIntroduction)}</p>${boundQualityGate === undefined ? "" : renderBoundQualityGate(boundQualityGate, result.outcome === "already_committed")}${renderEvidence(currentEvidenceItems, evidenceExplanation)}</section>
+  <section class="next-action" data-workshop-lens="plays"><h2>Plays</h2><p><strong>One next safe action:</strong> ${escapeHtml(guidance(state, attemptIsCurrent, laterRevisionIsCurrent, boundQualityGate?.status))}</p><p>Storage-current play items; storage does not approve or ratify them.</p>${renderItems(viewModel.lenses.plays, "No storage-current play items.")}</section>
   ${renderTechnicalDetails(result, readback, attemptIsCurrent ? context : undefined)}
 </main></body></html>`;
 

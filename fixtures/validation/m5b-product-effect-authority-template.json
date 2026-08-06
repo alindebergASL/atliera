@@ -1,0 +1,48 @@
+{
+  "kind": "m5b-product-effect-authority-template",
+  "schemaVersion": "1",
+  "status": "inert_unarmed_template",
+  "baseContext": {
+    "commit": "24c1a6ab8e709494eef989beef54facadfc582cf",
+    "tree": "070f3a92eaaa727069d453115ef747a73c0130eb"
+  },
+  "reviewedImplementation": null,
+  "ledgerRootSha256": null,
+  "currentEffectiveAuthorization": "none",
+  "operations": [
+    {
+      "operation": "retained_custody_read",
+      "authorityId": null,
+      "consumptionId": null,
+      "ledgerRootSha256": null,
+      "targetPolicySha256": null,
+      "sourceIdentities": [],
+      "armingStatus": "unarmed",
+      "authorizesEffect": false,
+      "retainedCustodyReadsAuthorized": 0,
+      "networkRequestsAuthorized": 0,
+      "retriesAuthorized": 0
+    },
+    {
+      "operation": "exact_sec_archive_acquisition",
+      "authorityId": null,
+      "consumptionId": null,
+      "ledgerRootSha256": null,
+      "targetPolicySha256": null,
+      "sourceIdentities": [],
+      "armingStatus": "unarmed",
+      "authorizesEffect": false,
+      "retainedCustodyReadsAuthorized": 0,
+      "networkRequestsAuthorized": 0,
+      "retriesAuthorized": 0
+    }
+  ],
+  "authorizesLiveAcquisition": false,
+  "authorizesRetainedCustodyRead": false,
+  "authorizesRatification": false,
+  "authorizesApply": false,
+  "authorizesGraphWrite": false,
+  "authorizesDatabaseWrite": false,
+  "authorizesProviderCall": false,
+  "authorizesDeployment": false
+}

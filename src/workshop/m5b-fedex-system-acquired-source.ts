@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
+import { admitM4CustodyEnvelopeBytes } from "../capability/m4-custody-envelope-admission.ts";
 import { extractM4SecEvidence } from "../capability/m4-sec-extraction.ts";
-import { M4_CANONICAL_TARGET_POLICY, M4_TARGET_POLICY_SHA256 } from "../capability/m4-target-policy.ts";
+import {
+  M4_CANONICAL_TARGET_POLICY,
+  M4_TARGET_POLICY_REF,
+  M4_TARGET_POLICY_SHA256,
+} from "../capability/m4-target-policy.ts";
 import type { M4PublicEvidence } from "../capability/public-http-fetch-policy.ts";
 
 export const M5B_FEDEX_SYSTEM_ACQUIRED_ORIGIN = "system-acquired-public" as const;
@@ -547,110 +552,6 @@ function validatePins(pins: M5bFedExProductionPins): void {
   if (retention <= acquired) refuse("pins_retention_order");
 }
 
-function validateCustodyEnvelope(snapshot: unknown, pins: M5bFedExProductionPins): Readonly<Record<string, unknown>> {
-  const root = record(snapshot, "custody");
-  exactKeys(root, ["kind", "activation", "targetPolicySha256", "acquiredAt", "acquisition", "extraction",
-    "capabilityExecutions", "auditEvents", "accountingIncrements"], "custody");
-  exactString(root.kind, "m4-sec-gate-b-custody", "custody_kind");
-  exactString(root.targetPolicySha256, pins.targetPolicySha256, "custody_target_policy");
-  exactString(root.acquiredAt, pins.acquiredAt, "custody_acquired_at");
-
-  const activation = record(root.activation, "custody.activation");
-  exactKeys(activation, ["authorizationId", "oneShotConsumptionId", "reviewedAdapterCommit", "authorizedAt", "validFrom",
-    "validUntil", "consumedAt", "consumptionSha256", "userAgentSha256", "userAgentByteLength"], "custody_activation");
-  for (const key of ["authorizationId", "oneShotConsumptionId", "reviewedAdapterCommit"] as const) {
-    if (!string(activation[key], `activation.${key}`)) refuse(`activation_${key}`);
-  }
-  for (const key of ["authorizedAt", "validFrom", "validUntil", "consumedAt"] as const) strictIso(activation[key], `activation.${key}`);
-  for (const key of ["consumptionSha256", "userAgentSha256"] as const) {
-    if (!SAFE_HASH.test(string(activation[key], `activation.${key}`))) refuse(`activation_${key}`);
-  }
-  if (!Number.isSafeInteger(activation.userAgentByteLength) || (activation.userAgentByteLength as number) <= 0) {
-    refuse("activation_user_agent_length");
-  }
-
-  const acquisition = record(root.acquisition, "custody.acquisition");
-  exactKeys(acquisition, ["requestedTargetRef", "requestedUrl", "finalUrl", "sourceHost", "publisher", "targetPolicySha256",
-    "fetchedAt", "httpStatus", "contentType", "byteCount", "responseSha256", "bodyBase64", "quotedBodyText", "trust",
-    "provenance", "custody"], "custody_acquisition");
-  exactString(acquisition.requestedTargetRef, "sec_fedex_submissions", "acquisition_target");
-  exactString(acquisition.requestedUrl, pins.sourceUrl, "acquisition_requested_url");
-  exactString(acquisition.finalUrl, pins.sourceUrl, "acquisition_final_url");
-  exactString(acquisition.sourceHost, "data.sec.gov", "acquisition_host");
-  exactString(acquisition.publisher, M4_CANONICAL_TARGET_POLICY.publisher, "acquisition_publisher");
-  exactString(acquisition.targetPolicySha256, pins.targetPolicySha256, "acquisition_target_policy");
-  exactString(acquisition.fetchedAt, pins.acquiredAt, "acquisition_timestamp");
-  exactNumber(acquisition.httpStatus, 200, "acquisition_status");
-  exactString(acquisition.contentType, "application/json", "acquisition_content_type");
-  exactNumber(acquisition.byteCount, pins.decodedResponseBytes, "acquisition_byte_count");
-  exactString(acquisition.responseSha256, pins.responseSha256, "acquisition_response_hash");
-
-  const trust = record(acquisition.trust, "acquisition.trust");
-  exactKeys(trust, ["status", "mayProvideInstructions", "controlAuthority", "transportSuccessPromotesTrust"], "acquisition_trust");
-  exactString(trust.status, "quoted_untrusted_public_source_content", "acquisition_trust_status");
-  if (trust.mayProvideInstructions !== false || trust.controlAuthority !== "none" || trust.transportSuccessPromotesTrust !== false) {
-    refuse("acquisition_trust_drift");
-  }
-  const provenance = record(acquisition.provenance, "acquisition.provenance");
-  exactKeys(provenance, ["acquisitionCapability", "transport", "targetPolicyRef", "targetPolicySha256", "resolvedAddresses",
-    "connectedAddress"], "acquisition_provenance");
-  exactString(provenance.acquisitionCapability, "public_http_fetch_v1", "acquisition_capability");
-  exactString(provenance.transport, "live_sec_one_shot", "acquisition_transport");
-  exactString(provenance.targetPolicySha256, pins.targetPolicySha256, "provenance_target_policy");
-  const acquisitionCustody = record(acquisition.custody, "acquisition.custody");
-  exactKeys(acquisitionCustody, ["exactBytesPreserved", "exactBytesEncoding", "hashAlgorithm", "classification"],
-    "acquisition_custody");
-  if (acquisitionCustody.exactBytesPreserved !== true || acquisitionCustody.exactBytesEncoding !== "base64" ||
-      acquisitionCustody.hashAlgorithm !== "sha256" || acquisitionCustody.classification !== "public_evidence") {
-    refuse("acquisition_custody_drift");
-  }
-
-  const executions = array(root.capabilityExecutions, "custody.capabilityExecutions");
-  if (executions.length !== 1) refuse("execution_count");
-  const execution = record(executions[0], "custody.capabilityExecutions[0]");
-  exactKeys(execution, ["kind", "executionId", "capabilityId", "descriptorSha256", "targetPolicySha256", "authorityKind",
-    "authorityRef", "mediationLevel", "targetRef", "inputBytes", "outputBytes", "retryCount", "startedAt", "completedAt",
-    "durationMs", "outcome", "refusalCode", "effectTelemetry"], "execution");
-  exactString(execution.kind, "CapabilityExecution", "execution_kind");
-  exactString(execution.capabilityId, "public_http_fetch_v1", "execution_capability");
-  exactString(execution.descriptorSha256, pins.capabilityDescriptorSha256, "execution_descriptor");
-  exactString(execution.targetPolicySha256, pins.targetPolicySha256, "execution_target_policy");
-  exactString(execution.authorityKind, "external_gate_b_one_shot_go", "execution_authority");
-  exactString(execution.mediationLevel, "L0", "execution_mediation");
-  exactString(execution.targetRef, "sec_fedex_submissions", "execution_target");
-  exactNumber(execution.outputBytes, pins.decodedResponseBytes, "execution_output_bytes");
-  exactNumber(execution.retryCount, 0, "execution_retry");
-  exactString(execution.outcome, "completed", "execution_outcome");
-  if (execution.refusalCode !== null) refuse("execution_refusal");
-  const effectTelemetry = record(execution.effectTelemetry, "execution.effectTelemetry");
-  exactKeys(effectTelemetry, ["dnsAttempts", "requestAttempts", "connectionAttempts", "liveNetworkEgress", "bytesReceived",
-    "selectedAddress", "lookupCallbacks", "retryCount", "responseSha256", "failurePhase", "userAgentAudit"], "effect_telemetry");
-  exactNumber(effectTelemetry.bytesReceived, pins.decodedResponseBytes, "effect_bytes");
-  exactNumber(effectTelemetry.retryCount, 0, "effect_retry");
-  exactString(effectTelemetry.responseSha256, pins.responseSha256, "effect_response_hash");
-  if (effectTelemetry.failurePhase !== null) refuse("effect_failure");
-
-  if (array(root.auditEvents, "custody.auditEvents").length !== 1 ||
-      array(root.accountingIncrements, "custody.accountingIncrements").length !== 1) refuse("custody_record_count");
-  const accounting = record(array(root.accountingIncrements, "custody.accountingIncrements")[0], "accounting");
-  exactKeys(accounting, ["kind", "incrementId", "executionId", "capabilityInvocations", "capabilityExecutionRecords",
-    "auditEventsEmitted", "liveNetworkEgressPerformed", "dnsAttemptsPerformed", "requestAttemptsPerformed",
-    "connectionAttemptsPerformed", "lookupCallbacksPerformed", "bytesReceived", "selectedAddress", "failurePhase",
-    "systemSideAcquisitionProofsPerformed", "retriesPerformed", "providerCallsExecuted", "privateReadsPerformed",
-    "graphWritesPerformed", "productionWritesPerformed", "deploymentsPerformed"], "accounting");
-  for (const key of ["retriesPerformed", "providerCallsExecuted", "privateReadsPerformed", "graphWritesPerformed",
-    "productionWritesPerformed", "deploymentsPerformed"] as const) exactNumber(accounting[key], 0, `accounting_${key}`);
-  exactNumber(accounting.bytesReceived, pins.decodedResponseBytes, "accounting_bytes");
-
-  const extraction = record(root.extraction, "custody.extraction");
-  exactKeys(extraction, ["kind", "value", "jsonPointer", "field", "context", "sourceUrl", "responseSha256", "provenance",
-    "trustLabel", "verificationStatus"], "custody_extraction");
-  exactString(extraction.sourceUrl, pins.sourceUrl, "extraction_url");
-  exactString(extraction.responseSha256, pins.responseSha256, "extraction_response_hash");
-  exactString(extraction.jsonPointer, "/sicDescription", "extraction_pointer");
-  return acquisition;
-}
-
 /**
  * Pure byte admission against supplied exact pins. The public production
  * wrapper below is the only API that binds the real M4 custody identities;
@@ -667,12 +568,35 @@ export function validateM5bFedExCustodyBytesAgainstPins(custodyBytes: Uint8Array
   // The outer custody digest is deliberately checked before UTF-8 decode,
   // JSON parse, envelope inspection, base64 decode, or response hashing.
   if (sha256Bytes(copied) !== pins.custodyArtifactSha256) refuse("custody_sha256");
-  const decoded = strictJsonBytes(copied, "custody", M5B_FEDEX_INPUT_LIMITS.custodyInputBytes);
-  const acquisition = validateCustodyEnvelope(decoded.value, pins);
-  const bodyBase64 = string(acquisition.bodyBase64, "acquisition.bodyBase64");
+  const admitted = admitM4CustodyEnvelopeBytes(copied, {
+    custodyArtifactSha256: pins.custodyArtifactSha256,
+    decodedResponseBytes: pins.decodedResponseBytes,
+    responseSha256: pins.responseSha256,
+    targetPolicySha256: pins.targetPolicySha256,
+    capabilityDescriptorSha256: pins.capabilityDescriptorSha256,
+    capabilityId: "public_http_fetch_v1",
+    adapterId: "m4_sec_gate_b_live_one_shot_v1",
+    sourceUrl: pins.sourceUrl,
+    sourceHost: M4_CANONICAL_TARGET_POLICY.hostname,
+    publisher: M4_CANONICAL_TARGET_POLICY.publisher,
+    targetRef: M4_CANONICAL_TARGET_POLICY.targetRef,
+    targetPolicyRef: M4_TARGET_POLICY_REF,
+    acquiredAt: pins.acquiredAt,
+  });
+  const bodyBase64 = admitted.decodedBytes.toString("base64");
   const maximumBase64Bytes = 4 * Math.ceil(pins.decodedResponseBytes / 3);
   if (Buffer.byteLength(bodyBase64, "utf8") > maximumBase64Bytes) refuse("response_base64_bounds");
   // Reuse the shipped M4 acquisition/SEC identity validator unchanged.
+  const acquisition = {
+    requestedUrl: pins.sourceUrl,
+    finalUrl: pins.sourceUrl,
+    targetPolicySha256: pins.targetPolicySha256,
+    contentType: "application/json",
+    bodyBase64,
+    byteCount: pins.decodedResponseBytes,
+    responseSha256: pins.responseSha256,
+    quotedBodyText: admitted.decodedBytes.toString("utf8"),
+  };
   extractM4SecEvidence(acquisition as unknown as M4PublicEvidence);
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(bodyBase64)) refuse("response_base64");
   const responseBytes = Buffer.from(bodyBase64, "base64");

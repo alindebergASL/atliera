@@ -34,6 +34,12 @@ import { renderM5bFedExPrewriteWorkshopHtml } from "./m5b-fedex-prewrite-worksho
 export const M5B_REPOSITORY_NATIVE_PREPARE_RESULT_KIND = "m5b-repository-native-prepare-result" as const;
 export const M5B_REPOSITORY_NATIVE_RATIFICATION_KIND = "m5b-repository-native-human-ratification" as const;
 export const M5B_REPOSITORY_NATIVE_APPLY_RESULT_KIND = "m5b-repository-native-apply-result" as const;
+/** Route labeling only; the historical validators and prepare/apply behavior below remain unchanged. */
+export const M5B_REPOSITORY_NATIVE_ROUTE_STATUS = Object.freeze({
+  role: "preserved_historical_fedex_reference_behavior" as const,
+  preferredCurrentProductRoute: "m5b_product_review_prepare" as const,
+  compatibilityRequired: true as const,
+});
 
 const HASH = /^[a-f0-9]{64}$/;
 const GIT_OID = /^[a-f0-9]{40}$/;

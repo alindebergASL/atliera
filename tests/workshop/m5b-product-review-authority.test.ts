@@ -391,7 +391,24 @@ function readExpected(ledgerRoot: string, source: any, suffix: string): M5bProdu
   };
 }
 
-function readGo(expected: M5bProductEffectExpectedAuthority) {
+const FIXED_READ_WINDOW = Object.freeze({
+  authorizedAt: "2026-08-06T00:00:00.000Z",
+  validFrom: "2026-08-06T00:00:00.000Z",
+  validUntil: "2026-08-07T00:00:00.000Z",
+});
+
+function activeReadWindow(now: Date) {
+  return {
+    authorizedAt: new Date(now.getTime() - 60_000).toISOString(),
+    validFrom: new Date(now.getTime() - 60_000).toISOString(),
+    validUntil: new Date(now.getTime() + 300_000).toISOString(),
+  };
+}
+
+function readGo(
+  expected: M5bProductEffectExpectedAuthority,
+  window: Readonly<{ authorizedAt: string; validFrom: string; validUntil: string }> = FIXED_READ_WINDOW,
+) {
   return {
     kind: "m5b-product-effect-one-shot-go",
     schemaVersion: "1",
@@ -402,9 +419,9 @@ function readGo(expected: M5bProductEffectExpectedAuthority) {
     implementation: { commit: expected.implementationCommit, tree: expected.implementationTree },
     targetPolicySha256: expected.targetPolicySha256,
     sourceIdentities: expected.sourceIdentities,
-    authorizedAt: "2026-08-06T00:00:00.000Z",
-    validFrom: "2026-08-06T00:00:00.000Z",
-    validUntil: "2026-08-07T00:00:00.000Z",
+    authorizedAt: window.authorizedAt,
+    validFrom: window.validFrom,
+    validUntil: window.validUntil,
     armingStatus: "armed",
     authorizesEffect: true,
     effectBudget: { retainedCustodyReads: 1, dnsAttempts: 0, networkRequests: 0, redirects: 0, retries: 0 },
@@ -413,8 +430,9 @@ function readGo(expected: M5bProductEffectExpectedAuthority) {
 
 function attempt(ledgerRoot: string, source: any, suffix: string) {
   const expected = readExpected(ledgerRoot, source, suffix);
-  return createM5bProductEffectAttempt(readGo(expected), createM5bProductEffectLedger(ledgerRoot), expected,
-    new Date("2026-08-06T02:00:00.000Z"));
+  const now = new Date();
+  return createM5bProductEffectAttempt(readGo(expected, activeReadWindow(now)),
+    createM5bProductEffectLedger(ledgerRoot), expected, now);
 }
 
 async function refusalCode(promise: Promise<unknown>): Promise<string> {
@@ -662,8 +680,9 @@ describe("M5b product-review retained-custody authority and provenance", () => {
           decodedByteSize: source.decodedByteSize,
         }],
       };
-      const authority = createM5bProductEffectAttempt(readGo(expected), createM5bProductEffectLedger(ledgerRoot),
-        expected, new Date("2026-08-06T02:00:00.000Z"));
+      const now = new Date();
+      const authority = createM5bProductEffectAttempt(readGo(expected, activeReadWindow(now)),
+        createM5bProductEffectLedger(ledgerRoot), expected, now);
       assert.equal(await refusalCode(prepareM5bProductReview({
         requestPath: written.path,
         expectedRequestSha256: written.sha256,

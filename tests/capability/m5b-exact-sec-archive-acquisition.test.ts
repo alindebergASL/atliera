@@ -143,7 +143,24 @@ function expected(root: string, suffix: string, operation: "exact_sec_archive_ac
   };
 }
 
-function goFor(binding: M5bProductEffectExpectedAuthority) {
+const FIXED_EFFECT_WINDOW = Object.freeze({
+  authorizedAt: "2026-08-06T00:00:00.000Z",
+  validFrom: "2026-08-06T00:00:00.000Z",
+  validUntil: "2026-08-07T00:00:00.000Z",
+});
+
+function activeEffectWindow(now: Date) {
+  return {
+    authorizedAt: new Date(now.getTime() - 60_000).toISOString(),
+    validFrom: new Date(now.getTime() - 60_000).toISOString(),
+    validUntil: new Date(now.getTime() + 300_000).toISOString(),
+  };
+}
+
+function goFor(
+  binding: M5bProductEffectExpectedAuthority,
+  window: Readonly<{ authorizedAt: string; validFrom: string; validUntil: string }> = FIXED_EFFECT_WINDOW,
+) {
   const acquisition = binding.operation === "exact_sec_archive_acquisition";
   return {
     kind: "m5b-product-effect-one-shot-go",
@@ -155,9 +172,9 @@ function goFor(binding: M5bProductEffectExpectedAuthority) {
     implementation: { commit: binding.implementationCommit, tree: binding.implementationTree },
     targetPolicySha256: binding.targetPolicySha256,
     sourceIdentities: binding.sourceIdentities,
-    authorizedAt: "2026-08-06T00:00:00.000Z",
-    validFrom: "2026-08-06T00:00:00.000Z",
-    validUntil: "2026-08-07T00:00:00.000Z",
+    authorizedAt: window.authorizedAt,
+    validFrom: window.validFrom,
+    validUntil: window.validUntil,
     armingStatus: "armed",
     authorizesEffect: true,
     effectBudget: acquisition
@@ -168,8 +185,9 @@ function goFor(binding: M5bProductEffectExpectedAuthority) {
 
 function attemptAt(root: string, suffix: string) {
   const binding = expected(root, suffix);
-  return createM5bProductEffectAttempt(goFor(binding), createM5bProductEffectLedger(root), binding,
-    new Date("2026-08-06T01:00:00.000Z"));
+  const now = new Date();
+  return createM5bProductEffectAttempt(goFor(binding, activeEffectWindow(now)),
+    createM5bProductEffectLedger(root), binding, now);
 }
 
 test("reviewed exact archive policy rejects every URL/archive escape and hostile own-data input", () => {
@@ -428,7 +446,9 @@ test("unarmed, wrong-bound, replayed, copied, and restarted attempts touch no ac
       assert.throws(() => createM5bProductEffectAttempt({ ...goFor(binding), ...timestamps },
         createM5bProductEffectLedger(root), binding, new Date("2026-08-06T01:00:00.000Z")), /refused/);
     }
-    const first = attemptAt(root, "replay_001");
+    const replayNow = new Date();
+    const replayGo = goFor(binding, activeEffectWindow(replayNow));
+    const first = createM5bProductEffectAttempt(replayGo, createM5bProductEffectLedger(root), binding, replayNow);
     const privateDns = harness({ addresses: ["127.0.0.1"] });
     const firstResult = await acquireM5bExactSecArchive(first, SYNTHETIC_EXACT_SEC_ARCHIVE_TARGET_POLICY, VALID_UA,
       () => "2026-08-06T01:00:01.000Z", privateDns.dependencies);
@@ -442,10 +462,9 @@ test("unarmed, wrong-bound, replayed, copied, and restarted attempts touch no ac
       () => "2026-08-06T01:00:01.000Z", untouched), /refused/);
     assert.equal(dependencyAccesses, 0);
 
-    const copiedGo = JSON.parse(JSON.stringify(goFor(binding)));
+    const copiedGo = JSON.parse(JSON.stringify(replayGo));
     const restartedLedger = createM5bProductEffectLedger(root);
-    const restartedAttempt = createM5bProductEffectAttempt(copiedGo, restartedLedger, binding,
-      new Date("2026-08-06T01:00:00.000Z"));
+    const restartedAttempt = createM5bProductEffectAttempt(copiedGo, restartedLedger, binding, replayNow);
     await assert.rejects(() => acquireM5bExactSecArchive(restartedAttempt,
       SYNTHETIC_EXACT_SEC_ARCHIVE_TARGET_POLICY, VALID_UA,
       () => "2026-08-06T01:00:01.000Z", untouched), /refused/);

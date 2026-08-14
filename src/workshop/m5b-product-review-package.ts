@@ -143,6 +143,7 @@ export interface M5bProductReviewQuestionAnswer {
   readonly question: string;
   readonly answer: string;
   readonly evidenceBindingIds: readonly string[];
+  readonly proposalBindingIds: readonly string[];
 }
 
 export interface M5bProductReviewPacketProposal {

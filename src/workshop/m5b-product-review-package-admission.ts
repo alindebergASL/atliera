@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 
+import {
+  deepFreezeOwnData,
+  snapshotStrictJson,
+  type StrictJsonLimits,
+  type StrictJsonValue,
+} from "../authority/strict-json.ts";
 import { validatedCandidateSha256 } from "../graph/candidate-delta.ts";
 import {
   hydrateValidatedCandidate,
@@ -43,6 +49,15 @@ const SAFE_AUTHORITY_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const SAFE_SUBJECT_ID = /^[a-z][a-z0-9_-]{1,63}$/;
 const SAFE_PROVENANCE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const SINGLE_LINE_CONTROL = /[\u0000-\u001f\u007f]/u;
+const PACKAGE_ARTIFACT_LIMITS: StrictJsonLimits = Object.freeze({
+  max_array_length: 1_024,
+  max_depth: 16,
+  max_expanded_json_value_occurrences: 32_000,
+  max_nodes: 8_000,
+  max_object_fields: 64,
+  max_string_utf8_bytes: 512 * 1024,
+  max_total_string_utf8_bytes: 4 * 1024 * 1024,
+});
 
 export interface M5bProductReviewPackageArtifactSet {
   readonly sourcePack: unknown;
@@ -525,14 +540,17 @@ function assertCurrentRenderablePackage(
     refuseM5bProductReview("render_question_binding");
   }
   for (const [index, item] of packet.customerQuestions.entries()) {
-    assertRenderExactKeys(item, ["question", "answer", "evidenceBindingIds"]);
+    assertRenderExactKeys(item, ["question", "answer", "evidenceBindingIds", "proposalBindingIds"]);
     if (item.question !== M5B_PRODUCT_REVIEW_QUESTION_LABELS[index]![0] ||
         !isBoundedSingleLine(item.answer, 12, 1_200) || !isStringArray(item.evidenceBindingIds) ||
+        !isStringArray(item.proposalBindingIds) ||
         new Set(item.evidenceBindingIds).size !== item.evidenceBindingIds.length ||
+        new Set(item.proposalBindingIds).size !== item.proposalBindingIds.length ||
         m5bProductReviewTextClaimsForbiddenTrust(item.answer) ||
         (index === 4 && item.answer !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) ||
         (index === 1 ? item.evidenceBindingIds.length === 0 || item.evidenceBindingIds.some((id) =>
-          evidenceById.get(id)?.evidenceRole !== "material_change") : item.evidenceBindingIds.length !== 0)) {
+          evidenceById.get(id)?.evidenceRole !== "material_change") || item.proposalBindingIds.length !== 3 :
+          item.evidenceBindingIds.length !== 0 || item.proposalBindingIds.length !== 0)) {
       refuseM5bProductReview("render_question_binding");
     }
   }
@@ -706,7 +724,7 @@ function assertCandidateBinding(
       id: `cev_m5b_${String(proposalIndex + 1).padStart(3, "0")}_${String(evidenceIndex + 1).padStart(2, "0")}`,
       claim_id: `clm_m5b_product_${String(proposalIndex + 1).padStart(3, "0")}`,
       evidence_excerpt_id: evidenceExcerptIdByEvidenceId.get(binding.evidenceId),
-      relationship: "supports",
+      relationship: proposal.classification === "source_fact" ? "supports" : "context",
       rationale: proposal.classification === "source_fact"
         ? "The proposed source fact is directly attributed to this exact source excerpt."
         : "The exact excerpt provides context for this proposed interpretation; it is not independent verification.",
@@ -731,49 +749,46 @@ function assertCandidateBinding(
 
 function featuredMaterialChangeChain(packet: M5bProductReviewPacket): M5bProductReviewFeaturedMaterialChangeChain {
   const proposalsById = new Map(packet.proposals.map((proposal) => [proposal.proposalId, proposal]));
-  const questionEvidenceIds = new Set(packet.customerQuestions[1]!.evidenceBindingIds);
-  const chainForPlay = (play: M5bProductReviewPacketProposal) => {
-    const playEvidenceIds = new Set(play.evidenceBindings.map((binding) => binding.evidenceId));
-    for (const mapId of play.supportingProposalIds) {
-      const map = proposalsById.get(mapId);
-      if (map?.classification !== "analysis" || map.lens !== "map") continue;
-      const mapEvidenceIds = new Set(map.evidenceBindings.map((binding) => binding.evidenceId));
-      for (const signalId of map.supportingProposalIds) {
-        const signal = proposalsById.get(signalId);
-        if (signal?.classification !== "source_fact" || signal.lens !== "signal") continue;
-        const materialBinding = signal.evidenceBindings.find((binding) =>
-          binding.evidenceRole === "material_change" && mapEvidenceIds.has(binding.evidenceId) &&
-          playEvidenceIds.has(binding.evidenceId) && questionEvidenceIds.has(binding.evidenceId));
-        if (materialBinding !== undefined) return { signal, map, play };
-      }
-    }
-    return null;
-  };
-  let featured: ReturnType<typeof chainForPlay> = null;
-  const plays = packet.proposals.filter((proposal) => proposal.classification === "recommendation");
-  if (plays.length === 0) refuseM5bProductReview("render_material_change_chain");
-  for (const play of plays) {
-    if (play.lens !== "play") refuseM5bProductReview("render_material_change_chain");
-    const chain = chainForPlay(play);
-    if (chain === null) refuseM5bProductReview("render_material_change_chain");
-    featured ??= chain;
+  const question = packet.customerQuestions[1]!;
+  const [signalId, mapId, playId] = question.proposalBindingIds;
+  const signal = proposalsById.get(signalId!);
+  const map = proposalsById.get(mapId!);
+  const play = proposalsById.get(playId!);
+  const materialBinding = signal?.evidenceBindings[0];
+  if (signal?.classification !== "source_fact" || signal.lens !== "signal" ||
+      signal.evidenceBindings.length !== 1 || materialBinding?.evidenceRole !== "material_change" ||
+      map?.classification !== "analysis" || map.lens !== "map" ||
+      !map.supportingProposalIds.includes(signal.proposalId) ||
+      !map.evidenceBindings.some((binding) => binding.evidenceId === materialBinding.evidenceId) ||
+      play?.classification !== "recommendation" || play.lens !== "play" ||
+      !play.supportingProposalIds.includes(map.proposalId) ||
+      !play.evidenceBindings.some((binding) => binding.evidenceId === materialBinding.evidenceId) ||
+      question.evidenceBindingIds.length !== 1 ||
+      question.evidenceBindingIds[0] !== materialBinding.evidenceId ||
+      question.answer !== signal.summary) {
+    refuseM5bProductReview("render_material_change_chain");
   }
-  return featured!;
+  return { signal, map, play };
 }
 
 export function admitM5bProductReviewPackageArtifacts(
   raw: unknown,
 ): Readonly<M5bProductReviewAdmittedPackageArtifacts> {
-  // Snapshot the complete triad before property access so hostile runtime inputs cannot execute code.
-  m5bProductReviewCanonicalSha256(raw);
-  assertRenderExactKeys(raw, ["sourcePack", "candidate", "reviewPacket"]);
-  const sourcePack = raw.sourcePack as unknown as M5bProductReviewSanitizedSourcePack;
-  const packet = raw.reviewPacket as unknown as M5bProductReviewPacket;
+  let snapshot: StrictJsonValue;
+  try {
+    snapshot = snapshotStrictJson(raw, "product_review_package_artifacts", PACKAGE_ARTIFACT_LIMITS);
+  } catch {
+    return refuseM5bProductReview("render_package_shape");
+  }
+  assertRenderExactKeys(snapshot, ["sourcePack", "candidate", "reviewPacket"]);
+  deepFreezeOwnData(snapshot);
+  const sourcePack = snapshot.sourcePack as unknown as M5bProductReviewSanitizedSourcePack;
+  const packet = snapshot.reviewPacket as unknown as M5bProductReviewPacket;
   assertCurrentRenderablePackage(sourcePack, packet);
   const materialChangeChain = featuredMaterialChangeChain(packet);
   let candidate: ValidatedCandidate;
   try {
-    candidate = hydrateValidatedCandidate(raw.candidate);
+    candidate = hydrateValidatedCandidate(snapshot.candidate);
   } catch {
     return refuseM5bProductReview("render_candidate_shape");
   }

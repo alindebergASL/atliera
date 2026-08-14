@@ -123,6 +123,11 @@ export interface M5bProductReviewQuestions {
   readonly whoIsThisAccount: string;
   readonly whatMeaningfullyChanged: string;
   readonly whatMeaningfullyChangedEvidenceBindingIds: readonly string[];
+  readonly whatMeaningfullyChangedSelection: {
+    readonly signalProposalId: string;
+    readonly mapProposalId: string;
+    readonly playProposalId: string;
+  };
   readonly whyDoesItMatter: string;
   readonly whatNeedsAttention: string;
   readonly safeNextTask: string;
@@ -318,7 +323,11 @@ function parseSupersession(value: StrictJsonValue | undefined): M5bProductReview
 function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQuestions {
   const object = objectAt(value, "request.customerQuestions");
   exactKeys(object, ["whoIsThisAccount", "whatMeaningfullyChanged", "whyDoesItMatter",
-    "whatNeedsAttention", "safeNextTask", "whatMeaningfullyChangedEvidenceBindingIds"]);
+    "whatNeedsAttention", "safeNextTask", "whatMeaningfullyChangedEvidenceBindingIds",
+    "whatMeaningfullyChangedSelection"]);
+  const selection = objectAt(object.whatMeaningfullyChangedSelection,
+    "request.customerQuestions.whatMeaningfullyChangedSelection");
+  exactKeys(selection, ["signalProposalId", "mapProposalId", "playProposalId"]);
   const questions: M5bProductReviewQuestions = {
     whoIsThisAccount: stringAt(object.whoIsThisAccount, "customer_questions", 12, 1_200),
     whatMeaningfullyChanged: stringAt(object.whatMeaningfullyChanged, "customer_questions", 12, 1_200),
@@ -326,6 +335,11 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
       object.whatMeaningfullyChangedEvidenceBindingIds, "material_change_question",
       M5B_PRODUCT_REVIEW_LIMITS.evidenceCountMax, EVIDENCE_ID, false,
     ),
+    whatMeaningfullyChangedSelection: {
+      signalProposalId: stringAt(selection.signalProposalId, "proposal_id", 5, 56),
+      mapProposalId: stringAt(selection.mapProposalId, "proposal_id", 5, 56),
+      playProposalId: stringAt(selection.playProposalId, "proposal_id", 5, 56),
+    },
     whyDoesItMatter: stringAt(object.whyDoesItMatter, "customer_questions", 12, 1_200),
     whatNeedsAttention: stringAt(object.whatNeedsAttention, "customer_questions", 12, 1_200),
     safeNextTask: stringAt(object.safeNextTask, "customer_questions", 12, 1_200),
@@ -336,6 +350,10 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
   }
   if (questions.safeNextTask !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) {
     refuseM5bProductReview("unsafe_next_task");
+  }
+  if (Object.values(questions.whatMeaningfullyChangedSelection).some((id) => !PROPOSAL_ID.test(id)) ||
+      new Set(Object.values(questions.whatMeaningfullyChangedSelection)).size !== 3) {
+    refuseM5bProductReview("material_change_question");
   }
   return questions;
 }
@@ -446,7 +464,9 @@ const IDENTITY_LABEL_TOKENS = new Set([
 ]);
 const IDENTITY_METADATA_TAIL = /\b(?:cik|lei|nasdaq|nyse|ticker)\b.*$/giu;
 const EXPLICIT_STATIC_CLASSIFICATION_LABEL =
-  /(?:\b(?:business\s+(?:category|classification|description|type)|industry|sector)\b\s*(?::|=|[—–-]|\bis\b|\bcode\b)|\b(?:naics|sic)\b(?:\s+code)?\s*(?::|=|#)?\s*\d)/iu;
+  /(?:\b(?:business\s+(?:category|classification|description|type)|industry(?:\s+classification)?|sector(?:\s+classification)?)\b\s*(?::|=|[—–-]|\bis\b|\bcode\b)|\b(?:naics|sic)\b(?:\s+code)?\s*(?::|=|#)?\s*\d)/iu;
+const EXPLICIT_STATIC_PROFILE_LABEL =
+  /^\s*(?:(?:account|business|company|corporate|entity|organization|registrant)\s+)?(?:overview|profile)\s*(?::|=|[—–-]|\bis\b)/iu;
 const IDENTITY_NAME_LABEL_WORDS = new Set([
   "account", "business", "company", "corporate", "entity", "issuer", "legal", "registrant",
 ]);
@@ -550,6 +570,34 @@ function normalizedQuoteWords(value: string): readonly string[] {
   return value.normalize("NFKD").toLocaleLowerCase("en-US").match(/[\p{L}\p{N}]+/gu) ?? [];
 }
 
+function stripTrailingIdentityQualifier(value: string): string {
+  const match = value.match(/\s*(?:\(([^()]{1,64})\)|\[([^\[\]]{1,64})\])\s*[.!]?\s*$/u);
+  if (match?.index === undefined) return value;
+  const qualifierWords = normalizedQuoteWords(match[1] ?? match[2] ?? "");
+  const hasExplicitReportedEvent = qualifierWords.some((word) => MATERIAL_CHANGE_REPORT_WORDS.has(word)) &&
+    qualifierWords.some((word) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word));
+  if (hasMaterialChangeAction(qualifierWords) || hasReportedMaterialChangeEvent(qualifierWords) ||
+      hasExplicitReportedEvent) {
+    return value;
+  }
+  return value.slice(0, match.index).trim();
+}
+
+function looksLikeStaticLegalName(value: string): boolean {
+  const withoutQualifier = stripTrailingIdentityQualifier(value).replace(/[.!]\s*$/u, "").trim();
+  const words = withoutQualifier.match(/[\p{L}\p{N}]+/gu) ?? [];
+  if (words.length < 2 || words.length > 16 ||
+      !LEGAL_ENTITY_SUFFIXES.has(words.at(-1)!.toLocaleLowerCase("en-US"))) return false;
+  const nameConnectors = new Set(["and", "de", "of", "the", "van", "von"]);
+  return words.every((word) => {
+    const normalized = word.toLocaleLowerCase("en-US");
+    if (nameConnectors.has(normalized)) return true;
+    const first = [...word][0];
+    return first !== undefined && (first === first.toLocaleUpperCase("en-US") ||
+      word === word.toLocaleUpperCase("en-US"));
+  });
+}
+
 function isExplicitIdentityLabel(value: string): boolean {
   for (const delimiter of value.matchAll(/:|=|[—–-]|\bis\b/giu)) {
     if (delimiter.index === undefined || delimiter.index > 120) break;
@@ -587,9 +635,12 @@ export function assertM5bProductReviewMaterialChangeQuote(
 ): void {
   const quoteIdentities = normalizedAccountIdentityVariants(exactQuote, false);
   const subjectIdentities = normalizedAccountIdentityVariants(accountName, true);
-  const quoteWords = normalizedQuoteWords(exactQuote);
+  const quoteWithoutTrailingQualifier = stripTrailingIdentityQualifier(exactQuote);
+  const quoteWords = normalizedQuoteWords(quoteWithoutTrailingQualifier);
   if (quoteIdentities.size === 0) refuseM5bProductReview("material_change_uninformative");
-  if (EXPLICIT_STATIC_CLASSIFICATION_LABEL.test(exactQuote) || isExplicitIdentityLabel(exactQuote)) {
+  if (EXPLICIT_STATIC_CLASSIFICATION_LABEL.test(exactQuote) ||
+      EXPLICIT_STATIC_PROFILE_LABEL.test(exactQuote) || isExplicitIdentityLabel(exactQuote) ||
+      looksLikeStaticLegalName(exactQuote)) {
     refuseM5bProductReview("material_change_identity_only");
   }
   if ([...quoteIdentities].some((identity) => subjectIdentities.has(identity))) {
@@ -763,6 +814,25 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
   );
   if (request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds.some((id) =>
     !qualifyingMaterialEvidenceIds.has(id))) {
+    refuseM5bProductReview("material_change_question");
+  }
+  const selection = request.customerQuestions.whatMeaningfullyChangedSelection;
+  const selectedSignal = proposalsById.get(selection.signalProposalId);
+  const selectedMap = proposalsById.get(selection.mapProposalId);
+  const selectedPlay = proposalsById.get(selection.playProposalId);
+  const selectedEvidenceId = selectedSignal?.evidenceBindingIds[0];
+  if (selectedSignal?.classification !== "source_fact" || selectedSignal.lens !== "signal" ||
+      selectedSignal.evidenceBindingIds.length !== 1 || selectedEvidenceId === undefined ||
+      !materialEvidenceIds.has(selectedEvidenceId) ||
+      selectedMap?.classification !== "analysis" || selectedMap.lens !== "map" ||
+      !selectedMap.supportingProposalIds.includes(selectedSignal.proposalId) ||
+      !selectedMap.evidenceBindingIds.includes(selectedEvidenceId) ||
+      selectedPlay?.classification !== "recommendation" || selectedPlay.lens !== "play" ||
+      !selectedPlay.supportingProposalIds.includes(selectedMap.proposalId) ||
+      !selectedPlay.evidenceBindingIds.includes(selectedEvidenceId) ||
+      request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds.length !== 1 ||
+      request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds[0] !== selectedEvidenceId ||
+      request.customerQuestions.whatMeaningfullyChanged !== selectedSignal.summary) {
     refuseM5bProductReview("material_change_question");
   }
   const plays = request.proposals.filter((proposal) => proposal.classification === "recommendation");

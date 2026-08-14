@@ -167,8 +167,13 @@ export async function createSyntheticM5bProductReviewScenario(
     },
     customerQuestions: {
       whoIsThisAccount: "Citrine Works is a fictional operations-software company serving regional planning teams.",
-      whatMeaningfullyChanged: "It introduced a planning product and recorded early completion plus a repeated checklist need.",
+      whatMeaningfullyChanged: `Source states: ${SYNTHETIC_QUOTES.launch}`,
       whatMeaningfullyChangedEvidenceBindingIds: ["evd_citrine_launch"],
+      whatMeaningfullyChangedSelection: {
+        signalProposalId: "prp_citrine_launch_signal",
+        mapProposalId: "prp_citrine_readiness_analysis",
+        playProposalId: "prp_citrine_meeting_play",
+      },
       whyDoesItMatter: "The combined evidence suggests a focused meeting can test whether exception handling is the useful entry point.",
       whatNeedsAttention: "The pilot size is small, evidence currency differs by source, and the checklist need may not generalize.",
       safeNextTask: M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION,

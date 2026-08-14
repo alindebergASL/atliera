@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, test } from "node:test";
 
 import { validatedCandidateSha256 } from "../../src/graph/candidate-delta.ts";
+import { createSupportEvaluator } from "../../src/graph/support.ts";
 import { hydrateValidatedCandidate } from "../../src/graph/validated-candidate.ts";
 import {
   M5B_PRODUCT_REVIEW_LIMITS,
@@ -84,6 +85,7 @@ describe("M5b product-review preparation", () => {
     assert.equal(Object.hasOwn(packageModule, "buildM5bProductReviewPackageData"), false);
     assert.equal(Object.hasOwn(prepareModule, "buildM5bProductReviewPackageData"), false);
     assert.equal(Object.hasOwn(publicModule, "buildM5bProductReviewPackageData"), false);
+    assert.equal(Object.hasOwn(publicModule, "admitM5bProductReviewPackageArtifacts"), false);
     for (const renderer of ["renderM5bProductReviewMeetingBrief",
       "renderM5bProductReviewWorkshopHtml"]) {
       assert.equal(Object.hasOwn(prepareModule, renderer), false);
@@ -160,6 +162,23 @@ describe("M5b product-review preparation", () => {
       assert.ok(candidate.graph_bundle.excerpts.every((item) => item.validation_status === "proposed"));
       assert.ok(candidate.graph_bundle.claims.every((item) => item.provenance_status === "unverified" &&
         item.created_by === "system" && item.confidence !== "high"));
+      for (const [index, proposal] of scenario.request.proposals.entries()) {
+        const edges = candidate.graph_bundle.claim_evidence.filter((edge) =>
+          edge.claim_id === `clm_m5b_product_${String(index + 1).padStart(3, "0")}`);
+        assert.ok(edges.length > 0);
+        assert.ok(edges.every((edge) => edge.relationship ===
+          (proposal.classification === "source_fact" ? "supports" : "context")));
+      }
+      const acceptedCandidate = cloneSynthetic(candidateRaw);
+      for (const excerpt of acceptedCandidate.graph_bundle.excerpts) {
+        excerpt.validation_status = "accepted";
+      }
+      const support = createSupportEvaluator(acceptedCandidate.graph_bundle);
+      for (const [index, proposal] of scenario.request.proposals.entries()) {
+        assert.equal(support.hasCurrentSupportingEvidence(
+          `clm_m5b_product_${String(index + 1).padStart(3, "0")}`),
+        proposal.classification === "source_fact");
+      }
       assert.ok(candidate.graph_bundle.account_objects.every((item) => item.provenance_status === "unverified" &&
         item.created_by === "system" && item.payload_json.durable === false &&
         Array.isArray(item.payload_json.evidence_roles) &&
@@ -195,6 +214,9 @@ describe("M5b product-review preparation", () => {
       assert.deepEqual(packet.customerQuestions.find((item: any) =>
         item.question === "What meaningfully changed?").evidenceBindingIds,
       scenario.request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds);
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "What meaningfully changed?").proposalBindingIds,
+      Object.values(scenario.request.customerQuestions.whatMeaningfullyChangedSelection));
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "signal" &&
         proposal.classification === "source_fact" && proposal.title.includes("Citrine Works")));
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "map" &&

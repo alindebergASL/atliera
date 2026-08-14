@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -85,6 +86,10 @@ function sourceRegisterFor(sourcePack: any): any[] {
 function rehashPacket(packet: any): void {
   const { reviewPacketSha256: _oldHash, ...content } = packet;
   packet.reviewPacketSha256 = m5bProductReviewCanonicalSha256(content);
+}
+
+function sha256Utf8(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 function bindPacketToRehashedSourcePack(packet: any, sourcePack: any): void {
@@ -323,6 +328,21 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, brokenPacket))),
         "render_package_binding");
 
+      const contradictoryAnswer = cloneSynthetic(packet);
+      contradictoryAnswer.customerQuestions[1].answer =
+        "No operational change occurred; this answer describes only static account context.";
+      rehashPacket(contradictoryAnswer);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, contradictoryAnswer))), "render_material_change_chain");
+
+      const crossBoundSelection = cloneSynthetic(packet);
+      crossBoundSelection.customerQuestions[1].proposalBindingIds = [
+        "prp_citrine_launch_signal", "prp_citrine_readiness_analysis", "prp_citrine_pilot_fact",
+      ];
+      rehashPacket(crossBoundSelection);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, crossBoundSelection))), "render_material_change_chain");
+
       const crossSubject = cloneSynthetic(packet);
       crossSubject.subject.accountId = "acc_other_account";
       crossSubject.subject.accountName = "Other account";
@@ -372,6 +392,17 @@ describe("M5b product-review Workshop and meeting brief", () => {
         ["contradicting claim evidence", (value) => {
           value.graph_bundle.claim_evidence[0].relationship = "contradicts";
         }],
+        ["contextualized source-fact evidence", (value) => {
+          value.graph_bundle.claim_evidence[0].relationship = "context";
+        }],
+        ["supporting analysis evidence", (value) => {
+          value.graph_bundle.claim_evidence.find((edge: any) =>
+            edge.claim_id === "clm_m5b_product_004").relationship = "supports";
+        }],
+        ["supporting recommendation evidence", (value) => {
+          value.graph_bundle.claim_evidence.find((edge: any) =>
+            edge.claim_id === "clm_m5b_product_005").relationship = "supports";
+        }],
         ["supporting account-object claim", (value) => {
           value.graph_bundle.account_object_claims[0].relationship = "supporting";
         }],
@@ -416,7 +447,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const { reviewPacketSha256: _unrelatedPlayHash, ...unrelatedPlayContent } = unrelatedPlay;
       unrelatedPlay.reviewPacketSha256 = m5bProductReviewCanonicalSha256(unrelatedPlayContent);
       assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, unrelatedPlay))),
-        "render_material_change_chain");
+        "render_candidate_binding");
 
       const fabricatedPack = cloneSynthetic(sourcePack);
       const fabricatedBinding = fabricatedPack.sources[0].evidenceBindings[0];
@@ -495,6 +526,38 @@ describe("M5b product-review Workshop and meeting brief", () => {
       identityOnlyPacket.subject.accountName = identityOnlyPack.subject.accountName;
       bindPacketToRehashedSourcePack(identityOnlyPacket, identityOnlyPack);
       assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(identityOnlyPack, candidate, identityOnlyPacket))), "material_change_identity_only");
+
+      for (const quote of [
+        "FedEx Acquisition of America Corporation (AOC)",
+        "Industry classification: Acquisition of America Corporation (AOC)",
+        "FedEx Acquired Holdings LLC",
+        "Company profile — Acquisition of America Corporation (AOC)",
+      ]) {
+        const staticNamePack = cloneSynthetic(sourcePack);
+        const materialBinding = staticNamePack.sources[0].evidenceBindings[0];
+        materialBinding.exactQuote = quote;
+        materialBinding.exactQuoteSha256 = sha256Utf8(quote);
+        materialBinding.sourceCharEnd = materialBinding.sourceCharStart + quote.length;
+        materialBinding.storedCharEnd = materialBinding.storedCharStart + quote.length;
+        rehashSourcePack(staticNamePack);
+        const staticNamePacket = cloneSynthetic(packet);
+        bindPacketToRehashedSourcePack(staticNamePacket, staticNamePack);
+        assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+          artifactSet(staticNamePack, candidate, staticNamePacket))),
+        "material_change_identity_only", quote);
+      }
+
+      const mutableInput = artifactSet(cloneSynthetic(sourcePack), cloneSynthetic(candidate), cloneSynthetic(packet));
+      const admitted = admitM5bProductReviewPackageArtifacts(mutableInput);
+      mutableInput.sourcePack.subject.accountName = "Mutated after admission";
+      mutableInput.reviewPacket.customerQuestions[1].answer = "Mutated after admission";
+      assert.equal(admitted.sourcePack.subject.accountName, sourcePack.subject.accountName);
+      assert.equal(admitted.reviewPacket.customerQuestions[1]!.answer, packet.customerQuestions[1].answer);
+      assert.ok(Object.isFrozen(admitted.sourcePack.subject));
+      assert.ok(Object.isFrozen(admitted.reviewPacket.customerQuestions[1]));
+      assert.throws(() => {
+        (admitted.reviewPacket.customerQuestions[1] as any).answer = "Mutation attempt";
+      }, TypeError);
     });
   });
 

@@ -794,7 +794,7 @@ function buildCandidate(
         id: `cev_m5b_${String(proposalIndex + 1).padStart(3, "0")}_${String(evidenceIndex + 1).padStart(2, "0")}`,
         claim_id: `clm_m5b_product_${String(proposalIndex + 1).padStart(3, "0")}`,
         evidence_excerpt_id: evidenceById.get(evidenceId)!.graphId,
-        relationship: "supports" as const,
+        relationship: proposal.classification === "source_fact" ? "supports" as const : "context" as const,
         rationale: proposal.classification === "source_fact"
           ? "The proposed source fact is directly attributed to this exact source excerpt."
           : "The exact excerpt provides context for this proposed interpretation; it is not independent verification.",
@@ -901,6 +901,11 @@ function buildReviewPacket(
       answer: request.customerQuestions[key],
       evidenceBindingIds: Object.freeze(key === "whatMeaningfullyChanged"
         ? [...request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds]
+        : []),
+      proposalBindingIds: Object.freeze(key === "whatMeaningfullyChanged"
+        ? [request.customerQuestions.whatMeaningfullyChangedSelection.signalProposalId,
+          request.customerQuestions.whatMeaningfullyChangedSelection.mapProposalId,
+          request.customerQuestions.whatMeaningfullyChangedSelection.playProposalId]
         : []),
     }))),
     lenses: Object.freeze((["signal", "map", "play"] as const).map((lens) => Object.freeze({

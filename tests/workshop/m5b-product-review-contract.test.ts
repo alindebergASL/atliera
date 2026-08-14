@@ -185,6 +185,7 @@ describe("M5b product-review request contract", () => {
 
       const confusedFact = cloneSynthetic(baseline);
       confusedFact.proposals[0].summary = "This looks like an inferred market opportunity for the account.";
+      confusedFact.customerQuestions.whatMeaningfullyChanged = confusedFact.proposals[0].summary;
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(confusedFact)), "source_fact_attribution");
 
       const forgedFactTitle = cloneSynthetic(baseline);
@@ -232,6 +233,18 @@ describe("M5b product-review request contract", () => {
       const questionUsesContext = cloneSynthetic(baseline);
       questionUsesContext.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds = ["evd_citrine_pilot"];
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(questionUsesContext)),
+        "material_change_question");
+
+      const contradictoryAnswer = cloneSynthetic(baseline);
+      contradictoryAnswer.customerQuestions.whatMeaningfullyChanged =
+        "No operational change occurred; this answer describes only static account context.";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(contradictoryAnswer)),
+        "material_change_question");
+
+      const crossBoundSelection = cloneSynthetic(baseline);
+      crossBoundSelection.customerQuestions.whatMeaningfullyChangedSelection.playProposalId =
+        "prp_citrine_pilot_fact";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(crossBoundSelection)),
         "material_change_question");
 
       const identityOnly = cloneSynthetic(baseline);
@@ -357,6 +370,10 @@ describe("M5b product-review request contract", () => {
         "Partnership for Growth LLC",
         "Sale of America Holdings",
         "Reported Rise in Revenue Holdings",
+        "FedEx Acquisition of America Corporation (AOC)",
+        "Industry classification: Acquisition of America Corporation (AOC)",
+        "FedEx Acquired Holdings LLC",
+        "Company profile — Acquisition of America Corporation (AOC)",
       ]) {
         const staticContext = cloneSynthetic(baseline);
         staticContext.subject.accountName = "FedEx";
@@ -431,6 +448,8 @@ describe("M5b product-review request contract", () => {
         materialAnnouncement.evidenceBindings[0].exactQuote = quote;
         materialAnnouncement.proposals[0].title = `Source states: ${quote}`;
         materialAnnouncement.proposals[0].summary = materialAnnouncement.proposals[0].title;
+        materialAnnouncement.customerQuestions.whatMeaningfullyChanged =
+          materialAnnouncement.proposals[0].summary;
         assert.doesNotThrow(() => validateM5bProductReviewRequest(materialAnnouncement));
       }
 
@@ -483,7 +502,7 @@ describe("M5b product-review request contract", () => {
       playUsesDifferentMaterialFact.proposals.at(-1).evidenceBindingIds =
         ["evd_citrine_launch", "evd_citrine_notes"];
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(playUsesDifferentMaterialFact)),
-        "material_change_play");
+        "material_change_question");
 
       const mixedCustodyUsesSyntheticMaterial = cloneSynthetic(baseline);
       mixedCustodyUsesSyntheticMaterial.sources[1].sourceKind = "exact_public_acquisition_custody";
@@ -495,14 +514,14 @@ describe("M5b product-review request contract", () => {
       playOmitsMaterialEvidence.proposals.at(-1).evidenceBindingIds = ["evd_citrine_pilot",
         "evd_citrine_notes"];
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(playOmitsMaterialEvidence)),
-        "material_change_play");
+        "material_change_question");
 
       const playCrossBindsDifferentMaterialFact = cloneSynthetic(baseline);
       playCrossBindsDifferentMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
       playCrossBindsDifferentMaterialFact.proposals.at(-1).evidenceBindingIds = ["evd_citrine_pilot",
         "evd_citrine_notes"];
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(playCrossBindsDifferentMaterialFact)),
-        "material_change_play");
+        "material_change_question");
 
       const withIdentityContext = cloneSynthetic(baseline);
       withIdentityContext.evidenceBindings[1].evidenceRole = "account_identity";

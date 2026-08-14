@@ -439,12 +439,85 @@ const LEGAL_ENTITY_SUFFIXES = new Set([
   "incorporated", "limited", "llc", "lp", "ltd", "nv", "plc", "sa", "se",
 ]);
 const IDENTITY_LABEL_TOKENS = new Set([
-  "a", "account", "an", "as", "business", "called", "charter", "corporate", "delaware", "doing",
-  "domestic", "entity", "exact", "foreign", "formation", "formed", "in", "incorporation", "is",
-  "issuer", "its", "jurisdiction", "known", "laws", "legal", "name", "of", "organisation",
-  "organization", "registrant", "s", "specified", "state", "the", "under",
+  "a", "account", "alias", "an", "as", "b", "business", "called", "charter", "corporate", "d",
+  "delaware", "doing", "domestic", "entity", "exact", "foreign", "formation", "formed", "formerly",
+  "in", "incorporation", "is", "issuer", "its", "jurisdiction", "known", "laws", "legal", "name", "of",
+  "organisation", "organization", "registrant", "s", "specified", "state", "the", "under",
 ]);
 const IDENTITY_METADATA_TAIL = /\b(?:cik|lei|nasdaq|nyse|ticker)\b.*$/giu;
+const EXPLICIT_STATIC_CLASSIFICATION_LABEL =
+  /(?:\b(?:business\s+(?:category|classification|description|type)|industry|sector)\b\s*(?::|=|[—–-]|\bis\b|\bcode\b)|\b(?:naics|sic)\b(?:\s+code)?\s*(?::|=|#)?\s*\d)/iu;
+const IDENTITY_NAME_LABEL_WORDS = new Set([
+  "account", "business", "company", "corporate", "entity", "issuer", "legal", "registrant",
+]);
+const SHORT_IDENTITY_LABEL_WORDS = new Set([
+  "exact", "issuer", "legal", "registrant", "s", "the",
+]);
+const MATERIAL_CHANGE_MARKER_WORDS = new Set([
+  "acquire", "acquired", "acquires", "acquiring", "acquisition", "acquisitions", "adopt", "adopted",
+  "adopting", "adoption", "adopts", "appoint", "appointed", "appointing", "appointment", "appointments",
+  "appoints", "bankrupt", "bankruptcy", "breach", "breached", "breaches", "cancel", "canceled",
+  "cancelled", "cancellation", "cancels", "change", "changed", "changes", "changing", "close", "closed",
+  "closes", "closing", "closure", "closures", "complete", "completed", "completes", "completion",
+  "consolidate", "consolidated", "consolidates", "consolidation", "cut", "cuts", "decrease", "decreased",
+  "decreases", "depart", "departed", "departure", "discontinue", "discontinued", "discontinues", "disrupt",
+  "disrupted", "disruption", "disruptions", "divest", "divested", "divestiture", "expand", "expanded",
+  "expanding", "expands", "expansion", "increase", "increased", "increases", "introduce", "introduced",
+  "introduces", "introduction", "invest", "invested", "launch", "launched", "launches", "layoff", "layoffs",
+  "merge", "merged", "merger", "merges", "open", "opened", "opening", "opens", "outage", "outages",
+  "partnered", "partnership", "pivot", "pivoted", "pivoting", "pivots", "promote", "promoted", "promotion",
+  "recall", "recalled", "recalls", "reconfigure", "reconfigured", "reconfiguration", "reduce", "reduced",
+  "reduces", "reduction", "reorganize", "reorganized", "reorganization", "replace", "replaced", "replacement",
+  "replaces", "resign", "resigned", "resignation", "resigns", "restate", "restated", "restatement",
+  "restructure", "restructured", "restructures", "restructuring", "retire", "retired", "retirement", "retires",
+  "rise", "rose", "sale", "sell", "sells", "sold", "suspend", "suspended", "suspension", "terminate",
+  "terminated", "terminates", "termination", "transition", "transitioned", "transitions",
+]);
+const MATERIAL_CHANGE_FINITE_ACTION_WORDS = new Set([
+  "acquired", "acquires", "adopted", "adopts", "appointed", "appoints", "breached", "breaches",
+  "canceled", "cancelled", "cancels", "changed", "changes", "closed", "closes", "completed",
+  "completes", "consolidated", "consolidates", "cut", "cuts", "decreased", "decreases", "departed",
+  "discontinued", "discontinues", "disrupted", "divested", "expanded", "expands", "increased", "increases",
+  "introduced", "introduces", "invested", "launched", "launches", "merged", "merges", "opened", "opens",
+  "partnered", "pivoted", "pivots", "promoted", "recalled", "recalls", "reconfigured", "reduced", "reduces",
+  "reorganized", "replaced", "replaces", "resigned", "resigns", "restated", "restructured", "restructures",
+  "retired", "retires", "rose", "sells", "sold", "suspended", "terminated", "terminates", "transitioned",
+  "transitions",
+]);
+const MATERIAL_CHANGE_BASE_ACTION_WORDS = new Set([
+  "acquire", "adopt", "appoint", "breach", "cancel", "change", "close", "complete", "consolidate",
+  "decrease", "depart", "discontinue", "disrupt", "divest", "expand", "increase", "introduce", "invest",
+  "launch", "merge", "open", "pivot", "promote", "recall", "reconfigure", "reduce", "reorganize", "replace",
+  "resign", "restate", "restructure", "retire", "sell", "suspend", "terminate", "transition",
+]);
+const MATERIAL_CHANGE_PARTICIPLE_WORDS = new Set([
+  "acquiring", "adopting", "appointing", "changing", "closing", "expanding", "pivoting", "restructuring",
+]);
+const MATERIAL_CHANGE_AUXILIARY_WORDS = new Set([
+  "am", "are", "be", "been", "being", "can", "could", "did", "do", "does", "had", "has", "have", "is",
+  "may", "might", "must", "shall", "should", "to", "was", "were", "will", "would",
+]);
+const MATERIAL_CHANGE_EVENT_NOUN_WORDS = new Set([
+  "acquisition", "acquisitions", "adoption", "appointment", "appointments", "bankruptcy", "breach",
+  "cancellation", "change", "changes", "closure", "closures", "completion", "consolidation", "departure",
+  "disruption", "disruptions", "divestiture", "expansion", "introduction", "layoff", "layoffs", "merger",
+  "opening", "outage", "outages", "partnership", "promotion", "reconfiguration", "reduction", "reorganization",
+  "replacement", "resignation", "restatement", "restructuring", "retirement", "rise", "sale", "suspension",
+  "termination", "transition",
+]);
+const MATERIAL_CHANGE_EVENT_CONNECTORS = new Set([
+  "across", "after", "among", "as", "at", "between", "by", "during", "following", "for", "from", "in",
+  "into", "of", "on", "over", "throughout", "to", "under", "with",
+]);
+const MATERIAL_CHANGE_REPORT_WORDS = new Set([
+  "announce", "announced", "announces", "announcing", "disclose", "disclosed", "discloses", "report",
+  "reported", "reports",
+]);
+const STATIC_LEGAL_OR_DESCRIPTOR_TAILS = new Set([
+  ...LEGAL_ENTITY_SUFFIXES, "companies", "consulting", "enterprises", "industries", "industry", "logistics",
+  "network", "networks", "partners", "services", "software", "solutions", "systems", "technologies",
+  "technology", "transportation",
+]);
 
 function normalizedAccountIdentity(value: string): string {
   const tokens = (value.normalize("NFKD").toLocaleLowerCase("en-US").match(/[\p{L}\p{N}]+/gu) ?? [])
@@ -473,14 +546,73 @@ function normalizedAccountIdentityVariants(value: string, identityField: boolean
     .filter((identity) => identity.length > 0));
 }
 
+function normalizedQuoteWords(value: string): readonly string[] {
+  return value.normalize("NFKD").toLocaleLowerCase("en-US").match(/[\p{L}\p{N}]+/gu) ?? [];
+}
+
+function isExplicitIdentityLabel(value: string): boolean {
+  for (const delimiter of value.matchAll(/:|=|[—–-]|\bis\b/giu)) {
+    if (delimiter.index === undefined || delimiter.index > 120) break;
+    const prefixWords = normalizedQuoteWords(value.slice(0, delimiter.index));
+    if (prefixWords.length === 0 || prefixWords.length > 16) continue;
+    if (prefixWords.includes("name") &&
+        prefixWords.some((word) => IDENTITY_NAME_LABEL_WORDS.has(word))) return true;
+    if (prefixWords.some((word) => word === "issuer" || word === "registrant") &&
+        prefixWords.every((word) => SHORT_IDENTITY_LABEL_WORDS.has(word))) return true;
+  }
+  return false;
+}
+
+function hasMaterialChangeAction(words: readonly string[]): boolean {
+  return words.some((word, index) => index > 0 && (
+    MATERIAL_CHANGE_FINITE_ACTION_WORDS.has(word) ||
+    ((MATERIAL_CHANGE_BASE_ACTION_WORDS.has(word) || MATERIAL_CHANGE_PARTICIPLE_WORDS.has(word)) &&
+      MATERIAL_CHANGE_AUXILIARY_WORDS.has(words[index - 1]!))
+  ));
+}
+
+function hasConnectedMaterialChangeEvent(words: readonly string[]): boolean {
+  return words.some((word, index) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word) &&
+    MATERIAL_CHANGE_EVENT_CONNECTORS.has(words[index + 1] ?? ""));
+}
+
+function hasReportedMaterialChangeEvent(words: readonly string[]): boolean {
+  return words.some((word, index) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word) &&
+    words.slice(Math.max(1, index - 8), index).some((prefix) => MATERIAL_CHANGE_REPORT_WORDS.has(prefix)));
+}
+
 export function assertM5bProductReviewMaterialChangeQuote(
   accountName: string,
   exactQuote: string,
 ): void {
   const quoteIdentities = normalizedAccountIdentityVariants(exactQuote, false);
   const subjectIdentities = normalizedAccountIdentityVariants(accountName, true);
+  const quoteWords = normalizedQuoteWords(exactQuote);
   if (quoteIdentities.size === 0) refuseM5bProductReview("material_change_uninformative");
+  if (EXPLICIT_STATIC_CLASSIFICATION_LABEL.test(exactQuote) || isExplicitIdentityLabel(exactQuote)) {
+    refuseM5bProductReview("material_change_identity_only");
+  }
   if ([...quoteIdentities].some((identity) => subjectIdentities.has(identity))) {
+    refuseM5bProductReview("material_change_identity_only");
+  }
+  const hasMarker = quoteWords.some((word) => MATERIAL_CHANGE_MARKER_WORDS.has(word));
+  if (!hasMarker) {
+    refuseM5bProductReview("material_change_identity_only");
+  }
+  if (quoteWords.length === 1) refuseM5bProductReview("material_change_uninformative");
+
+  const hasAction = hasMaterialChangeAction(quoteWords);
+  const hasConnectedEvent = hasConnectedMaterialChangeEvent(quoteWords);
+  const hasReportedEvent = hasReportedMaterialChangeEvent(quoteWords);
+  // A connected noun phrase can itself be a legal name when it ends in a static descriptor.
+  // Such a tail requires an action clause or a non-leading reporting construction.
+  if (STATIC_LEGAL_OR_DESCRIPTOR_TAILS.has(quoteWords.at(-1)!) && !hasAction && !hasReportedEvent) {
+    refuseM5bProductReview("material_change_identity_only");
+  }
+  // This is bounded syntactic admission, not semantic proof of materiality. A finite action,
+  // connected event noun, or reporting verb plus event noun is required; weak reporting/planning
+  // language alone is deliberately insufficient.
+  if (!hasAction && !hasConnectedEvent && !hasReportedEvent) {
     refuseM5bProductReview("material_change_identity_only");
   }
 }

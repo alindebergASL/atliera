@@ -75,6 +75,23 @@ async function refusalCode(promise: Promise<unknown>): Promise<string> {
 }
 
 describe("M5b product-review preparation", () => {
+  test("keeps package construction behind the prepare-only runtime boundary", async () => {
+    const [packageModule, prepareModule, publicModule] = await Promise.all([
+      import("../../src/workshop/m5b-product-review-package.ts"),
+      import("../../src/workshop/m5b-product-review-prepare.ts"),
+      import("../../src/index.ts"),
+    ]);
+    assert.equal(Object.hasOwn(packageModule, "buildM5bProductReviewPackageData"), false);
+    assert.equal(Object.hasOwn(prepareModule, "buildM5bProductReviewPackageData"), false);
+    assert.equal(Object.hasOwn(publicModule, "buildM5bProductReviewPackageData"), false);
+    for (const renderer of ["renderM5bProductReviewMeetingBrief",
+      "renderM5bProductReviewWorkshopHtml"]) {
+      assert.equal(Object.hasOwn(prepareModule, renderer), false);
+      assert.equal(Object.hasOwn(publicModule, renderer), false);
+    }
+    assert.equal(typeof publicModule.prepareM5bProductReview, "function");
+  });
+
   test("atomically produces a deterministic complete current-schema package", async () => {
     await withScenario(async (root, scenario) => {
       const result = await prepareM5bProductReview(optionsFor(scenario));
@@ -94,6 +111,7 @@ describe("M5b product-review preparation", () => {
       assert.equal(result.authority.ratificationStatus, "unratified");
       assert.equal(result.authority.armingStatus, "unarmed");
       assert.equal(result.authority.applyEligibility, false);
+      assert.equal(result.packageBinding.requestRawSha256, sha256Fixture(scenario.requestBytes));
       assert.deepEqual(result.supersession, {
         preservesOldBytes: true,
         preservesOldProducerIdentity: true,

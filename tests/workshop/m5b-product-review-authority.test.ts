@@ -38,7 +38,8 @@ import {
   prepareM5bProductReview,
   type M5bProductReviewPrepareOptions,
 } from "../../src/workshop/m5b-product-review-prepare.ts";
-import { renderM5bProductReviewWorkshopHtml } from "../../src/workshop/m5b-product-review-render.ts";
+import { admitM5bProductReviewPackageArtifacts } from
+  "../../src/workshop/m5b-product-review-package-admission.ts";
 import {
   SYNTHETIC_SOURCE_TEXTS,
   cloneSynthetic,
@@ -556,13 +557,15 @@ describe("M5b product-review retained-custody authority and provenance", () => {
         m5bProductReviewCanonicalSha256(missingRetainedReadPackContent);
       const missingRetainedReadPacket = JSON.parse(await readFile(
         join(fixture.options.outputDir, "review-packet.json"), "utf8"));
+      const candidate = JSON.parse(await readFile(join(fixture.options.outputDir, "candidate.json"), "utf8"));
       missingRetainedReadPacket.sourcePackSha256 = missingRetainedReadPack.sourcePackSha256;
       const { reviewPacketSha256: _oldPacketHash, ...missingRetainedReadPacketContent } =
         missingRetainedReadPacket;
       missingRetainedReadPacket.reviewPacketSha256 =
         m5bProductReviewCanonicalSha256(missingRetainedReadPacketContent);
-      assert.equal(syncRefusalCode(() => renderM5bProductReviewWorkshopHtml(
-        missingRetainedReadPack, missingRetainedReadPacket)), "render_package_shape");
+      assert.equal(syncRefusalCode(() => admitM5bProductReviewPackageArtifacts(
+        { sourcePack: missingRetainedReadPack, candidate, reviewPacket: missingRetainedReadPacket })),
+      "render_package_shape");
 
       const copiedGoAttempt = attempt(ledgerRoot, m4Source, "success_001");
       const secondOutput = join(root, "changed-output-path");

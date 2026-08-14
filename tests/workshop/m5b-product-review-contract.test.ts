@@ -8,9 +8,7 @@ import {
   M5bProductReviewRefusal,
   validateM5bProductReviewRequest,
 } from "../../src/workshop/m5b-product-review-contract.ts";
-import { buildM5bProductReviewPackageData } from "../../src/workshop/m5b-product-review-package.ts";
 import {
-  SYNTHETIC_SOURCE_TEXTS,
   cloneSynthetic,
   createSyntheticM5bProductReviewScenario,
 } from "../fixtures/m5b-product-review-synthetic.ts";
@@ -33,20 +31,6 @@ function refusalCode(fn: () => unknown): string {
     return error.code;
   }
   assert.fail("expected M5bProductReviewRefusal");
-}
-
-function admittedFor(request: any): any[] {
-  const textById: Record<string, string> = {
-    src_citrine_launch: SYNTHETIC_SOURCE_TEXTS.launch,
-    src_citrine_pilot: SYNTHETIC_SOURCE_TEXTS.pilot,
-    src_citrine_notes: SYNTHETIC_SOURCE_TEXTS.notes,
-  };
-  return request.sources.map((source: any) => ({
-    sourceId: source.sourceId,
-    text: textById[source.sourceId],
-    decodedByteSize: source.decodedByteSize,
-    decodedSha256: source.decodedSha256,
-  }));
 }
 
 describe("M5b product-review request contract", () => {
@@ -109,17 +93,10 @@ describe("M5b product-review request contract", () => {
       const proposalDuplicate = cloneSynthetic(baseline);
       proposalDuplicate.proposals[1].proposalId = proposalDuplicate.proposals[0].proposalId;
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(proposalDuplicate)), "duplicate_proposal_id");
-
-      const invalidDirectBuilderRequest = cloneSynthetic(baseline);
-      invalidDirectBuilderRequest.proposals[0].lens = "map";
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        invalidDirectBuilderRequest, "d".repeat(64), [])), "product_first_minimum");
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        baseline, ["d".repeat(64)] as any, [])), "request_identity");
     });
   });
 
-  test("rejects non-absolute manifest paths, unused evidence, and mismatched admitted-source data", async () => {
+  test("rejects non-absolute manifest paths and unused evidence", async () => {
     await withScenario((baseline) => {
       const relative = cloneSynthetic(baseline);
       relative.sources[0].localPath = "relative/source.html";
@@ -133,90 +110,10 @@ describe("M5b product-review request contract", () => {
         evidenceRole: "account_context",
       });
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(unused)), "unused_evidence_binding");
-
-      const request = validateM5bProductReviewRequest(baseline);
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(request, "d".repeat(64), [
-        {
-          sourceId: "src_citrine_launch",
-          text: `${SYNTHETIC_SOURCE_TEXTS.launch}tamper`,
-          decodedByteSize: request.sources[0]!.decodedByteSize,
-          decodedSha256: request.sources[0]!.decodedSha256,
-        },
-        {
-          sourceId: "src_citrine_pilot",
-          text: SYNTHETIC_SOURCE_TEXTS.pilot,
-          decodedByteSize: request.sources[1]!.decodedByteSize,
-          decodedSha256: request.sources[1]!.decodedSha256,
-        },
-        {
-          sourceId: "src_citrine_notes",
-          text: SYNTHETIC_SOURCE_TEXTS.notes,
-          decodedByteSize: request.sources[2]!.decodedByteSize,
-          decodedSha256: request.sources[2]!.decodedSha256,
-        },
-      ])), "admitted_source_identity_mismatch");
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        request, "d".repeat(64), [null, null, null] as any)), "admitted_source_shape");
-
-      const admittedWithPrivateProvenance = admittedFor(request);
-      admittedWithPrivateProvenance[0].provenance = {
-        classification: "explicit_synthetic_fixture",
-        exactUrl: request.sources[0]!.canonicalUrl,
-        responseByteSize: request.sources[0]!.decodedByteSize,
-        responseSha256: request.sources[0]!.decodedSha256,
-        outerCustodySha256: request.sources[0]!.rawSha256,
-        targetPolicySha256: null,
-        capabilityId: null,
-        adapterId: null,
-        adapterSha256: null,
-        authorityId: null,
-        consumptionId: null,
-        implementationCommit: null,
-        implementationTree: null,
-        acquisitionConsumptionSha256: null,
-        retainedReadAuthorityId: null,
-        retainedReadConsumptionId: null,
-        retainedReadImplementationCommit: null,
-        retainedReadImplementationTree: null,
-        retainedReadLedgerNamespaceSha256: null,
-        retainedReadLedgerRecordSha256: null,
-        privateAbsolutePath: "/private/source/path",
-      };
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        request, "d".repeat(64), admittedWithPrivateProvenance)), "source_provenance_shape");
-
-      const productionRequest = cloneSynthetic(baseline);
-      productionRequest.sources[0].sourceKind = "exact_public_acquisition_custody";
-      productionRequest.sources[0].contentEncoding = "exact_sec_archive_custody_v1";
-      const productionAdmitted = admittedFor(productionRequest);
-      productionAdmitted[0].provenance = {
-        classification: "validated_exact_public_acquisition_custody",
-        exactUrl: productionRequest.sources[0].canonicalUrl,
-        responseByteSize: productionRequest.sources[0].decodedByteSize,
-        responseSha256: productionRequest.sources[0].decodedSha256,
-        outerCustodySha256: productionRequest.sources[0].rawSha256,
-        targetPolicySha256: ["e".repeat(64)],
-        capabilityId: "capability.test",
-        adapterId: "adapter.test",
-        adapterSha256: "f".repeat(64),
-        authorityId: "authority.test",
-        consumptionId: "consumption.test",
-        implementationCommit: "a".repeat(40),
-        implementationTree: null,
-        acquisitionConsumptionSha256: "1".repeat(64),
-        retainedReadAuthorityId: null,
-        retainedReadConsumptionId: null,
-        retainedReadImplementationCommit: null,
-        retainedReadImplementationTree: null,
-        retainedReadLedgerNamespaceSha256: null,
-        retainedReadLedgerRecordSha256: null,
-      };
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        productionRequest, "d".repeat(64), productionAdmitted)), "production_source_provenance");
     });
   });
 
-  test("rejects an aggregate source budget overflow before direct package construction", async () => {
+  test("rejects an aggregate source budget overflow", async () => {
     await withScenario((baseline) => {
       const oversized = cloneSynthetic(baseline);
       oversized.sources.push({
@@ -231,8 +128,6 @@ describe("M5b product-review request contract", () => {
         source.decodedByteSize = 512 * 1024;
       }
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(oversized)), "source_budget");
-      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
-        oversized, "d".repeat(64), [])), "source_budget");
     });
   });
 
@@ -399,8 +294,137 @@ describe("M5b product-review request contract", () => {
       }
 
       for (const quote of [
+        "Air Courier Services",
+        "AIR COURIER SERVICES",
+        "air courier services",
+        "Air Courier Companies",
+        "Industry: Air Courier Services",
+        "SIC 4513 / Air Courier Services",
+        "The SEC classifies the registrant under SIC 4513, “Air Courier Services.”",
+        "Federal Express",
+        "FedEx Corporation (Federal Express)",
+        "FedEx Corporation (federal express)",
+        "FedEx Corporation / Federal Express",
+        "FedEx Corporation / federal express",
+        "FedEx Corporation | Federal Express",
+        "fedex corporation | federal express",
+        "FedEx Corporation — Federal Express",
+        "FedEx Corporation: Federal Express",
+        "FedEx Corporation, Federal Express",
+        "FedEx Corporation; Federal Express",
+        "Federal Express: FedEx Corporation",
+        "Federal Express, FedEx Corporation",
+        "Federal Express; FedEx Corporation",
+        "FedEx Corporation — FDX",
+        "FDX — FEDEX CORPORATION",
+        "FEDEX CORPORATION | CIK 0001048911",
+        "CIK 0001048911 / FEDEX CORPORATION",
+        "Air Courier Services planned",
+        "Air Courier Services reported",
+        "Air Courier Services updates",
+        "FedEx Corporation planned",
+        "FedEx Corporation reported",
+        "FedEx Corporation updates",
+        "FedEx Acquisition Corp",
+        "Federal Express Acquisition Corporation",
+        "Rise Holdings",
+        "Open Systems",
+        "Transition Services",
+        "Industry: Merger and Acquisition Services",
+        "Business category: Acquisition Services",
+        "Industry: FedEx acquired TNT",
+        "Business category: FedEx acquired TNT",
+        "Sector: FedEx acquired TNT",
+        "SIC 4513: FedEx acquired TNT",
+        "NAICS 492110: FedEx acquired TNT",
+        "Expansion Consulting Services",
+        "Appointment Services",
+        "FedEx Acquisition of America LLC",
+        "Acquisition of America Corporation",
+        "Rise in Revenue Holdings",
+        "Reported Acquisition of America LLC",
+        "Company name: Acquisition Services",
+        "Legal name: Acquisition Services",
+        "Corporate name: Acquisition Services",
+        "Registrant: Acquisition Services",
+        "Issuer: Acquisition Services",
+        "The registrant is Acquisition Services",
+        "The issuer is Acquisition Services",
+        "Company name: FedEx acquired TNT",
+        "The registrant is FedEx acquired TNT",
+        "Acquisition of Business Services",
+        "Transition to Cloud Services",
+        "Partnership for Growth LLC",
+        "Sale of America Holdings",
+        "Reported Rise in Revenue Holdings",
+      ]) {
+        const staticContext = cloneSynthetic(baseline);
+        staticContext.subject.accountName = "FedEx";
+        staticContext.evidenceBindings[0].exactQuote = quote;
+        staticContext.proposals[0].title = `Source states: ${quote}`;
+        staticContext.proposals[0].summary = staticContext.proposals[0].title;
+        assert.equal(refusalCode(() => validateM5bProductReviewRequest(staticContext)),
+          "material_change_identity_only");
+      }
+
+      const markerOnly = cloneSynthetic(baseline);
+      markerOnly.subject.accountName = "FedEx";
+      markerOnly.evidenceBindings[0].exactQuote = "Acquisition";
+      markerOnly.proposals[0].title = "Source states: Acquisition";
+      markerOnly.proposals[0].summary = markerOnly.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(markerOnly)),
+        "material_change_uninformative");
+
+      for (const label of [
+        "Company name: ",
+        "Corporate name = ",
+        "Legal name — ",
+        "Business name - ",
+        "Account name: ",
+        "Entity name: ",
+        "Issuer name: ",
+        "Registrant name: ",
+        "Exact company name: ",
+        "Exact legal name: ",
+        "Exact name of registrant: ",
+        "Name of the issuer: ",
+        "Name of registrant: ",
+        "The exact issuer name is ",
+        "Exact legal name of issuer: ",
+        "Issuer's name: ",
+        "Issuer’s name: ",
+        "Registrant's name: ",
+        "Registrant’s name: ",
+        "Issuer: ",
+        "Registrant is ",
+        "The issuer is ",
+        "The registrant is ",
+      ]) {
+        for (const value of ["Acquisition of TNT", "FedEx acquired TNT"]) {
+          const labeledChange = cloneSynthetic(baseline);
+          labeledChange.subject.accountName = "FedEx";
+          labeledChange.evidenceBindings[0].exactQuote = `${label}${value}`;
+          labeledChange.proposals[0].title = `Source states: ${label}${value}`;
+          labeledChange.proposals[0].summary = labeledChange.proposals[0].title;
+          assert.equal(refusalCode(() => validateM5bProductReviewRequest(labeledChange)),
+            "material_change_identity_only");
+        }
+      }
+
+      for (const quote of [
+        "Service Disruption Across Europe",
+        "Network Reconfiguration Under Way",
+        "Acquisition of TNT",
+        "rise in revenue",
+        "FedEx acquired TNT",
+        "FedEx pivoted to a new distribution model.",
+        "FedEx adopted a new network operating model.",
+        "FedEx restructured its air network.",
         "FedEx Corporation | announced the acquisition of Example Co.",
+        "FedEx Corporation | is expanding its air network.",
         "FedEx Corporation (announced a network restructuring)",
+        "FedEx Corporation — expanded its air courier services network.",
+        "FedEx Corporation (Federal Express) announced the acquisition of Example Co.",
       ]) {
         const materialAnnouncement = cloneSynthetic(baseline);
         materialAnnouncement.subject.accountName = "FedEx";

@@ -4,15 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
+import { validatedCandidateSha256 } from "../../src/graph/candidate-delta.ts";
 import {
   M5bProductReviewRefusal,
   m5bProductReviewCanonicalSha256,
 } from "../../src/workshop/m5b-product-review-contract.ts";
 import { prepareM5bProductReview } from "../../src/workshop/m5b-product-review-prepare.ts";
-import {
-  renderM5bProductReviewMeetingBrief,
-  renderM5bProductReviewWorkshopHtml,
-} from "../../src/workshop/m5b-product-review-render.ts";
+import { admitM5bProductReviewPackageArtifacts } from
+  "../../src/workshop/m5b-product-review-package-admission.ts";
 import {
   cloneSynthetic,
   createSyntheticM5bProductReviewScenario,
@@ -45,6 +44,44 @@ function rehashSourcePack(sourcePack: any): void {
   sourcePack.sourcePackSha256 = m5bProductReviewCanonicalSha256(content);
 }
 
+function rehashSourceTransformation(source: any): void {
+  source.transformationManifestSha256 = m5bProductReviewCanonicalSha256({
+    kind: "m5b-product-review-bounded-excerpt-transformation",
+    schemaVersion: "2",
+    sourceId: source.sourceId,
+    originContentSha256: source.originContentSha256,
+    decodedContentSha256: source.decodedContentSha256,
+    storedContentSha256: source.storedContentSha256,
+    fullSourceBytesEmbedded: false,
+    sourceProvenance: source.provenance,
+    evidenceBindings: source.evidenceBindings.map((binding: any) => ({
+      evidenceId: binding.evidenceId,
+      evidenceRole: binding.evidenceRole,
+      exactQuoteSha256: binding.exactQuoteSha256,
+      sourceCharStart: binding.sourceCharStart,
+      sourceCharEnd: binding.sourceCharEnd,
+      storedCharStart: binding.storedCharStart,
+      storedCharEnd: binding.storedCharEnd,
+    })),
+  });
+}
+
+function sourceRegisterFor(sourcePack: any): any[] {
+  return sourcePack.sources.map((source: any) => ({
+    sourceId: source.sourceId,
+    title: source.title,
+    canonicalUrl: source.canonicalUrl,
+    contentEncoding: source.contentEncoding,
+    originContentSha256: source.originContentSha256,
+    decodedByteSize: source.decodedByteSize,
+    decodedContentSha256: source.decodedContentSha256,
+    storedContentSha256: source.storedContentSha256,
+    transformationManifestSha256: source.transformationManifestSha256,
+    provenance: source.provenance,
+    evidenceCurrentThrough: source.evidenceCurrentThrough,
+  }));
+}
+
 function rehashPacket(packet: any): void {
   const { reviewPacketSha256: _oldHash, ...content } = packet;
   packet.reviewPacketSha256 = m5bProductReviewCanonicalSha256(content);
@@ -53,6 +90,15 @@ function rehashPacket(packet: any): void {
 function bindPacketToRehashedSourcePack(packet: any, sourcePack: any): void {
   packet.sourcePackSha256 = sourcePack.sourcePackSha256;
   rehashPacket(packet);
+}
+
+function bindPacketToRehashedCandidate(packet: any, candidate: any): void {
+  packet.candidateSha256 = validatedCandidateSha256(candidate);
+  rehashPacket(packet);
+}
+
+function artifactSet(sourcePack: any, candidate: any, reviewPacket: any): any {
+  return { sourcePack, candidate, reviewPacket };
 }
 
 describe("M5b product-review Workshop and meeting brief", () => {
@@ -87,7 +133,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(html, /Source fact/);
       assert.match(html, /Analysis/);
       assert.match(html, /Recommendation/);
-      assert.match(html, /Source-backed · not independently verified/);
+      assert.match(html, /Package-attributed · not independently verified/);
       assert.match(html, /Not human-ratified · not quality-passed/);
       assert.match(html, /system-created · proposed · not durable/);
       assert.match(html, /Evidence current through:<\/strong> Not supplied/);
@@ -204,7 +250,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
     });
   });
 
-  test("meeting brief is deterministic, source-bound, caveated, and explicitly unsent", async () => {
+  test("meeting brief is deterministic, package-bound, caveated, and explicitly unsent", async () => {
     await withScenario(async (_root, scenario) => {
       const result = await prepareM5bProductReview({
         requestPath: scenario.requestPath,
@@ -219,7 +265,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(brief, /no write authority and no apply eligibility/);
       assert.match(brief, /## Five customer questions/);
       assert.match(brief, /## Proposed Signals, Maps, and Plays/);
-      assert.match(brief, /## Exact evidence register/);
+      assert.match(brief, /## Package evidence register/);
       assert.match(brief, /Material-change evidence: `evd_citrine_launch`/);
       assert.match(brief, /Evidence role: \*\*Material change\*\*/);
       assert.match(brief, /Evidence role: \*\*Account context\*\*/);
@@ -242,7 +288,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
     });
   });
 
-  test("renderers refuse historical versions and broken current-package hashes", async () => {
+  test("package admission refuses historical versions and broken current-package hashes", async () => {
     await withScenario(async (_root, scenario) => {
       await prepareM5bProductReview({
         requestPath: scenario.requestPath,
@@ -254,24 +300,27 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const sourcePack = JSON.parse(await readFile(
         join(scenario.outputDir, "sanitized-source-pack.json"), "utf8"));
       const packet = JSON.parse(await readFile(join(scenario.outputDir, "review-packet.json"), "utf8"));
+      const candidate = JSON.parse(await readFile(join(scenario.outputDir, "candidate.json"), "utf8"));
+      assert.doesNotThrow(() =>
+        admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, packet)));
 
       const legacyPacket = cloneSynthetic(packet);
       legacyPacket.schemaVersion = "1";
       const { reviewPacketSha256: _oldPacketHash, ...legacyPacketContent } = legacyPacket;
       legacyPacket.reviewPacketSha256 = m5bProductReviewCanonicalSha256(legacyPacketContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, legacyPacket)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, legacyPacket))),
         "render_package_version");
 
       const legacyPack = cloneSynthetic(sourcePack);
       legacyPack.schemaVersion = "1";
       const { sourcePackSha256: _oldPackHash, ...legacyPackContent } = legacyPack;
       legacyPack.sourcePackSha256 = m5bProductReviewCanonicalSha256(legacyPackContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewMeetingBrief(legacyPack, packet)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(legacyPack, candidate, packet))),
         "render_package_version");
 
       const brokenPacket = cloneSynthetic(packet);
       brokenPacket.customerQuestions[1].answer += " tampered";
-      assert.equal(refusalCode(() => renderM5bProductReviewMeetingBrief(sourcePack, brokenPacket)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, brokenPacket))),
         "render_package_binding");
 
       const crossSubject = cloneSynthetic(packet);
@@ -279,21 +328,69 @@ describe("M5b product-review Workshop and meeting brief", () => {
       crossSubject.subject.accountName = "Other account";
       const { reviewPacketSha256: _crossSubjectHash, ...crossSubjectContent } = crossSubject;
       crossSubject.reviewPacketSha256 = m5bProductReviewCanonicalSha256(crossSubjectContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, crossSubject)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, crossSubject))),
         "render_package_binding");
 
       const executableMarkup = cloneSynthetic(packet);
       executableMarkup.candidateSha256 = "</p><script>globalThis.pwned=true</script><p>";
       const { reviewPacketSha256: _markupHash, ...markupContent } = executableMarkup;
       executableMarkup.reviewPacketSha256 = m5bProductReviewCanonicalSha256(markupContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, executableMarkup)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, executableMarkup))),
         "render_package_binding");
+
+      const fullyRehashedFakeCandidate = cloneSynthetic(packet);
+      fullyRehashedFakeCandidate.candidateSha256 = "c".repeat(64);
+      rehashPacket(fullyRehashedFakeCandidate);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, fullyRehashedFakeCandidate))), "render_candidate_binding");
+
+      const fullyRehashedFakeOriginPack = cloneSynthetic(sourcePack);
+      fullyRehashedFakeOriginPack.sources[0].originContentSha256 = "2".repeat(64);
+      fullyRehashedFakeOriginPack.sources[0].provenance.outerCustodySha256 = "2".repeat(64);
+      rehashSourceTransformation(fullyRehashedFakeOriginPack.sources[0]);
+      rehashSourcePack(fullyRehashedFakeOriginPack);
+      const fullyRehashedFakeOriginPacket = cloneSynthetic(packet);
+      fullyRehashedFakeOriginPacket.sourceRegister = sourceRegisterFor(fullyRehashedFakeOriginPack);
+      bindPacketToRehashedSourcePack(fullyRehashedFakeOriginPacket, fullyRehashedFakeOriginPack);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(fullyRehashedFakeOriginPack, candidate, fullyRehashedFakeOriginPacket))),
+      "render_candidate_binding");
+
+      const candidateSemanticTamper: readonly [string, (value: any) => void][] = [
+        ["user-created account object", (value) => {
+          value.graph_bundle.account_objects[0].created_by = "user";
+        }],
+        ["high-confidence account object", (value) => {
+          value.graph_bundle.account_objects[0].confidence = "high";
+        }],
+        ["unsupported account object", (value) => {
+          value.graph_bundle.account_objects[0].provenance_status = "unsupported";
+        }],
+        ["rejected claim", (value) => {
+          value.graph_bundle.claims[0].status = "rejected";
+        }],
+        ["contradicting claim evidence", (value) => {
+          value.graph_bundle.claim_evidence[0].relationship = "contradicts";
+        }],
+        ["supporting account-object claim", (value) => {
+          value.graph_bundle.account_object_claims[0].relationship = "supporting";
+        }],
+      ];
+      for (const [label, mutate] of candidateSemanticTamper) {
+        const changedCandidate = cloneSynthetic(candidate);
+        const changedCandidatePacket = cloneSynthetic(packet);
+        mutate(changedCandidate);
+        bindPacketToRehashedCandidate(changedCandidatePacket, changedCandidate);
+        assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+          artifactSet(sourcePack, changedCandidate, changedCandidatePacket))),
+        "render_candidate_binding", label);
+      }
 
       const contextQuestion = cloneSynthetic(packet);
       contextQuestion.customerQuestions[1].evidenceBindingIds = ["evd_citrine_pilot"];
       const { reviewPacketSha256: _contextHash, ...contextContent } = contextQuestion;
       contextQuestion.reviewPacketSha256 = m5bProductReviewCanonicalSha256(contextContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewMeetingBrief(sourcePack, contextQuestion)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, contextQuestion))),
         "render_question_binding");
 
       const noSignalChain = cloneSynthetic(packet);
@@ -305,7 +402,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       }));
       const { reviewPacketSha256: _noSignalHash, ...noSignalContent } = noSignalChain;
       noSignalChain.reviewPacketSha256 = m5bProductReviewCanonicalSha256(noSignalContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewMeetingBrief(sourcePack, noSignalChain)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, noSignalChain))),
         "render_question_binding");
 
       const unrelatedPlay = cloneSynthetic(packet);
@@ -318,7 +415,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       unrelatedPlay.lenses.find((item: any) => item.lens === "play").proposalIds.push(forgedPlay.proposalId);
       const { reviewPacketSha256: _unrelatedPlayHash, ...unrelatedPlayContent } = unrelatedPlay;
       unrelatedPlay.reviewPacketSha256 = m5bProductReviewCanonicalSha256(unrelatedPlayContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, unrelatedPlay)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, unrelatedPlay))),
         "render_material_change_chain");
 
       const fabricatedPack = cloneSynthetic(sourcePack);
@@ -335,32 +432,31 @@ describe("M5b product-review Workshop and meeting brief", () => {
       }
       const { reviewPacketSha256: _fabricatedPacketHash, ...fabricatedPacketContent } = fabricatedPacket;
       fabricatedPacket.reviewPacketSha256 = m5bProductReviewCanonicalSha256(fabricatedPacketContent);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        fabricatedPack, fabricatedPacket)), "render_package_shape");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(fabricatedPack, candidate, fabricatedPacket))), "render_package_shape");
 
       const malformedEvidence = cloneSynthetic(packet);
       malformedEvidence.proposals[0].evidenceBindings = [null];
       rehashPacket(malformedEvidence);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, malformedEvidence)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, malformedEvidence))),
         "render_package_shape");
 
       const forgedFact = cloneSynthetic(packet);
       forgedFact.proposals[1].title = "Source states: an invented account claim";
       forgedFact.proposals[1].summary = forgedFact.proposals[1].title;
       rehashPacket(forgedFact);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, forgedFact)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, forgedFact))),
         "render_proposal_topology");
 
       const outboundTask = cloneSynthetic(packet);
       outboundTask.proposals.at(-1).safeTask.description = "Send the brief to the account immediately.";
       rehashPacket(outboundTask);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(sourcePack, outboundTask)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, outboundTask))),
         "render_proposal_topology");
 
       const outboundAnswer = cloneSynthetic(packet);
       outboundAnswer.customerQuestions[4].answer = "Send the brief to the account immediately.";
       rehashPacket(outboundAnswer);
-      assert.equal(refusalCode(() => renderM5bProductReviewMeetingBrief(sourcePack, outboundAnswer)),
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, outboundAnswer))),
         "render_question_binding");
 
       const wrongPackageIdPack = cloneSynthetic(sourcePack);
@@ -369,32 +465,28 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const wrongPackageIdPacket = cloneSynthetic(packet);
       wrongPackageIdPacket.packageBinding.packageId = wrongPackageIdPack.packageBinding.packageId;
       bindPacketToRehashedSourcePack(wrongPackageIdPacket, wrongPackageIdPack);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        wrongPackageIdPack, wrongPackageIdPacket)), "render_package_binding");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(wrongPackageIdPack, candidate, wrongPackageIdPacket))), "render_package_binding");
 
       const embeddedFullSourcePack = cloneSynthetic(sourcePack);
       embeddedFullSourcePack.contentPolicy.fullSourceBytesEmbedded = true;
       rehashSourcePack(embeddedFullSourcePack);
       const embeddedFullSourcePacket = cloneSynthetic(packet);
       bindPacketToRehashedSourcePack(embeddedFullSourcePacket, embeddedFullSourcePack);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        embeddedFullSourcePack, embeddedFullSourcePacket)), "render_package_binding");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(embeddedFullSourcePack, candidate, embeddedFullSourcePacket))), "render_package_binding");
 
       const invalidUrlPack = cloneSynthetic(sourcePack);
       invalidUrlPack.sources[0].canonicalUrl = "file:///private/source";
       rehashSourcePack(invalidUrlPack);
       const invalidUrlPacket = cloneSynthetic(packet);
       bindPacketToRehashedSourcePack(invalidUrlPacket, invalidUrlPack);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        invalidUrlPack, invalidUrlPacket)), "render_package_shape");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(invalidUrlPack, candidate, invalidUrlPacket))), "render_package_shape");
 
       const invalidTimePack = cloneSynthetic(sourcePack);
       invalidTimePack.sources[0].acquiredAt = "July 15";
       rehashSourcePack(invalidTimePack);
       const invalidTimePacket = cloneSynthetic(packet);
       bindPacketToRehashedSourcePack(invalidTimePacket, invalidTimePack);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        invalidTimePack, invalidTimePacket)), "render_package_shape");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(invalidTimePack, candidate, invalidTimePacket))), "render_package_shape");
 
       const identityOnlyPack = cloneSynthetic(sourcePack);
       identityOnlyPack.subject.accountName = identityOnlyPack.sources[0].evidenceBindings[0].exactQuote;
@@ -402,8 +494,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const identityOnlyPacket = cloneSynthetic(packet);
       identityOnlyPacket.subject.accountName = identityOnlyPack.subject.accountName;
       bindPacketToRehashedSourcePack(identityOnlyPacket, identityOnlyPack);
-      assert.equal(refusalCode(() => renderM5bProductReviewWorkshopHtml(
-        identityOnlyPack, identityOnlyPacket)), "material_change_identity_only");
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(identityOnlyPack, candidate, identityOnlyPacket))), "material_change_identity_only");
     });
   });
 

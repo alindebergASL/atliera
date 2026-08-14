@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
-import { M5bProductReviewRefusal } from "../../src/workshop/m5b-product-review-contract.ts";
+import {
+  M5bProductReviewRefusal,
+  m5bProductReviewCanonicalSha256,
+} from "../../src/workshop/m5b-product-review-contract.ts";
 import {
   M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY,
   createM5bProductReviewOwnerDispositionTemplate,
@@ -119,6 +122,53 @@ describe("M5b product-review non-executable owner disposition", () => {
         "m5b-repository-native.ts"), "utf8");
       assert.doesNotMatch(applySource, /m5b-product-review-owner-disposition|m5b-product-review-disposition/);
       assert.doesNotMatch(applyCli, /m5b-product-review-owner-disposition|m5b-product-review-disposition/);
+    });
+  });
+
+  test("turns null, malformed, and hostile packet inputs into typed refusals", async () => {
+    await withPacket((packet) => {
+      assert.equal(refusalCode(() => validateM5bProductReviewOwnerDisposition({}, null as any)),
+        "owner_disposition_packet");
+      assert.equal(refusalCode(() => createM5bProductReviewOwnerDispositionTemplate(
+        null as any, [])), "owner_disposition_packet");
+
+      const malformedBinding = clone(packet);
+      malformedBinding.packageBinding = null;
+      const { reviewPacketSha256: _bindingHash, ...malformedBindingContent } = malformedBinding;
+      malformedBinding.reviewPacketSha256 = m5bProductReviewCanonicalSha256(malformedBindingContent);
+      assert.equal(refusalCode(() => createM5bProductReviewOwnerDispositionTemplate(malformedBinding,
+        packet.proposals.map((proposal) => ({ proposalId: proposal.proposalId,
+          disposition: "reject" as const })))), "owner_disposition_packet");
+
+      const malformedProposal = clone(packet);
+      malformedProposal.proposals[0] = null;
+      const { reviewPacketSha256: _proposalHash, ...malformedProposalContent } = malformedProposal;
+      malformedProposal.reviewPacketSha256 = m5bProductReviewCanonicalSha256(malformedProposalContent);
+      assert.equal(refusalCode(() => validateM5bProductReviewOwnerDisposition({}, malformedProposal)),
+        "owner_disposition_packet");
+
+      let proxyTrapCalls = 0;
+      const hostilePacket = new Proxy({}, {
+        ownKeys() {
+          proxyTrapCalls += 1;
+          throw new Error("packet proxy trap must not run");
+        },
+      });
+      assert.equal(refusalCode(() => validateM5bProductReviewOwnerDisposition(
+        {}, hostilePacket as any)), "owner_disposition_packet");
+      assert.equal(proxyTrapCalls, 0);
+    });
+  });
+
+  test("rejects a self-consistent historical schema-v1 packet at the current disposition boundary", async () => {
+    await withPacket((packet) => {
+      const legacy = clone(packet);
+      legacy.schemaVersion = "1";
+      const { reviewPacketSha256: _oldHash, ...legacyContent } = legacy;
+      legacy.reviewPacketSha256 = m5bProductReviewCanonicalSha256(legacyContent);
+      assert.equal(refusalCode(() => createM5bProductReviewOwnerDispositionTemplate(legacy,
+        legacy.proposals.map((proposal: any) => ({ proposalId: proposal.proposalId,
+          disposition: "reject" as const })))), "owner_disposition_packet");
     });
   });
 });

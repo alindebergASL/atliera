@@ -60,6 +60,7 @@ import {
 } from "./m5b-product-review-render.ts";
 
 export const M5B_PRODUCT_REVIEW_PREPARE_RESULT_KIND = "m5b-product-review-prepare-result" as const;
+export const M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION = "2" as const;
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const SOURCE_ID = /^src_[a-z0-9][a-z0-9_-]{0,51}$/;
@@ -110,7 +111,7 @@ export interface M5bProductReviewPreparedArtifactIdentity {
 
 export interface M5bProductReviewPrepareResultContent {
   readonly kind: typeof M5B_PRODUCT_REVIEW_PREPARE_RESULT_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: typeof M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION;
   readonly packageBinding: M5bProductReviewPackageBinding;
   readonly sourcePackSha256: string;
   readonly candidateSha256: string;
@@ -928,7 +929,7 @@ export async function prepareM5bProductReview(
   ]);
   const content: M5bProductReviewPrepareResultContent = Object.freeze({
     kind: M5B_PRODUCT_REVIEW_PREPARE_RESULT_KIND,
-    schemaVersion: "1",
+    schemaVersion: M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION,
     packageBinding: packageData.packageBinding,
     sourcePackSha256: packageData.sourcePack.sourcePackSha256,
     candidateSha256: packageData.candidateSha256,

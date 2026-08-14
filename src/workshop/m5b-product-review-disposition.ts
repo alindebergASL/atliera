@@ -8,6 +8,10 @@ import {
   type StrictJsonValue,
 } from "../authority/strict-json.ts";
 import { m5bProductReviewCanonicalSha256, refuseM5bProductReview } from "./m5b-product-review-contract.ts";
+import {
+  M5B_PRODUCT_REVIEW_PACKET_KIND,
+  M5B_PRODUCT_REVIEW_PACKET_VERSION,
+} from "./m5b-product-review-package.ts";
 import type { M5bProductReviewPacket } from "./m5b-product-review-package.ts";
 
 export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_KIND =
@@ -63,7 +67,20 @@ const LIMITS: StrictJsonLimits = Object.freeze({
   max_string_utf8_bytes: 2_048,
   max_total_string_utf8_bytes: 24 * 1024,
 });
+const PACKET_LIMITS: StrictJsonLimits = Object.freeze({
+  max_array_length: 64,
+  max_depth: 12,
+  max_expanded_json_value_occurrences: 8_192,
+  max_nodes: 2_048,
+  max_object_fields: 64,
+  max_string_utf8_bytes: 8 * 1024,
+  max_total_string_utf8_bytes: 256 * 1024,
+});
 const SHA256 = /^[a-f0-9]{64}$/u;
+const GIT_OID = /^[a-f0-9]{40}$/u;
+const PACKAGE_ID = /^m5b-product-review-[a-f0-9]{24}$/u;
+const PROPOSAL_ID = /^prp_[a-z0-9][a-z0-9_-]{0,51}$/u;
+const AUTHORITY_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 
 function objectAt(value: StrictJsonValue | undefined, keys: readonly string[]): Record<string, StrictJsonValue> {
   try {
@@ -75,12 +92,66 @@ function objectAt(value: StrictJsonValue | undefined, keys: readonly string[]): 
   }
 }
 
-function assertPacketIdentity(packet: M5bProductReviewPacket): void {
+function packetObjectAt(
+  value: StrictJsonValue | undefined,
+  keys: readonly string[],
+): Record<string, StrictJsonValue> {
+  try {
+    const object = strictJsonObject(value as StrictJsonValue, "product_review_packet");
+    assertExactKeys(object, keys, "product_review_packet");
+    return object;
+  } catch {
+    return refuseM5bProductReview("owner_disposition_packet");
+  }
+}
+
+function assertPacketIdentity(raw: unknown): Readonly<M5bProductReviewPacket> {
+  let snapshot: StrictJsonValue;
+  try {
+    snapshot = snapshotStrictJson(raw, "product_review_packet", PACKET_LIMITS);
+  } catch {
+    return refuseM5bProductReview("owner_disposition_packet");
+  }
+  const packet = packetObjectAt(snapshot, ["kind", "schemaVersion", "packageBinding", "subject",
+    "sourcePackSha256", "candidateSha256", "authority", "effectBoundary", "reviewBoundary",
+    "customerQuestions", "lenses", "sourceRegister", "proposals", "reviewPacketSha256"]);
+  const binding = packetObjectAt(packet.packageBinding, ["packageId", "requestRawSha256",
+    "requestCanonicalSha256", "supersededPackageResultSha256", "ownerAuthorizationId",
+    "executionCommit", "executionTree"]);
+  let proposals: StrictJsonValue[];
+  try {
+    proposals = strictJsonArray(packet.proposals, "product_review_packet.proposals", 12, true);
+  } catch {
+    return refuseM5bProductReview("owner_disposition_packet");
+  }
+  const proposalIds = proposals.map((value) => {
+    const proposal = packetObjectAt(value, ["proposalId", "status", "classification", "lens", "title",
+      "summary", "allowedLocalDispositions", "evidenceBindings", "supportingProposalIds", "caveats",
+      "safeTask", "trust"]);
+    if (typeof proposal.proposalId !== "string" || !PROPOSAL_ID.test(proposal.proposalId)) {
+      refuseM5bProductReview("owner_disposition_packet");
+    }
+    return proposal.proposalId;
+  });
   const { reviewPacketSha256, ...content } = packet;
-  if (!SHA256.test(reviewPacketSha256) || m5bProductReviewCanonicalSha256(content) !== reviewPacketSha256 ||
-      !SHA256.test(packet.sourcePackSha256) || !SHA256.test(packet.candidateSha256)) {
+  if (packet.kind !== M5B_PRODUCT_REVIEW_PACKET_KIND ||
+      packet.schemaVersion !== M5B_PRODUCT_REVIEW_PACKET_VERSION ||
+      typeof reviewPacketSha256 !== "string" || !SHA256.test(reviewPacketSha256) ||
+      m5bProductReviewCanonicalSha256(content) !== reviewPacketSha256 ||
+      typeof packet.sourcePackSha256 !== "string" || !SHA256.test(packet.sourcePackSha256) ||
+      typeof packet.candidateSha256 !== "string" || !SHA256.test(packet.candidateSha256) ||
+      typeof binding.packageId !== "string" || !PACKAGE_ID.test(binding.packageId) ||
+      typeof binding.requestRawSha256 !== "string" || !SHA256.test(binding.requestRawSha256) ||
+      typeof binding.requestCanonicalSha256 !== "string" || !SHA256.test(binding.requestCanonicalSha256) ||
+      typeof binding.supersededPackageResultSha256 !== "string" ||
+        !SHA256.test(binding.supersededPackageResultSha256) ||
+      typeof binding.ownerAuthorizationId !== "string" || !AUTHORITY_ID.test(binding.ownerAuthorizationId) ||
+      typeof binding.executionCommit !== "string" || !GIT_OID.test(binding.executionCommit) ||
+      typeof binding.executionTree !== "string" || !GIT_OID.test(binding.executionTree) ||
+      new Set(proposalIds).size !== proposalIds.length) {
     refuseM5bProductReview("owner_disposition_packet");
   }
+  return deepFreezeOwnData(packet) as unknown as Readonly<M5bProductReviewPacket>;
 }
 
 function contentFor(
@@ -133,20 +204,20 @@ export function createM5bProductReviewOwnerDispositionTemplate(
   packet: M5bProductReviewPacket,
   decisionsInput: readonly M5bProductReviewOwnerDispositionDecision[],
 ): Readonly<M5bProductReviewOwnerDisposition> {
-  assertPacketIdentity(packet);
+  const currentPacket = assertPacketIdentity(packet);
   const decisions = snapshotDecisionInput(decisionsInput);
-  const content = contentFor(packet, decisions);
+  const content = contentFor(currentPacket, decisions);
   return validateM5bProductReviewOwnerDisposition({
     ...content,
     dispositionSha256: m5bProductReviewCanonicalSha256(content),
-  }, packet);
+  }, currentPacket);
 }
 
 export function validateM5bProductReviewOwnerDisposition(
   raw: unknown,
   packet: M5bProductReviewPacket,
 ): Readonly<M5bProductReviewOwnerDisposition> {
-  assertPacketIdentity(packet);
+  const currentPacket = assertPacketIdentity(packet);
   let snapshot: StrictJsonValue;
   try {
     snapshot = snapshotStrictJson(raw, "owner_disposition", LIMITS);
@@ -172,12 +243,12 @@ export function validateM5bProductReviewOwnerDisposition(
     }
     return Object.freeze({ proposalId: decision.proposalId, disposition: decision.disposition });
   });
-  const proposalIds = packet.proposals.map((proposal) => proposal.proposalId);
+  const proposalIds = currentPacket.proposals.map((proposal) => proposal.proposalId);
   if (decisions.length !== proposalIds.length || new Set(decisions.map((item) => item.proposalId)).size !== decisions.length ||
       decisions.some((decision, index) => decision.proposalId !== proposalIds[index])) {
     refuseM5bProductReview("owner_disposition_decisions");
   }
-  const expectedBinding = contentFor(packet, decisions).packageBinding;
+  const expectedBinding = contentFor(currentPacket, decisions).packageBinding;
   if (m5bProductReviewCanonicalSha256(binding) !== m5bProductReviewCanonicalSha256(expectedBinding) ||
       m5bProductReviewCanonicalSha256(boundary) !==
         m5bProductReviewCanonicalSha256(M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY) ||
@@ -187,7 +258,7 @@ export function validateM5bProductReviewOwnerDisposition(
       typeof root.dispositionSha256 !== "string" || !SHA256.test(root.dispositionSha256)) {
     refuseM5bProductReview("owner_disposition_binding");
   }
-  const content = contentFor(packet, decisions);
+  const content = contentFor(currentPacket, decisions);
   if (root.dispositionSha256 !== m5bProductReviewCanonicalSha256(content)) {
     refuseM5bProductReview("owner_disposition_hash");
   }

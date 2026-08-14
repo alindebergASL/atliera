@@ -12,7 +12,7 @@ import {
 } from "../authority/strict-json.ts";
 
 export const M5B_PRODUCT_REVIEW_REQUEST_KIND = "m5b-product-review-request" as const;
-export const M5B_PRODUCT_REVIEW_REQUEST_VERSION = "1" as const;
+export const M5B_PRODUCT_REVIEW_REQUEST_VERSION = "2" as const;
 export const M5B_PRODUCT_REVIEW_SUPERSESSION_EXPLANATION =
   "Supersession preserves the old package bytes and producer identity; it does not rewrite historical provenance." as const;
 export const M5B_PRODUCT_REVIEW_ROUTE_STATUS = Object.freeze({
@@ -69,6 +69,14 @@ const FORGED_TRUST = /\b(?:independently[ -]verified|human[ -]ratified|quality[ 
 const EFFECTFUL_TASK =
   /\b(?:send|email|forward|share|transmit|dispatch|deliver|contact|call|message|notify|schedule|book|invite|publish|post|upload|submit|deploy|apply|execute|run|trigger|persist|delete|purchase|order|sync|export|reach\s+out|update\s+(?:the\s+)?crm|write\s+to\s+(?:a\s+|the\s+)?(?:graph|database|crm))\b/iu;
 
+export function m5bProductReviewTextClaimsForbiddenTrust(value: string): boolean {
+  return FORGED_TRUST.test(value);
+}
+
+export function m5bProductReviewTextRequestsEffect(value: string): boolean {
+  return EFFECTFUL_TASK.test(value);
+}
+
 export type M5bProductReviewSourceKind =
   | "synthetic_fixture"
   | "exact_public_acquisition_custody";
@@ -81,6 +89,10 @@ export type M5bProductReviewClassification =
   | "analysis"
   | "recommendation";
 export type M5bProductReviewLens = "signal" | "map" | "play";
+export type M5bProductReviewEvidenceRole =
+  | "account_identity"
+  | "account_context"
+  | "material_change";
 
 export interface M5bProductReviewSubject {
   readonly teamId: string;
@@ -110,6 +122,7 @@ export interface M5bProductReviewSupersession {
 export interface M5bProductReviewQuestions {
   readonly whoIsThisAccount: string;
   readonly whatMeaningfullyChanged: string;
+  readonly whatMeaningfullyChangedEvidenceBindingIds: readonly string[];
   readonly whyDoesItMatter: string;
   readonly whatNeedsAttention: string;
   readonly safeNextTask: string;
@@ -136,6 +149,7 @@ export interface M5bProductReviewEvidenceRequest {
   readonly evidenceId: string;
   readonly sourceId: string;
   readonly exactQuote: string;
+  readonly evidenceRole: M5bProductReviewEvidenceRole;
 }
 
 export interface M5bProductReviewSafeTask {
@@ -242,7 +256,7 @@ function uniqueStrings(
   return out;
 }
 
-function isIsoTimestamp(value: string): boolean {
+export function isM5bProductReviewIsoTimestamp(value: string): boolean {
   if (!ISO_TIMESTAMP.test(value)) return false;
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) return false;
@@ -282,7 +296,7 @@ function parseExecution(value: StrictJsonValue | undefined): M5bProductReviewExe
   const commit = stringAt(object.commit, "execution_identity", 40, 40);
   const tree = stringAt(object.tree, "execution_identity", 40, 40);
   const preparedAt = stringAt(object.preparedAt, "execution_identity", 20, 24);
-  if (!GIT_OID.test(commit) || !GIT_OID.test(tree) || !isIsoTimestamp(preparedAt)) {
+  if (!GIT_OID.test(commit) || !GIT_OID.test(tree) || !isM5bProductReviewIsoTimestamp(preparedAt)) {
     refuseM5bProductReview("execution_identity");
   }
   return { commit, tree, preparedAt };
@@ -304,15 +318,20 @@ function parseSupersession(value: StrictJsonValue | undefined): M5bProductReview
 function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQuestions {
   const object = objectAt(value, "request.customerQuestions");
   exactKeys(object, ["whoIsThisAccount", "whatMeaningfullyChanged", "whyDoesItMatter",
-    "whatNeedsAttention", "safeNextTask"]);
+    "whatNeedsAttention", "safeNextTask", "whatMeaningfullyChangedEvidenceBindingIds"]);
   const questions: M5bProductReviewQuestions = {
     whoIsThisAccount: stringAt(object.whoIsThisAccount, "customer_questions", 12, 1_200),
     whatMeaningfullyChanged: stringAt(object.whatMeaningfullyChanged, "customer_questions", 12, 1_200),
+    whatMeaningfullyChangedEvidenceBindingIds: uniqueStrings(
+      object.whatMeaningfullyChangedEvidenceBindingIds, "material_change_question",
+      M5B_PRODUCT_REVIEW_LIMITS.evidenceCountMax, EVIDENCE_ID, false,
+    ),
     whyDoesItMatter: stringAt(object.whyDoesItMatter, "customer_questions", 12, 1_200),
     whatNeedsAttention: stringAt(object.whatNeedsAttention, "customer_questions", 12, 1_200),
     safeNextTask: stringAt(object.safeNextTask, "customer_questions", 12, 1_200),
   };
-  for (const answer of Object.values(questions)) {
+  for (const answer of [questions.whoIsThisAccount, questions.whatMeaningfullyChanged,
+    questions.whyDoesItMatter, questions.whatNeedsAttention, questions.safeNextTask]) {
     if (FORGED_TRUST.test(answer)) refuseM5bProductReview("customer_questions_trust");
   }
   if (questions.safeNextTask !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) {
@@ -321,24 +340,25 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
   return questions;
 }
 
+export function isM5bProductReviewCanonicalHttpsUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase();
+    const canonicalDnsHostname = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u
+      .test(hostname);
+    const unsafeHostname = hostname === "localhost" || hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") || hostname.endsWith(".internal") || !canonicalDnsHostname;
+    return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "" &&
+      parsed.hostname !== "" && parsed.hash === "" && parsed.search === "" && !unsafeHostname &&
+      parsed.href === value;
+  } catch {
+    return false;
+  }
+}
+
 function parseCanonicalHttpsUrl(value: StrictJsonValue | undefined): string {
   const text = stringAt(value, "source_url", 12, 2_048);
-  let parsed: URL;
-  try {
-    parsed = new URL(text);
-  } catch {
-    refuseM5bProductReview("source_url");
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  const canonicalDnsHostname = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u
-    .test(hostname);
-  const unsafeHostname = hostname === "localhost" || hostname.endsWith(".localhost") ||
-    hostname.endsWith(".local") || hostname.endsWith(".internal") || !canonicalDnsHostname;
-  if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ||
-      parsed.hostname === "" || parsed.hash !== "" || parsed.search !== "" || unsafeHostname ||
-      parsed.href !== text) {
-    refuseM5bProductReview("source_url");
-  }
+  if (!isM5bProductReviewCanonicalHttpsUrl(text)) refuseM5bProductReview("source_url");
   return text;
 }
 
@@ -367,7 +387,8 @@ function parseSource(value: StrictJsonValue, index: number): M5bProductReviewSou
       object.expectedByteSize <= 0 || object.expectedByteSize > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesEach ||
       !Number.isSafeInteger(object.decodedByteSize) || typeof object.decodedByteSize !== "number" ||
       object.decodedByteSize <= 0 || object.decodedByteSize > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesEach ||
-      !SHA256.test(rawSha256) || !SHA256.test(decodedSha256) || !isIsoTimestamp(acquiredAt)) {
+      !SHA256.test(rawSha256) || !SHA256.test(decodedSha256) ||
+      !isM5bProductReviewIsoTimestamp(acquiredAt)) {
     refuseM5bProductReview("source_identity");
   }
   if (object.contentEncoding === "raw_utf8" &&
@@ -400,15 +421,68 @@ function parseSource(value: StrictJsonValue, index: number): M5bProductReviewSou
 
 function parseEvidence(value: StrictJsonValue, index: number): M5bProductReviewEvidenceRequest {
   const object = objectAt(value, `request.evidenceBindings[${index}]`);
-  exactKeys(object, ["evidenceId", "sourceId", "exactQuote"]);
+  exactKeys(object, ["evidenceId", "sourceId", "exactQuote", "evidenceRole"]);
   const evidenceId = stringAt(object.evidenceId, "evidence_id", 5, 56);
   const sourceId = stringAt(object.sourceId, "evidence_source", 5, 56);
   const exactQuote = stringAt(object.exactQuote, "evidence_quote", 8,
     M5B_PRODUCT_REVIEW_LIMITS.excerptBytesEach);
-  if (!EVIDENCE_ID.test(evidenceId) || !SOURCE_ID.test(sourceId)) {
+  if (!EVIDENCE_ID.test(evidenceId) || !SOURCE_ID.test(sourceId) ||
+      (object.evidenceRole !== "account_identity" && object.evidenceRole !== "account_context" &&
+        object.evidenceRole !== "material_change")) {
     refuseM5bProductReview("evidence_binding");
   }
-  return { evidenceId, sourceId, exactQuote };
+  return { evidenceId, sourceId, exactQuote, evidenceRole: object.evidenceRole };
+}
+
+const LEGAL_ENTITY_SUFFIXES = new Set([
+  "ag", "bv", "co", "company", "corp", "corporation", "gmbh", "group", "holdings", "inc",
+  "incorporated", "limited", "llc", "lp", "ltd", "nv", "plc", "sa", "se",
+]);
+const IDENTITY_LABEL_TOKENS = new Set([
+  "a", "account", "an", "as", "business", "called", "charter", "corporate", "delaware", "doing",
+  "domestic", "entity", "exact", "foreign", "formation", "formed", "in", "incorporation", "is",
+  "issuer", "its", "jurisdiction", "known", "laws", "legal", "name", "of", "organisation",
+  "organization", "registrant", "s", "specified", "state", "the", "under",
+]);
+const IDENTITY_METADATA_TAIL = /\b(?:cik|lei|nasdaq|nyse|ticker)\b.*$/giu;
+
+function normalizedAccountIdentity(value: string): string {
+  const tokens = (value.normalize("NFKD").toLocaleLowerCase("en-US").match(/[\p{L}\p{N}]+/gu) ?? [])
+    .filter((token) => !LEGAL_ENTITY_SUFFIXES.has(token) && !IDENTITY_LABEL_TOKENS.has(token))
+    .filter((token, index, all) => all.indexOf(token) === index);
+  return tokens.join(" ");
+}
+
+function normalizedAccountIdentityVariants(value: string, identityField: boolean): ReadonlySet<string> {
+  const withoutQualifiers = identityField
+    ? value.replace(/\([^)]*\)|\[[^\]]*\]/gu, " ")
+    : value.replace(/(?:\(|\[)\s*(?:(?:[Cc][Ii][Kk]|[Ll][Ee][Ii]|[Nn][Aa][Ss][Dd][Aa][Qq]|[Nn][Yy][Ss][Ee]|[Tt][Ii][Cc][Kk][Ee][Rr])\b[^)\]]*|[Ff]ictional|[A-Z0-9._-]{1,20})\s*(?:\)|\])/gu,
+      " ");
+  const withoutDelimitedMetadata = identityField
+    ? value.replace(/[/|].*$/u, " ")
+    : value.replace(/\s*[/|]\s*[A-Z0-9._-]{1,20}\s*$/u, " ");
+  const withoutLeadingMetadataLabel = value.replace(
+    /^\s*(?:cik|lei|nasdaq|nyse|ticker)\b\s*:?\s*/iu, "");
+  const withoutLeadingMetadataValue = withoutLeadingMetadataLabel === value ? value :
+    withoutLeadingMetadataLabel.replace(/^[\p{L}\p{N}._-]+\s*(?:[:/|—–-])\s*/u, "");
+  return new Set([value, withoutQualifiers, withoutDelimitedMetadata, withoutLeadingMetadataLabel,
+    withoutLeadingMetadataValue,
+    value.replace(IDENTITY_METADATA_TAIL, " "), withoutQualifiers.replace(IDENTITY_METADATA_TAIL, " "),
+    withoutDelimitedMetadata.replace(IDENTITY_METADATA_TAIL, " ")]
+    .map(normalizedAccountIdentity)
+    .filter((identity) => identity.length > 0));
+}
+
+export function assertM5bProductReviewMaterialChangeQuote(
+  accountName: string,
+  exactQuote: string,
+): void {
+  const quoteIdentities = normalizedAccountIdentityVariants(exactQuote, false);
+  const subjectIdentities = normalizedAccountIdentityVariants(accountName, true);
+  if (quoteIdentities.size === 0) refuseM5bProductReview("material_change_uninformative");
+  if ([...quoteIdentities].some((identity) => subjectIdentities.has(identity))) {
+    refuseM5bProductReview("material_change_identity_only");
+  }
 }
 
 function parseSafeTask(value: StrictJsonValue | undefined): M5bProductReviewSafeTask {
@@ -473,6 +547,9 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
   for (const binding of request.evidenceBindings) {
     excerptBytes += Buffer.byteLength(binding.exactQuote, "utf8");
     if (!sourceIds.has(binding.sourceId)) refuseM5bProductReview("evidence_source");
+    if (binding.evidenceRole === "material_change") {
+      assertM5bProductReviewMaterialChangeQuote(request.subject.accountName, binding.exactQuote);
+    }
   }
   if (excerptBytes > M5B_PRODUCT_REVIEW_LIMITS.excerptBytesTotal) {
     refuseM5bProductReview("evidence_budget");
@@ -510,6 +587,65 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
     }
     return out;
   };
+
+  const materialEvidenceIds = new Set(request.evidenceBindings
+    .filter((binding) => binding.evidenceRole === "material_change")
+    .map((binding) => binding.evidenceId));
+  if (materialEvidenceIds.size === 0) refuseM5bProductReview("material_change_evidence");
+  const sourceKindById = new Map(request.sources.map((source) => [source.sourceId, source.sourceKind]));
+  if (request.sources.some((source) => source.sourceKind === "exact_public_acquisition_custody") &&
+      [...materialEvidenceIds].some((id) =>
+        sourceKindById.get(evidenceById.get(id)!.sourceId) !== "exact_public_acquisition_custody")) {
+    refuseM5bProductReview("material_change_source_classification");
+  }
+  if (request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds.some((id) =>
+    !materialEvidenceIds.has(id))) {
+    refuseM5bProductReview("material_change_question");
+  }
+
+  const materialSignals = request.proposals.filter((proposal) =>
+    proposal.classification === "source_fact" && proposal.lens === "signal" &&
+    proposal.evidenceBindingIds.length === 1 && materialEvidenceIds.has(proposal.evidenceBindingIds[0]!));
+  if (materialSignals.length === 0 || request.proposals.some((proposal) =>
+    proposal.classification === "source_fact" && proposal.lens === "signal" &&
+    !materialEvidenceIds.has(proposal.evidenceBindingIds[0]!))) {
+    refuseM5bProductReview("material_change_signal");
+  }
+  const materialEvidenceBySignalId = new Map(materialSignals.map((proposal) =>
+    [proposal.proposalId, proposal.evidenceBindingIds[0]!]));
+  const materialAnalyses = request.proposals.filter((proposal) =>
+    proposal.classification === "analysis" && proposal.lens === "map" &&
+    proposal.supportingProposalIds.some((id) => {
+      const materialEvidenceId = materialEvidenceBySignalId.get(id);
+      return materialEvidenceId !== undefined && proposal.evidenceBindingIds.includes(materialEvidenceId);
+    }));
+  if (materialAnalyses.length === 0) refuseM5bProductReview("material_change_analysis");
+  const materialEvidenceByAnalysisId = new Map(materialAnalyses.map((proposal) => [
+    proposal.proposalId,
+    new Set(proposal.supportingProposalIds
+      .map((id) => materialEvidenceBySignalId.get(id))
+      .filter((id): id is string => id !== undefined && proposal.evidenceBindingIds.includes(id))),
+  ]));
+  const qualifyingMaterialEvidenceIds = new Set(
+    [...materialEvidenceByAnalysisId.values()].flatMap((ids) => [...ids]),
+  );
+  if (request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds.some((id) =>
+    !qualifyingMaterialEvidenceIds.has(id))) {
+    refuseM5bProductReview("material_change_question");
+  }
+  const plays = request.proposals.filter((proposal) => proposal.classification === "recommendation");
+  const questionMaterialEvidenceIds = new Set(
+    request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds,
+  );
+  if (plays.length === 0 || plays.some((proposal) =>
+    !proposal.supportingProposalIds.some((id) => {
+      const analysisMaterialEvidence = materialEvidenceByAnalysisId.get(id);
+      return analysisMaterialEvidence !== undefined &&
+        proposal.evidenceBindingIds.some((evidenceId) =>
+          analysisMaterialEvidence.has(evidenceId) && questionMaterialEvidenceIds.has(evidenceId));
+    }))) {
+    refuseM5bProductReview("material_change_play");
+  }
 
   for (const proposal of request.proposals) {
     if (proposal.evidenceBindingIds.length === 0 ||
@@ -590,6 +726,15 @@ export function validateM5bProductReviewRequest(raw: unknown): Readonly<M5bProdu
     evidenceBindings: evidenceValues.map(parseEvidence),
     proposals: proposalValues.map(parseProposal),
   };
+  const expectedSourceBytes = request.sources.reduce((total, source) =>
+    total + source.expectedByteSize, 0);
+  const expectedDecodedBytes = request.sources.reduce((total, source) =>
+    total + source.decodedByteSize, 0);
+  if (!Number.isSafeInteger(expectedSourceBytes) || !Number.isSafeInteger(expectedDecodedBytes) ||
+      expectedSourceBytes > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesTotal ||
+      expectedDecodedBytes > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesTotal) {
+    refuseM5bProductReview("source_budget");
+  }
   validateRequestRelationships(request);
   return deepFreezeOwnData(request);
 }

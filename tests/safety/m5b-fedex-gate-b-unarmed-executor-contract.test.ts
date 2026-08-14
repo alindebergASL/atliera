@@ -166,7 +166,7 @@ test("synthetic receipt and all five outputs preserve zero effects and honest tr
   assert.doesNotMatch(workshopHtml, /fixture outputs written by the generator: 3/);
 });
 
-test("roadmap and runbooks supersede host qualification with the unauthorized repository-native path", () => {
+test("roadmap and runbooks select generic schema v2 while preserving historical accounting", () => {
   const roadmap = read("docs/strategy/roadmap.md");
   const index = read("docs/runbooks/INDEX.md");
   const blockers = read("docs/BLOCKERS.md");
@@ -181,11 +181,17 @@ test("roadmap and runbooks supersede host qualification with the unauthorized re
       /(current_effective_authorization|current effective authorization)[^\n]*none|real execution remains unauthorized/i);
     assert.match(document, /human[- ]ratification|human-ratified/i);
     assert.match(document, /M5B_STATUS=IN_PROGRESS/);
-    assert.match(document, /REAL_SOURCE_READS=0/);
     assert.match(document, /REAL_GRAPH_WRITES=0/);
     assert.match(document, /REAL_RATIFICATIONS=0/);
     assert.doesNotMatch(document, /fresh explicit (?:external )?GO|arming wrapper|fresh-GO boundary/i);
   }
+  for (const document of [roadmap, index, blockers]) {
+    assert.match(document, /QUALIFIED_REAL_SOURCE_READS[:=] ?0/);
+    assert.match(document, /EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_ACQUISITIONS[:=] ?1/);
+    assert.match(document, /PACKAGE_RECORDED_HISTORICAL_RETAINED_CUSTODY_READS[:=] ?1/);
+    assert.match(document, /CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS[:=] ?0/);
+  }
+  assert.match(repositoryNative, /REAL_SOURCE_READS=0/);
   assert.match(STATUS, /historical\/superseded status/i);
   assert.match(STATUS, /v2-r4[^\n]*not authorized/i);
   assert.match(roadmap, /one real account → system fetches public sources through M4/i);

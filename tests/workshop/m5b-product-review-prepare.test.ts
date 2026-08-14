@@ -12,6 +12,11 @@ import {
   m5bProductReviewCanonicalSha256,
 } from "../../src/workshop/m5b-product-review-contract.ts";
 import {
+  M5B_PRODUCT_REVIEW_PACKET_VERSION,
+  M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION,
+} from "../../src/workshop/m5b-product-review-package.ts";
+import {
+  M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION,
   prepareM5bProductReview,
   type M5bProductReviewPrepareOptions,
 } from "../../src/workshop/m5b-product-review-prepare.ts";
@@ -73,6 +78,7 @@ describe("M5b product-review preparation", () => {
   test("atomically produces a deterministic complete current-schema package", async () => {
     await withScenario(async (root, scenario) => {
       const result = await prepareM5bProductReview(optionsFor(scenario));
+      assert.equal(result.schemaVersion, M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION);
       assert.deepEqual((await readdir(scenario.outputDir)).sort(), [...INVENTORY]);
       assert.equal(result.accounting.requestManifestReads, 1);
       assert.equal(result.accounting.evidenceSourceReads, 3);
@@ -106,6 +112,7 @@ describe("M5b product-review preparation", () => {
       assert.equal(resultSha256, m5bProductReviewCanonicalSha256(resultContent));
 
       const sourcePack = JSON.parse(await readFile(join(scenario.outputDir, "sanitized-source-pack.json"), "utf8"));
+      assert.equal(sourcePack.schemaVersion, M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION);
       assert.equal(sourcePack.contentPolicy.fullSourceBytesEmbedded, false);
       assert.equal(sourcePack.sources.length, 3);
       assert.equal(sourcePack.sources[1].evidenceCurrentThrough, null);
@@ -120,6 +127,9 @@ describe("M5b product-review preparation", () => {
       assert.ok(sourcePack.sources.every((source: any) =>
         source.provenance.classification === "explicit_synthetic_fixture" &&
         source.provenance.targetPolicySha256 === null && source.provenance.authorityId === null));
+      assert.deepEqual(sourcePack.sources.flatMap((source: any) => source.evidenceBindings)
+        .map((binding: any) => [binding.evidenceId, binding.evidenceRole]),
+      scenario.request.evidenceBindings.map((binding) => [binding.evidenceId, binding.evidenceRole]));
       assert.doesNotMatch(JSON.stringify(sourcePack), /localPath|citrine-launch\.html/);
 
       const candidateRaw = JSON.parse(await readFile(join(scenario.outputDir, "candidate.json"), "utf8"));
@@ -134,8 +144,17 @@ describe("M5b product-review preparation", () => {
         item.created_by === "system" && item.confidence !== "high"));
       assert.ok(candidate.graph_bundle.account_objects.every((item) => item.provenance_status === "unverified" &&
         item.created_by === "system" && item.payload_json.durable === false &&
+        Array.isArray(item.payload_json.evidence_roles) &&
         (item.payload_json.authority as any).currentEffectiveAuthorization === "none" &&
         (item.payload_json.authority as any).applyEligibility === false));
+      for (const [index, item] of candidate.graph_bundle.account_objects.entries()) {
+        const proposal = scenario.request.proposals[index]!;
+        assert.deepEqual(item.payload_json.evidence_roles, proposal.evidenceBindingIds.map((evidenceId) => ({
+          evidence_id: evidenceId,
+          evidence_role: scenario.request.evidenceBindings.find((binding) =>
+            binding.evidenceId === evidenceId)!.evidenceRole,
+        })));
+      }
       for (const excerpt of candidate.graph_bundle.excerpts) {
         const source = candidate.graph_bundle.sources.find((item) => item.id === excerpt.source_document_id)!;
         assert.equal(source.raw_text.slice(excerpt.char_start, excerpt.char_end), excerpt.text);
@@ -146,10 +165,18 @@ describe("M5b product-review preparation", () => {
       assert.doesNotMatch(candidateText, /Fictional research note for Citrine Works/);
 
       const packet = JSON.parse(await readFile(join(scenario.outputDir, "review-packet.json"), "utf8"));
+      assert.equal(packet.schemaVersion, M5B_PRODUCT_REVIEW_PACKET_VERSION);
       assert.equal(packet.sourcePackSha256, result.sourcePackSha256);
       assert.equal(packet.candidateSha256, result.candidateSha256);
       assert.deepEqual(packet.customerQuestions.map((item: any) => item.answer),
-        Object.values(scenario.request.customerQuestions));
+        [scenario.request.customerQuestions.whoIsThisAccount,
+          scenario.request.customerQuestions.whatMeaningfullyChanged,
+          scenario.request.customerQuestions.whyDoesItMatter,
+          scenario.request.customerQuestions.whatNeedsAttention,
+          scenario.request.customerQuestions.safeNextTask]);
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "What meaningfully changed?").evidenceBindingIds,
+      scenario.request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds);
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "signal" &&
         proposal.classification === "source_fact" && proposal.title.includes("Citrine Works")));
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "map" &&
@@ -157,6 +184,9 @@ describe("M5b product-review preparation", () => {
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "play" &&
         proposal.classification === "recommendation" && proposal.summary.includes("exception workflows")));
       assert.ok(packet.proposals.every((proposal: any) => proposal.status === "pending"));
+      assert.ok(packet.proposals.some((proposal: any) => proposal.classification === "source_fact" &&
+        proposal.lens === "signal" && proposal.evidenceBindings.every((binding: any) =>
+          binding.evidenceRole === "material_change")));
       assert.ok(packet.proposals.every((proposal: any) =>
         JSON.stringify(proposal.allowedLocalDispositions) === JSON.stringify(["accept", "reject"])));
       assert.ok(packet.proposals.every((proposal: any) => proposal.trust.independentlyVerified === false &&
@@ -169,6 +199,36 @@ describe("M5b product-review preparation", () => {
       for (const name of INVENTORY) {
         assert.deepEqual(await readFile(join(secondOutput, name)), await readFile(join(scenario.outputDir, name)));
       }
+    });
+  });
+
+  test("binds evidence roles into transformation, candidate, packet, and result identities", async () => {
+    await withScenario(async (root, scenario) => {
+      const baselineResult = await prepareM5bProductReview(optionsFor(scenario));
+      const baselinePack = JSON.parse(await readFile(
+        join(scenario.outputDir, "sanitized-source-pack.json"), "utf8"));
+
+      const changedRequest: any = cloneSynthetic(scenario.request);
+      changedRequest.evidenceBindings[1].evidenceRole = "account_identity";
+      const changed = await writeSyntheticRequest(root, "role-changed-request.json", changedRequest);
+      const changedOutput = join(root, "role-changed-output");
+      const changedResult = await prepareM5bProductReview(optionsFor(scenario, {
+        requestPath: changed.path,
+        expectedRequestSha256: changed.sha256,
+        expectedRequestByteSize: changed.bytes.byteLength,
+        outputDir: changedOutput,
+      }));
+      const changedPack = JSON.parse(await readFile(
+        join(changedOutput, "sanitized-source-pack.json"), "utf8"));
+
+      assert.equal(baselinePack.sources[1].storedContentSha256,
+        changedPack.sources[1].storedContentSha256);
+      assert.notEqual(baselinePack.sources[1].transformationManifestSha256,
+        changedPack.sources[1].transformationManifestSha256);
+      assert.notEqual(baselineResult.sourcePackSha256, changedResult.sourcePackSha256);
+      assert.notEqual(baselineResult.candidateSha256, changedResult.candidateSha256);
+      assert.notEqual(baselineResult.reviewPacketSha256, changedResult.reviewPacketSha256);
+      assert.notEqual(baselineResult.resultSha256, changedResult.resultSha256);
     });
   });
 

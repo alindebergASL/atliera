@@ -6,16 +6,28 @@ This path recovers the product-review package in the current repository schema w
 
 ## Pre-effect boundary
 
-`m5b:product-review:prepare` admits one exact-byte-pinned JSON request and two to four separately pinned local UTF-8 source files. The request supplies:
+`m5b:product-review:prepare` admits one exact-byte-pinned schema-v2 JSON request and two to four separately pinned local UTF-8 source files. Schema v1 remains historical review material and is not accepted by the current prepare command. The request supplies:
 
-- the account/team identity, five plain-language customer answers, source facts, analysis, and recommendations;
+- the account/team identity, five plain-language customer answers, an exact material-evidence binding for “What meaningfully changed?”, source facts, analysis, and recommendations;
 - a stable ID, title, absolute local path, source kind, content encoding, outer byte size/SHA-256, decoded byte size/SHA-256, canonical credential-free and query-free HTTPS URL, acquisition timestamp, evidence-current-through value or `null`, publisher, and source type for every source;
-- exact evidence quotes, each required to occur once across the admitted sources;
+- exact evidence quotes, each required to occur once across the admitted sources and typed as `account_identity`, `account_context`, or `material_change`;
 - explicit Signal, Map, and draft-meeting-brief Play proposals, with dependencies and visible caveats;
 - caller-provided execution commit/tree, owner authorization ID, and an exact 64-hex `supersededPackageResultSha256`;
 - the exact explanation: `Supersession preserves the old package bytes and producer identity; it does not rewrite historical provenance.`
 
 The request must keep `currentEffectiveAuthorization: none`, `ratificationStatus: unratified`, `armingStatus: unarmed`, and `applyEligibility: false`. Source-fact titles and summaries use the same exact `Source states: …` attribution. Analysis and recommendations cite supporting proposal IDs and evidence. The safe-next answer and recommendation task use the fixed non-executable description `Prepare and review a draft targeted-meeting brief; keep it internal, editable, and unsent.`
+
+The evidence role is an exact-reviewed assertion, not independent semantic verification. The current contract nevertheless refuses a package unless it has a complete product chain:
+
+1. at least one `material_change` exact excerpt that is not merely the normalized account name or a common corporate-name/ticker/CIK identity variant;
+2. a source-fact Signal bound to that excerpt, with no identity/context-only source fact occupying the Signal slot;
+3. the “What meaningfully changed?” answer bound to the same material evidence carried by the chain;
+4. a Map analysis that directly depends on the material-change Signal and carries its evidence; and
+5. every Play recommendation directly depending on a qualifying Map analysis and carrying that same evidence.
+
+Evidence roles survive into the sanitized source pack and review packet, their transformation hashes, the rendered Workshop and meeting brief, and each candidate account object's payload. The role makes the producer's material-change assertion explicit and reviewable instead of letting an unlabeled identity or context excerpt silently occupy the product chain. The validator rejects pure normalized account identity, but it does not infer business materiality: a reviewer must still assess whether a quote labeled `material_change` actually describes a useful account event.
+
+All-synthetic requests remain valid for deterministic tests. If any admitted request source is production custody, every `material_change` binding must also come from production custody; a mixed request cannot use synthetic material evidence to qualify a nominally real package.
 
 Preparation preflights every path, size, ID, and binding before reading evidence. It reads the request once and each physical evidence source once, refuses symlinks, hardlinks, path overlap, tamper, invalid UTF-8, ambiguous evidence, unsafe URLs, or hostile input shapes, and publishes through a new same-parent staging directory. The destination must not exist.
 
@@ -55,7 +67,11 @@ The fixed output inventory is:
 
 `prepare-result.json` byte-hashes the other five files. The source pack, current validated candidate, review packet, Workshop page, and meeting brief form a forward hash chain bound to the exact request bytes/canonical data, every outer/decoded/stored source identity, execution commit/tree, owner authorization, and superseded result hash.
 
-The Workshop controls are local browser draft state only. Accept/Reject is not saved, serialized, submitted, or treated as ratification. The sole CTA lands on an inline account-specific draft brief containing all five customer answers and the proposed Signal, Map, and Play prompts with their fact/analysis/recommendation and trust labels. The page has no submit/apply/persist action and no write authority.
+The package builder and renderers are internal deterministic stages of the prepare path, not independent provenance authenticators. Only `prepareM5bProductReview` verifies admitted production custody, effect ledgers, and exact-quote occurrence against the trusted source bytes. Given only a sanitized source pack and review packet, a renderer can enforce current schema, structural relationships, internal hashes, safe text, and display boundaries, but it cannot prove excerpt membership in omitted source bytes or authenticate caller-fabricated production provenance. Self-consistent rehashing is not a trusted provenance root; external review must pin the exact prepare result and, when execution provenance matters, its immutable execution receipt.
+
+The Workshop controls are local browser draft state only. Accept/Reject is not saved, serialized, submitted, or treated as ratification. The sole CTA lands on an inline account-specific draft brief containing all five customer answers and the material-change Signal → Map analysis → Play chain with its fact/analysis/recommendation and trust labels. The page has no submit/apply/persist action and no write authority.
+
+All six generated files are immutable outputs of the exact prepare implementation. A wrapper may return a separate immutable execution receipt for prerequisite acquisition or retained-custody-read effects, but it must not post-process the Workshop, meeting brief, or JSON package. The zero counts rendered inside the package are explicitly scoped to the prepare command itself; they do not erase separately authorized prerequisite effects.
 
 ## Acquisition and supersession
 

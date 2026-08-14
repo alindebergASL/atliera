@@ -115,9 +115,9 @@ test("authority docs advance past reconciliation without authorizing a next slic
 
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);
   assert.match(blockers, /M5b acceptance remains customer-facing: one real account, public sources fetched through M4/i);
-  assert.match(blockers, /external human-ratification file named by its exact raw-byte SHA-256/i);
+  assert.match(blockers, /No generic ratification\/apply contract exists yet/i);
   assert.match(blockers, /CURRENT_EFFECTIVE_AUTHORIZATION=NONE/i);
-  assert.match(blockers, /unratified drafts and cannot satisfy the repository-native ratification boundary/i);
+  assert.match(blockers, /unratified drafts and cannot satisfy the generic schema-v2 usefulness/i);
   assert.doesNotMatch(blockers, /next possible M5b private-read gate/i);
   assert.match(blockers, /Any later Gate 3 expansion still requires a fresh explicit operator decision/i);
 

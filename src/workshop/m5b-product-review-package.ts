@@ -8,10 +8,13 @@ import {
 } from "../graph/validated-candidate.ts";
 import { assertProposalDerivedRecordsUnverified } from "../validation/proposal-materialization.ts";
 import {
+  M5B_PRODUCT_REVIEW_LIMITS,
   m5bProductReviewCanonicalSha256,
   refuseM5bProductReview,
+  validateM5bProductReviewRequest,
   type M5bProductReviewAuthority,
   type M5bProductReviewClassification,
+  type M5bProductReviewEvidenceRole,
   type M5bProductReviewLens,
   type M5bProductReviewRequest,
   type M5bProductReviewSafeTask,
@@ -21,9 +24,20 @@ import {
 
 export const M5B_PRODUCT_REVIEW_SOURCE_PACK_KIND = "m5b-product-review-sanitized-source-pack" as const;
 export const M5B_PRODUCT_REVIEW_PACKET_KIND = "m5b-product-review-packet" as const;
+export const M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION = "2" as const;
+export const M5B_PRODUCT_REVIEW_PACKET_VERSION = "2" as const;
+export const M5B_PRODUCT_REVIEW_TRANSFORMATION_VERSION = "2" as const;
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_OID = /^[a-f0-9]{40}$/;
 const SAFE_PROVENANCE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
+const SOURCE_ID = /^src_[a-z0-9][a-z0-9_-]{0,51}$/;
+const PROVENANCE_KEYS = Object.freeze([
+  "classification", "exactUrl", "responseByteSize", "responseSha256", "outerCustodySha256",
+  "targetPolicySha256", "capabilityId", "adapterId", "adapterSha256", "authorityId", "consumptionId",
+  "implementationCommit", "implementationTree", "acquisitionConsumptionSha256",
+  "retainedReadAuthorityId", "retainedReadConsumptionId", "retainedReadImplementationCommit",
+  "retainedReadImplementationTree", "retainedReadLedgerNamespaceSha256", "retainedReadLedgerRecordSha256",
+] as const);
 
 export const M5B_PRODUCT_REVIEW_EFFECT_BOUNDARY = Object.freeze({
   acquisitions: 0,
@@ -104,6 +118,7 @@ export interface M5bProductReviewEvidenceBinding {
   readonly evidenceId: string;
   readonly sourceId: string;
   readonly exactQuote: string;
+  readonly evidenceRole: M5bProductReviewEvidenceRole;
   readonly exactQuoteSha256: string;
   readonly sourceCharStart: number;
   readonly sourceCharEnd: number;
@@ -133,7 +148,7 @@ export interface M5bProductReviewSanitizedSource {
 
 export interface M5bProductReviewSanitizedSourcePackContent {
   readonly kind: typeof M5B_PRODUCT_REVIEW_SOURCE_PACK_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: typeof M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION;
   readonly packageBinding: M5bProductReviewPackageBinding;
   readonly subject: M5bProductReviewSubject;
   readonly authority: M5bProductReviewAuthority;
@@ -158,6 +173,7 @@ export interface M5bProductReviewSanitizedSourcePack
 export interface M5bProductReviewQuestionAnswer {
   readonly question: string;
   readonly answer: string;
+  readonly evidenceBindingIds: readonly string[];
 }
 
 export interface M5bProductReviewPacketProposal {
@@ -185,7 +201,7 @@ export interface M5bProductReviewPacketProposal {
 
 export interface M5bProductReviewPacketContent {
   readonly kind: typeof M5B_PRODUCT_REVIEW_PACKET_KIND;
-  readonly schemaVersion: "1";
+  readonly schemaVersion: typeof M5B_PRODUCT_REVIEW_PACKET_VERSION;
   readonly packageBinding: M5bProductReviewPackageBinding;
   readonly subject: M5bProductReviewSubject;
   readonly sourcePackSha256: string;
@@ -236,6 +252,47 @@ interface TransformedSource {
   readonly storedText: string;
 }
 
+function assertPackageExactKeys(value: unknown, expected: readonly string[], code: string): void {
+  if (value === null || typeof value !== "object" || Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Object.prototype) refuseM5bProductReview(code);
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    refuseM5bProductReview(code);
+  }
+}
+
+function assertAdmittedSourcesShape(admitted: readonly M5bProductReviewAdmittedSource[]): void {
+  // Canonical snapshot rejects Proxies, accessors, exotic prototypes, symbols, cycles, and oversized JSON
+  // before this exported builder reads any caller-supplied field.
+  m5bProductReviewCanonicalSha256(admitted);
+  if (!Array.isArray(admitted) || admitted.length < M5B_PRODUCT_REVIEW_LIMITS.sourceCountMin ||
+      admitted.length > M5B_PRODUCT_REVIEW_LIMITS.sourceCountMax) {
+    refuseM5bProductReview("admitted_sources");
+  }
+  for (const source of admitted) {
+    if (source === null || typeof source !== "object" || Array.isArray(source) ||
+        Object.getPrototypeOf(source) !== Object.prototype) {
+      refuseM5bProductReview("admitted_source_shape");
+    }
+    assertPackageExactKeys(source, Object.hasOwn(source, "provenance")
+      ? ["sourceId", "text", "decodedByteSize", "decodedSha256", "provenance"]
+      : ["sourceId", "text", "decodedByteSize", "decodedSha256"],
+    "admitted_source_shape");
+    if (typeof source.sourceId !== "string" || !SOURCE_ID.test(source.sourceId) ||
+        typeof source.text !== "string" || Buffer.byteLength(source.text, "utf8") <= 0 ||
+        Buffer.byteLength(source.text, "utf8") > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesEach ||
+        !Number.isSafeInteger(source.decodedByteSize) || source.decodedByteSize <= 0 ||
+        source.decodedByteSize > M5B_PRODUCT_REVIEW_LIMITS.sourceBytesEach ||
+        typeof source.decodedSha256 !== "string" || !SHA256.test(source.decodedSha256)) {
+      refuseM5bProductReview("admitted_source_shape");
+    }
+    if (source.provenance !== undefined) {
+      assertPackageExactKeys(source.provenance, PROVENANCE_KEYS, "source_provenance_shape");
+    }
+  }
+}
+
 function resolvedProvenance(
   sourceRequest: M5bProductReviewRequest["sources"][number],
   admittedSource: M5bProductReviewAdmittedSource,
@@ -272,16 +329,28 @@ function resolvedProvenance(
     refuseM5bProductReview("source_provenance_binding");
   }
   if (sourceRequest.sourceKind === "synthetic_fixture") {
-    if (provenance.classification !== "explicit_synthetic_fixture") {
+    if (provenance.classification !== "explicit_synthetic_fixture" ||
+        [provenance.targetPolicySha256, provenance.capabilityId, provenance.adapterId,
+          provenance.adapterSha256, provenance.authorityId, provenance.consumptionId,
+          provenance.implementationCommit, provenance.implementationTree,
+          provenance.acquisitionConsumptionSha256, provenance.retainedReadAuthorityId,
+          provenance.retainedReadConsumptionId, provenance.retainedReadImplementationCommit,
+          provenance.retainedReadImplementationTree, provenance.retainedReadLedgerNamespaceSha256,
+          provenance.retainedReadLedgerRecordSha256].some((value) => value !== null)) {
       refuseM5bProductReview("source_provenance_classification");
     }
   } else if (provenance.classification !== "validated_exact_public_acquisition_custody" ||
-      !SHA256.test(provenance.targetPolicySha256) || !SHA256.test(provenance.adapterSha256) ||
-      !SHA256.test(provenance.acquisitionConsumptionSha256) ||
-      !GIT_OID.test(provenance.implementationCommit) ||
-      (provenance.implementationTree !== null && !GIT_OID.test(provenance.implementationTree)) ||
-      !SAFE_PROVENANCE_ID.test(provenance.capabilityId) || !SAFE_PROVENANCE_ID.test(provenance.adapterId) ||
-      !SAFE_PROVENANCE_ID.test(provenance.authorityId) || !SAFE_PROVENANCE_ID.test(provenance.consumptionId)) {
+      typeof provenance.targetPolicySha256 !== "string" || !SHA256.test(provenance.targetPolicySha256) ||
+      typeof provenance.adapterSha256 !== "string" || !SHA256.test(provenance.adapterSha256) ||
+      typeof provenance.acquisitionConsumptionSha256 !== "string" ||
+        !SHA256.test(provenance.acquisitionConsumptionSha256) ||
+      typeof provenance.implementationCommit !== "string" || !GIT_OID.test(provenance.implementationCommit) ||
+      (provenance.implementationTree !== null && (typeof provenance.implementationTree !== "string" ||
+        !GIT_OID.test(provenance.implementationTree))) ||
+      typeof provenance.capabilityId !== "string" || !SAFE_PROVENANCE_ID.test(provenance.capabilityId) ||
+      typeof provenance.adapterId !== "string" || !SAFE_PROVENANCE_ID.test(provenance.adapterId) ||
+      typeof provenance.authorityId !== "string" || !SAFE_PROVENANCE_ID.test(provenance.authorityId) ||
+      typeof provenance.consumptionId !== "string" || !SAFE_PROVENANCE_ID.test(provenance.consumptionId)) {
     refuseM5bProductReview("production_source_provenance");
   }
   if (sourceRequest.sourceKind !== "synthetic_fixture" &&
@@ -295,12 +364,18 @@ function resolvedProvenance(
       provenance.retainedReadLedgerRecordSha256,
     ];
     if (sourceRequest.contentEncoding === "m4_public_http_fetch_custody_v1") {
-      if (!SAFE_PROVENANCE_ID.test(provenance.retainedReadAuthorityId ?? "") ||
-          !SAFE_PROVENANCE_ID.test(provenance.retainedReadConsumptionId ?? "") ||
-          !GIT_OID.test(provenance.retainedReadImplementationCommit ?? "") ||
-          !GIT_OID.test(provenance.retainedReadImplementationTree ?? "") ||
-          !SHA256.test(provenance.retainedReadLedgerNamespaceSha256 ?? "") ||
-          !SHA256.test(provenance.retainedReadLedgerRecordSha256 ?? "")) {
+      if (typeof provenance.retainedReadAuthorityId !== "string" ||
+          !SAFE_PROVENANCE_ID.test(provenance.retainedReadAuthorityId) ||
+          typeof provenance.retainedReadConsumptionId !== "string" ||
+          !SAFE_PROVENANCE_ID.test(provenance.retainedReadConsumptionId) ||
+          typeof provenance.retainedReadImplementationCommit !== "string" ||
+          !GIT_OID.test(provenance.retainedReadImplementationCommit) ||
+          typeof provenance.retainedReadImplementationTree !== "string" ||
+          !GIT_OID.test(provenance.retainedReadImplementationTree) ||
+          typeof provenance.retainedReadLedgerNamespaceSha256 !== "string" ||
+          !SHA256.test(provenance.retainedReadLedgerNamespaceSha256) ||
+          typeof provenance.retainedReadLedgerRecordSha256 !== "string" ||
+          !SHA256.test(provenance.retainedReadLedgerRecordSha256)) {
         refuseM5bProductReview("production_source_provenance");
       }
     } else if (retainedReadFields.some((value) => value !== null)) {
@@ -376,6 +451,7 @@ function transformSources(
       evidenceId: binding.evidenceId,
       sourceId: binding.sourceId,
       exactQuote: binding.exactQuote,
+      evidenceRole: binding.evidenceRole,
       exactQuoteSha256: sha256(Buffer.from(binding.exactQuote, "utf8")),
       sourceCharStart,
       sourceCharEnd: sourceCharStart + binding.exactQuote.length,
@@ -418,7 +494,7 @@ function transformSources(
     const storedContentSha256 = sha256(Buffer.from(storedText, "utf8"));
     const transformationManifestSha256 = m5bProductReviewCanonicalSha256({
       kind: "m5b-product-review-bounded-excerpt-transformation",
-      schemaVersion: "1",
+      schemaVersion: M5B_PRODUCT_REVIEW_TRANSFORMATION_VERSION,
       sourceId: sourceRequest.sourceId,
       originContentSha256: sourceRequest.rawSha256,
       decodedContentSha256: sourceRequest.decodedSha256,
@@ -427,6 +503,7 @@ function transformSources(
       sourceProvenance: provenance,
       evidenceBindings: evidenceBindings.map((binding) => ({
         evidenceId: binding.evidenceId,
+        evidenceRole: binding.evidenceRole,
         exactQuoteSha256: binding.exactQuoteSha256,
         sourceCharStart: binding.sourceCharStart,
         sourceCharEnd: binding.sourceCharEnd,
@@ -466,7 +543,7 @@ function buildSourcePack(
 ): M5bProductReviewSanitizedSourcePack {
   const content: M5bProductReviewSanitizedSourcePackContent = Object.freeze({
     kind: M5B_PRODUCT_REVIEW_SOURCE_PACK_KIND,
-    schemaVersion: "1",
+    schemaVersion: M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION,
     packageBinding,
     subject: request.subject,
     authority: request.authority,
@@ -568,6 +645,10 @@ function buildCandidate(
         proposal_id: proposal.proposalId,
         classification: proposal.classification,
         lens: proposal.lens,
+        evidence_roles: proposal.evidenceBindingIds.map((evidenceId) => ({
+          evidence_id: evidenceId,
+          evidence_role: evidenceById.get(evidenceId)!.request.evidenceRole,
+        })),
         supporting_proposal_ids: [...proposal.supportingProposalIds],
         caveats: [...proposal.caveats],
         safe_task: proposal.safeTask,
@@ -607,7 +688,7 @@ function buildCandidate(
   });
 }
 
-const QUESTION_LABELS = Object.freeze([
+export const M5B_PRODUCT_REVIEW_QUESTION_LABELS = Object.freeze([
   ["Who is this account?", "whoIsThisAccount"],
   ["What meaningfully changed?", "whatMeaningfullyChanged"],
   ["Why does it matter?", "whyDoesItMatter"],
@@ -647,7 +728,7 @@ function buildReviewPacket(
   }));
   const content: M5bProductReviewPacketContent = Object.freeze({
     kind: M5B_PRODUCT_REVIEW_PACKET_KIND,
-    schemaVersion: "1",
+    schemaVersion: M5B_PRODUCT_REVIEW_PACKET_VERSION,
     packageBinding,
     subject: request.subject,
     sourcePackSha256: sourcePack.sourcePackSha256,
@@ -656,9 +737,12 @@ function buildReviewPacket(
     effectBoundary: M5B_PRODUCT_REVIEW_EFFECT_BOUNDARY,
     reviewBoundary: Object.freeze({ localSelectionsOnly: true, selectionsSaved: false,
       selectionsAreRatification: false, writeAuthority: "none" as const }),
-    customerQuestions: Object.freeze(QUESTION_LABELS.map(([question, key]) => Object.freeze({
+    customerQuestions: Object.freeze(M5B_PRODUCT_REVIEW_QUESTION_LABELS.map(([question, key]) => Object.freeze({
       question,
       answer: request.customerQuestions[key],
+      evidenceBindingIds: Object.freeze(key === "whatMeaningfullyChanged"
+        ? [...request.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds]
+        : []),
     }))),
     lenses: Object.freeze((["signal", "map", "play"] as const).map((lens) => Object.freeze({
       lens,
@@ -683,17 +767,22 @@ function buildReviewPacket(
   return Object.freeze({ ...content, reviewPacketSha256: m5bProductReviewCanonicalSha256(content) });
 }
 
+/** @internal Deterministic prepare stage; production custody is authenticated by prepareM5bProductReview. */
 export function buildM5bProductReviewPackageData(
   request: M5bProductReviewRequest,
   requestRawSha256: string,
   admitted: readonly M5bProductReviewAdmittedSource[],
 ): Readonly<M5bProductReviewPackageData> {
-  if (!SHA256.test(requestRawSha256)) refuseM5bProductReview("request_identity");
-  const packageBinding = makePackageBinding(request, requestRawSha256);
-  const transformed = transformSources(request, admitted);
-  const sourcePack = buildSourcePack(request, packageBinding, transformed);
-  const candidate = buildCandidate(request, packageBinding, sourcePack, transformed);
+  if (typeof requestRawSha256 !== "string" || !SHA256.test(requestRawSha256)) {
+    refuseM5bProductReview("request_identity");
+  }
+  const validatedRequest = validateM5bProductReviewRequest(request);
+  assertAdmittedSourcesShape(admitted);
+  const packageBinding = makePackageBinding(validatedRequest, requestRawSha256);
+  const transformed = transformSources(validatedRequest, admitted);
+  const sourcePack = buildSourcePack(validatedRequest, packageBinding, transformed);
+  const candidate = buildCandidate(validatedRequest, packageBinding, sourcePack, transformed);
   const candidateSha256 = validatedCandidateSha256(candidate);
-  const reviewPacket = buildReviewPacket(request, packageBinding, sourcePack, candidateSha256);
+  const reviewPacket = buildReviewPacket(validatedRequest, packageBinding, sourcePack, candidateSha256);
   return Object.freeze({ packageBinding, sourcePack, candidate, candidateSha256, reviewPacket });
 }

@@ -35,6 +35,20 @@ function refusalCode(fn: () => unknown): string {
   assert.fail("expected M5bProductReviewRefusal");
 }
 
+function admittedFor(request: any): any[] {
+  const textById: Record<string, string> = {
+    src_citrine_launch: SYNTHETIC_SOURCE_TEXTS.launch,
+    src_citrine_pilot: SYNTHETIC_SOURCE_TEXTS.pilot,
+    src_citrine_notes: SYNTHETIC_SOURCE_TEXTS.notes,
+  };
+  return request.sources.map((source: any) => ({
+    sourceId: source.sourceId,
+    text: textById[source.sourceId],
+    decodedByteSize: source.decodedByteSize,
+    decodedSha256: source.decodedSha256,
+  }));
+}
+
 describe("M5b product-review request contract", () => {
   test("accepts and deeply snapshots the strict product-first request", async () => {
     await withScenario((raw) => {
@@ -95,6 +109,13 @@ describe("M5b product-review request contract", () => {
       const proposalDuplicate = cloneSynthetic(baseline);
       proposalDuplicate.proposals[1].proposalId = proposalDuplicate.proposals[0].proposalId;
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(proposalDuplicate)), "duplicate_proposal_id");
+
+      const invalidDirectBuilderRequest = cloneSynthetic(baseline);
+      invalidDirectBuilderRequest.proposals[0].lens = "map";
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        invalidDirectBuilderRequest, "d".repeat(64), [])), "product_first_minimum");
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        baseline, ["d".repeat(64)] as any, [])), "request_identity");
     });
   });
 
@@ -109,6 +130,7 @@ describe("M5b product-review request contract", () => {
         evidenceId: "evd_citrine_unused",
         sourceId: "src_citrine_launch",
         exactQuote: "This page and company are synthetic test material.",
+        evidenceRole: "account_context",
       });
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(unused)), "unused_evidence_binding");
 
@@ -133,6 +155,84 @@ describe("M5b product-review request contract", () => {
           decodedSha256: request.sources[2]!.decodedSha256,
         },
       ])), "admitted_source_identity_mismatch");
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        request, "d".repeat(64), [null, null, null] as any)), "admitted_source_shape");
+
+      const admittedWithPrivateProvenance = admittedFor(request);
+      admittedWithPrivateProvenance[0].provenance = {
+        classification: "explicit_synthetic_fixture",
+        exactUrl: request.sources[0]!.canonicalUrl,
+        responseByteSize: request.sources[0]!.decodedByteSize,
+        responseSha256: request.sources[0]!.decodedSha256,
+        outerCustodySha256: request.sources[0]!.rawSha256,
+        targetPolicySha256: null,
+        capabilityId: null,
+        adapterId: null,
+        adapterSha256: null,
+        authorityId: null,
+        consumptionId: null,
+        implementationCommit: null,
+        implementationTree: null,
+        acquisitionConsumptionSha256: null,
+        retainedReadAuthorityId: null,
+        retainedReadConsumptionId: null,
+        retainedReadImplementationCommit: null,
+        retainedReadImplementationTree: null,
+        retainedReadLedgerNamespaceSha256: null,
+        retainedReadLedgerRecordSha256: null,
+        privateAbsolutePath: "/private/source/path",
+      };
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        request, "d".repeat(64), admittedWithPrivateProvenance)), "source_provenance_shape");
+
+      const productionRequest = cloneSynthetic(baseline);
+      productionRequest.sources[0].sourceKind = "exact_public_acquisition_custody";
+      productionRequest.sources[0].contentEncoding = "exact_sec_archive_custody_v1";
+      const productionAdmitted = admittedFor(productionRequest);
+      productionAdmitted[0].provenance = {
+        classification: "validated_exact_public_acquisition_custody",
+        exactUrl: productionRequest.sources[0].canonicalUrl,
+        responseByteSize: productionRequest.sources[0].decodedByteSize,
+        responseSha256: productionRequest.sources[0].decodedSha256,
+        outerCustodySha256: productionRequest.sources[0].rawSha256,
+        targetPolicySha256: ["e".repeat(64)],
+        capabilityId: "capability.test",
+        adapterId: "adapter.test",
+        adapterSha256: "f".repeat(64),
+        authorityId: "authority.test",
+        consumptionId: "consumption.test",
+        implementationCommit: "a".repeat(40),
+        implementationTree: null,
+        acquisitionConsumptionSha256: "1".repeat(64),
+        retainedReadAuthorityId: null,
+        retainedReadConsumptionId: null,
+        retainedReadImplementationCommit: null,
+        retainedReadImplementationTree: null,
+        retainedReadLedgerNamespaceSha256: null,
+        retainedReadLedgerRecordSha256: null,
+      };
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        productionRequest, "d".repeat(64), productionAdmitted)), "production_source_provenance");
+    });
+  });
+
+  test("rejects an aggregate source budget overflow before direct package construction", async () => {
+    await withScenario((baseline) => {
+      const oversized = cloneSynthetic(baseline);
+      oversized.sources.push({
+        ...cloneSynthetic(oversized.sources[2]),
+        sourceId: "src_citrine_fourth",
+        title: "Citrine fourth synthetic source",
+        localPath: "/tmp/citrine-fourth.txt",
+        canonicalUrl: "https://example.invalid/citrine-fourth",
+      });
+      for (const source of oversized.sources) {
+        source.expectedByteSize = 512 * 1024;
+        source.decodedByteSize = 512 * 1024;
+      }
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(oversized)), "source_budget");
+      assert.equal(refusalCode(() => buildM5bProductReviewPackageData(
+        oversized, "d".repeat(64), [])), "source_budget");
     });
   });
 
@@ -185,7 +285,7 @@ describe("M5b product-review request contract", () => {
 
       const missingDependency = cloneSynthetic(baseline);
       missingDependency.proposals[3].supportingProposalIds = [];
-      assert.ok(["request_shape", "proposal_dependencies"].includes(
+      assert.ok(["request_shape", "proposal_dependencies", "material_change_analysis"].includes(
         refusalCode(() => validateM5bProductReviewRequest(missingDependency))));
 
       const confusedFact = cloneSynthetic(baseline);
@@ -198,12 +298,13 @@ describe("M5b product-review request contract", () => {
         "source_fact_attribution");
 
       const unsupportedEvidence = cloneSynthetic(baseline);
-      unsupportedEvidence.proposals[3].evidenceBindingIds = ["evd_citrine_launch"];
+      unsupportedEvidence.proposals[3].evidenceBindingIds = ["evd_citrine_launch", "evd_citrine_pilot"];
+      unsupportedEvidence.proposals[3].supportingProposalIds = ["prp_citrine_launch_signal"];
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(unsupportedEvidence)),
         "proposal_evidence_dependency");
 
       const poisonDependency = cloneSynthetic(baseline);
-      poisonDependency.proposals[3].supportingProposalIds = ["prp_provider_call"];
+      poisonDependency.proposals[3].supportingProposalIds.push("prp_provider_call");
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(poisonDependency)), "proposal_dependency");
 
       const unsafeRecommendation = cloneSynthetic(baseline);
@@ -218,11 +319,183 @@ describe("M5b product-review request contract", () => {
     });
   });
 
+  test("requires a typed material-change Signal to support the Map analysis and every Play", async () => {
+    await withScenario((baseline) => {
+      const oldVersion = cloneSynthetic(baseline);
+      oldVersion.schemaVersion = "1";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(oldVersion)), "request_version");
+
+      const invalidRole = cloneSynthetic(baseline);
+      invalidRole.evidenceBindings[0].evidenceRole = "document_metadata";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(invalidRole)), "evidence_binding");
+
+      const noMaterialChange = cloneSynthetic(baseline);
+      noMaterialChange.evidenceBindings[0].evidenceRole = "account_context";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(noMaterialChange)),
+        "material_change_evidence");
+
+      const questionUsesContext = cloneSynthetic(baseline);
+      questionUsesContext.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds = ["evd_citrine_pilot"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(questionUsesContext)),
+        "material_change_question");
+
+      const identityOnly = cloneSynthetic(baseline);
+      identityOnly.subject.accountName = "FedEx";
+      identityOnly.evidenceBindings[0].exactQuote = "FEDEX CORPORATION";
+      identityOnly.proposals[0].title = "Source states: FEDEX CORPORATION";
+      identityOnly.proposals[0].summary = identityOnly.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(identityOnly)),
+        "material_change_identity_only");
+
+      const identityWithQualifier = cloneSynthetic(baseline);
+      identityWithQualifier.evidenceBindings[0].exactQuote = "Citrine Works";
+      identityWithQualifier.proposals[0].title = "Source states: Citrine Works";
+      identityWithQualifier.proposals[0].summary = identityWithQualifier.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(identityWithQualifier)),
+        "material_change_identity_only");
+
+      const labeledIdentity = cloneSynthetic(baseline);
+      labeledIdentity.subject.accountName = "FedEx";
+      labeledIdentity.evidenceBindings[0].exactQuote = "Registrant: FEDEX CORPORATION";
+      labeledIdentity.proposals[0].title = "Source states: Registrant: FEDEX CORPORATION";
+      labeledIdentity.proposals[0].summary = labeledIdentity.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(labeledIdentity)),
+        "material_change_identity_only");
+
+      const corporateNameIdentity = cloneSynthetic(baseline);
+      corporateNameIdentity.subject.accountName = "FedEx";
+      corporateNameIdentity.evidenceBindings[0].exactQuote = "Corporate name: FEDEX CORPORATION";
+      corporateNameIdentity.proposals[0].title = "Source states: Corporate name: FEDEX CORPORATION";
+      corporateNameIdentity.proposals[0].summary = corporateNameIdentity.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(corporateNameIdentity)),
+        "material_change_identity_only");
+
+      const identityWithTicker = cloneSynthetic(baseline);
+      identityWithTicker.subject.accountName = "FedEx";
+      identityWithTicker.evidenceBindings[0].exactQuote = "FEDEX CORPORATION ticker NYSE FDX";
+      identityWithTicker.proposals[0].title = "Source states: FEDEX CORPORATION ticker NYSE FDX";
+      identityWithTicker.proposals[0].summary = identityWithTicker.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(identityWithTicker)),
+        "material_change_identity_only");
+
+      for (const quote of [
+        "Exact name of registrant: FEDEX CORPORATION",
+        "FEDEX CORPORATION / FDX",
+        "FEDEX CORPORATION, a Delaware corporation",
+        "The exact name of the registrant is FEDEX CORPORATION",
+        "The registrant's name is FEDEX CORPORATION",
+        "FEDEX CORPORATION is the registrant",
+        "CIK 0001048911: FEDEX CORPORATION",
+        "Ticker FDX: FEDEX CORPORATION",
+        "NYSE: FDX — FEDEX CORPORATION",
+      ]) {
+        const identityBoilerplate = cloneSynthetic(baseline);
+        identityBoilerplate.subject.accountName = "FedEx";
+        identityBoilerplate.evidenceBindings[0].exactQuote = quote;
+        identityBoilerplate.proposals[0].title = `Source states: ${quote}`;
+        identityBoilerplate.proposals[0].summary = identityBoilerplate.proposals[0].title;
+        assert.equal(refusalCode(() => validateM5bProductReviewRequest(identityBoilerplate)),
+          "material_change_identity_only");
+      }
+
+      for (const quote of [
+        "FedEx Corporation | announced the acquisition of Example Co.",
+        "FedEx Corporation (announced a network restructuring)",
+      ]) {
+        const materialAnnouncement = cloneSynthetic(baseline);
+        materialAnnouncement.subject.accountName = "FedEx";
+        materialAnnouncement.evidenceBindings[0].exactQuote = quote;
+        materialAnnouncement.proposals[0].title = `Source states: ${quote}`;
+        materialAnnouncement.proposals[0].summary = materialAnnouncement.proposals[0].title;
+        assert.doesNotThrow(() => validateM5bProductReviewRequest(materialAnnouncement));
+      }
+
+      const uninformative = cloneSynthetic(baseline);
+      uninformative.evidenceBindings[0].exactQuote = "— — — —";
+      uninformative.proposals[0].title = "Source states: — — — —";
+      uninformative.proposals[0].summary = uninformative.proposals[0].title;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(uninformative)),
+        "material_change_uninformative");
+
+      const materialNotSignal = cloneSynthetic(baseline);
+      materialNotSignal.proposals[0].lens = "map";
+      materialNotSignal.proposals[1].lens = "signal";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(materialNotSignal)),
+        "material_change_signal");
+
+      const mapOmitsMaterialSignal = cloneSynthetic(baseline);
+      mapOmitsMaterialSignal.proposals[3].evidenceBindingIds = ["evd_citrine_pilot", "evd_citrine_notes"];
+      mapOmitsMaterialSignal.proposals[3].supportingProposalIds = ["prp_citrine_pilot_fact",
+        "prp_citrine_attention_fact"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(mapOmitsMaterialSignal)),
+        "material_change_analysis");
+
+      const mapCrossBindsDifferentMaterialFact = cloneSynthetic(baseline);
+      mapCrossBindsDifferentMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
+      mapCrossBindsDifferentMaterialFact.proposals[3].evidenceBindingIds = ["evd_citrine_pilot",
+        "evd_citrine_notes"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(mapCrossBindsDifferentMaterialFact)),
+        "material_change_analysis");
+
+      const questionCrossBindsDifferentMaterialFact = cloneSynthetic(baseline);
+      questionCrossBindsDifferentMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
+      questionCrossBindsDifferentMaterialFact.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds =
+        ["evd_citrine_pilot"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(
+        questionCrossBindsDifferentMaterialFact)), "material_change_question");
+
+      const questionAddsDisconnectedMaterialFact = cloneSynthetic(baseline);
+      questionAddsDisconnectedMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
+      questionAddsDisconnectedMaterialFact.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds =
+        ["evd_citrine_launch", "evd_citrine_pilot"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(
+        questionAddsDisconnectedMaterialFact)), "material_change_question");
+
+      const playUsesDifferentMaterialFact = cloneSynthetic(baseline);
+      playUsesDifferentMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
+      playUsesDifferentMaterialFact.proposals[1].lens = "signal";
+      playUsesDifferentMaterialFact.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds =
+        ["evd_citrine_pilot"];
+      playUsesDifferentMaterialFact.proposals.at(-1).evidenceBindingIds =
+        ["evd_citrine_launch", "evd_citrine_notes"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(playUsesDifferentMaterialFact)),
+        "material_change_play");
+
+      const mixedCustodyUsesSyntheticMaterial = cloneSynthetic(baseline);
+      mixedCustodyUsesSyntheticMaterial.sources[1].sourceKind = "exact_public_acquisition_custody";
+      mixedCustodyUsesSyntheticMaterial.sources[1].contentEncoding = "exact_sec_archive_custody_v1";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(mixedCustodyUsesSyntheticMaterial)),
+        "material_change_source_classification");
+
+      const playOmitsMaterialEvidence = cloneSynthetic(baseline);
+      playOmitsMaterialEvidence.proposals.at(-1).evidenceBindingIds = ["evd_citrine_pilot",
+        "evd_citrine_notes"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(playOmitsMaterialEvidence)),
+        "material_change_play");
+
+      const playCrossBindsDifferentMaterialFact = cloneSynthetic(baseline);
+      playCrossBindsDifferentMaterialFact.evidenceBindings[1].evidenceRole = "material_change";
+      playCrossBindsDifferentMaterialFact.proposals.at(-1).evidenceBindingIds = ["evd_citrine_pilot",
+        "evd_citrine_notes"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(playCrossBindsDifferentMaterialFact)),
+        "material_change_play");
+
+      const withIdentityContext = cloneSynthetic(baseline);
+      withIdentityContext.evidenceBindings[1].evidenceRole = "account_identity";
+      assert.equal(validateM5bProductReviewRequest(withIdentityContext).evidenceBindings[1]!.evidenceRole,
+        "account_identity");
+    });
+  });
+
   test("requires all five substantive answers and an internal brief as the safe next task", async () => {
     await withScenario((baseline) => {
       const missing = cloneSynthetic(baseline);
       delete missing.customerQuestions.whyDoesItMatter;
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(missing)), "request_shape");
+
+      const missingChangeBinding = cloneSynthetic(baseline);
+      delete missingChangeBinding.customerQuestions.whatMeaningfullyChangedEvidenceBindingIds;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(missingChangeBinding)), "request_shape");
 
       const outbound = cloneSynthetic(baseline);
       outbound.customerQuestions.safeNextTask = "Send an email to the account with a generic summary.";

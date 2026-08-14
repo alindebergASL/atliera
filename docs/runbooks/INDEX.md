@@ -9,30 +9,36 @@ Boundary markers:
 - current_effective_authorization: none
 - M5B_STATUS=IN_PROGRESS
 - CURRENT_EFFECTIVE_AUTHORIZATION=NONE
-- REAL_SOURCE_READS=0
+- QUALIFIED_REAL_SOURCE_READS=0
 - REAL_GRAPH_WRITES=0
 - REAL_RATIFICATIONS=0
+- REVIEWED_EXTERNAL_SCHEMA_V1_PACKAGE=PRODUCT_FAIL
+- EXACT_EXECUTION_PROVENANCE=HOLD
+- EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_ACQUISITIONS=1
+- EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_NETWORK_REQUESTS=1
+- PACKAGE_RECORDED_HISTORICAL_RETAINED_CUSTODY_READS=1
+- CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS=0
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
-- next recommended work: independent review of the repository-native M5b prepare/apply surface as preserved historical reference behavior, together with the preferred generic M5b product route and its dormant one-shot source controls; real source execution and external human ratification remain separately unauthorized
+- next recommended work: review and merge the generic schema-v2 meaningful-change evidence gate; only afterward consider a separately authorized fresh exact-provenance v2 prepare; generic ratification/apply remain deferred until a useful package passes review
 - ratified next bounded implementation: none
 - M4 is shipped upon closeout merge; M4 implementation authority has returned to none; the host-local M5b v2-r3 result is provenance only; current effective authorization remains none
 - M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes
 - M4 Gate B attempt 2 is permanently consumed and succeeded once; it creates no standing live authority
 - live acquisition remains unauthorized: neither consumed attempt may be retried or reused, and the new exact-archive policy/template is unarmed
 - retained custody reads remain unauthorized: the committed generic template authorizes zero reads
-- private_reads: 0
+- current_authorized_future_private_reads: 0
 - product_provider_calls: 0
-- acquisitions: 0
+- current_authorized_future_acquisitions: 0
 - graph_durable_writes: 0
 - deployments: 0
 - retries: 0
-- external_product_effects: 0
+- current_authorized_future_external_product_effects: 0
 - local_deterministic_gate_b_synthetic_outputs_written: 5
 
-Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. Host-local v2-r3, its former Gate B executor, archive, and evidence are frozen provenance only. Host/archive qualification and V4 reconciliation are closed; no v2-r4 is authorized. The shared control plane is quarantined and nonblocking. The repository-native mechanism requires a separately authorized explicit real source read and then an externally raw-byte-pinned human-ratification file plus a separate one-shot local apply decision.
+Per-artifact “next recommended work” sections record the local historical follow-up at the time each artifact closed; they do not override this index or the roadmap. Host-local v2-r3, its former Gate B executor, archive, and evidence are frozen provenance only. Host/archive qualification and V4 reconciliation are closed; no v2-r4 is authorized. The shared control plane is quarantined and nonblocking. The preferred generic route requires a separately authorized explicit real source read for any fresh package. No generic ratification or apply contract exists yet; the FedEx-specific raw-byte ratification and one-shot local apply remain historical reference behavior only.
 
-M5b acceptance remains one real account whose public sources are fetched through M4, validated and human-ratified into durable state, then rendered as a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Repository-native prepare/apply is the current implementation mechanism for the preserved historical FedEx-specific completion path, not a replacement for that outcome. The generic `m5b:product-review:prepare` surface is the preferred/current product route; the old path and validators remain historical/reference behavior and are not mutated. No real evaluated page exists yet.
+M5b acceptance remains one real account whose public sources are fetched through M4, validated and human-ratified into durable state, then rendered as a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Generic schema-v2 `m5b:product-review:prepare` is the preferred/current product route and now requires an explicitly typed and answer-bound material-change Signal → Map → Play chain before rendering. Evidence roles remain reviewed assertions, so human usefulness review is still mandatory. The reviewed external schema-v1 package failed usefulness review and has execution provenance on hold; it is not a successor baseline. Its prior run reported one archive acquisition/network request and its result records one retained-custody read; those historical effects remain accounted separately from the zero qualified-result and zero future-authorization counters. The old FedEx-specific prepare/apply path and validators remain historical/reference behavior. No real evaluated page exists yet.
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 
@@ -57,9 +63,9 @@ Status vocabulary:
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |
 | `h2-echo-mediation-proof-status.md` | active | Shipped H2 system-side proof at `691555292b43a37f4f5ec5bba43978ffcc177a0f` (PR #284): one approved L0 schedule invokes the first registered inert echo and emits one execution, audit, and accounting record with zero adjacent effects. |
 | `m4-public-http-fetch-v1-status-and-fedex-live-packet.md` | active | Shipped M4 closeout: attempt 1 remains a truthful consumed failure, PR #287 supplied the Node 22 repair, and separately authorized attempt 2 succeeded once with exact private custody plus a public unverified Workshop excerpt. Current effective authority is none; the next recommendation is only a separate explicit M5b decision. |
-| `m5b-fedex-system-acquired-pre-effect-gate-a-status.md` | superseded | Historical M5b Gate A unarmed pre-effect repair for the FedEx source-backed account snapshot: proportional hostile-input bounds; simulated fixture origin/source type; exact candidate-bound unratified review and retention drafts; exact filing-only model citations with no call; and future composition that re-admits caller-supplied custody bytes, rebuilds the production pack, and requires exact equality. Serialized public constants and caller-mintable hashes are identity, never authority or human ratification. The committed fixture preserves two Maps, empty Signals/Plays, and cannot compose with fixture bytes. At that historical boundary M5b was in progress and its deterministic generator wrote exactly 3 local fixture outputs. The repository-native path is now active. |
+| `m5b-fedex-system-acquired-pre-effect-gate-a-status.md` | superseded | Historical M5b Gate A unarmed pre-effect repair for the FedEx source-backed account snapshot: proportional hostile-input bounds; simulated fixture origin/source type; exact candidate-bound unratified review and retention drafts; exact filing-only model citations with no call; and future composition that re-admits caller-supplied custody bytes, rebuilds the production pack, and requires exact equality. Serialized public constants and caller-mintable hashes are identity, never authority or human ratification. The committed fixture preserves two Maps, empty Signals/Plays, and cannot compose with fixture bytes. At that historical boundary M5b was in progress and its deterministic generator wrote exactly 3 local fixture outputs; its then-successor repository-native path is now historical reference behavior. |
 | `m5b-fedex-gate-b-unarmed-executor-status.md` | superseded | Historical host Gate B core retained for provenance and regression checks only. It is not the active M5b acceptance or execution path. |
-| `m5b-product-review-prepare.md` | active | Preferred/current generic product-first route over 2–4 separately pinned sources. Synthetic preparation remains repeatable; production custody requires a separately armed, stable, durable one-shot read ledger. A dormant exact-SEC-archive policy/adapter uses the existing confined transport core and requires a separate consumed acquisition GO. The only committed template leaves both operations unarmed and authorizes zero effects. Source provenance binds full acquisition/read receipts, and the typed owner disposition remains non-executable and is not an apply input. The historical FedEx path and validators remain preserved reference behavior. |
+| `m5b-product-review-prepare.md` | active | Preferred/current schema-v2 generic product-first route over 2–4 separately pinned sources. It requires explicitly typed material-change evidence to bind the “What changed?” answer and flow through a source-fact Signal → Map analysis → every Play. The typed role is reviewable, not proof of business materiality. Synthetic preparation remains repeatable; production custody requires separately armed one-shot authority. Generated package files remain immutable, while prerequisite effects belong in a separate execution receipt. The typed owner disposition remains non-executable and v2-only, and is not an apply input. Schema-v1 generic packages and the FedEx-specific path remain historical review/reference behavior. |
 | `m5b-repository-native-product-completion.md` | active | Preserved historical FedEx-specific reference mechanism for validation/ratification/durable rendering: external raw-byte authority pins, exact source/commit/tree binding, one local versioned graph commit or exact read-only finalization, and truthful production-versus-synthetic labels. Its validators remain supported, but it is not the preferred/current generic product route or the customer milestone outcome; real execution remains unauthorized. |
 | `local-durable-db-boot-status.md` | active | Current local durable DB boot/migration contract; it is no-spend and does not claim deployment readiness. |
 | `local-durable-db-backup-restore-status.md` | active | Current local backup/restore round-trip for the local durable DB contract; it is no-spend and does not claim deployment readiness. |

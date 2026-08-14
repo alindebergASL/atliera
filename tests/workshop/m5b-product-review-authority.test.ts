@@ -30,11 +30,15 @@ import {
   M4_TARGET_POLICY_REF,
   M4_TARGET_POLICY_SHA256,
 } from "../../src/capability/m4-target-policy.ts";
-import { M5bProductReviewRefusal } from "../../src/workshop/m5b-product-review-contract.ts";
+import {
+  M5bProductReviewRefusal,
+  m5bProductReviewCanonicalSha256,
+} from "../../src/workshop/m5b-product-review-contract.ts";
 import {
   prepareM5bProductReview,
   type M5bProductReviewPrepareOptions,
 } from "../../src/workshop/m5b-product-review-prepare.ts";
+import { renderM5bProductReviewWorkshopHtml } from "../../src/workshop/m5b-product-review-render.ts";
 import {
   SYNTHETIC_SOURCE_TEXTS,
   cloneSynthetic,
@@ -445,6 +449,16 @@ async function refusalCode(promise: Promise<unknown>): Promise<string> {
   assert.fail("expected product-review refusal");
 }
 
+function syncRefusalCode(fn: () => unknown): string {
+  try {
+    fn();
+  } catch (error) {
+    assert.ok(error instanceof M5bProductReviewRefusal);
+    return error.code;
+  }
+  assert.fail("expected product-review refusal");
+}
+
 async function withRoot<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), "atliera-product-authority-"));
   try {
@@ -528,6 +542,27 @@ describe("M5b product-review retained-custody authority and provenance", () => {
       assert.equal(m4Provenance.retainedReadAuthorityId, "auth_retained_read_success_001");
       assert.match(m4Provenance.retainedReadLedgerNamespaceSha256, /^[a-f0-9]{64}$/);
       assert.match(m4Provenance.retainedReadLedgerRecordSha256, /^[a-f0-9]{64}$/);
+
+      const missingRetainedReadPack = cloneSynthetic(pack);
+      const missingRetainedReadProvenance = missingRetainedReadPack.sources.find((source: any) =>
+        source.sourceId === m4Source.sourceId).provenance;
+      for (const field of ["retainedReadAuthorityId", "retainedReadConsumptionId",
+        "retainedReadImplementationCommit", "retainedReadImplementationTree",
+        "retainedReadLedgerNamespaceSha256", "retainedReadLedgerRecordSha256"]) {
+        missingRetainedReadProvenance[field] = null;
+      }
+      const { sourcePackSha256: _oldPackHash, ...missingRetainedReadPackContent } = missingRetainedReadPack;
+      missingRetainedReadPack.sourcePackSha256 =
+        m5bProductReviewCanonicalSha256(missingRetainedReadPackContent);
+      const missingRetainedReadPacket = JSON.parse(await readFile(
+        join(fixture.options.outputDir, "review-packet.json"), "utf8"));
+      missingRetainedReadPacket.sourcePackSha256 = missingRetainedReadPack.sourcePackSha256;
+      const { reviewPacketSha256: _oldPacketHash, ...missingRetainedReadPacketContent } =
+        missingRetainedReadPacket;
+      missingRetainedReadPacket.reviewPacketSha256 =
+        m5bProductReviewCanonicalSha256(missingRetainedReadPacketContent);
+      assert.equal(syncRefusalCode(() => renderM5bProductReviewWorkshopHtml(
+        missingRetainedReadPack, missingRetainedReadPacket)), "render_package_shape");
 
       const copiedGoAttempt = attempt(ledgerRoot, m4Source, "success_001");
       const secondOutput = join(root, "changed-output-path");

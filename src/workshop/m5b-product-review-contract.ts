@@ -65,16 +65,47 @@ const SUBJECT_ID = /^[a-z][a-z0-9_-]{1,63}$/;
 const AUTHORIZATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const SINGLE_LINE_CONTROL = /[\u0000-\u001f\u007f]/u;
-const FORGED_TRUST = /\b(?:independently[ -]verified|human[ -]ratified|quality[ -]passed|durable)\b/iu;
-const EFFECTFUL_TASK =
-  /\b(?:send|email|forward|share|transmit|dispatch|deliver|contact|call|message|notify|schedule|book|invite|publish|post|upload|submit|deploy|apply|execute|run|trigger|persist|delete|purchase|order|sync|export|reach\s+out|update\s+(?:the\s+)?crm|write\s+to\s+(?:a\s+|the\s+)?(?:graph|database|crm))\b/iu;
+const FORGED_TRUST =
+  /\b(?:(?:independently|human|quality)[ -](?:verified|ratified|passed)|durable|apply[ -]eligible)\b/iu;
+const WORKFLOW_TRUST_SUBJECT =
+  /\b(?:system|owner|reviewer|human|workflow|package|artifact|candidate|proposal|brief|record|execution|operation|task)\b/iu;
+const WORKFLOW_TRUST_STATUS =
+  /\b(?:approval|approved|authorization|authorized|verification|verified|ratification|ratified|armed|apply[ -]eligible|applied|persistence|persisted|deployment|deployed|cleared)\b/iu;
+const PASSIVE_OR_BANNER_TRUST =
+  /(?:^\s*(?:approved|authorized|verified|ratified|armed|applied|persisted|deployed)\b|\b(?:has|have|had|is|was|were|been)\s+(?:already\s+|now\s+)?(?:approved|authorized|verified|ratified|armed|applied|persisted|deployed)\b)/iu;
+const TRUST_OUTCOME_BANNER =
+  /(?:^\s*(?:approval|authorization|verification|ratification|review|(?:(?:human|owner|reviewer|system)[ -])?sign[ -]?off|quality[ -]review|owner[ -]consent)\s+(?:granted|complete|confirmed|obtained|passed|received)\b|^\s*(?:approval|authorization|ratification|review)\s+(?:is|was)\s+(?:complete|granted|passed)\b|^\s*(?:ready\s+(?:for\s+(?:apply|deployment|use)|to\s+go\s+live)|production[ -]ready|cleared\s+for\s+deployment|all\s+checks\s+green)\b)/iu;
+const WORKFLOW_TRUST_CLAIM =
+  /(?:\b(?:the\s+)?(?:artifact|brief|candidate|package|proposal|record)\s+(?:has|had)\s+(?:owner[ -]|reviewer[ -])?sign[ -]off\b|\b(?:the\s+)?(?:human|owner|reviewer|system)\s+(?:has\s+)?signed\s+off\b|\b(?:the\s+)?(?:artifact|brief|candidate|package|proposal|record)\s+(?:has\s+)?passed\s+(?:human\s+|owner\s+|quality\s+)?review\b|\b(?:the\s+)?package\s+is\s+good\s+to\s+go\b|\b(?:the\s+)?candidate\s+meets\s+the\s+quality\s+gate\b)/iu;
+const EFFECT_ACTION = String.raw`(?:send(?:s|ing)?|sent|email(?:s|ed|ing)?|forward(?:s|ed|ing)?|share(?:s|d|ing)?|transmit(?:s|ted|ting)?|dispatch(?:es|ed|ing)?|deliver(?:s|ed|ing)?|contact(?:s|ed|ing)?|call(?:s|ed|ing)?|message(?:s|d|ing)?|notif(?:y|ies|ied|ying)|schedul(?:e|es|ed|ing)|book(?:s|ed|ing)?|invite(?:s|d|ing)?|publish(?:es|ed|ing)?|post(?:s|ed|ing)?|upload(?:s|ed|ing)?|submit(?:s|ted|ting)?|deploy(?:s|ed|ing)?|appl(?:y|ies|ied|ying)|execut(?:e|es|ed|ing)|run(?:s|ning)?|ran|trigger(?:s|ed|ing)?|persist(?:s|ed|ing)?|delet(?:e|es|ed|ing)|purchas(?:e|es|ed|ing)|order(?:s|ed|ing)?|sync(?:s|ed|ing)?|export(?:s|ed|ing)?|reach(?:es|ed|ing)?\s+out|updat(?:e|es|ed|ing)\s+(?:the\s+)?crm|writ(?:e|es|ing|ten)\s+to\s+(?:a\s+|the\s+)?(?:graph|database|crm))`;
+const EFFECT_UNAMBIGUOUS_BASE_ACTION =
+  String.raw`(?:notify|invite|publish|upload|submit|deploy|apply|execute|trigger|persist|delete|sync|reach\s+out|update\s+(?:the\s+)?crm|write\s+to\s+(?:a\s+|the\s+)?(?:graph|database|crm)|ratify|approve|authorize|sign\s+off)`;
+const EFFECT_AMBIGUOUS_BASE_ACTION =
+  String.raw`(?:send|email|forward|share|transmit|dispatch|deliver|contact|call|message|schedule|book|post|purchase|order|run|export)`;
+const EFFECT_IMPERATIVE_OBJECT =
+  String.raw`(?:a|an|it|this|that|the|account|artifact|brief|candidate|customer|client|file|meeting|message|package|proposal|record|asap|externally|now|tomorrow)`;
+const EFFECT_IMPERATIVE =
+  String.raw`(?:^|[.!?;:]\s*)(?:please\s+|now\s+)?(?:${EFFECT_UNAMBIGUOUS_BASE_ACTION}\b|${EFFECT_AMBIGUOUS_BASE_ACTION}\s+${EFFECT_IMPERATIVE_OBJECT}\b|mark\s+${EFFECT_IMPERATIVE_OBJECT}\s+approved\b)`;
+const EFFECT_NAMED_CONTACT_DIRECTIVE =
+  /(?:^|[.!?;:]\s*)(?:[Cc]all|[Cc]ontact|[Ee]mail|[Mm]essage)\s+\p{Lu}[\p{L}\p{N}.'’_-]{1,80}\b/u;
+const EFFECT_STRUCTURED_DIRECTIVE =
+  /(?:^|[.!?;:]\s*)(?:arm\s+(?:this|that|the)?\s*package\b|enable\s+deployment\b|turn\s+on\s+persistence\b|grant\s+approval\b|set\s+current\s+effective\s+authorization\s+to\b|(?:record|insert)\s+this\s+(?:in|into)\s+(?:the\s+)?graph\b|(?:save|store)\s+this\s+(?:in|to)\s+(?:the\s+)?database\b)/iu;
+const EFFECT_DIRECTIVE = new RegExp(
+  String.raw`(?:${EFFECT_IMPERATIVE}|\b(?:let['’]s|can\s+you|could\s+you|would\s+you|can\s+we|could\s+we|would\s+we|please(?:\s+consider)?|(?:i|we)\s+(?:recommend|advise|suggest))\s+(?:now\s+)?(?:be\s+)?${EFFECT_ACTION}\b|\byou\s+(?:can|could|may|might|must|should|will|would)\s+(?:now\s+)?(?:be\s+)?${EFFECT_ACTION}\b|\b(?:must|should|shall|need(?:s|ed)?\s+to|required\s+to|authorized\s+to|approved\s+to|ready\s+to|(?:are|is)\s+to)\s+(?:now\s+)?(?:be\s+)?${EFFECT_ACTION}\b|\b${EFFECT_ACTION}\b[\s\S]{0,80}\b(?:immediately|right\s+now|recommended|advised|required\s+(?:next\s+)?(?:step|action)|next\s+(?:step|action))\b|\b(?:recommended|advised|required\s+(?:next\s+)?(?:step|action)|next\s+(?:step|action))\b[\s\S]{0,80}\b${EFFECT_ACTION}\b|\bproceed\s+with\s+(?:apply|deployment|execution|publication|submission)\b|\bpush\b[\s\S]{0,40}\b(?:live|production)\b|\bgo\s+ahead\s+and\s+${EFFECT_ACTION}\b|\bit\s+is\s+time\s+to\s+${EFFECT_ACTION}\b|\bplease\s+arrange\s+to\s+${EFFECT_ACTION}\b|\bnext\s+move\s+is\s+(?:apply|deployment|execution|publication|submission)\b|\b(?:apply|deployment|execution|persistence|publication|submission)\s+(?:is|remains)\s+(?:the\s+)?(?:approved|authorized|required|recommended)\s+(?:next\s+)?(?:action|move|step)\b)`,
+  "iu",
+);
+const DESCRIPTIVE_ACTION_METRIC =
+  /^\s*(?:(?:send|email|message|call|book|share|post|order|export|run)\s+(?:volume|rate|value|price|count|traffic|revenue)|calls)\s+(?:declined|decreased|fell|grew|improved|increased|rose|worsened)\b[^.!?;:]*[.!]?\s*$/iu;
 
 export function m5bProductReviewTextClaimsForbiddenTrust(value: string): boolean {
-  return FORGED_TRUST.test(value);
+  return FORGED_TRUST.test(value) || PASSIVE_OR_BANNER_TRUST.test(value) ||
+    TRUST_OUTCOME_BANNER.test(value) || WORKFLOW_TRUST_CLAIM.test(value) ||
+    (WORKFLOW_TRUST_SUBJECT.test(value) && WORKFLOW_TRUST_STATUS.test(value));
 }
 
 export function m5bProductReviewTextRequestsEffect(value: string): boolean {
-  return EFFECTFUL_TASK.test(value);
+  return !DESCRIPTIVE_ACTION_METRIC.test(value) && (EFFECT_DIRECTIVE.test(value) ||
+    EFFECT_NAMED_CONTACT_DIRECTIVE.test(value) || EFFECT_STRUCTURED_DIRECTIVE.test(value));
 }
 
 export type M5bProductReviewSourceKind =
@@ -93,6 +124,11 @@ export type M5bProductReviewEvidenceRole =
   | "account_identity"
   | "account_context"
   | "material_change";
+export interface M5bProductReviewMaterialChangeAssertion {
+  readonly kind: "account_event";
+  readonly polarity: "affirmed";
+  readonly status: "completed" | "announced" | "agreement_reached";
+}
 
 export interface M5bProductReviewSubject {
   readonly teamId: string;
@@ -155,6 +191,7 @@ export interface M5bProductReviewEvidenceRequest {
   readonly sourceId: string;
   readonly exactQuote: string;
   readonly evidenceRole: M5bProductReviewEvidenceRole;
+  readonly materialChangeAssertion: M5bProductReviewMaterialChangeAssertion | null;
 }
 
 export interface M5bProductReviewSafeTask {
@@ -275,7 +312,8 @@ function parseSubject(value: StrictJsonValue | undefined): M5bProductReviewSubje
   const teamId = stringAt(object.teamId, "subject", 2, 64);
   const accountId = stringAt(object.accountId, "subject", 2, 64);
   const accountName = stringAt(object.accountName, "subject", 2, 160);
-  if (!SUBJECT_ID.test(teamId) || !SUBJECT_ID.test(accountId) || FORGED_TRUST.test(accountName)) {
+  if (!SUBJECT_ID.test(teamId) || !SUBJECT_ID.test(accountId) ||
+      m5bProductReviewTextClaimsForbiddenTrust(accountName)) {
     refuseM5bProductReview("subject");
   }
   return { teamId, accountId, accountName };
@@ -344,9 +382,14 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
     whatNeedsAttention: stringAt(object.whatNeedsAttention, "customer_questions", 12, 1_200),
     safeNextTask: stringAt(object.safeNextTask, "customer_questions", 12, 1_200),
   };
-  for (const answer of [questions.whoIsThisAccount, questions.whatMeaningfullyChanged,
-    questions.whyDoesItMatter, questions.whatNeedsAttention, questions.safeNextTask]) {
-    if (FORGED_TRUST.test(answer)) refuseM5bProductReview("customer_questions_trust");
+  for (const answer of [questions.whoIsThisAccount, questions.whyDoesItMatter,
+    questions.whatNeedsAttention]) {
+    if (m5bProductReviewTextClaimsForbiddenTrust(answer)) {
+      refuseM5bProductReview("customer_questions_trust");
+    }
+    if (m5bProductReviewTextRequestsEffect(answer)) {
+      refuseM5bProductReview("customer_questions_effect");
+    }
   }
   if (questions.safeNextTask !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) {
     refuseM5bProductReview("unsafe_next_task");
@@ -437,19 +480,41 @@ function parseSource(value: StrictJsonValue, index: number): M5bProductReviewSou
   };
 }
 
+function parseMaterialChangeAssertion(raw: unknown): M5bProductReviewMaterialChangeAssertion {
+  let object: { [key: string]: StrictJsonValue };
+  try {
+    const snapshot = snapshotStrictJson(raw, "material_change_assertion", REQUEST_JSON_LIMITS);
+    object = strictJsonObject(snapshot, "material_change_assertion");
+    assertExactKeys(object, ["kind", "polarity", "status"], "material_change_assertion");
+  } catch {
+    return refuseM5bProductReview("material_change_assertion");
+  }
+  if (object.kind !== "account_event" || object.polarity !== "affirmed" ||
+      (object.status !== "completed" && object.status !== "announced" &&
+        object.status !== "agreement_reached")) {
+    refuseM5bProductReview("material_change_assertion");
+  }
+  return Object.freeze({ kind: "account_event", polarity: "affirmed", status: object.status });
+}
+
 function parseEvidence(value: StrictJsonValue, index: number): M5bProductReviewEvidenceRequest {
   const object = objectAt(value, `request.evidenceBindings[${index}]`);
-  exactKeys(object, ["evidenceId", "sourceId", "exactQuote", "evidenceRole"]);
+  exactKeys(object, ["evidenceId", "sourceId", "exactQuote", "evidenceRole", "materialChangeAssertion"]);
   const evidenceId = stringAt(object.evidenceId, "evidence_id", 5, 56);
   const sourceId = stringAt(object.sourceId, "evidence_source", 5, 56);
   const exactQuote = stringAt(object.exactQuote, "evidence_quote", 8,
     M5B_PRODUCT_REVIEW_LIMITS.excerptBytesEach);
+  let materialChangeAssertion: M5bProductReviewMaterialChangeAssertion | null = null;
+  if (object.materialChangeAssertion !== null) {
+    materialChangeAssertion = parseMaterialChangeAssertion(object.materialChangeAssertion);
+  }
   if (!EVIDENCE_ID.test(evidenceId) || !SOURCE_ID.test(sourceId) ||
       (object.evidenceRole !== "account_identity" && object.evidenceRole !== "account_context" &&
-        object.evidenceRole !== "material_change")) {
+        object.evidenceRole !== "material_change") ||
+      (object.evidenceRole === "material_change") !== (materialChangeAssertion !== null)) {
     refuseM5bProductReview("evidence_binding");
   }
-  return { evidenceId, sourceId, exactQuote, evidenceRole: object.evidenceRole };
+  return { evidenceId, sourceId, exactQuote, evidenceRole: object.evidenceRole, materialChangeAssertion };
 }
 
 const LEGAL_ENTITY_SUFFIXES = new Set([
@@ -473,49 +538,18 @@ const IDENTITY_NAME_LABEL_WORDS = new Set([
 const SHORT_IDENTITY_LABEL_WORDS = new Set([
   "exact", "issuer", "legal", "registrant", "s", "the",
 ]);
-const MATERIAL_CHANGE_MARKER_WORDS = new Set([
-  "acquire", "acquired", "acquires", "acquiring", "acquisition", "acquisitions", "adopt", "adopted",
-  "adopting", "adoption", "adopts", "appoint", "appointed", "appointing", "appointment", "appointments",
-  "appoints", "bankrupt", "bankruptcy", "breach", "breached", "breaches", "cancel", "canceled",
-  "cancelled", "cancellation", "cancels", "change", "changed", "changes", "changing", "close", "closed",
-  "closes", "closing", "closure", "closures", "complete", "completed", "completes", "completion",
-  "consolidate", "consolidated", "consolidates", "consolidation", "cut", "cuts", "decrease", "decreased",
-  "decreases", "depart", "departed", "departure", "discontinue", "discontinued", "discontinues", "disrupt",
-  "disrupted", "disruption", "disruptions", "divest", "divested", "divestiture", "expand", "expanded",
-  "expanding", "expands", "expansion", "increase", "increased", "increases", "introduce", "introduced",
-  "introduces", "introduction", "invest", "invested", "launch", "launched", "launches", "layoff", "layoffs",
-  "merge", "merged", "merger", "merges", "open", "opened", "opening", "opens", "outage", "outages",
-  "partnered", "partnership", "pivot", "pivoted", "pivoting", "pivots", "promote", "promoted", "promotion",
-  "recall", "recalled", "recalls", "reconfigure", "reconfigured", "reconfiguration", "reduce", "reduced",
-  "reduces", "reduction", "reorganize", "reorganized", "reorganization", "replace", "replaced", "replacement",
-  "replaces", "resign", "resigned", "resignation", "resigns", "restate", "restated", "restatement",
-  "restructure", "restructured", "restructures", "restructuring", "retire", "retired", "retirement", "retires",
-  "rise", "rose", "sale", "sell", "sells", "sold", "suspend", "suspended", "suspension", "terminate",
-  "terminated", "terminates", "termination", "transition", "transitioned", "transitions",
-]);
-const MATERIAL_CHANGE_FINITE_ACTION_WORDS = new Set([
-  "acquired", "acquires", "adopted", "adopts", "appointed", "appoints", "breached", "breaches",
-  "canceled", "cancelled", "cancels", "changed", "changes", "closed", "closes", "completed",
-  "completes", "consolidated", "consolidates", "cut", "cuts", "decreased", "decreases", "departed",
-  "discontinued", "discontinues", "disrupted", "divested", "expanded", "expands", "increased", "increases",
-  "introduced", "introduces", "invested", "launched", "launches", "merged", "merges", "opened", "opens",
-  "partnered", "pivoted", "pivots", "promoted", "recalled", "recalls", "reconfigured", "reduced", "reduces",
-  "reorganized", "replaced", "replaces", "resigned", "resigns", "restated", "restructured", "restructures",
-  "retired", "retires", "rose", "sells", "sold", "suspended", "terminated", "terminates", "transitioned",
-  "transitions",
+const MATERIAL_CHANGE_COMPLETED_ACTION_WORDS = new Set([
+  "acquired", "adopted", "appointed", "breached", "canceled", "cancelled", "changed", "closed",
+  "completed", "consolidated", "cut", "decreased", "departed", "discontinued", "disrupted", "divested",
+  "expanded", "increased", "introduced", "invested", "launched", "merged", "opened", "partnered",
+  "pivoted", "promoted", "recalled", "reconfigured", "reduced", "reorganized", "replaced", "resigned",
+  "restated", "restructured", "retired", "rose", "sold", "suspended", "terminated", "transitioned",
 ]);
 const MATERIAL_CHANGE_BASE_ACTION_WORDS = new Set([
   "acquire", "adopt", "appoint", "breach", "cancel", "change", "close", "complete", "consolidate",
   "decrease", "depart", "discontinue", "disrupt", "divest", "expand", "increase", "introduce", "invest",
   "launch", "merge", "open", "pivot", "promote", "recall", "reconfigure", "reduce", "reorganize", "replace",
   "resign", "restate", "restructure", "retire", "sell", "suspend", "terminate", "transition",
-]);
-const MATERIAL_CHANGE_PARTICIPLE_WORDS = new Set([
-  "acquiring", "adopting", "appointing", "changing", "closing", "expanding", "pivoting", "restructuring",
-]);
-const MATERIAL_CHANGE_AUXILIARY_WORDS = new Set([
-  "am", "are", "be", "been", "being", "can", "could", "did", "do", "does", "had", "has", "have", "is",
-  "may", "might", "must", "shall", "should", "to", "was", "were", "will", "would",
 ]);
 const MATERIAL_CHANGE_EVENT_NOUN_WORDS = new Set([
   "acquisition", "acquisitions", "adoption", "appointment", "appointments", "bankruptcy", "breach",
@@ -525,18 +559,28 @@ const MATERIAL_CHANGE_EVENT_NOUN_WORDS = new Set([
   "replacement", "resignation", "restatement", "restructuring", "retirement", "rise", "sale", "suspension",
   "termination", "transition",
 ]);
-const MATERIAL_CHANGE_EVENT_CONNECTORS = new Set([
-  "across", "after", "among", "as", "at", "between", "by", "during", "following", "for", "from", "in",
-  "into", "of", "on", "over", "throughout", "to", "under", "with",
+const MATERIAL_CHANGE_FINITE_REPORT_WORDS = new Set([
+  "announced", "announces", "disclosed", "discloses", "reported", "reports",
 ]);
-const MATERIAL_CHANGE_REPORT_WORDS = new Set([
-  "announce", "announced", "announces", "announcing", "disclose", "disclosed", "discloses", "report",
-  "reported", "reports",
+const MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS = new Set([
+  "entered", "executed", "reached", "signed",
 ]);
-const STATIC_LEGAL_OR_DESCRIPTOR_TAILS = new Set([
-  ...LEGAL_ENTITY_SUFFIXES, "companies", "consulting", "enterprises", "industries", "industry", "logistics",
-  "network", "networks", "partners", "services", "software", "solutions", "systems", "technologies",
-  "technology", "transportation",
+const STATIC_ALIAS_OR_TRADE_NAME =
+  /\b(?:d\s*\/\s*b\s*\/\s*a|dba|doing\s+business\s+as|trade\s+name|trading\s+as|alias|(?:also\s+|formerly\s+)?known\s+as)\b/iu;
+const MATERIAL_CHANGE_NEGATION_OR_DENIAL =
+  /\b(?:no|not|never|neither|without|denied|denies|deny|didn['’]t|doesn['’]t|don['’]t|hadn['’]t|hasn['’]t|haven['’]t|isn['’]t|wasn['’]t|weren['’]t)\b/iu;
+const MATERIAL_CHANGE_HARD_NON_EVENT =
+  /\b(?:if|unless|may|might|could|would|should|can|will|must|shall|possibly|possible|potential|hypothetical|risk|risks|possibility|almost|unable|failure|failed|fails|declined|declines|refused|attempted|attempts|sought|seeks|hoped|hopes|poised|expected|nothing|nobody|none|zero|rumor|rumors|rumour|rumours|rumored|rumoured|speculation|unconfirmed|alleged|allegedly|reportedly|purported|purportedly|false|incorrect|inaccurate|inaccurately|simulated|disputed|assertion|assertions|claim|claims)\b|\b0\b|\bfictional\s+example\b/iu;
+const MATERIAL_CHANGE_PERFECT_OR_PASSIVE_AUXILIARIES = new Set([
+  "had", "has", "have", "was", "were",
+]);
+const MATERIAL_CHANGE_EMPHATIC_AUXILIARIES = new Set(["did", "do", "does"]);
+const MATERIAL_CHANGE_ANNOUNCEMENT_NOUN_FILLERS = new Set([
+  "a", "an", "its", "major", "new", "planned", "proposed", "strategic", "the", "network",
+]);
+const MATERIAL_CHANGE_AGREEMENT_FILLERS = new Set([
+  "a", "an", "binding", "definitive", "merger", "new", "purchase", "strategic", "supply", "the",
+  "transportation",
 ]);
 
 function normalizedAccountIdentity(value: string): string {
@@ -574,10 +618,9 @@ function stripTrailingIdentityQualifier(value: string): string {
   const match = value.match(/\s*(?:\(([^()]{1,64})\)|\[([^\[\]]{1,64})\])\s*[.!]?\s*$/u);
   if (match?.index === undefined) return value;
   const qualifierWords = normalizedQuoteWords(match[1] ?? match[2] ?? "");
-  const hasExplicitReportedEvent = qualifierWords.some((word) => MATERIAL_CHANGE_REPORT_WORDS.has(word)) &&
-    qualifierWords.some((word) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word));
-  if (hasMaterialChangeAction(qualifierWords) || hasReportedMaterialChangeEvent(qualifierWords) ||
-      hasExplicitReportedEvent) {
+  if (qualifierWords.some((word) => MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(word) ||
+      MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(word) ||
+      MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS.has(word))) {
     return value;
   }
   return value.slice(0, match.index).trim();
@@ -588,7 +631,7 @@ function looksLikeStaticLegalName(value: string): boolean {
   const words = withoutQualifier.match(/[\p{L}\p{N}]+/gu) ?? [];
   if (words.length < 2 || words.length > 16 ||
       !LEGAL_ENTITY_SUFFIXES.has(words.at(-1)!.toLocaleLowerCase("en-US"))) return false;
-  const nameConnectors = new Set(["and", "de", "of", "the", "van", "von"]);
+  const nameConnectors = new Set(["and", "de", "in", "of", "the", "van", "von"]);
   return words.every((word) => {
     const normalized = word.toLocaleLowerCase("en-US");
     if (nameConnectors.has(normalized)) return true;
@@ -611,28 +654,90 @@ function isExplicitIdentityLabel(value: string): boolean {
   return false;
 }
 
-function hasMaterialChangeAction(words: readonly string[]): boolean {
-  return words.some((word, index) => index > 0 && (
-    MATERIAL_CHANGE_FINITE_ACTION_WORDS.has(word) ||
-    ((MATERIAL_CHANGE_BASE_ACTION_WORDS.has(word) || MATERIAL_CHANGE_PARTICIPLE_WORDS.has(word)) &&
-      MATERIAL_CHANGE_AUXILIARY_WORDS.has(words[index - 1]!))
+function stripStaticActorParentheticals(value: string): string {
+  return value.replace(/\(([^()]{1,96})\)/gu, (whole, content: string) => {
+    const words = normalizedQuoteWords(content);
+    return words.some((word) => MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(word) ||
+      MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(word) ||
+      MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS.has(word)) ? whole : " ";
+  });
+}
+
+function accountEventPredicateWords(accountName: string, exactQuote: string): readonly string[] {
+  const quoteWords = normalizedQuoteWords(stripStaticActorParentheticals(
+    stripTrailingIdentityQualifier(exactQuote),
   ));
+  const variants = [...normalizedAccountIdentityVariants(accountName, true)]
+    .map(normalizedQuoteWords)
+    .sort((left, right) => right.length - left.length);
+  for (const actorWords of variants) {
+    if (actorWords.length === 0 || actorWords.some((word, index) => quoteWords[index] !== word)) continue;
+    let predicateIndex = actorWords.length;
+    while (LEGAL_ENTITY_SUFFIXES.has(quoteWords[predicateIndex] ?? "")) predicateIndex += 1;
+    if (predicateIndex < quoteWords.length) return quoteWords.slice(predicateIndex);
+  }
+  return refuseM5bProductReview("material_change_subject");
 }
 
-function hasConnectedMaterialChangeEvent(words: readonly string[]): boolean {
-  return words.some((word, index) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word) &&
-    MATERIAL_CHANGE_EVENT_CONNECTORS.has(words[index + 1] ?? ""));
+function beginsCompletedAccountPredicate(words: readonly string[]): boolean {
+  const first = words[0] ?? "";
+  const second = words[1] ?? "";
+  return MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(first) ||
+    (MATERIAL_CHANGE_PERFECT_OR_PASSIVE_AUXILIARIES.has(first) &&
+      MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(second)) ||
+    (MATERIAL_CHANGE_EMPHATIC_AUXILIARIES.has(first) &&
+      MATERIAL_CHANGE_BASE_ACTION_WORDS.has(second));
 }
 
-function hasReportedMaterialChangeEvent(words: readonly string[]): boolean {
-  return words.some((word, index) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word) &&
-    words.slice(Math.max(1, index - 8), index).some((prefix) => MATERIAL_CHANGE_REPORT_WORDS.has(prefix)));
+function hasAnnouncedAccountEvent(words: readonly string[]): boolean {
+  if (!MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(words[0] ?? "")) return false;
+  const complement = words.slice(1);
+  if (complement[0] === "that") {
+    return complement[1] === "it" && (beginsCompletedAccountPredicate(complement.slice(2)) ||
+      hasReachedAccountAgreement(complement.slice(2)));
+  }
+  if (complement[0] === "plans" && complement[1] === "to") {
+    return MATERIAL_CHANGE_BASE_ACTION_WORDS.has(complement[2] ?? "");
+  }
+  const eventNounIndex = complement.findIndex((word) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(word));
+  if (eventNounIndex < 0 || eventNounIndex > 3 ||
+      !complement.slice(0, eventNounIndex).every((word) =>
+        MATERIAL_CHANGE_ANNOUNCEMENT_NOUN_FILLERS.has(word))) return false;
+  const tail = complement.slice(eventNounIndex + 1);
+  if (tail.some((word) => word === "affecting" || word === "behalf" || word === "between" ||
+      word === "by" || word === "concerning" || word === "for" || word === "from" ||
+      word === "involving" || word === "suffered")) return false;
+  return tail.every((word, index) =>
+    (word !== "at" && word !== "in" && word !== "across") || tail[index + 1] === "its");
+}
+
+function hasReachedAccountAgreement(words: readonly string[]): boolean {
+  const action = words[0] ?? "";
+  if (!MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS.has(action)) return false;
+  const complement = action === "entered" ? words.slice(2) : words.slice(1);
+  if (action === "entered" && words[1] !== "into") return false;
+  const agreementIndex = complement.findIndex((word) => word === "agreement" || word === "contract");
+  if (agreementIndex < 0 || agreementIndex > 4 ||
+      !complement.slice(0, agreementIndex).every((word) => MATERIAL_CHANGE_AGREEMENT_FILLERS.has(word))) {
+    return false;
+  }
+  const tail = complement.slice(agreementIndex + 1);
+  return tail.length === 0 ||
+    (tail[0] === "with" && tail.length > 1 && tail.length <= 9 &&
+      !tail.some((word) => word === "as" || word === "for" || word === "review" ||
+        word === "behalf" || word === "section" || word === "witness")) ||
+    (tail[0] === "to" && MATERIAL_CHANGE_BASE_ACTION_WORDS.has(tail[1] ?? ""));
 }
 
 export function assertM5bProductReviewMaterialChangeQuote(
   accountName: string,
   exactQuote: string,
+  assertion: unknown,
 ): void {
+  if (typeof accountName !== "string" || typeof exactQuote !== "string") {
+    refuseM5bProductReview("material_change_assertion");
+  }
+  const validatedAssertion = parseMaterialChangeAssertion(assertion);
   const quoteIdentities = normalizedAccountIdentityVariants(exactQuote, false);
   const subjectIdentities = normalizedAccountIdentityVariants(accountName, true);
   const quoteWithoutTrailingQualifier = stripTrailingIdentityQualifier(exactQuote);
@@ -640,31 +745,53 @@ export function assertM5bProductReviewMaterialChangeQuote(
   if (quoteIdentities.size === 0) refuseM5bProductReview("material_change_uninformative");
   if (EXPLICIT_STATIC_CLASSIFICATION_LABEL.test(exactQuote) ||
       EXPLICIT_STATIC_PROFILE_LABEL.test(exactQuote) || isExplicitIdentityLabel(exactQuote) ||
-      looksLikeStaticLegalName(exactQuote)) {
+      looksLikeStaticLegalName(exactQuote) || STATIC_ALIAS_OR_TRADE_NAME.test(exactQuote)) {
     refuseM5bProductReview("material_change_identity_only");
   }
   if ([...quoteIdentities].some((identity) => subjectIdentities.has(identity))) {
     refuseM5bProductReview("material_change_identity_only");
   }
-  const hasMarker = quoteWords.some((word) => MATERIAL_CHANGE_MARKER_WORDS.has(word));
-  if (!hasMarker) {
-    refuseM5bProductReview("material_change_identity_only");
-  }
   if (quoteWords.length === 1) refuseM5bProductReview("material_change_uninformative");
-
-  const hasAction = hasMaterialChangeAction(quoteWords);
-  const hasConnectedEvent = hasConnectedMaterialChangeEvent(quoteWords);
-  const hasReportedEvent = hasReportedMaterialChangeEvent(quoteWords);
-  // A connected noun phrase can itself be a legal name when it ends in a static descriptor.
-  // Such a tail requires an action clause or a non-leading reporting construction.
-  if (STATIC_LEGAL_OR_DESCRIPTOR_TAILS.has(quoteWords.at(-1)!) && !hasAction && !hasReportedEvent) {
+  const hasFiniteAction = quoteWords.some((word) => MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(word));
+  const hasReportedEvent = quoteWords.some((word, index) =>
+    MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(word) &&
+    quoteWords.slice(index + 1).some((candidate) => MATERIAL_CHANGE_EVENT_NOUN_WORDS.has(candidate) ||
+      MATERIAL_CHANGE_BASE_ACTION_WORDS.has(candidate) ||
+      MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(candidate)));
+  const hasAgreementEvent = quoteWords.some((word, index) =>
+    MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS.has(word) &&
+    quoteWords.slice(index + 1).some((candidate) => candidate === "agreement" || candidate === "contract"));
+  if (!hasFiniteAction && !hasReportedEvent && !hasAgreementEvent) {
     refuseM5bProductReview("material_change_identity_only");
   }
-  // This is bounded syntactic admission, not semantic proof of materiality. A finite action,
-  // connected event noun, or reporting verb plus event noun is required; weak reporting/planning
-  // language alone is deliberately insufficient.
-  if (!hasAction && !hasConnectedEvent && !hasReportedEvent) {
-    refuseM5bProductReview("material_change_identity_only");
+
+  if (MATERIAL_CHANGE_NEGATION_OR_DENIAL.test(exactQuote)) {
+    refuseM5bProductReview("material_change_non_event");
+  }
+
+  if (MATERIAL_CHANGE_HARD_NON_EVENT.test(exactQuote)) {
+    refuseM5bProductReview("material_change_status");
+  }
+  if (/[?？]/u.test(exactQuote)) refuseM5bProductReview("material_change_status");
+  const predicateWords = accountEventPredicateWords(accountName, exactQuote);
+  switch (validatedAssertion.status) {
+    case "completed":
+      if (!beginsCompletedAccountPredicate(predicateWords)) {
+        refuseM5bProductReview("material_change_status");
+      }
+      return;
+    case "announced":
+      if (!hasAnnouncedAccountEvent(predicateWords)) {
+        refuseM5bProductReview("material_change_status");
+      }
+      return;
+    case "agreement_reached":
+      if (!hasReachedAccountAgreement(predicateWords)) {
+        refuseM5bProductReview("material_change_status");
+      }
+      return;
+    default:
+      return refuseM5bProductReview("material_change_assertion");
   }
 }
 
@@ -673,8 +800,9 @@ function parseSafeTask(value: StrictJsonValue | undefined): M5bProductReviewSafe
   exactKeys(object, ["kind", "description"]);
   const description = stringAt(object.description, "safe_task", 12, 500);
   if (object.kind !== "draft_targeted_meeting_brief" ||
-      description !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION || EFFECTFUL_TASK.test(description) ||
-      FORGED_TRUST.test(description) || !/\bbrief\b/iu.test(description)) {
+      description !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION ||
+      m5bProductReviewTextRequestsEffect(description) ||
+      m5bProductReviewTextClaimsForbiddenTrust(description) || !/\bbrief\b/iu.test(description)) {
     refuseM5bProductReview("safe_task");
   }
   return { kind: "draft_targeted_meeting_brief", description };
@@ -700,7 +828,7 @@ function parseProposal(value: StrictJsonValue, index: number): M5bProductReviewP
   const caveatValues = arrayAt(object.caveats, "proposal_caveats", 4,
     object.classification !== "source_fact");
   const caveats = caveatValues.map((item) => stringAt(item, "proposal_caveats", 8, 500));
-  if (caveats.some((caveat) => FORGED_TRUST.test(caveat))) {
+  if (caveats.some((caveat) => m5bProductReviewTextClaimsForbiddenTrust(caveat))) {
     refuseM5bProductReview("proposal_trust_claim");
   }
   const safeTask = object.safeTask === null ? null : parseSafeTask(object.safeTask);
@@ -718,6 +846,10 @@ function parseProposal(value: StrictJsonValue, index: number): M5bProductReviewP
 }
 
 function validateRequestRelationships(request: M5bProductReviewRequest): void {
+  const preparedAtEpoch = new Date(request.execution.preparedAt).getTime();
+  if (request.sources.some((source) => new Date(source.acquiredAt).getTime() > preparedAtEpoch)) {
+    refuseM5bProductReview("source_after_preparation");
+  }
   const sourceIds = new Set(request.sources.map((source) => source.sourceId));
   if (sourceIds.size !== request.sources.length) refuseM5bProductReview("duplicate_source_id");
   const evidenceIds = new Set(request.evidenceBindings.map((binding) => binding.evidenceId));
@@ -731,7 +863,11 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
     excerptBytes += Buffer.byteLength(binding.exactQuote, "utf8");
     if (!sourceIds.has(binding.sourceId)) refuseM5bProductReview("evidence_source");
     if (binding.evidenceRole === "material_change") {
-      assertM5bProductReviewMaterialChangeQuote(request.subject.accountName, binding.exactQuote);
+      assertM5bProductReviewMaterialChangeQuote(
+        request.subject.accountName,
+        binding.exactQuote,
+        binding.materialChangeAssertion!,
+      );
     }
   }
   if (excerptBytes > M5B_PRODUCT_REVIEW_LIMITS.excerptBytesTotal) {
@@ -865,9 +1001,16 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
       }
       continue;
     }
-    if (Buffer.byteLength(proposal.title, "utf8") > 180 || FORGED_TRUST.test(proposal.title) ||
-        FORGED_TRUST.test(proposal.summary)) {
+    if (Buffer.byteLength(proposal.title, "utf8") > 180 ||
+        m5bProductReviewTextClaimsForbiddenTrust(proposal.title) ||
+        m5bProductReviewTextClaimsForbiddenTrust(proposal.summary) ||
+        proposal.caveats.some(m5bProductReviewTextClaimsForbiddenTrust)) {
       refuseM5bProductReview("proposal_trust_claim");
+    }
+    if (m5bProductReviewTextRequestsEffect(proposal.title) ||
+        m5bProductReviewTextRequestsEffect(proposal.summary) ||
+        proposal.caveats.some(m5bProductReviewTextRequestsEffect)) {
+      refuseM5bProductReview("proposal_effect_claim");
     }
     if (proposal.supportingProposalIds.length === 0 || proposal.caveats.length === 0 ||
         proposal.supportingProposalIds.includes(proposal.proposalId)) {
@@ -891,8 +1034,7 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
       }
     } else if (proposal.safeTask === null || proposal.lens !== "play" ||
         !/\bdraft\b/iu.test(proposal.title) || !/\bbrief\b/iu.test(proposal.title) ||
-        !dependencies.some((dependency) => dependency?.classification === "analysis") ||
-        EFFECTFUL_TASK.test(proposal.title) || EFFECTFUL_TASK.test(proposal.summary)) {
+        !dependencies.some((dependency) => dependency?.classification === "analysis")) {
       refuseM5bProductReview("recommendation_classification");
     }
   }

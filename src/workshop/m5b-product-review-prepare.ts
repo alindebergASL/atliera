@@ -75,8 +75,9 @@ import {
   type M5bProductReviewSourceProvenance,
 } from "./m5b-product-review-package.ts";
 import {
-  admitM5bProductReviewPackageArtifacts,
+  validateM5bProductReviewPackageArtifactSelfConsistency,
   type M5bProductReviewPackageArtifactSet,
+  type M5bProductReviewTrustedAdmittedPackageArtifacts,
 } from "./m5b-product-review-package-admission.ts";
 
 export const M5B_PRODUCT_REVIEW_PREPARE_RESULT_KIND = "m5b-product-review-prepare-result" as const;
@@ -93,6 +94,55 @@ const PROVENANCE_KEYS = Object.freeze([
   "retainedReadAuthorityId", "retainedReadConsumptionId", "retainedReadImplementationCommit",
   "retainedReadImplementationTree", "retainedReadLedgerNamespaceSha256", "retainedReadLedgerRecordSha256",
 ] as const);
+interface FreshPrepareArtifactPin {
+  readonly packageId: string;
+  readonly preparedAt: string;
+  readonly sourcePackSha256: string;
+  readonly candidateSha256: string;
+  readonly reviewPacketSha256: string;
+  readonly artifactSetSha256: string;
+}
+const FRESH_PREPARE_ARTIFACT_PINS = new WeakMap<object, FreshPrepareArtifactPin>();
+const TRUSTED_PREPARE_RESULT_PINS = new WeakMap<object, FreshPrepareArtifactPin>();
+
+function registerFreshPrepareArtifactSet(
+  artifacts: M5bProductReviewPackageArtifactSet,
+  packageData: Readonly<M5bProductReviewPackageData>,
+): void {
+  FRESH_PREPARE_ARTIFACT_PINS.set(artifacts as object, Object.freeze({
+    packageId: packageData.packageBinding.packageId,
+    preparedAt: packageData.packageBinding.preparedAt,
+    sourcePackSha256: packageData.sourcePack.sourcePackSha256,
+    candidateSha256: packageData.candidateSha256,
+    reviewPacketSha256: packageData.reviewPacket.reviewPacketSha256,
+    artifactSetSha256: m5bProductReviewCanonicalSha256(artifacts),
+  }));
+}
+
+function admitFreshPrepareArtifactSet(
+  artifacts: M5bProductReviewPackageArtifactSet,
+): Readonly<M5bProductReviewTrustedAdmittedPackageArtifacts> {
+  const pin = FRESH_PREPARE_ARTIFACT_PINS.get(artifacts as object);
+  if (pin === undefined) refuseM5bProductReview("fresh_prepare_artifact_pin");
+  if (m5bProductReviewCanonicalSha256(artifacts) !== pin.artifactSetSha256) {
+    refuseM5bProductReview("fresh_prepare_artifact_binding");
+  }
+  const admitted = validateM5bProductReviewPackageArtifactSelfConsistency(artifacts);
+  if (admitted.sourcePack.packageBinding.packageId !== pin.packageId ||
+      admitted.sourcePack.packageBinding.preparedAt !== pin.preparedAt ||
+      admitted.sourcePack.sourcePackSha256 !== pin.sourcePackSha256 ||
+      validatedCandidateSha256(admitted.candidate) !== pin.candidateSha256 ||
+      admitted.reviewPacket.reviewPacketSha256 !== pin.reviewPacketSha256) {
+    refuseM5bProductReview("fresh_prepare_artifact_binding");
+  }
+  return Object.freeze({
+    sourcePack: admitted.sourcePack,
+    candidate: admitted.candidate,
+    reviewPacket: admitted.reviewPacket,
+    featuredMaterialChangeChain: admitted.featuredMaterialChangeChain,
+    admissionAssurance: "trusted_prepare_result_capability_authenticated" as const,
+  });
+}
 const OPTIONS_LIMITS: StrictJsonLimits = Object.freeze({
   max_array_length: 4,
   max_depth: 4,
@@ -155,14 +205,25 @@ function evidenceRoleLabel(value: "account_identity" | "account_context" | "mate
     default: return refuseM5bProductReview("render_evidence_role");
   }
 }
+
+function materialChangeAssertionLabel(binding: M5bProductReviewEvidenceBinding): string | null {
+  const assertion = binding.materialChangeAssertion;
+  if (assertion === null) return null;
+  const status = assertion.status === "completed" ? "Completed" :
+    assertion.status === "announced" ? "Announced" : "Agreement reached";
+  return `Account event · Affirmed · ${status}`;
+}
+
 function evidenceMarkdown(
   binding: M5bProductReviewEvidenceBinding,
   sourcePack: M5bProductReviewSanitizedSourcePack,
 ): string {
   const source = sourcePack.sources.find((candidate) => candidate.sourceId === binding.sourceId)!;
+  const assertion = materialChangeAssertionLabel(binding);
   return [
     `- **Evidence** \`${binding.evidenceId}\` — source \`${source.sourceId}\``,
     `  - Evidence role: **${evidenceRoleLabel(binding.evidenceRole)}**`,
+    ...(assertion === null ? [] : [`  - Material-change assertion: **${assertion}**`]),
     `  - Package-recorded origin SHA-256: \`${source.originContentSha256}\``,
     `  - Exact excerpt SHA-256: \`${binding.exactQuoteSha256}\``,
     `  - Package-recorded source character span: \`[${binding.sourceCharStart}, ${binding.sourceCharEnd})\``,
@@ -174,7 +235,7 @@ function evidenceMarkdown(
 function renderM5bProductReviewMeetingBrief(
   artifacts: M5bProductReviewPackageArtifactSet,
 ): string {
-  const { sourcePack, reviewPacket: packet } = admitM5bProductReviewPackageArtifacts(artifacts);
+  const { sourcePack, reviewPacket: packet } = admitFreshPrepareArtifactSet(artifacts);
   const evidence = sourcePack.sources.flatMap((source) => source.evidenceBindings);
   const proposalLines = packet.proposals.map((proposal) => {
     const support = proposal.supportingProposalIds.length === 0
@@ -182,13 +243,23 @@ function renderM5bProductReviewMeetingBrief(
       : `Supporting proposals: ${proposal.supportingProposalIds.map((id) => `\`${id}\``).join(", ")}.`;
     const caveats = proposal.caveats.length === 0
       ? "No analytical caveat: this source fact only reports the package attribution."
-      : `Caveats: ${proposal.caveats.map(escapeMarkdown).join("; ")}`;
+      : `Request-supplied caveat quotations: ${proposal.caveats
+        .map((value) => `“${escapeMarkdown(value)}”`).join("; ")}`;
     const task = proposal.safeTask === null
       ? ""
       : `\n  - Safe draft task: ${escapeMarkdown(proposal.safeTask.description)} \(non\-executable\).`;
+    const heading = proposal.classification === "source_fact"
+      ? `${classificationLabel(proposal.classification)} · ${lensLabel(proposal.lens)} · Attributed exact quotation`
+      : `${classificationLabel(proposal.classification)} · ${lensLabel(proposal.lens)} · Proposed request narrative`;
+    const body = proposal.classification === "source_fact"
+      ? [`Attributed quotation: “${escapeMarkdown(proposal.evidenceBindings[0]!.exactQuote)}”`]
+      : [
+        `Request-supplied title quotation: “${escapeMarkdown(proposal.title)}”`,
+        `Request-supplied summary quotation: “${escapeMarkdown(proposal.summary)}”`,
+      ];
     return [
-      `- **${classificationLabel(proposal.classification)} · ${lensLabel(proposal.lens)} · ${escapeMarkdown(proposal.title)}** (\`${proposal.proposalId}\`)`,
-      `  - ${escapeMarkdown(proposal.summary)}`,
+      `- **${heading}** (\`${proposal.proposalId}\`)`,
+      ...body.map((value) => `  - ${value}`),
       `  - Evidence: ${proposal.evidenceBindings.map((binding) =>
         `\`${binding.evidenceId}\` (${evidenceRoleLabel(binding.evidenceRole)})`).join(", ")}.`,
       `  - ${support}`,
@@ -208,7 +279,10 @@ function renderM5bProductReviewMeetingBrief(
     ...packet.customerQuestions.flatMap((item, index) => [
       `### ${index + 1}. ${item.question}`,
       "",
-      escapeMarkdown(item.answer),
+      index === 1
+        ? `Attributed material-change quotation: “${escapeMarkdown(packet.proposals.find((proposal) =>
+          proposal.proposalId === item.proposalBindingIds[0])!.evidenceBindings[0]!.exactQuote)}”`
+        : `Request-supplied draft answer quotation: “${escapeMarkdown(item.answer)}”`,
       ...(item.evidenceBindingIds.length === 0 ? [] : [
         "",
         `Material-change evidence: ${item.evidenceBindingIds.map((id) => `\`${id}\``).join(", ")}.`,
@@ -252,7 +326,10 @@ function evidenceHtml(
   sourcePack: M5bProductReviewSanitizedSourcePack,
 ): string {
   const source = sourcePack.sources.find((candidate) => candidate.sourceId === binding.sourceId)!;
-  return `<li class="evidence-item"><blockquote>${escapeHtml(binding.exactQuote)}</blockquote><p><strong>${escapeHtml(binding.evidenceId)}</strong> · <strong>${evidenceRoleLabel(binding.evidenceRole)}</strong> · ${escapeHtml(source.title)} · ${escapeHtml(source.publisher)}</p><p><strong>Evidence current through:</strong> ${escapeHtml(displayCurrency(source.evidenceCurrentThrough))} · <strong>Acquired at:</strong> ${escapeHtml(source.acquiredAt)}</p><p>Source <code>${escapeHtml(source.sourceId)}</code> · original span <code>[${binding.sourceCharStart}, ${binding.sourceCharEnd})</code></p><p class="hash">Exact excerpt SHA-256 ${escapeHtml(binding.exactQuoteSha256)} · source raw SHA-256 ${escapeHtml(source.originContentSha256)}</p></li>`;
+  const assertion = materialChangeAssertionLabel(binding);
+  const assertionHtml = assertion === null ? "" :
+    `<p><strong>Material-change assertion:</strong> ${escapeHtml(assertion)}</p>`;
+  return `<li class="evidence-item"><blockquote>${escapeHtml(binding.exactQuote)}</blockquote><p><strong>Evidence ID:</strong> ${escapeHtml(binding.evidenceId)} · <strong>Evidence role:</strong> ${evidenceRoleLabel(binding.evidenceRole)}</p>${assertionHtml}<p><strong>Source title:</strong> ${escapeHtml(source.title)} · <strong>Publisher:</strong> ${escapeHtml(source.publisher)}</p><p><strong>Evidence current through:</strong> ${escapeHtml(displayCurrency(source.evidenceCurrentThrough))} · <strong>Acquired at:</strong> ${escapeHtml(source.acquiredAt)}</p><p><strong>Source ID:</strong> <code>${escapeHtml(source.sourceId)}</code> · <strong>Original span:</strong> <code>[${binding.sourceCharStart}, ${binding.sourceCharEnd})</code></p><p class="hash">Exact excerpt SHA-256 ${escapeHtml(binding.exactQuoteSha256)} · source raw SHA-256 ${escapeHtml(source.originContentSha256)}</p></li>`;
 }
 
 function proposalHtml(
@@ -264,17 +341,20 @@ function proposalHtml(
     : `${countLabel(proposal.supportingProposalIds.length, "supporting proposal")}: ${proposal.supportingProposalIds.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")}`;
   const caveats = proposal.caveats.length === 0
     ? "This source fact reports the package's exact-excerpt attribution; it does not prove membership in omitted original bytes."
-    : `<ul>${proposal.caveats.map((caveat) => `<li>${escapeHtml(caveat)}</li>`).join("")}</ul>`;
+    : `<blockquote><ul>${proposal.caveats.map((caveat) =>
+      `<li><strong>Request-supplied caveat:</strong> ${escapeHtml(caveat)}</li>`).join("")}</ul></blockquote>`;
   const sourceTrust = proposal.classification === "source_fact"
     ? "Package-attributed · not independently verified"
     : "Evidence-informed interpretation · not independently verified";
   const safeTask = proposal.safeTask === null ? "" :
     `<div class="safe-task"><strong>Safe preparation task</strong><p>${escapeHtml(proposal.safeTask.description)}</p><span>Draft only · non-executable · no outbound action</span></div>`;
   const controlId = escapeHtml(proposal.proposalId);
+  const narrative = proposal.classification === "source_fact"
+    ? `<h3>Attributed source excerpt</h3><blockquote>${escapeHtml(proposal.evidenceBindings[0]!.exactQuote)}</blockquote>`
+    : `<h3>Proposed ${classificationLabel(proposal.classification).toLocaleLowerCase("en-US")}</h3><blockquote><p><strong>Request-supplied title:</strong> ${escapeHtml(proposal.title)}</p><p><strong>Request-supplied summary:</strong> ${escapeHtml(proposal.summary)}</p></blockquote>`;
   return `<article class="proposal-card ${proposal.classification}" id="proposal-${controlId}">
     <div class="card-labels"><span class="classification">${classificationLabel(proposal.classification)}</span><span class="lens">${lensLabel(proposal.lens)}</span><span class="pending">Pending</span></div>
-    <h3>${escapeHtml(proposal.title)}</h3>
-    <p>${escapeHtml(proposal.summary)}</p>
+    ${narrative}
     <p class="trust-line">${sourceTrust} · system-created · proposed · not durable</p>
     <p class="trust-line">Not human-ratified · not quality-passed · current effective authorization: ${escapeHtml("none")}</p>
     <div class="support"><strong>Dependencies</strong><p>${dependency}</p></div>
@@ -288,30 +368,45 @@ function proposalHtml(
 function renderM5bProductReviewWorkshopHtml(
   artifacts: M5bProductReviewPackageArtifactSet,
 ): string {
-  const admitted = admitM5bProductReviewPackageArtifacts(artifacts);
+  const admitted = admitFreshPrepareArtifactSet(artifacts);
   const { sourcePack, reviewPacket: packet } = admitted;
   const { signal, map, play } = admitted.featuredMaterialChangeChain;
+  const featuredAssertion = materialChangeAssertionLabel(signal.evidenceBindings[0]!);
   const questionEvidence = (item: M5bProductReviewPacket["customerQuestions"][number]) =>
     item.evidenceBindingIds.length === 0 ? "" :
       `<p class="trust-line"><strong>Material-change evidence:</strong> ${item.evidenceBindingIds
         .map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")}</p>`;
-  const meetingAnswers = packet.customerQuestions.map((item) => `<article class="brief-answer"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p>${questionEvidence(item)}</article>`).join("");
+  const meetingAnswers = packet.customerQuestions.map((item, index) => {
+    const answer = index === 1
+      ? `<p><strong>Attributed material-change quotation:</strong></p><blockquote>${escapeHtml(signal.evidenceBindings[0]!.exactQuote)}</blockquote>`
+      : `<p><strong>Request-supplied draft answer:</strong></p><blockquote>${escapeHtml(item.answer)}</blockquote>`;
+    return `<article class="brief-answer"><h3>${escapeHtml(item.question)}</h3>${answer}${questionEvidence(item)}</article>`;
+  }).join("");
   const meetingLens = (label: "Signal" | "Map" | "Play", proposal: M5bProductReviewPacketProposal) => {
     const caveats = proposal.caveats.length === 0 ? "" :
-      `<p><strong>Needs attention:</strong> ${proposal.caveats.map(escapeHtml).join(" ")}</p>`;
+      `<p><strong>Needs attention:</strong></p><blockquote>${proposal.caveats.map((value) =>
+        `<p><strong>Request-supplied caveat:</strong> ${escapeHtml(value)}</p>`).join("")}</blockquote>`;
     const safeTask = proposal.safeTask === null ? "" :
       `<p><strong>Safe next task:</strong> ${escapeHtml(proposal.safeTask.description)}</p>`;
-    return `<article class="brief-lens"><div class="card-labels"><span class="lens">${label}</span><span class="classification">${classificationLabel(proposal.classification)}</span></div><h3>${escapeHtml(proposal.title)}</h3><p>${escapeHtml(proposal.summary)}</p>${caveats}${safeTask}<p class="trust-line">Proposed · not independently verified · not human-ratified · not durable</p></article>`;
+    const narrative = proposal.classification === "source_fact"
+      ? `<h3>Attributed source excerpt</h3><blockquote>${escapeHtml(proposal.evidenceBindings[0]!.exactQuote)}</blockquote>`
+      : `<h3>Proposed ${classificationLabel(proposal.classification).toLocaleLowerCase("en-US")}</h3><blockquote><p><strong>Request-supplied title:</strong> ${escapeHtml(proposal.title)}</p><p><strong>Request-supplied summary:</strong> ${escapeHtml(proposal.summary)}</p></blockquote>`;
+    return `<article class="brief-lens"><div class="card-labels"><span class="lens">${label}</span><span class="classification">${classificationLabel(proposal.classification)}</span></div>${narrative}${caveats}${safeTask}<p class="trust-line">Proposed · not independently verified · not human-ratified · not durable</p></article>`;
   };
   const custody = sourcePack.sources.map((source) => `<article class="source-card">
-    <h3>${escapeHtml(source.title)}</h3>
-    <p><code>${escapeHtml(source.sourceId)}</code> · ${escapeHtml(source.publisher)} · ${escapeHtml(source.sourceType)}</p>
+    <h3>Source record</h3><p><strong>Source title:</strong> ${escapeHtml(source.title)}</p>
+    <p><strong>Source ID:</strong> <code>${escapeHtml(source.sourceId)}</code> · <strong>Publisher:</strong> ${escapeHtml(source.publisher)} · <strong>Source type:</strong> ${escapeHtml(source.sourceType)}</p>
     <p><strong>Evidence current through:</strong> ${escapeHtml(displayCurrency(source.evidenceCurrentThrough))}</p>
     <p><strong>Acquired at:</strong> ${escapeHtml(source.acquiredAt)} · <strong>Source kind:</strong> ${escapeHtml(source.sourceKind)} · <strong>Encoding:</strong> ${escapeHtml(source.contentEncoding)}</p>
     <p><strong>Canonical HTTPS source:</strong> <span class="source-url">${escapeHtml(source.canonicalUrl)}</span></p>
     <p class="hash">Outer/origin ${escapeHtml(source.originContentSha256)}<br />Decoded ${escapeHtml(source.decodedContentSha256)} (${source.decodedByteSize} bytes)<br />Stored excerpts ${escapeHtml(source.storedContentSha256)}<br />Transformation ${escapeHtml(source.transformationManifestSha256)}</p>
   </article>`).join("");
-  const questions = packet.customerQuestions.map((item) => `<article class="question-card"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p>${questionEvidence(item)}</article>`).join("");
+  const questions = packet.customerQuestions.map((item, index) => {
+    const answer = index === 1
+      ? `<p><strong>Attributed material-change quotation:</strong></p><blockquote>${escapeHtml(signal.evidenceBindings[0]!.exactQuote)}</blockquote>`
+      : `<p><strong>Request-supplied draft answer:</strong></p><blockquote>${escapeHtml(item.answer)}</blockquote>`;
+    return `<article class="question-card"><h3>${escapeHtml(item.question)}</h3>${answer}${questionEvidence(item)}</article>`;
+  }).join("");
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><link rel="icon" href="data:," />
@@ -326,14 +421,14 @@ section{min-width:0;margin:32px 0}.question-grid,.proposal-grid,.source-grid,.br
 @media(max-width:420px){.choice-row{grid-template-columns:minmax(0,1fr)}.primary-action{width:100%}}
 </style></head><body><main>
 <div class="boundary">DRAFT · NOT SENT · NOT RATIFIED · UNARMED · no apply eligibility · current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}</div>
-<p class="eyebrow">Product-first account preparation</p><h1>${escapeHtml(packet.subject.accountName)}</h1>
-<p class="lede">A package-bound draft for human review. Customer meaning comes first; custody detail follows after the proposed work.</p>
+<p class="eyebrow">Product-first account preparation</p><h1>Account review draft</h1>
+<p class="lede"><strong>Request-supplied account name:</strong> ${escapeHtml(packet.subject.accountName)}</p><p class="lede">A package-bound draft for human review. Customer meaning comes first; custody detail follows after the proposed work.</p>
 <a class="primary-action" href="#draft-meeting-brief">Review the draft meeting brief</a>
-<section class="signal-spotlight" aria-labelledby="early-signal"><span class="tag">Signal · ${classificationLabel(signal.classification)}</span><h2 id="early-signal">${escapeHtml(signal.title)}</h2><p>${escapeHtml(signal.summary)}</p><small>Proposed · package-attributed · not independently verified</small></section>
+<section class="signal-spotlight" aria-labelledby="early-signal"><span class="tag">Signal · ${classificationLabel(signal.classification)}</span><h2 id="early-signal">Attributed material-change quotation</h2><blockquote>${escapeHtml(signal.evidenceBindings[0]!.exactQuote)}</blockquote><p><strong>Material-change assertion:</strong> ${escapeHtml(featuredAssertion!)}</p><small>Proposed · package-attributed · not independently verified</small></section>
 <section aria-labelledby="customer-questions"><p class="eyebrow">Customer meaning</p><h2 id="customer-questions">Five questions for this account</h2><div class="question-grid">${questions}</div></section>
 <section class="trust-key" aria-labelledby="trust-key"><h2 id="trust-key">Read the trust labels literally</h2><ul><li><strong>Package-attributed</strong> means the complete artifact set carries a self-consistent exact excerpt and attributes it to the named source; this rendered file does not independently prove membership in omitted original bytes.</li><li><strong>Human-ratified</strong> and <strong>quality-passed</strong> are different checks; neither has happened.</li><li><strong>Proposed</strong> is not <strong>durable</strong>; this package performs zero graph or database writes.</li><li>Source facts, analysis, and recommendations remain visibly separate below.</li></ul></section>
 <section aria-labelledby="proposal-review"><p class="eyebrow">Individual review</p><h2 id="proposal-review">${countLabel(packet.proposals.length, "pending proposal")}</h2><p>Accept or Reject is a truthful local-only draft control for each item. Nothing is submitted, saved, applied, persisted, or ratified.</p><div class="proposal-grid">${packet.proposals.map((proposal) => proposalHtml(proposal, sourcePack)).join("")}</div></section>
-<section id="draft-meeting-brief" aria-labelledby="meeting-heading"><p class="eyebrow">Account-specific brief · readable here</p><h2 id="meeting-heading">Draft meeting brief — ${escapeHtml(packet.subject.accountName)}</h2><p class="brief-account"><strong>Account:</strong> ${escapeHtml(packet.subject.accountName)} · <code>${escapeHtml(packet.subject.accountId)}</code></p><p>DRAFT · NOT SENT · NOT RATIFIED. This inline preparation artifact is editable only by changing and revalidating the source package; it is non-executable, not independently verified, not applied, and not durable. Current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}; apply eligibility: ${String(packet.authority.applyEligibility)}.</p><div class="brief-answer-grid">${meetingAnswers}</div><h3>Meeting prompts from proposed Signal, Map, and Play</h3><div class="brief-lens-grid">${meetingLens("Signal", signal)}${meetingLens("Map", map)}${meetingLens("Play", play)}</div><p class="footer-note">Review internally before use · no send, submit, save, ratify, or apply action exists here.</p></section>
+<section id="draft-meeting-brief" aria-labelledby="meeting-heading"><p class="eyebrow">Account-specific brief · readable here</p><h2 id="meeting-heading">Draft meeting brief</h2><p class="brief-account"><strong>Request-supplied account name:</strong> ${escapeHtml(packet.subject.accountName)} · <strong>Account ID:</strong> <code>${escapeHtml(packet.subject.accountId)}</code></p><p>DRAFT · NOT SENT · NOT RATIFIED. This inline preparation artifact is editable only by changing and revalidating the source package; it is non-executable, not independently verified, not applied, and not durable. Current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}; apply eligibility: ${String(packet.authority.applyEligibility)}.</p><div class="brief-answer-grid">${meetingAnswers}</div><h3>Meeting prompts from proposed Signal, Map, and Play</h3><div class="brief-lens-grid">${meetingLens("Signal", signal)}${meetingLens("Map", map)}${meetingLens("Play", play)}</div><p class="footer-note">Review internally before use · no send, submit, save, ratify, or apply action exists here.</p></section>
 <details class="source-details"><summary>Evidence currency, source custody, and package hashes</summary><section aria-labelledby="source-register"><h2 id="source-register">${countLabel(sourcePack.sources.length, "admitted source")}</h2><p>Only bounded exact excerpts are in this package. Full source bytes are not embedded.</p><div class="source-grid">${custody}</div></section><section><h2>Cross-package bindings</h2><p class="package-binding">Package ${escapeHtml(packet.packageBinding.packageId)}<br />Request raw ${escapeHtml(packet.packageBinding.requestRawSha256)}<br />Request canonical ${escapeHtml(packet.packageBinding.requestCanonicalSha256)}<br />Source pack ${escapeHtml(packet.sourcePackSha256)}<br />Candidate ${escapeHtml(packet.candidateSha256)}<br />Review packet ${escapeHtml(packet.reviewPacketSha256)}<br />Superseded result ${escapeHtml(packet.packageBinding.supersededPackageResultSha256)}<br />Execution ${escapeHtml(packet.packageBinding.executionCommit)} / ${escapeHtml(packet.packageBinding.executionTree)}<br />Owner authorization ${escapeHtml(packet.packageBinding.ownerAuthorizationId)}</p><p>Supersession preserves the old bytes and producer identity. It does not rewrite the historical package.</p></section></details>
 <section class="zero-effect"><strong>Prepare-command effect boundary</strong><br />Acquisitions 0 · network calls 0 · provider calls 0 · database writes 0 · graph writes 0 · deployments 0 · outbound actions 0 · apply operations 0.<p>These counts cover this prepare command only. Separately authorized source acquisition or retained-custody reads belong in an immutable external execution receipt; generated package files must remain unchanged.</p></section>
 <p class="footer-note">Local draft only · not saved · not ratified · no write authority.</p>
@@ -402,6 +497,39 @@ export interface M5bProductReviewPrepareResultContent {
 
 export interface M5bProductReviewPrepareResult extends M5bProductReviewPrepareResultContent {
   readonly resultSha256: string;
+}
+
+/**
+ * Authenticates an artifact set only against the exact in-memory prepare-result capability returned
+ * by this runtime. Parsed/cloned result JSON and caller-computed digests cannot mint this capability.
+ */
+export function admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult(
+  artifacts: M5bProductReviewPackageArtifactSet,
+  trustedPrepareResult: Readonly<M5bProductReviewPrepareResult>,
+): Readonly<M5bProductReviewTrustedAdmittedPackageArtifacts> {
+  if (trustedPrepareResult === null || typeof trustedPrepareResult !== "object") {
+    refuseM5bProductReview("trusted_prepare_result_capability");
+  }
+  const pin = TRUSTED_PREPARE_RESULT_PINS.get(trustedPrepareResult as object);
+  if (pin === undefined) refuseM5bProductReview("trusted_prepare_result_capability");
+  if (m5bProductReviewCanonicalSha256(artifacts) !== pin.artifactSetSha256) {
+    refuseM5bProductReview("trusted_prepare_result_artifact_binding");
+  }
+  const admitted = validateM5bProductReviewPackageArtifactSelfConsistency(artifacts);
+  if (admitted.sourcePack.packageBinding.packageId !== pin.packageId ||
+      admitted.sourcePack.packageBinding.preparedAt !== pin.preparedAt ||
+      admitted.sourcePack.sourcePackSha256 !== pin.sourcePackSha256 ||
+      validatedCandidateSha256(admitted.candidate) !== pin.candidateSha256 ||
+      admitted.reviewPacket.reviewPacketSha256 !== pin.reviewPacketSha256) {
+    refuseM5bProductReview("trusted_prepare_result_artifact_binding");
+  }
+  return Object.freeze({
+    sourcePack: admitted.sourcePack,
+    candidate: admitted.candidate,
+    reviewPacket: admitted.reviewPacket,
+    featuredMaterialChangeChain: admitted.featuredMaterialChangeChain,
+    admissionAssurance: "trusted_prepare_result_capability_authenticated" as const,
+  });
 }
 
 interface M5bProductReviewAdmittedSource {
@@ -581,6 +709,7 @@ function makePackageBinding(
     ownerAuthorizationId: request.authority.ownerAuthorizationId,
     executionCommit: request.execution.commit,
     executionTree: request.execution.tree,
+    preparedAt: request.execution.preparedAt,
   };
   return Object.freeze({
     packageId: `m5b-product-review-${m5bProductReviewCanonicalSha256(seed).slice(0, 24)}`,
@@ -590,6 +719,7 @@ function makePackageBinding(
     ownerAuthorizationId: request.authority.ownerAuthorizationId,
     executionCommit: request.execution.commit,
     executionTree: request.execution.tree,
+    preparedAt: request.execution.preparedAt,
   });
 }
 
@@ -619,6 +749,7 @@ function transformSources(
       sourceId: binding.sourceId,
       exactQuote: binding.exactQuote,
       evidenceRole: binding.evidenceRole,
+      materialChangeAssertion: binding.materialChangeAssertion,
       exactQuoteSha256: sha256(Buffer.from(binding.exactQuote, "utf8")),
       sourceCharStart,
       sourceCharEnd: sourceCharStart + binding.exactQuote.length,
@@ -671,6 +802,7 @@ function transformSources(
       evidenceBindings: evidenceBindings.map((binding) => ({
         evidenceId: binding.evidenceId,
         evidenceRole: binding.evidenceRole,
+        materialChangeAssertion: binding.materialChangeAssertion,
         exactQuoteSha256: binding.exactQuoteSha256,
         sourceCharStart: binding.sourceCharStart,
         sourceCharEnd: binding.sourceCharEnd,
@@ -815,6 +947,7 @@ function buildCandidate(
         evidence_roles: proposal.evidenceBindingIds.map((evidenceId) => ({
           evidence_id: evidenceId,
           evidence_role: evidenceById.get(evidenceId)!.request.evidenceRole,
+          material_change_assertion: evidenceById.get(evidenceId)!.request.materialChangeAssertion,
         })),
         supporting_proposal_ids: [...proposal.supportingProposalIds],
         caveats: [...proposal.caveats],
@@ -1717,6 +1850,7 @@ export async function prepareM5bProductReview(
     candidate: packageData.candidate,
     reviewPacket: packageData.reviewPacket,
   });
+  registerFreshPrepareArtifactSet(packageArtifacts, packageData);
   const meetingBriefBytes = Buffer.from(renderM5bProductReviewMeetingBrief(packageArtifacts), "utf8");
   const workshopBytes = Buffer.from(renderM5bProductReviewWorkshopHtml(packageArtifacts), "utf8");
   const artifacts = Object.freeze([
@@ -1754,6 +1888,7 @@ export async function prepareM5bProductReview(
     ...content,
     resultSha256: m5bProductReviewCanonicalSha256(content),
   });
+  TRUSTED_PREPARE_RESULT_PINS.set(result, FRESH_PREPARE_ARTIFACT_PINS.get(packageArtifacts as object)!);
   await publishDirectory(outputDir, {
     "sanitized-source-pack.json": sourcePackBytes,
     "candidate.json": candidateBytes,

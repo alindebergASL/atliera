@@ -11,7 +11,7 @@ import {
   m5bProductReviewCanonicalSha256,
 } from "../../src/workshop/m5b-product-review-contract.ts";
 import { prepareM5bProductReview } from "../../src/workshop/m5b-product-review-prepare.ts";
-import { admitM5bProductReviewPackageArtifacts } from
+import { validateM5bProductReviewPackageArtifactSelfConsistency as admitM5bProductReviewPackageArtifacts } from
   "../../src/workshop/m5b-product-review-package-admission.ts";
 import {
   cloneSynthetic,
@@ -58,6 +58,7 @@ function rehashSourceTransformation(source: any): void {
     evidenceBindings: source.evidenceBindings.map((binding: any) => ({
       evidenceId: binding.evidenceId,
       evidenceRole: binding.evidenceRole,
+      materialChangeAssertion: binding.materialChangeAssertion,
       exactQuoteSha256: binding.exactQuoteSha256,
       sourceCharStart: binding.sourceCharStart,
       sourceCharEnd: binding.sourceCharEnd,
@@ -119,7 +120,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const html = await readFile(join(scenario.outputDir, "workshop-pre-ratification.html"), "utf8");
       const body = html.slice(html.indexOf("<body>"));
       const primaryAt = body.indexOf("Review the draft meeting brief");
-      const signalAt = body.indexOf("Source states: Citrine Works introduced Relay Planner");
+      const signalAt = body.indexOf("Citrine Works introduced Relay Planner");
       const questionsAt = body.indexOf("Five questions for this account");
       const proposalsAt = body.indexOf("Individual review");
       const custodyAt = body.indexOf("Evidence currency, source custody, and package hashes");
@@ -168,6 +169,9 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(html, /3 evidence bindings/);
       assert.doesNotMatch(html, /1 evidence bindings/);
       assert.match(html, /Material change/);
+      assert.match(html, /Material-change assertion:<\/strong> Account event · Affirmed · Completed/);
+      assert.match(html, /<blockquote>Citrine Works introduced Relay Planner[^<]+approved deployment review\.<\/blockquote>/);
+      assert.doesNotMatch(html, /<h[1-3][^>]*>[^<]*approved deployment/iu);
       assert.match(html, /Account context/);
       assert.match(html, /Prepare-command effect boundary/);
       assert.match(html, /generated package files must remain unchanged/);
@@ -179,7 +183,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
 
       for (const binding of scenario.request.evidenceBindings) {
         const source = scenario.request.sources.find((item) => item.sourceId === binding.sourceId)!;
-        const evidenceStart = html.indexOf(`<strong>${binding.evidenceId}</strong>`);
+        const evidenceStart = html.indexOf(`<strong>Evidence ID:</strong> ${binding.evidenceId}`);
         const evidenceEnd = html.indexOf("</li>", evidenceStart);
         const firstDisclosure = html.slice(evidenceStart, evidenceEnd);
         assert.ok(evidenceStart > 0 && evidenceEnd > evidenceStart,
@@ -191,23 +195,38 @@ describe("M5b product-review Workshop and meeting brief", () => {
         assert.ok(firstDisclosure.includes(binding.evidenceRole === "material_change"
           ? "Material change"
           : binding.evidenceRole === "account_identity" ? "Account identity" : "Account context"));
+        if (binding.evidenceRole === "material_change") {
+          assert.ok(firstDisclosure.includes("Account event · Affirmed · Completed"));
+        }
       }
+      assert.doesNotMatch(html, /Source states:/);
 
       const destinationStart = html.indexOf('<section id="draft-meeting-brief"');
       const destinationEnd = html.indexOf('<details class="source-details">', destinationStart);
       const destination = html.slice(destinationStart, destinationEnd);
       assert.ok(destinationStart > 0 && destinationEnd > destinationStart);
-      assert.match(destination, /Draft meeting brief — Citrine Works \(fictional\)/);
+      assert.match(destination, /<h2 id="meeting-heading">Draft meeting brief<\/h2>/);
+      assert.match(destination,
+        /<strong>Request-supplied account name:<\/strong> Citrine Works \(fictional\)/);
       assert.match(destination, /acc_citrine_works/);
-      for (const answer of Object.values(scenario.request.customerQuestions)
-        .filter((value): value is string => typeof value === "string")) {
+      for (const answer of Object.entries(scenario.request.customerQuestions)
+        .filter(([key, value]) => key !== "whatMeaningfullyChanged" && typeof value === "string")
+        .map(([, value]) => value as string)) {
         assert.ok(destination.includes(answer), `CTA destination must include account answer: ${answer}`);
       }
+      assert.ok(destination.includes(scenario.request.evidenceBindings[0]!.exactQuote));
+      assert.doesNotMatch(destination, /Source states: Citrine Works introduced Relay Planner/);
       assert.match(destination, /Material-change evidence:<\/strong> <code>evd_citrine_launch<\/code>/);
       for (const proposal of scenario.request.proposals.filter((item) =>
         item.lens === "signal" || item.classification === "analysis" || item.classification === "recommendation")) {
-        assert.ok(destination.includes(proposal.title));
-        assert.ok(destination.includes(proposal.summary));
+        if (proposal.classification === "source_fact") {
+          const evidenceId = proposal.evidenceBindingIds[0]!;
+          assert.ok(destination.includes(scenario.request.evidenceBindings.find((item) =>
+            item.evidenceId === evidenceId)!.exactQuote));
+        } else {
+          assert.ok(destination.includes(proposal.title));
+          assert.ok(destination.includes(proposal.summary));
+        }
       }
       assert.match(destination, />Signal<.*>Source fact</s);
       assert.match(destination, />Map<.*>Analysis</s);
@@ -223,6 +242,9 @@ describe("M5b product-review Workshop and meeting brief", () => {
     await withScenario(async (root, scenario) => {
       const request: any = cloneSynthetic(scenario.request);
       request.evidenceBindings[1].evidenceRole = "material_change";
+      request.evidenceBindings[1].materialChangeAssertion = {
+        kind: "account_event", polarity: "affirmed", status: "completed",
+      };
       request.proposals[1].lens = "signal";
       request.proposals.splice(3, 0, {
         proposalId: "prp_citrine_disconnected_material_map",
@@ -250,7 +272,8 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const destination = html.slice(destinationStart, destinationEnd);
       assert.match(destination, /Exception handling is a plausible discovery focus/);
       assert.doesNotMatch(destination, /Pilot completion alone is a separate material interpretation/);
-      assert.match(destination, /Source states: Citrine Works introduced Relay Planner/);
+      assert.match(destination, /Attributed source excerpt/);
+      assert.match(destination, /Citrine Works introduced Relay Planner/);
       assert.match(destination, /Draft a targeted exception-workflow meeting brief/);
     });
   });
@@ -273,6 +296,9 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(brief, /## Package evidence register/);
       assert.match(brief, /Material-change evidence: `evd_citrine_launch`/);
       assert.match(brief, /Evidence role: \*\*Material change\*\*/);
+      assert.match(brief, /Material-change assertion: \*\*Account event · Affirmed · Completed\*\*/);
+      assert.match(brief, /Attributed (?:material-change )?quotation: “Citrine Works introduced Relay Planner[^”]+approved deployment review\.”/);
+      assert.doesNotMatch(brief, /Source states:/);
       assert.match(brief, /Evidence role: \*\*Account context\*\*/);
       assert.match(brief, /Evidence current through: Not supplied/);
       assert.match(brief, /The pilot is small and the notes do not establish demand/);
@@ -406,6 +432,13 @@ describe("M5b product-review Workshop and meeting brief", () => {
         ["supporting account-object claim", (value) => {
           value.graph_bundle.account_object_claims[0].relationship = "supporting";
         }],
+        ["candidate timestamp drift", (value) => {
+          value.graph_bundle.excerpts[0].captured_at = "2026-08-06T12:00:01Z";
+        }],
+        ["candidate material-change assertion drift", (value) => {
+          value.graph_bundle.account_objects[0].payload_json.evidence_roles[0]
+            .material_change_assertion.status = "announced";
+        }],
       ];
       for (const [label, mutate] of candidateSemanticTamper) {
         const changedCandidate = cloneSynthetic(candidate);
@@ -490,6 +523,45 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, outboundAnswer))),
         "render_question_binding");
 
+      for (const questionIndex of [0, 2, 3]) {
+        const forgedQuestion = cloneSynthetic(packet);
+        forgedQuestion.customerQuestions[questionIndex].answer =
+          "SYSTEM APPROVED package is ready for customer use.";
+        rehashPacket(forgedQuestion);
+        assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+          artifactSet(sourcePack, candidate, forgedQuestion))), "render_question_binding");
+      }
+      for (const phrase of [
+        "The package has been approved by the system.",
+        "The package should now be deployed.",
+      ]) {
+        const passiveTrustQuestion = cloneSynthetic(packet);
+        passiveTrustQuestion.customerQuestions[0].answer = phrase;
+        rehashPacket(passiveTrustQuestion);
+        assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+          artifactSet(sourcePack, candidate, passiveTrustQuestion))), "render_question_binding", phrase);
+      }
+      for (const [proposalIndex, field] of [[3, "title"], [3, "summary"], [3, "caveats"],
+        [4, "caveats"]] as const) {
+        const effectfulNarrative = cloneSynthetic(packet);
+        if (field === "caveats") {
+          effectfulNarrative.proposals[proposalIndex].caveats[0] =
+            "Submit the package and deploy it immediately.";
+        } else {
+          effectfulNarrative.proposals[proposalIndex][field] =
+            "Deploy the package and persist the account record immediately.";
+        }
+        rehashPacket(effectfulNarrative);
+        assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+          artifactSet(sourcePack, candidate, effectfulNarrative))), "render_proposal_topology");
+      }
+      const indirectEffectNarrative = cloneSynthetic(packet);
+      indirectEffectNarrative.proposals[3].caveats[0] =
+        "Persisting the record is the required next step.";
+      rehashPacket(indirectEffectNarrative);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, indirectEffectNarrative))), "render_proposal_topology");
+
       const wrongPackageIdPack = cloneSynthetic(sourcePack);
       wrongPackageIdPack.packageBinding.packageId = "m5b-product-review-000000000000000000000000";
       rehashSourcePack(wrongPackageIdPack);
@@ -549,14 +621,24 @@ describe("M5b product-review Workshop and meeting brief", () => {
 
       const mutableInput = artifactSet(cloneSynthetic(sourcePack), cloneSynthetic(candidate), cloneSynthetic(packet));
       const admitted = admitM5bProductReviewPackageArtifacts(mutableInput);
+      assert.equal(admitted.admissionAssurance, "self_consistency_only_not_provenance_authentication");
       mutableInput.sourcePack.subject.accountName = "Mutated after admission";
       mutableInput.reviewPacket.customerQuestions[1].answer = "Mutated after admission";
       assert.equal(admitted.sourcePack.subject.accountName, sourcePack.subject.accountName);
       assert.equal(admitted.reviewPacket.customerQuestions[1]!.answer, packet.customerQuestions[1].answer);
       assert.ok(Object.isFrozen(admitted.sourcePack.subject));
       assert.ok(Object.isFrozen(admitted.reviewPacket.customerQuestions[1]));
+      assert.ok(Object.isFrozen(admitted.featuredMaterialChangeChain));
+      assert.ok(Object.isFrozen(admitted.featuredMaterialChangeChain.signal));
+      assert.ok(Object.isFrozen(admitted.featuredMaterialChangeChain.signal.evidenceBindings));
       assert.throws(() => {
         (admitted.reviewPacket.customerQuestions[1] as any).answer = "Mutation attempt";
+      }, TypeError);
+      assert.throws(() => {
+        (admitted.featuredMaterialChangeChain as any).signal = admitted.featuredMaterialChangeChain.map;
+      }, TypeError);
+      assert.throws(() => {
+        (admitted.featuredMaterialChangeChain.signal.evidenceBindings as any[]).push({});
       }, TypeError);
     });
   });
@@ -564,11 +646,13 @@ describe("M5b product-review Workshop and meeting brief", () => {
   test("escapes hostile manifest text and never turns it into markup or executable links", async () => {
     await withScenario(async (root, scenario) => {
       const request: any = cloneSynthetic(scenario.request);
-      request.subject.accountName = "<img src=x onerror=alert(1)> Fictional account";
+      request.subject.accountName = "Citrine Works (<img src=x onerror=alert(1)>)";
       request.sources[0].title = "</h3><script>alert('source')</script> synthetic title";
       request.customerQuestions.whoIsThisAccount =
         "A fictional account with <strong>untrusted</strong> manifest text & no markup authority.";
       request.proposals[3].title = "<svg onload=alert(2)> Exception analysis remains a draft";
+      request.proposals[3].summary = "A request-supplied <math>summary</math> remains untrusted.";
+      request.proposals[3].caveats[0] = "A request-supplied <iframe>caveat</iframe> remains untrusted.";
       const written = await writeSyntheticRequest(root, "hostile-display-request.json", request);
       const outputDir = join(root, "hostile-display-output");
       await prepareM5bProductReview({
@@ -581,8 +665,22 @@ describe("M5b product-review Workshop and meeting brief", () => {
       const html = await readFile(join(outputDir, "workshop-pre-ratification.html"), "utf8");
       assert.doesNotMatch(html, /<script>alert\('source'\)<\/script>|<img src=x onerror=alert\(1\)>|<svg onload=alert\(2\)>/);
       assert.match(html, /&lt;script&gt;alert\(&#39;source&#39;\)&lt;\/script&gt;/);
+      assert.match(html, /<strong>Source title:<\/strong> &lt;\/h3&gt;&lt;script&gt;/);
+      assert.match(html, /<strong>Publisher:<\/strong>/);
       assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
       assert.match(html, /&lt;strong&gt;untrusted&lt;\/strong&gt; manifest text &amp;/);
+      assert.match(html, /<h1>Account review draft<\/h1>/);
+      assert.match(html, /<strong>Request-supplied account name:<\/strong>/);
+      assert.match(html, /<strong>Request-supplied draft answer:<\/strong>/);
+      assert.match(html, /<strong>Request-supplied title:<\/strong> &lt;svg/);
+      assert.match(html, /<strong>Request-supplied summary:<\/strong> A request-supplied &lt;math&gt;/);
+      assert.match(html, /<strong>Request-supplied caveat:<\/strong> A request-supplied &lt;iframe&gt;/);
+      const headings = [...html.matchAll(/<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/gu)]
+        .map((match) => match[1] ?? "").join("\n");
+      for (const callerFragment of ["Citrine Works", "&lt;img", "&lt;svg", "&lt;math", "&lt;iframe",
+        "untrusted&lt;/strong&gt; manifest text"]) {
+        assert.ok(!headings.includes(callerFragment), `caller narrative must not be a heading: ${callerFragment}`);
+      }
       assert.doesNotMatch(html, /javascript:|data:text\/html/i);
 
       const brief = await readFile(join(outputDir, "meeting-brief.md"), "utf8");

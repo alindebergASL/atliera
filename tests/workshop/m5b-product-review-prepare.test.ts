@@ -18,9 +18,12 @@ import {
 } from "../../src/workshop/m5b-product-review-package.ts";
 import {
   M5B_PRODUCT_REVIEW_PREPARE_RESULT_VERSION,
+  admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult,
   prepareM5bProductReview,
   type M5bProductReviewPrepareOptions,
 } from "../../src/workshop/m5b-product-review-prepare.ts";
+import { validateM5bProductReviewPackageArtifactSelfConsistency } from
+  "../../src/workshop/m5b-product-review-package-admission.ts";
 import {
   SYNTHETIC_SOURCE_TEXTS,
   cloneSynthetic,
@@ -77,8 +80,9 @@ async function refusalCode(promise: Promise<unknown>): Promise<string> {
 
 describe("M5b product-review preparation", () => {
   test("keeps package construction behind the prepare-only runtime boundary", async () => {
-    const [packageModule, prepareModule, publicModule] = await Promise.all([
+    const [packageModule, admissionModule, prepareModule, publicModule] = await Promise.all([
       import("../../src/workshop/m5b-product-review-package.ts"),
+      import("../../src/workshop/m5b-product-review-package-admission.ts"),
       import("../../src/workshop/m5b-product-review-prepare.ts"),
       import("../../src/index.ts"),
     ]);
@@ -86,6 +90,11 @@ describe("M5b product-review preparation", () => {
     assert.equal(Object.hasOwn(prepareModule, "buildM5bProductReviewPackageData"), false);
     assert.equal(Object.hasOwn(publicModule, "buildM5bProductReviewPackageData"), false);
     assert.equal(Object.hasOwn(publicModule, "admitM5bProductReviewPackageArtifacts"), false);
+    assert.equal(Object.hasOwn(admissionModule, "admitM5bProductReviewPackageArtifacts"), false);
+    assert.equal(Object.hasOwn(publicModule,
+      "validateM5bProductReviewPackageArtifactSelfConsistency"), false);
+    assert.equal(typeof publicModule
+      .admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult, "function");
     for (const renderer of ["renderM5bProductReviewMeetingBrief",
       "renderM5bProductReviewWorkshopHtml"]) {
       assert.equal(Object.hasOwn(prepareModule, renderer), false);
@@ -114,6 +123,7 @@ describe("M5b product-review preparation", () => {
       assert.equal(result.authority.armingStatus, "unarmed");
       assert.equal(result.authority.applyEligibility, false);
       assert.equal(result.packageBinding.requestRawSha256, sha256Fixture(scenario.requestBytes));
+      assert.equal(result.packageBinding.preparedAt, scenario.request.execution.preparedAt);
       assert.deepEqual(result.supersession, {
         preservesOldBytes: true,
         preservesOldProducerIdentity: true,
@@ -155,6 +165,15 @@ describe("M5b product-review preparation", () => {
       const candidateRaw = JSON.parse(await readFile(join(scenario.outputDir, "candidate.json"), "utf8"));
       const candidate = hydrateValidatedCandidate(candidateRaw);
       assert.equal(validatedCandidateSha256(candidate), result.candidateSha256);
+      assert.ok(candidate.graph_bundle.excerpts.every((item) =>
+        item.captured_at === result.packageBinding.preparedAt));
+      assert.ok(candidate.graph_bundle.claims.every((item) =>
+        item.created_at === result.packageBinding.preparedAt));
+      assert.ok(candidate.graph_bundle.claim_evidence.every((item) =>
+        item.created_at === result.packageBinding.preparedAt));
+      assert.ok(candidate.graph_bundle.account_objects.every((item) =>
+        item.created_at === result.packageBinding.preparedAt &&
+        item.updated_at === result.packageBinding.preparedAt));
       assert.equal(candidate.graph_bundle.sources.length, 3);
       assert.equal(candidate.graph_bundle.account_objects.filter((item) => item.object_type === "signal").length, 1);
       assert.equal(candidate.graph_bundle.account_objects.filter((item) => item.object_type === "account_snapshot").length, 3);
@@ -190,6 +209,8 @@ describe("M5b product-review preparation", () => {
           evidence_id: evidenceId,
           evidence_role: scenario.request.evidenceBindings.find((binding) =>
             binding.evidenceId === evidenceId)!.evidenceRole,
+          material_change_assertion: scenario.request.evidenceBindings.find((binding) =>
+            binding.evidenceId === evidenceId)!.materialChangeAssertion,
         })));
       }
       for (const excerpt of candidate.graph_bundle.excerpts) {
@@ -233,6 +254,43 @@ describe("M5b product-review preparation", () => {
         proposal.trust.humanRatified === false && proposal.trust.qualityPassed === false &&
         proposal.trust.proposed === true && proposal.trust.durable === false));
       assert.equal(Object.hasOwn(packet.proposals[0], "localSelection"), false);
+
+      const trustedArtifacts = { sourcePack, candidate: candidateRaw, reviewPacket: packet };
+      const trustedAdmission = admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult(
+        trustedArtifacts,
+        result,
+      );
+      assert.equal(trustedAdmission.admissionAssurance,
+        "trusted_prepare_result_capability_authenticated");
+      const clonedResult = cloneSynthetic(result);
+      assert.throws(() => admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult(
+        trustedArtifacts,
+        clonedResult,
+      ), (error: any) => error instanceof M5bProductReviewRefusal &&
+        error.code === "trusted_prepare_result_capability");
+      const coordinatedRewrite = cloneSynthetic(trustedArtifacts);
+      coordinatedRewrite.sourcePack.sources[0].title = "Forged source title after preparation";
+      const { sourcePackSha256: _oldSourcePackSha256, ...sourcePackContent } = coordinatedRewrite.sourcePack;
+      coordinatedRewrite.sourcePack.sourcePackSha256 = m5bProductReviewCanonicalSha256(sourcePackContent);
+      coordinatedRewrite.candidate.graph_bundle.sources[0].title = coordinatedRewrite.sourcePack.sources[0].title;
+      for (const object of coordinatedRewrite.candidate.graph_bundle.account_objects) {
+        object.payload_json.source_pack_sha256 = coordinatedRewrite.sourcePack.sourcePackSha256;
+      }
+      coordinatedRewrite.reviewPacket.sourceRegister[0].title = coordinatedRewrite.sourcePack.sources[0].title;
+      coordinatedRewrite.reviewPacket.sourcePackSha256 = coordinatedRewrite.sourcePack.sourcePackSha256;
+      coordinatedRewrite.reviewPacket.candidateSha256 = validatedCandidateSha256(
+        hydrateValidatedCandidate(coordinatedRewrite.candidate),
+      );
+      const { reviewPacketSha256: _oldPacketSha256, ...packetContent } =
+        coordinatedRewrite.reviewPacket;
+      coordinatedRewrite.reviewPacket.reviewPacketSha256 = m5bProductReviewCanonicalSha256(packetContent);
+      assert.equal(validateM5bProductReviewPackageArtifactSelfConsistency(coordinatedRewrite)
+        .admissionAssurance, "self_consistency_only_not_provenance_authentication");
+      assert.throws(() => admitM5bProductReviewPackageArtifactsAgainstTrustedPrepareResult(
+        coordinatedRewrite,
+        result,
+      ), (error: any) => error instanceof M5bProductReviewRefusal &&
+        error.code === "trusted_prepare_result_artifact_binding");
 
       const secondOutput = join(root, "prepared-product-review-again");
       await prepareM5bProductReview(optionsFor(scenario, { outputDir: secondOutput }));

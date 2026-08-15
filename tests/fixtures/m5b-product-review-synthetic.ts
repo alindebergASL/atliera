@@ -11,19 +11,19 @@ import {
 } from "../../src/workshop/m5b-product-review-contract.ts";
 
 export const SYNTHETIC_SOURCE_TEXTS = Object.freeze({
-  launch: "<!doctype html><html><body><h1>Fictional product note</h1><p>Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams.</p><p>This page and company are synthetic test material.</p></body></html>\n",
+  launch: "<!doctype html><html><body><h1>Fictional product note</h1><p>Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.</p><p>This page and company are synthetic test material.</p></body></html>\n",
   pilot: `${JSON.stringify({
     fixtureOnly: true,
     fictionalCompany: "Citrine Works",
-    pilotMetric: "Eighteen of twenty-four invited planners completed the fictional pilot scenario.",
+    pilotMetric: "Citrine Works completed a fictional pilot scenario with eighteen of twenty-four invited planners.",
     note: "Synthetic JSON evidence for tests only.",
   }, null, 2)}\n`,
   notes: "Fictional research note for Citrine Works.\nThree regional teams requested a shared exception checklist before the next planning session.\nSynthetic text evidence only.\n",
 });
 
 export const SYNTHETIC_QUOTES = Object.freeze({
-  launch: "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams.",
-  pilot: "Eighteen of twenty-four invited planners completed the fictional pilot scenario.",
+  launch: "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+  pilot: "Citrine Works completed a fictional pilot scenario with eighteen of twenty-four invited planners.",
   notes: "Three regional teams requested a shared exception checklist before the next planning session.",
 });
 
@@ -181,11 +181,12 @@ export async function createSyntheticM5bProductReviewScenario(
     sources,
     evidenceBindings: [
       { evidenceId: "evd_citrine_launch", sourceId: "src_citrine_launch", exactQuote: SYNTHETIC_QUOTES.launch,
-        evidenceRole: "material_change" },
+        evidenceRole: "material_change",
+        materialChangeAssertion: { kind: "account_event", polarity: "affirmed", status: "completed" } },
       { evidenceId: "evd_citrine_pilot", sourceId: "src_citrine_pilot", exactQuote: SYNTHETIC_QUOTES.pilot,
-        evidenceRole: "account_context" },
+        evidenceRole: "account_context", materialChangeAssertion: null },
       { evidenceId: "evd_citrine_notes", sourceId: "src_citrine_notes", exactQuote: SYNTHETIC_QUOTES.notes,
-        evidenceRole: "account_context" },
+        evidenceRole: "account_context", materialChangeAssertion: null },
     ],
     proposals: [
       {

@@ -10,6 +10,7 @@ import {
 } from "../../src/workshop/m5b-product-review-contract.ts";
 import {
   M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY,
+  M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION,
   createM5bProductReviewOwnerDispositionTemplate,
   validateM5bProductReviewOwnerDisposition,
 } from "../../src/workshop/m5b-product-review-disposition.ts";
@@ -74,6 +75,8 @@ describe("M5b product-review non-executable owner disposition", () => {
         packet.proposals.map((proposal, index) => ({ proposalId: proposal.proposalId,
           disposition: index % 2 === 0 ? "accept" as const : "reject" as const })));
       assert.equal(artifact.packageBinding.packageId, packet.packageBinding.packageId);
+      assert.equal(artifact.schemaVersion, M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION);
+      assert.equal(artifact.schemaVersion, "2");
       assert.equal(artifact.packageBinding.sourcePackSha256, packet.sourcePackSha256);
       assert.equal(artifact.packageBinding.candidateSha256, packet.candidateSha256);
       assert.equal(artifact.packageBinding.reviewPacketSha256, packet.reviewPacketSha256);
@@ -81,6 +84,7 @@ describe("M5b product-review non-executable owner disposition", () => {
       assert.equal(artifact.decisions.length, packet.proposals.length);
       assert.doesNotMatch(JSON.stringify(artifact), /ratifierIdentity|ratifiedAt/);
       assert.equal(artifact.authorityBoundary.applyInputEligible, false);
+      assert.equal(artifact.authorityBoundary.packageProvenanceAuthenticated, false);
       assert.equal(artifact.authorityBoundary.authorizesRatification, false);
       assert.equal(artifact.authorityBoundary.authorizesGraphWrite, false);
       assert.equal(artifact.authorityBoundary.authorizesDeployment, false);
@@ -111,6 +115,8 @@ describe("M5b product-review non-executable owner disposition", () => {
       cases.push([hash, "owner_disposition_hash"]);
       const extra = clone(baseline); extra.ratifierIdentity = "forged";
       cases.push([extra, "owner_disposition_shape"]);
+      const historicalV1 = clone(baseline); historicalV1.schemaVersion = "1";
+      cases.push([historicalV1, "owner_disposition_binding"]);
       for (const [raw, expected] of cases) {
         assert.equal(refusalCode(() => validateM5bProductReviewOwnerDisposition(raw, artifacts)), expected);
       }

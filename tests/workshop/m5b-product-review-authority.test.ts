@@ -38,7 +38,7 @@ import {
   prepareM5bProductReview,
   type M5bProductReviewPrepareOptions,
 } from "../../src/workshop/m5b-product-review-prepare.ts";
-import { admitM5bProductReviewPackageArtifacts } from
+import { validateM5bProductReviewPackageArtifactSelfConsistency as admitM5bProductReviewPackageArtifacts } from
   "../../src/workshop/m5b-product-review-package-admission.ts";
 import {
   SYNTHETIC_SOURCE_TEXTS,

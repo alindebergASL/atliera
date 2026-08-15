@@ -9,7 +9,7 @@ import {
 } from "../authority/strict-json.ts";
 import { m5bProductReviewCanonicalSha256, refuseM5bProductReview } from "./m5b-product-review-contract.ts";
 import {
-  admitM5bProductReviewPackageArtifacts,
+  validateM5bProductReviewPackageArtifactSelfConsistency,
   type M5bProductReviewAdmittedPackageArtifacts,
   type M5bProductReviewPackageArtifactSet,
 } from "./m5b-product-review-package-admission.ts";
@@ -17,7 +17,7 @@ import type { M5bProductReviewPacket } from "./m5b-product-review-package.ts";
 
 export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_KIND =
   "m5b-product-review-owner-disposition" as const;
-export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION = "1" as const;
+export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION = "2" as const;
 
 export const M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY = Object.freeze({
   nonExecutable: true as const,
@@ -27,6 +27,7 @@ export const M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY = Object.freeze({
   armingStatus: "unarmed" as const,
   currentEffectiveAuthorization: "none" as const,
   applyInputEligible: false as const,
+  packageProvenanceAuthenticated: false as const,
   authorizesRatification: false as const,
   authorizesApply: false as const,
   authorizesGraphWrite: false as const,
@@ -87,7 +88,7 @@ function admitDispositionPackage(
   artifacts: M5bProductReviewOwnerDispositionPackageArtifacts,
 ): Readonly<M5bProductReviewAdmittedPackageArtifacts> {
   try {
-    return admitM5bProductReviewPackageArtifacts(artifacts);
+    return validateM5bProductReviewPackageArtifactSelfConsistency(artifacts);
   } catch {
     return refuseM5bProductReview("owner_disposition_packet");
   }

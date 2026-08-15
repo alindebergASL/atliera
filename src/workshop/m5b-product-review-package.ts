@@ -4,6 +4,7 @@ import type {
   M5bProductReviewClassification,
   M5bProductReviewEvidenceRole,
   M5bProductReviewLens,
+  M5bProductReviewMaterialChangeAssertion,
   M5bProductReviewRequest,
   M5bProductReviewSafeTask,
   M5bProductReviewSourceKind,
@@ -81,6 +82,7 @@ export interface M5bProductReviewPackageBinding {
   readonly ownerAuthorizationId: string;
   readonly executionCommit: string;
   readonly executionTree: string;
+  readonly preparedAt: string;
 }
 
 export interface M5bProductReviewEvidenceBinding {
@@ -88,6 +90,7 @@ export interface M5bProductReviewEvidenceBinding {
   readonly sourceId: string;
   readonly exactQuote: string;
   readonly evidenceRole: M5bProductReviewEvidenceRole;
+  readonly materialChangeAssertion: M5bProductReviewMaterialChangeAssertion | null;
   readonly exactQuoteSha256: string;
   readonly sourceCharStart: number;
   readonly sourceCharEnd: number;

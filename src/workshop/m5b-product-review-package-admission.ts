@@ -76,7 +76,15 @@ export interface M5bProductReviewAdmittedPackageArtifacts {
   readonly candidate: ValidatedCandidate;
   readonly reviewPacket: M5bProductReviewPacket;
   readonly featuredMaterialChangeChain: M5bProductReviewFeaturedMaterialChangeChain;
+  readonly admissionAssurance: "self_consistency_only_not_provenance_authentication";
 }
+
+export type M5bProductReviewTrustedAdmittedPackageArtifacts = Omit<
+  M5bProductReviewAdmittedPackageArtifacts,
+  "admissionAssurance"
+> & {
+  readonly admissionAssurance: "trusted_prepare_result_capability_authenticated";
+};
 
 function assertRenderExactKeys(value: unknown, expected: readonly string[]): asserts value is Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value) ||
@@ -155,7 +163,7 @@ function assertCurrentRenderablePackage(
 
   assertRenderExactKeys(sourcePack.packageBinding, ["packageId", "requestRawSha256",
     "requestCanonicalSha256", "supersededPackageResultSha256", "ownerAuthorizationId",
-    "executionCommit", "executionTree"]);
+    "executionCommit", "executionTree", "preparedAt"]);
   const binding = sourcePack.packageBinding;
   if (typeof binding.packageId !== "string" || !SAFE_PACKAGE_ID.test(binding.packageId) ||
       typeof binding.requestRawSha256 !== "string" || !SHA256.test(binding.requestRawSha256) ||
@@ -165,7 +173,8 @@ function assertCurrentRenderablePackage(
       typeof binding.ownerAuthorizationId !== "string" ||
         !SAFE_AUTHORITY_ID.test(binding.ownerAuthorizationId) ||
       typeof binding.executionCommit !== "string" || !GIT_OID.test(binding.executionCommit) ||
-      typeof binding.executionTree !== "string" || !GIT_OID.test(binding.executionTree)) {
+      typeof binding.executionTree !== "string" || !GIT_OID.test(binding.executionTree) ||
+      typeof binding.preparedAt !== "string" || !isM5bProductReviewIsoTimestamp(binding.preparedAt)) {
     refuseM5bProductReview("render_package_shape");
   }
   const expectedPackageId = `m5b-product-review-${m5bProductReviewCanonicalSha256({
@@ -176,6 +185,7 @@ function assertCurrentRenderablePackage(
     ownerAuthorizationId: binding.ownerAuthorizationId,
     executionCommit: binding.executionCommit,
     executionTree: binding.executionTree,
+    preparedAt: binding.preparedAt,
   }).slice(0, 24)}`;
   if (binding.packageId !== expectedPackageId) refuseM5bProductReview("render_package_binding");
   assertRenderExactKeys(sourcePack.subject, ["teamId", "accountId", "accountName"]);
@@ -221,6 +231,7 @@ function assertCurrentRenderablePackage(
         !isBoundedSingleLine(source.title, 2, 240) || typeof source.canonicalUrl !== "string" ||
         !isM5bProductReviewCanonicalHttpsUrl(source.canonicalUrl) ||
         typeof source.acquiredAt !== "string" || !isM5bProductReviewIsoTimestamp(source.acquiredAt) ||
+        new Date(source.acquiredAt).getTime() > new Date(binding.preparedAt).getTime() ||
         !isBoundedSingleLine(source.publisher, 1, 160) ||
         !isBoundedSingleLine(source.sourceType, 1, 96) ||
         (source.sourceKind !== "synthetic_fixture" &&
@@ -319,6 +330,7 @@ function assertCurrentRenderablePackage(
     let sourceExcerptBytes = 0;
     for (const evidence of source.evidenceBindings) {
       assertRenderExactKeys(evidence, ["evidenceId", "sourceId", "exactQuote", "evidenceRole",
+        "materialChangeAssertion",
         "exactQuoteSha256", "sourceCharStart", "sourceCharEnd", "storedCharStart", "storedCharEnd"]);
       const sourceCharStart = evidence.sourceCharStart;
       const sourceCharEnd = evidence.sourceCharEnd;
@@ -344,7 +356,21 @@ function assertCurrentRenderablePackage(
         refuseM5bProductReview("render_package_shape");
       }
       if (evidence.evidenceRole === "material_change") {
-        assertM5bProductReviewMaterialChangeQuote(sourcePack.subject.accountName, evidence.exactQuote);
+        assertRenderExactKeys(evidence.materialChangeAssertion, ["kind", "polarity", "status"]);
+        if (evidence.materialChangeAssertion.kind !== "account_event" ||
+            evidence.materialChangeAssertion.polarity !== "affirmed" ||
+            (evidence.materialChangeAssertion.status !== "completed" &&
+              evidence.materialChangeAssertion.status !== "announced" &&
+              evidence.materialChangeAssertion.status !== "agreement_reached")) {
+          refuseM5bProductReview("render_package_shape");
+        }
+        assertM5bProductReviewMaterialChangeQuote(
+          sourcePack.subject.accountName,
+          evidence.exactQuote,
+          evidence.materialChangeAssertion,
+        );
+      } else if (evidence.materialChangeAssertion !== null) {
+        refuseM5bProductReview("render_package_shape");
       }
       if (storedText.length > 0) {
         storedText += "\n\n";
@@ -368,6 +394,7 @@ function assertCurrentRenderablePackage(
       evidenceBindings: source.evidenceBindings.map((evidence) => ({
         evidenceId: evidence.evidenceId,
         evidenceRole: evidence.evidenceRole,
+        materialChangeAssertion: evidence.materialChangeAssertion,
         exactQuoteSha256: evidence.exactQuoteSha256,
         sourceCharStart: evidence.sourceCharStart,
         sourceCharEnd: evidence.sourceCharEnd,
@@ -437,6 +464,7 @@ function assertCurrentRenderablePackage(
     }
     for (const evidence of proposal.evidenceBindings) {
       assertRenderExactKeys(evidence, ["evidenceId", "sourceId", "exactQuote", "evidenceRole",
+        "materialChangeAssertion",
         "exactQuoteSha256", "sourceCharStart", "sourceCharEnd", "storedCharStart", "storedCharEnd"]);
       const sourceBinding = evidenceById.get(evidence.evidenceId);
       if (sourceBinding === undefined || !canonicalEqual(sourceBinding, evidence)) {
@@ -487,7 +515,10 @@ function assertCurrentRenderablePackage(
     }
     if (m5bProductReviewTextClaimsForbiddenTrust(proposal.title) ||
         m5bProductReviewTextClaimsForbiddenTrust(proposal.summary) ||
-        proposal.caveats.some(m5bProductReviewTextClaimsForbiddenTrust)) {
+        proposal.caveats.some(m5bProductReviewTextClaimsForbiddenTrust) ||
+        m5bProductReviewTextRequestsEffect(proposal.title) ||
+        m5bProductReviewTextRequestsEffect(proposal.summary) ||
+        proposal.caveats.some(m5bProductReviewTextRequestsEffect)) {
       refuseM5bProductReview("render_proposal_topology");
     }
     const dependencies = proposal.supportingProposalIds.map((id) => proposalsById.get(id)!);
@@ -514,9 +545,7 @@ function assertCurrentRenderablePackage(
         proposal.safeTask.description !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION ||
         proposal.safeTask.nonExecutable !== true || !/\bdraft\b/iu.test(proposal.title) ||
         !/\bbrief\b/iu.test(proposal.title) ||
-        !dependencies.some((dependency) => dependency.classification === "analysis") ||
-        m5bProductReviewTextRequestsEffect(proposal.title) ||
-        m5bProductReviewTextRequestsEffect(proposal.summary)) {
+        !dependencies.some((dependency) => dependency.classification === "analysis")) {
       refuseM5bProductReview("render_proposal_topology");
     }
   }
@@ -546,7 +575,8 @@ function assertCurrentRenderablePackage(
         !isStringArray(item.proposalBindingIds) ||
         new Set(item.evidenceBindingIds).size !== item.evidenceBindingIds.length ||
         new Set(item.proposalBindingIds).size !== item.proposalBindingIds.length ||
-        m5bProductReviewTextClaimsForbiddenTrust(item.answer) ||
+        (index !== 1 && (m5bProductReviewTextClaimsForbiddenTrust(item.answer) ||
+          (index !== 4 && m5bProductReviewTextRequestsEffect(item.answer)))) ||
         (index === 4 && item.answer !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) ||
         (index === 1 ? item.evidenceBindingIds.length === 0 || item.evidenceBindingIds.some((id) =>
           evidenceById.get(id)?.evidenceRole !== "material_change") || item.proposalBindingIds.length !== 3 :
@@ -625,10 +655,10 @@ function assertCandidateBinding(
     excerptKey(expected.sourceId, expected.text, expected.charStart, expected.charEnd),
     expected,
   ]));
-  const candidatePreparedAt = graph.excerpts[0]?.captured_at;
+  const candidatePreparedAt = sourcePack.packageBinding.preparedAt;
   const evidenceExcerptIdByEvidenceId = new Map<string, string>();
   if (expectedExcerptByKey.size !== expectedExcerpts.length ||
-      graph.excerpts.length !== expectedExcerpts.length || candidatePreparedAt === undefined) {
+      graph.excerpts.length !== expectedExcerpts.length) {
     refuseM5bProductReview("render_candidate_binding");
   }
   for (const [index, excerpt] of graph.excerpts.entries()) {
@@ -679,6 +709,7 @@ function assertCandidateBinding(
     const expectedEvidenceRoles = proposal.evidenceBindings.map((binding) => ({
       evidence_id: binding.evidenceId,
       evidence_role: binding.evidenceRole,
+      material_change_assertion: binding.materialChangeAssertion,
     }));
     return {
       id: `obj_m5b_product_${String(index + 1).padStart(3, "0")}`,
@@ -768,10 +799,15 @@ function featuredMaterialChangeChain(packet: M5bProductReviewPacket): M5bProduct
       question.answer !== signal.summary) {
     refuseM5bProductReview("render_material_change_chain");
   }
-  return { signal, map, play };
+  return deepFreezeOwnData({ signal, map, play });
 }
 
-export function admitM5bProductReviewPackageArtifacts(
+/**
+ * Validates detached artifact-set self-consistency only. This boundary deliberately does not
+ * authenticate production provenance: callers can recompute every serialized hash. Product
+ * rendering must additionally require the prepare-path object-identity pin held by that runtime.
+ */
+export function validateM5bProductReviewPackageArtifactSelfConsistency(
   raw: unknown,
 ): Readonly<M5bProductReviewAdmittedPackageArtifacts> {
   let snapshot: StrictJsonValue;
@@ -793,10 +829,11 @@ export function admitM5bProductReviewPackageArtifacts(
     return refuseM5bProductReview("render_candidate_shape");
   }
   assertCandidateBinding(sourcePack, candidate, packet);
-  return Object.freeze({
+  return deepFreezeOwnData({
     sourcePack,
     candidate,
     reviewPacket: packet,
     featuredMaterialChangeChain: materialChangeChain,
+    admissionAssurance: "self_consistency_only_not_provenance_authentication" as const,
   });
 }

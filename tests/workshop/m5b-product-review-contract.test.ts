@@ -569,6 +569,179 @@ describe("M5b product-review request contract", () => {
     });
   });
 
+  test("accepts narrowly modeled tender-offer material-change assertions", () => {
+    for (const [quote, status] of [
+      ["FedEx Corp. announced a tender offer.", "announced"],
+      ["FedEx Corp. commenced a tender offer.", "completed"],
+      ["FedEx Corp. has commenced a tender offer.", "completed"],
+      ["FedEx Corp. commenced tender offers.", "completed"],
+      ["FedEx Corp. has commenced cash tender offers.", "completed"],
+      ["FedEx Corp. today announced that it has commenced a tender offer.", "announced"],
+      ["FedEx Corp. today announced that it had commenced cash tender offers.", "announced"],
+      ["FedEx Corp. announced a cash tender offer.", "announced"],
+      ["FedEx Corp. announced tender offers.", "announced"],
+      ["FedEx Corp. announced cash tender offers.", "announced"],
+      ["FedEx Corp. today announced a tender offer.", "announced"],
+      ["FedEx Corp. (NYSE: FDX) today announced a tender offer.", "announced"],
+    ] as const) {
+      assert.doesNotThrow(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        quote,
+        { kind: "account_event", polarity: "affirmed", status },
+      ), quote);
+    }
+  });
+
+  test("keeps tender-offer material-change assertions fail closed", () => {
+    for (const [quote, status] of [
+      ["Legal name: Tender Offer Services", "announced"],
+      ["FedEx may commence a tender offer.", "completed"],
+      ["FedEx announced a potential tender offer.", "announced"],
+      ["FedEx attempted a tender offer.", "completed"],
+      ["FedEx announced a tender offer by UPS for Example Co.", "announced"],
+      ["FedEx announced a special offer for shipping customers.", "announced"],
+      ["FedEx announced cash offers.", "announced"],
+      ["FedEx announced a tender cash offer.", "announced"],
+      ["FedEx commenced a commercial offer.", "completed"],
+      ["FedEx announced a tender offer.", "completed"],
+      ["FedEx commenced a tender offer.", "announced"],
+      ["FedEx announced tender offer.", "announced"],
+      ["FedEx announced a tender offers.", "announced"],
+      ["FedEx announced a cash tender offers.", "announced"],
+      ["FedEx commenced tender offer.", "completed"],
+      ["FedEx commenced a tender offers.", "completed"],
+      ["FedEx commenced a cash tender offers.", "completed"],
+      ["FedEx have commenced a tender offer.", "completed"],
+      ["FedEx announced that it have commenced a tender offer.", "announced"],
+      ["FedEx announced today a tender offer.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers for notes by UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers on behalf of UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers between UPS and TNT.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers concerning UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers from UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers involving UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers affecting UPS.", "announced"],
+      ["FedEx announced that it has commenced cash tender offers suffered by UPS.", "announced"],
+      ["FedEx announced a tender offer (NYSE: UPS).", "announced"],
+      ["FedEx announced that it has commenced cash tender offers for notes (NYSE: UPS).", "announced"],
+      ["FedEx Corp. (NYSE: UPS) today announced a tender offer.", "announced"],
+      ["FedEx Corp. (NASDAQ: UPS) today announced a tender offer.", "announced"],
+    ] as const) {
+      assert.throws(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        quote,
+        { kind: "account_event", polarity: "affirmed", status },
+      ), M5bProductReviewRefusal, quote);
+    }
+  });
+
+  test("keeps tender words outside the account predicate on the generic material-change path", async () => {
+    for (const [accountName, quote, status] of [
+      ["Tender Offer Services", "Tender Offer Services acquired Acme.", "completed"],
+      ["Tender Offer Holdings", "Tender Offer Holdings acquired Acme.", "completed"],
+      ["FedEx", "FedEx acquired TNT after reviewing a tender offer.", "completed"],
+      ["FedEx", "FedEx announced an acquisition after reviewing a tender offer.", "announced"],
+    ] as const) {
+      assert.doesNotThrow(() => assertM5bProductReviewMaterialChangeQuote(
+        accountName,
+        quote,
+        { kind: "account_event", polarity: "affirmed", status },
+      ), quote);
+      await withScenario((baseline) => {
+        const request = cloneSynthetic(baseline);
+        request.subject.accountName = accountName;
+        request.evidenceBindings[0].exactQuote = quote;
+        request.evidenceBindings[0].materialChangeAssertion.status = status;
+        request.proposals[0].title = `Source states: ${quote}`;
+        request.proposals[0].summary = request.proposals[0].title;
+        request.customerQuestions.whatMeaningfullyChanged = request.proposals[0].summary;
+        assert.doesNotThrow(() => validateM5bProductReviewRequest(request), quote);
+      });
+    }
+  });
+
+  test("preserves generic refusal ordering outside the tender-offer path", () => {
+    for (const quote of ["FedEx may sell products.", "FedEx has not existed."]) {
+      assert.equal(refusalCode(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        quote,
+        { kind: "account_event", polarity: "affirmed", status: "completed" },
+      )), "material_change_identity_only", quote);
+    }
+  });
+
+  describe("tender-offer status correction regressions", () => {
+    for (const quote of [
+      "FedEx Corp. (on behalf of UPS) today announced a tender offer.",
+      "FedEx announced a tender offer service.",
+      "FedEx commenced a tender offer discount.",
+      "FedEx reported a tender offer.",
+      "FedEx disclosed a tender offer.",
+      "FedEx today announced an acquisition.",
+    ]) {
+      test(`refuses ${quote}`, () => {
+        assert.throws(() => assertM5bProductReviewMaterialChangeQuote(
+          "FedEx",
+          quote,
+          { kind: "account_event", polarity: "affirmed", status:
+            quote.includes("commenced") ? "completed" : "announced" },
+        ), M5bProductReviewRefusal);
+      });
+    }
+
+    const actorBoundQuote =
+      "FedEx Corp. today announced that it has commenced cash tender offers.";
+    const actorBoundTailQuotes = [
+      "FedEx Corp. today announced that it has commenced cash tender offers for notes, with UPS as offeror.",
+      "FedEx Corp. today announced that it has commenced cash tender offers for notes; UPS is the offeror.",
+      "FedEx Corp. today announced that it has commenced cash tender offers for notes of UPS, as issuer.",
+    ] as const;
+
+    test("accepts the actor-bound announced tender-offer form", () => {
+      assert.doesNotThrow(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        actorBoundQuote,
+        { kind: "account_event", polarity: "affirmed", status: "announced" },
+      ));
+    });
+
+    test("accepts the actor-bound announced tender-offer form through full-request validation", async () => {
+      await withScenario((baseline) => {
+        const request = cloneSynthetic(baseline);
+        request.subject.accountName = "FedEx";
+        request.evidenceBindings[0].exactQuote = actorBoundQuote;
+        request.evidenceBindings[0].materialChangeAssertion.status = "announced";
+        request.proposals[0].title = `Source states: ${actorBoundQuote}`;
+        request.proposals[0].summary = request.proposals[0].title;
+        request.customerQuestions.whatMeaningfullyChanged = request.proposals[0].summary;
+        assert.doesNotThrow(() => validateM5bProductReviewRequest(request));
+      });
+    });
+
+    for (const quote of actorBoundTailQuotes) {
+      test(`refuses actor-bound semantic tail through the helper: ${quote}`, () => {
+        assert.throws(() => assertM5bProductReviewMaterialChangeQuote(
+          "FedEx",
+          quote,
+          { kind: "account_event", polarity: "affirmed", status: "announced" },
+        ), M5bProductReviewRefusal);
+      });
+
+      test(`refuses actor-bound semantic tail through full-request validation: ${quote}`, async () => {
+        await withScenario((baseline) => {
+          const request = cloneSynthetic(baseline);
+          request.subject.accountName = "FedEx";
+          request.evidenceBindings[0].exactQuote = quote;
+          request.evidenceBindings[0].materialChangeAssertion.status = "announced";
+          request.proposals[0].title = `Source states: ${quote}`;
+          request.proposals[0].summary = request.proposals[0].title;
+          request.customerQuestions.whatMeaningfullyChanged = request.proposals[0].summary;
+          assert.throws(() => validateM5bProductReviewRequest(request), M5bProductReviewRefusal);
+        });
+      });
+    }
+  });
+
   test("rejects third-party, non-event, modal, risk, and static-alias material-change assertions", async () => {
     await withScenario((baseline) => {
       const cases = [

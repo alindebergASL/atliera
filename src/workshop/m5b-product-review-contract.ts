@@ -562,6 +562,9 @@ const MATERIAL_CHANGE_EVENT_NOUN_WORDS = new Set([
 const MATERIAL_CHANGE_FINITE_REPORT_WORDS = new Set([
   "announced", "announces", "disclosed", "discloses", "reported", "reports",
 ]);
+const TENDER_OFFER_PERFECT_AUXILIARIES = new Set(["had", "has"]);
+const TENDER_OFFER_ACTION = /\b(?:announced|announces|commenced|disclosed|discloses|reported|reports)\b/iu;
+const TENDER_OFFER_FEDEX_MARKET_METADATA = "(NYSE: FDX)";
 const MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS = new Set([
   "entered", "executed", "reached", "signed",
 ]);
@@ -663,10 +666,10 @@ function stripStaticActorParentheticals(value: string): string {
   });
 }
 
-function accountEventPredicateWords(accountName: string, exactQuote: string): readonly string[] {
-  const quoteWords = normalizedQuoteWords(stripStaticActorParentheticals(
-    stripTrailingIdentityQualifier(exactQuote),
-  ));
+function nullableAccountEventPredicateFromWords(
+  accountName: string,
+  quoteWords: readonly string[],
+): readonly string[] | null {
   const variants = [...normalizedAccountIdentityVariants(accountName, true)]
     .map(normalizedQuoteWords)
     .sort((left, right) => right.length - left.length);
@@ -676,7 +679,113 @@ function accountEventPredicateWords(accountName: string, exactQuote: string): re
     while (LEGAL_ENTITY_SUFFIXES.has(quoteWords[predicateIndex] ?? "")) predicateIndex += 1;
     if (predicateIndex < quoteWords.length) return quoteWords.slice(predicateIndex);
   }
-  return refuseM5bProductReview("material_change_subject");
+  return null;
+}
+
+function accountEventPredicateFromWords(
+  accountName: string,
+  quoteWords: readonly string[],
+): readonly string[] {
+  return nullableAccountEventPredicateFromWords(accountName, quoteWords) ??
+    refuseM5bProductReview("material_change_subject");
+}
+
+function accountEventPredicateWords(accountName: string, exactQuote: string): readonly string[] {
+  return accountEventPredicateFromWords(accountName, normalizedQuoteWords(stripStaticActorParentheticals(
+    stripTrailingIdentityQualifier(exactQuote),
+  )));
+}
+
+function containsTenderOfferPhrase(words: readonly string[]): boolean {
+  return words.some((word, index) =>
+    word === "tender" && (words[index + 1] === "offer" || words[index + 1] === "offers"));
+}
+
+function tenderOfferPhraseEnd(words: readonly string[], start: number): number | null {
+  let index = start;
+  if (words[index] === "a") {
+    index += 1;
+    if (words[index] === "cash") index += 1;
+    return words[index] === "tender" && words[index + 1] === "offer" ? index + 2 : null;
+  }
+  if (words[index] === "cash") index += 1;
+  return words[index] === "tender" && words[index + 1] === "offers" ? index + 2 : null;
+}
+
+type TenderOfferStatus = "announced" | "completed";
+type TenderOfferClassification = TenderOfferStatus | "unsafe";
+
+function tenderOfferGrammarStatus(words: readonly string[]): TenderOfferStatus | null {
+  let index = TENDER_OFFER_PERFECT_AUXILIARIES.has(words[0] ?? "") ? 1 : 0;
+  if (words[index] === "commenced") {
+    const phraseEnd = tenderOfferPhraseEnd(words, index + 1);
+    if (phraseEnd === words.length) return "completed";
+  }
+
+  index = words[0] === "today" ? 1 : 0;
+  if (words[index] !== "announced") return null;
+  index += 1;
+  if (words[index] !== "that") {
+    const phraseEnd = tenderOfferPhraseEnd(words, index);
+    return phraseEnd === words.length ? "announced" : null;
+  }
+
+  if (words[index + 1] !== "it") return null;
+  index += 2;
+  if (TENDER_OFFER_PERFECT_AUXILIARIES.has(words[index] ?? "")) index += 1;
+  if (words[index] !== "commenced") return null;
+  const phraseEnd = tenderOfferPhraseEnd(words, index + 1);
+  return phraseEnd === words.length ? "announced" : null;
+}
+
+function tenderOfferPredicateBeginsDedicatedShape(words: readonly string[]): boolean {
+  const reportIndex = words[0] === "today" ? 1 : 0;
+  if (MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(words[reportIndex] ?? "")) return true;
+  const commencedIndex = ["had", "has", "have"].includes(words[0] ?? "") ? 1 : 0;
+  return words[commencedIndex] === "commenced";
+}
+
+function tenderOfferPredicateIsGenericEvent(words: readonly string[]): boolean {
+  return beginsCompletedAccountPredicate(words) || hasAnnouncedAccountEvent(words) ||
+    hasReachedAccountAgreement(words);
+}
+
+function tenderOfferPredicateForClassification(
+  accountName: string,
+  exactQuote: string,
+): { readonly actorMetadataSafe: boolean; readonly words: readonly string[] } | null {
+  const rawWords = normalizedQuoteWords(exactQuote);
+  const rawPredicate = nullableAccountEventPredicateFromWords(accountName, rawWords);
+  if (rawPredicate === null || !containsTenderOfferPhrase(rawPredicate)) return null;
+
+  const actionIndex = exactQuote.search(TENDER_OFFER_ACTION);
+  const actorParentheticals = actionIndex < 0 ? [] : [...exactQuote.matchAll(/\([^()]{1,96}\)/gu)]
+    .filter((parenthetical) => parenthetical.index < actionIndex);
+  const actorMetadataSafe = actorParentheticals.length === 0 ||
+    (actorParentheticals.length === 1 && normalizedAccountIdentity(accountName) === "fedex" &&
+      actorParentheticals[0]![0] === TENDER_OFFER_FEDEX_MARKET_METADATA);
+  const withoutActorParentheticals = actionIndex < 0 ? exactQuote : exactQuote.replace(
+    /\([^()]{1,96}\)/gu,
+    (whole, offset: number) => offset < actionIndex ? " " : whole,
+  );
+  const words = nullableAccountEventPredicateFromWords(
+    accountName,
+    normalizedQuoteWords(withoutActorParentheticals),
+  );
+  return words === null ? { actorMetadataSafe: false, words: rawPredicate } :
+    { actorMetadataSafe, words };
+}
+
+function classifyTenderOfferPredicate(
+  accountName: string,
+  exactQuote: string,
+): TenderOfferClassification | null {
+  const predicate = tenderOfferPredicateForClassification(accountName, exactQuote);
+  if (predicate === null) return null;
+  const status = tenderOfferGrammarStatus(predicate.words);
+  if (status !== null) return predicate.actorMetadataSafe ? status : "unsafe";
+  if (tenderOfferPredicateIsGenericEvent(predicate.words)) return null;
+  return tenderOfferPredicateBeginsDedicatedShape(predicate.words) ? "unsafe" : null;
 }
 
 function beginsCompletedAccountPredicate(words: readonly string[]): boolean {
@@ -738,7 +847,10 @@ export function assertM5bProductReviewMaterialChangeQuote(
     refuseM5bProductReview("material_change_assertion");
   }
   const validatedAssertion = parseMaterialChangeAssertion(assertion);
-  const quoteIdentities = normalizedAccountIdentityVariants(exactQuote, false);
+  const quoteIdentityText = normalizedAccountIdentity(accountName) === "fedex"
+    ? exactQuote.replace(TENDER_OFFER_FEDEX_MARKET_METADATA, " ")
+    : exactQuote;
+  const quoteIdentities = normalizedAccountIdentityVariants(quoteIdentityText, false);
   const subjectIdentities = normalizedAccountIdentityVariants(accountName, true);
   const quoteWithoutTrailingQualifier = stripTrailingIdentityQualifier(exactQuote);
   const quoteWords = normalizedQuoteWords(quoteWithoutTrailingQualifier);
@@ -752,6 +864,22 @@ export function assertM5bProductReviewMaterialChangeQuote(
     refuseM5bProductReview("material_change_identity_only");
   }
   if (quoteWords.length === 1) refuseM5bProductReview("material_change_uninformative");
+
+  const tenderOfferClassification = classifyTenderOfferPredicate(accountName, exactQuote);
+  if (tenderOfferClassification !== null) {
+    if (MATERIAL_CHANGE_NEGATION_OR_DENIAL.test(exactQuote)) {
+      refuseM5bProductReview("material_change_non_event");
+    }
+    if (MATERIAL_CHANGE_HARD_NON_EVENT.test(exactQuote) || /[?？]/u.test(exactQuote) ||
+        tenderOfferClassification === "unsafe") {
+      refuseM5bProductReview("material_change_status");
+    }
+    if (tenderOfferClassification !== validatedAssertion.status) {
+      refuseM5bProductReview("material_change_status");
+    }
+    return;
+  }
+
   const hasFiniteAction = quoteWords.some((word) => MATERIAL_CHANGE_COMPLETED_ACTION_WORDS.has(word));
   const hasReportedEvent = quoteWords.some((word, index) =>
     MATERIAL_CHANGE_FINITE_REPORT_WORDS.has(word) &&
@@ -768,11 +896,11 @@ export function assertM5bProductReviewMaterialChangeQuote(
   if (MATERIAL_CHANGE_NEGATION_OR_DENIAL.test(exactQuote)) {
     refuseM5bProductReview("material_change_non_event");
   }
-
   if (MATERIAL_CHANGE_HARD_NON_EVENT.test(exactQuote)) {
     refuseM5bProductReview("material_change_status");
   }
   if (/[?？]/u.test(exactQuote)) refuseM5bProductReview("material_change_status");
+
   const predicateWords = accountEventPredicateWords(accountName, exactQuote);
   switch (validatedAssertion.status) {
     case "completed":

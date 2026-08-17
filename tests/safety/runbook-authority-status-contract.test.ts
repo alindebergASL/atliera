@@ -103,7 +103,7 @@ test("BLOCKERS exposes per-gate status and the Gate 3/Gate 4 imbalance", () => {
   assert.match(blockers, /Gate 4\s*\|\s*fixture-only/i);
   assert.match(blockers, /no launch-ready claim/i);
   assert.match(blockers, /M5b acceptance remains customer-facing: one real account, public sources fetched through M4/i);
-  assert.match(blockers, /external human-ratification file named by its exact raw-byte SHA-256/i);
+  assert.match(blockers, /No generic ratification\/apply contract exists yet/i);
   assert.match(blockers, /M5B_STATUS=IN_PROGRESS/i);
   assert.match(blockers, /CURRENT_EFFECTIVE_AUTHORIZATION=NONE/i);
   assert.doesNotMatch(blockers, /next possible M5b private-read gate/i);

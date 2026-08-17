@@ -105,8 +105,8 @@ test("authority docs advance to Gate 3 reconciliation without standing authoriza
   assert.match(index, /current_effective_authorization:\s*none/i);
   assert.match(index, /ratified next bounded implementation: none/i);
   assert.match(index, /M4 is shipped upon closeout merge.*implementation authority has returned to none/i);
-  assert.match(index, /repository-native mechanism requires a separately authorized explicit real source read/i);
-  assert.match(index, /externally raw-byte-pinned human-ratification file plus a separate one-shot local apply decision/i);
+  assert.match(index, /preferred generic route requires a separately authorized explicit real source read/i);
+  assert.match(index, /No generic ratification or apply contract exists yet/i);
   assert.doesNotMatch(index, /possible gate requires PR #289 approval/i);
   assert.match(blockers, /bounded lab slice B backup\/restore proof status/i);
   assert.match(blockers, /no-side-effect Gate 3 status reconciliation/i);

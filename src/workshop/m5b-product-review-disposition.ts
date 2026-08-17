@@ -8,11 +8,16 @@ import {
   type StrictJsonValue,
 } from "../authority/strict-json.ts";
 import { m5bProductReviewCanonicalSha256, refuseM5bProductReview } from "./m5b-product-review-contract.ts";
+import {
+  validateM5bProductReviewPackageArtifactSelfConsistency,
+  type M5bProductReviewAdmittedPackageArtifacts,
+  type M5bProductReviewPackageArtifactSet,
+} from "./m5b-product-review-package-admission.ts";
 import type { M5bProductReviewPacket } from "./m5b-product-review-package.ts";
 
 export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_KIND =
   "m5b-product-review-owner-disposition" as const;
-export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION = "1" as const;
+export const M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_VERSION = "2" as const;
 
 export const M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY = Object.freeze({
   nonExecutable: true as const,
@@ -22,6 +27,7 @@ export const M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY = Object.freeze({
   armingStatus: "unarmed" as const,
   currentEffectiveAuthorization: "none" as const,
   applyInputEligible: false as const,
+  packageProvenanceAuthenticated: false as const,
   authorizesRatification: false as const,
   authorizesApply: false as const,
   authorizesGraphWrite: false as const,
@@ -35,6 +41,9 @@ export interface M5bProductReviewOwnerDispositionDecision {
   readonly proposalId: string;
   readonly disposition: "accept" | "reject";
 }
+
+export type M5bProductReviewOwnerDispositionPackageArtifacts =
+  M5bProductReviewPackageArtifactSet;
 
 export interface M5bProductReviewOwnerDisposition {
   readonly kind: typeof M5B_PRODUCT_REVIEW_OWNER_DISPOSITION_KIND;
@@ -75,11 +84,13 @@ function objectAt(value: StrictJsonValue | undefined, keys: readonly string[]): 
   }
 }
 
-function assertPacketIdentity(packet: M5bProductReviewPacket): void {
-  const { reviewPacketSha256, ...content } = packet;
-  if (!SHA256.test(reviewPacketSha256) || m5bProductReviewCanonicalSha256(content) !== reviewPacketSha256 ||
-      !SHA256.test(packet.sourcePackSha256) || !SHA256.test(packet.candidateSha256)) {
-    refuseM5bProductReview("owner_disposition_packet");
+function admitDispositionPackage(
+  artifacts: M5bProductReviewOwnerDispositionPackageArtifacts,
+): Readonly<M5bProductReviewAdmittedPackageArtifacts> {
+  try {
+    return validateM5bProductReviewPackageArtifactSelfConsistency(artifacts);
+  } catch {
+    return refuseM5bProductReview("owner_disposition_packet");
   }
 }
 
@@ -130,23 +141,32 @@ function snapshotDecisionInput(raw: unknown): readonly M5bProductReviewOwnerDisp
 
 /** Builds a complete typed local draft. It is deliberately neither ratification nor an apply input. */
 export function createM5bProductReviewOwnerDispositionTemplate(
-  packet: M5bProductReviewPacket,
+  artifacts: M5bProductReviewOwnerDispositionPackageArtifacts,
   decisionsInput: readonly M5bProductReviewOwnerDispositionDecision[],
 ): Readonly<M5bProductReviewOwnerDisposition> {
-  assertPacketIdentity(packet);
+  const currentPacket = admitDispositionPackage(artifacts).reviewPacket;
   const decisions = snapshotDecisionInput(decisionsInput);
-  const content = contentFor(packet, decisions);
-  return validateM5bProductReviewOwnerDisposition({
+  const content = contentFor(currentPacket, decisions);
+  return validateM5bProductReviewOwnerDispositionAgainstPacket({
     ...content,
     dispositionSha256: m5bProductReviewCanonicalSha256(content),
-  }, packet);
+  }, currentPacket);
 }
 
 export function validateM5bProductReviewOwnerDisposition(
   raw: unknown,
-  packet: M5bProductReviewPacket,
+  artifacts: M5bProductReviewOwnerDispositionPackageArtifacts,
 ): Readonly<M5bProductReviewOwnerDisposition> {
-  assertPacketIdentity(packet);
+  return validateM5bProductReviewOwnerDispositionAgainstPacket(
+    raw,
+    admitDispositionPackage(artifacts).reviewPacket,
+  );
+}
+
+function validateM5bProductReviewOwnerDispositionAgainstPacket(
+  raw: unknown,
+  currentPacket: M5bProductReviewPacket,
+): Readonly<M5bProductReviewOwnerDisposition> {
   let snapshot: StrictJsonValue;
   try {
     snapshot = snapshotStrictJson(raw, "owner_disposition", LIMITS);
@@ -172,12 +192,12 @@ export function validateM5bProductReviewOwnerDisposition(
     }
     return Object.freeze({ proposalId: decision.proposalId, disposition: decision.disposition });
   });
-  const proposalIds = packet.proposals.map((proposal) => proposal.proposalId);
+  const proposalIds = currentPacket.proposals.map((proposal) => proposal.proposalId);
   if (decisions.length !== proposalIds.length || new Set(decisions.map((item) => item.proposalId)).size !== decisions.length ||
       decisions.some((decision, index) => decision.proposalId !== proposalIds[index])) {
     refuseM5bProductReview("owner_disposition_decisions");
   }
-  const expectedBinding = contentFor(packet, decisions).packageBinding;
+  const expectedBinding = contentFor(currentPacket, decisions).packageBinding;
   if (m5bProductReviewCanonicalSha256(binding) !== m5bProductReviewCanonicalSha256(expectedBinding) ||
       m5bProductReviewCanonicalSha256(boundary) !==
         m5bProductReviewCanonicalSha256(M5B_PRODUCT_REVIEW_NON_EXECUTABLE_BOUNDARY) ||
@@ -187,7 +207,7 @@ export function validateM5bProductReviewOwnerDisposition(
       typeof root.dispositionSha256 !== "string" || !SHA256.test(root.dispositionSha256)) {
     refuseM5bProductReview("owner_disposition_binding");
   }
-  const content = contentFor(packet, decisions);
+  const content = contentFor(currentPacket, decisions);
   if (root.dispositionSha256 !== m5bProductReviewCanonicalSha256(content)) {
     refuseM5bProductReview("owner_disposition_hash");
   }

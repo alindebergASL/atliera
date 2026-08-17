@@ -22,30 +22,36 @@ Boundary markers (this document authorizes implementation work only; it executes
 - production_readiness_claim: false
 - product_readiness_claim: false
 - launch_readiness_claim: false
-- private_reads: 0
+- current_authorized_future_private_reads: 0
 - product_provider_calls: 0
-- acquisitions: 0
+- current_authorized_future_acquisitions: 0
 - graph_durable_writes: 0
 - M5B_STATUS: IN_PROGRESS
 - CURRENT_EFFECTIVE_AUTHORIZATION: NONE
-- REAL_SOURCE_READS: 0
+- QUALIFIED_REAL_SOURCE_READS: 0
 - REAL_GRAPH_WRITES: 0
 - REAL_RATIFICATIONS: 0
+- REVIEWED_EXTERNAL_SCHEMA_V1_PACKAGE: PRODUCT_FAIL
+- EXACT_EXECUTION_PROVENANCE: HOLD
+- EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_ACQUISITIONS: 1
+- EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_NETWORK_REQUESTS: 1
+- PACKAGE_RECORDED_HISTORICAL_RETAINED_CUSTODY_READS: 1
+- CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS: 0
 - deployments: 0
 - retries: 0
-- external_product_effects: 0
+- current_authorized_future_external_product_effects: 0
 - local_deterministic_gate_b_synthetic_outputs_written: 5
 
 Latest completed operator decision recorded for this milestone:
 
-- decision_implementation_work_authorized: `M5b-repository-native-product-completion (implementation only; no real source execution, ratification, or effects)`
-- decision_implementation_start_condition: `canonical main commit e43db9b7851ade70201617a867bdcb2f9208a0b1`
+- decision_implementation_work_authorized: `M5b generic product-review evidence-quality v2 (implementation only; no real source execution, ratification, or effects)`
+- decision_implementation_start_condition: `canonical main commit 3b9326810840ac87980bbc247ab39f03ebc3cd94`
 - decision_current_effective_authorization: `none`
 - server_selection: `minimal first-party MCP server; no third-party survey/fork`
 - demonstration_account: `FedEx`
 - live_acquisition_authorized: `false`
 - deployment_authorized: `false`
-- next_recommended_work: `independent review of the repository-native prepare/apply surface; real source execution and external human ratification remain separately unauthorized`
+- next_recommended_work: `merge the schema-v2 meaningful-change evidence gate; only then consider a separately authorized fresh real prepare; ratification/apply remain deferred until a useful package passes review`
 
 Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed. The host-local v2-r3 candidate and prior host evidence are frozen provenance only. Host forensic qualification is closed, no v2-r4 is authorized, and the repository-native product path supersedes host qualification. The shared control plane remains quarantined and is not an M5b acceptance dependency. M5b remains in progress; current effective authority is `none`.
 
@@ -89,11 +95,13 @@ The slice remains closed to every adjacent risk class:
 
 M5a is **shipped** because both halves of the done-pattern now exist: the named visible capstone and a bounded successor approval surface. H2 subsequently shipped at PR #284, and M4 has now completed one separately authorized acquisition and its own visible closeout. `implementation_work_authorized` and `current_effective_authorization` are again both `none`. No repeated acquisition, repeated M5a product slice or durable effect, provider call, private-evidence read, production effect, deployment, M5b provider execution, or readiness claim is authorized.
 
-### M5b repository-native product completion in progress
+### M5b generic product-review quality gate in progress
 
-The repository-native `m5b:prepare` / `m5b:apply` surface is the current implementation mechanism. It reuses the M5b FedEx source admission and candidate/review composition, requires explicit source/output locations plus exact source, owner-authorization, commit and tree bindings, and requires a separately raw-byte-pinned external human-ratification file before one local durable graph commit. Apply revalidates every binding, stages output before commit, reads new durable state back, and can re-render/finalize an exact existing `rev_1` without another write. Neither command acquires a source, calls a provider/model, selects authority, uses host/control-plane infrastructure, or deploys.
+The generic `m5b:product-review:prepare` surface is the preferred current product route. Its schema-v2 contract requires an explicitly typed material-change exact excerpt to bind the “What changed?” answer and flow through a source-fact Signal, a dependent Map analysis, and every Play before it will render a package. Evidence roles remain visible in the source pack, review packet, candidate payload, Workshop, and meeting brief; they are reviewed assertions rather than independent proof of business materiality. Schema-v1 generic packages are historical review inputs only. The FedEx-specific `m5b:prepare` / `m5b:apply` surface remains preserved reference behavior, not the current successor baseline.
 
-The customer outcome remains unchanged: one real account → the system fetches public sources through M4 → validation and human ratification → durable state → a shareable Workshop account page → every claim traceable to a stored source → every unverified item visibly labeled. Repository-native prepare/apply does not replace that outcome. M5b is **🔶 in progress, not shipped** until the real page exists and is evaluated.
+The first externally supplied sanitized schema-v1 real package was internally byte-consistent but failed product review: its primary 8-K evidence was only the issuer name, its second excerpt was an industry label, and it did not explain what changed or why it mattered. One Workshop artifact was also post-processed outside the claimed repository renderer, and the archive-packet mismatch cannot be resolved from the six-file package, so exact execution provenance remains on hold. The assessment is recorded in `docs/reviews/m5b-product-review-v1-real-package-assessment.md`. Its prior run reported one archive acquisition/network request, and its prepare result records one retained-custody read; those historical effects remain recorded even though they do not advance the milestone. `QUALIFIED_REAL_SOURCE_READS=0` and `CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS=0` are the distinct current counters.
+
+The customer outcome remains unchanged: one real account → the system fetches public sources through M4 → validation and human ratification → durable state → a shareable Workshop account page → every claim traceable to a stored source → every unverified item visibly labeled. The generic prepare package does not replace that outcome. M5b is **🔶 in progress, not shipped** until a useful exact-provenance package is reviewed, ratified through a future generic contract, applied once, read back, rendered, and evaluated.
 
 The host-local v2-r3 archive is `FROZEN_UNQUALIFIED_PROVENANCE_ONLY`; host/archive qualification and V4 reconciliation are closed. The shared control plane is quarantined and nonblocking, not a product acceptance requirement. No v2-r4 is authorized.
 
@@ -107,7 +115,7 @@ The host-local v2-r3 archive is `FROZEN_UNQUALIFIED_PROVENANCE_ONLY`; host/archi
 | **M2.5 — Prompt contracts → SKILL.md instruction packages** (execution affordances structurally stripped; loader rejection tests; `mode: "placeholder"` retired) | ⬜ not started | ADR 0003 A2; direction memo §6. M2.5 is not currently authorized; any later slice requires a new explicit operator decision. |
 | **M5a — Doctrine-loop proof, curated public sources** (curated public GraphBundle → recorded proposal fixtures grounded in curated sources → validation → human ratification → durable graph write → Workshop renders from durable state; visible artifact: a real-account-looking Workshop page rendered entirely from durable state without any system-acquisition path being exercised) | ✅ shipped | Steps 1–3 merged through PRs #278 (`6205c4a`), #279 (`d09ac17`), and #280 (`dc0381f`); Step 4 merged through PR #282 (`9661468`). Proposals were fixture-curated, not model-generated. Visible artifact: `fixtures/workshop/m5a-curated-proposal-flow-capstone.html`. Closeout, drift boundary and successor approval surface: `docs/reviews/m5a-product-closeout-retro.md`. |
 | **M4 — Evidence acquisition v1** (deterministic system-side fetcher as the first orchestrator-held MCP integration; allowlisted, sandboxed, provenance-tagged; L0 only in this slice; **its own capstone, visible artifact and retro — not co-shipped with M5**) | ✅ shipped upon closeout merge | Canonical implementation `c1372acd14e09722c1e54646b85d89d3a0fd73f1`, tree `1eb28fcea7ced5ba2357bd32c35561a7cadc4918`. Attempt 1 remains a truthful permanently consumed `failed_no_evidence` record; PR #287 merged the Node 22 repair; separately authorized attempt 2 succeeded once with HTTP 200, `application/json`, 160,901 bytes, one DNS/request/connection attempt, zero redirects and zero retries. Visible artifact: `fixtures/workshop/m4-sec-fedex-live-evidence-preview.html`; sanitized proof: `fixtures/validation/m4-live-acquisition-success-proof.json`; retro: `docs/reviews/m4-live-acquisition-closeout-retro.md`. `current_effective_authorization: none`; no repeat acquisition, M5b, graph, provider, deployment or readiness authority. |
-| **M5b — Does-its-job-once, system-acquired sources** (one real account → system fetches public sources through M4 → validation/human ratification → durable state → shareable Workshop account page → every claim traceable to a stored source → every unverified item visibly labeled) | 🔶 in progress — mechanism implemented for review; real page not yet executed or evaluated | Repository-native prepare/apply is the current bounded mechanism, not the milestone outcome. Committed synthetic fixtures prove its contracts only. `M5B_STATUS=IN_PROGRESS`, `CURRENT_EFFECTIVE_AUTHORIZATION=NONE`, `REAL_SOURCE_READS=0`, `REAL_GRAPH_WRITES=0`, and `REAL_RATIFICATIONS=0`. Host-local v2-r3 is frozen provenance only; the shared control plane is quarantined/nonblocking; no v2-r4. |
+| **M5b — Does-its-job-once, system-acquired sources** (one real account → system fetches public sources through M4 → validation/human ratification → durable state → shareable Workshop account page → every claim traceable to stored sources → every unverified item visibly labeled) | 🔶 in progress — mechanism implemented for review; real page not yet executed or evaluated | Generic schema-v2 product-review prepare is the preferred current route; it requires an explicitly typed and answer-bound material-change chain before rendering, followed by mandatory human usefulness review. The reviewed external schema-v1 package failed the product gate and has execution provenance on hold. Generic ratification/apply does not yet exist. `M5B_STATUS=IN_PROGRESS`, `CURRENT_EFFECTIVE_AUTHORIZATION=NONE`, `QUALIFIED_REAL_SOURCE_READS=0`, `REAL_GRAPH_WRITES=0`, and `REAL_RATIFICATIONS=0`; historical source effects are accounted separately above. The FedEx-specific path remains historical reference behavior. |
 | **M6 — Identity + lab deployment** (Team/User/membership; auth in front of Workshop; lab target executed under existing deployment contracts; Gate 3 lands here, in service of M5b's artifact) | ⬜ not started | `docs/BLOCKERS.md` Gate 3 |
 | **M7 — Gate 4 corpus + first external users** (launch-gate corpus on real accounts; quantitative bars evaluated honestly; first users admitted per the original gating plan) | ⬜ not started | `docs/BLOCKERS.md` Gate 4 |
 
@@ -135,7 +143,7 @@ These are the operator's calls, recorded here so the chart carries them visibly.
 4. **ADR numbering/title** — resolved: ADR 0003.
 5. **A3 timing** — whether the outward server is M7-adjacent or later.
 6. **M5a Step 4 vs. H3 implementation** — **RESOLVED: STEP 4 FIRST.** Steps 1–3 are merged through PRs #278–#280 and Step 4 through PR #282 (`9661468`). The required capstone retro is now `docs/reviews/m5a-product-closeout-retro.md`; H3 remains unstarted and not next-up.
-7. **Post-M5a product direction** — **RESOLVED TO THE REPOSITORY-NATIVE M5b PRODUCT PATH: H2 NO-NETWORK ECHO PROOF → THIN M4 `public_http_fetch_v1` → M5b FEDEX SOURCE/CANDIDATE COMPOSITION → EXPLICIT PREPARE → EXTERNAL HUMAN RATIFICATION → ONE LOCAL APPLY/READ-BACK/RENDER.** H2 and M4 remain historical satisfied inputs. The host-local v2-r3 and former Gate B executor are provenance only; host qualification is closed. Real source execution, human ratification, and the one local durable apply effect each remain separately gated by the exact decisions in the repository-native runbook. Provider/model execution, acquisition, deployment, and every later effect remain unauthorized.
+7. **Post-M5a product direction** — **RESOLVED TO THE GENERIC M5b PRODUCT PATH: H2 NO-NETWORK ECHO PROOF → THIN M4 ACQUISITION → GENERIC PRODUCT-REVIEW PREPARE → USEFULNESS REVIEW → FUTURE GENERIC HUMAN RATIFICATION + ONE LOCAL APPLY/READ-BACK/RENDER.** H2 and M4 remain historical satisfied inputs. Schema-v2 prepare is the current implementation frontier after the schema-v1 real package failed usefulness review. The FedEx-specific repository-native path remains reference behavior. Any fresh source execution, future generic ratification, or local durable apply effect requires its own exact decision; none is currently authorized.
 
 ## Maintenance rules
 

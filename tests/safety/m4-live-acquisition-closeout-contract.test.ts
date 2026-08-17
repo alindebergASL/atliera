@@ -290,7 +290,7 @@ test("M4 becomes shipped upon merge while every future effect remains closed", (
   assert.equal(markerValue(RETRO, "next_recommended_work"), "separate explicit M5b decision");
   assert.equal(markerValue(RUNBOOK, "next_recommended_work"), "separate explicit M5b decision");
   assert.match(INDEX, /M5b acceptance remains one real account/i);
-  assert.match(INDEX, /Repository-native prepare\/apply is the current implementation mechanism/i);
+  assert.match(INDEX, /Generic schema-v2 `m5b:product-review:prepare` is the preferred\/current product route/i);
   assert.equal(PROOF.boundaries.current_effective_authorization, "none");
   assert.equal(PROOF.boundaries.next_recommended_work, "separate_explicit_M5b_decision");
   assert.match(

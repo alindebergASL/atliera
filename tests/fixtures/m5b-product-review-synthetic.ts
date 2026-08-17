@@ -4,25 +4,26 @@ import { join } from "node:path";
 
 import {
   M5B_PRODUCT_REVIEW_REQUEST_KIND,
+  M5B_PRODUCT_REVIEW_REQUEST_VERSION,
   M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION,
   M5B_PRODUCT_REVIEW_SUPERSESSION_EXPLANATION,
   type M5bProductReviewRequest,
 } from "../../src/workshop/m5b-product-review-contract.ts";
 
 export const SYNTHETIC_SOURCE_TEXTS = Object.freeze({
-  launch: "<!doctype html><html><body><h1>Fictional product note</h1><p>Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams.</p><p>This page and company are synthetic test material.</p></body></html>\n",
+  launch: "<!doctype html><html><body><h1>Fictional product note</h1><p>Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.</p><p>This page and company are synthetic test material.</p></body></html>\n",
   pilot: `${JSON.stringify({
     fixtureOnly: true,
     fictionalCompany: "Citrine Works",
-    pilotMetric: "Eighteen of twenty-four invited planners completed the fictional pilot scenario.",
+    pilotMetric: "Citrine Works completed a fictional pilot scenario with eighteen of twenty-four invited planners.",
     note: "Synthetic JSON evidence for tests only.",
   }, null, 2)}\n`,
   notes: "Fictional research note for Citrine Works.\nThree regional teams requested a shared exception checklist before the next planning session.\nSynthetic text evidence only.\n",
 });
 
 export const SYNTHETIC_QUOTES = Object.freeze({
-  launch: "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams.",
-  pilot: "Eighteen of twenty-four invited planners completed the fictional pilot scenario.",
+  launch: "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+  pilot: "Citrine Works completed a fictional pilot scenario with eighteen of twenty-four invited planners.",
   notes: "Three regional teams requested a shared exception checklist before the next planning session.",
 });
 
@@ -142,7 +143,7 @@ export async function createSyntheticM5bProductReviewScenario(
 
   const request: M5bProductReviewRequest = {
     kind: M5B_PRODUCT_REVIEW_REQUEST_KIND,
-    schemaVersion: "1",
+    schemaVersion: M5B_PRODUCT_REVIEW_REQUEST_VERSION,
     subject: {
       teamId: "team_atliera_fixture",
       accountId: "acc_citrine_works",
@@ -166,16 +167,26 @@ export async function createSyntheticM5bProductReviewScenario(
     },
     customerQuestions: {
       whoIsThisAccount: "Citrine Works is a fictional operations-software company serving regional planning teams.",
-      whatMeaningfullyChanged: "It introduced a planning product and recorded early completion plus a repeated checklist need.",
+      whatMeaningfullyChanged: `Source states: ${SYNTHETIC_QUOTES.launch}`,
+      whatMeaningfullyChangedEvidenceBindingIds: ["evd_citrine_launch"],
+      whatMeaningfullyChangedSelection: {
+        signalProposalId: "prp_citrine_launch_signal",
+        mapProposalId: "prp_citrine_readiness_analysis",
+        playProposalId: "prp_citrine_meeting_play",
+      },
       whyDoesItMatter: "The combined evidence suggests a focused meeting can test whether exception handling is the useful entry point.",
       whatNeedsAttention: "The pilot size is small, evidence currency differs by source, and the checklist need may not generalize.",
       safeNextTask: M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION,
     },
     sources,
     evidenceBindings: [
-      { evidenceId: "evd_citrine_launch", sourceId: "src_citrine_launch", exactQuote: SYNTHETIC_QUOTES.launch },
-      { evidenceId: "evd_citrine_pilot", sourceId: "src_citrine_pilot", exactQuote: SYNTHETIC_QUOTES.pilot },
-      { evidenceId: "evd_citrine_notes", sourceId: "src_citrine_notes", exactQuote: SYNTHETIC_QUOTES.notes },
+      { evidenceId: "evd_citrine_launch", sourceId: "src_citrine_launch", exactQuote: SYNTHETIC_QUOTES.launch,
+        evidenceRole: "material_change",
+        materialChangeAssertion: { kind: "account_event", polarity: "affirmed", status: "completed" } },
+      { evidenceId: "evd_citrine_pilot", sourceId: "src_citrine_pilot", exactQuote: SYNTHETIC_QUOTES.pilot,
+        evidenceRole: "account_context", materialChangeAssertion: null },
+      { evidenceId: "evd_citrine_notes", sourceId: "src_citrine_notes", exactQuote: SYNTHETIC_QUOTES.notes,
+        evidenceRole: "account_context", materialChangeAssertion: null },
     ],
     proposals: [
       {
@@ -216,9 +227,10 @@ export async function createSyntheticM5bProductReviewScenario(
         classification: "analysis",
         lens: "map",
         title: "Exception handling is a plausible discovery focus",
-        summary: "Pilot completion and the repeated checklist request make exception handling a plausible meeting hypothesis.",
-        evidenceBindingIds: ["evd_citrine_pilot", "evd_citrine_notes"],
-        supportingProposalIds: ["prp_citrine_pilot_fact", "prp_citrine_attention_fact"],
+        summary: "Following the product introduction, pilot completion and the repeated checklist request make exception handling a plausible meeting hypothesis.",
+        evidenceBindingIds: ["evd_citrine_launch", "evd_citrine_pilot", "evd_citrine_notes"],
+        supportingProposalIds: ["prp_citrine_launch_signal", "prp_citrine_pilot_fact",
+          "prp_citrine_attention_fact"],
         caveats: ["The pilot is small and the notes do not establish demand across the wider account."],
         safeTask: null,
       },
@@ -228,7 +240,7 @@ export async function createSyntheticM5bProductReviewScenario(
         lens: "play",
         title: "Draft a targeted exception-workflow meeting brief for internal review",
         summary: "Use the cited facts and analysis to frame a draft brief around exception workflows and open questions.",
-        evidenceBindingIds: ["evd_citrine_pilot", "evd_citrine_notes"],
+        evidenceBindingIds: ["evd_citrine_launch", "evd_citrine_pilot", "evd_citrine_notes"],
         supportingProposalIds: ["prp_citrine_readiness_analysis"],
         caveats: ["A reviewer should confirm the audience, evidence currency, and desired meeting outcome before use."],
         safeTask: {

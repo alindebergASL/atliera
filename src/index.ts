@@ -106,6 +106,5 @@ export * from "./workshop/m5b-fedex-review-composition.ts";
 export * from "./workshop/m5b-fedex-prewrite-workshop.ts";
 export * from "./workshop/m5b-product-review-contract.ts";
 export * from "./workshop/m5b-product-review-package.ts";
-export * from "./workshop/m5b-product-review-render.ts";
 export * from "./workshop/m5b-product-review-prepare.ts";
 export * from "./workshop/m5b-product-review-disposition.ts";

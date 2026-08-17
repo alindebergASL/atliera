@@ -31,8 +31,8 @@ The historical material recorded:
 
 Those facts describe what the former core attempted to constrain. They do not qualify the host, authorize a read, ratify review decisions, authorize retention, or satisfy the customer-facing M5b outcome.
 
-## Current M5b boundary
+## Historical boundary and current pointer
 
-The current mechanism is documented in `docs/runbooks/m5b-repository-native-product-completion.md`. It requires separately supplied owner execution decisions, an externally pinned human-ratification file, and the repository-native local apply boundary. It does not consult this frozen host package or the quarantined control plane.
+At this historical boundary, the next mechanism was documented in `docs/runbooks/m5b-repository-native-product-completion.md`: separately supplied owner execution decisions, an externally pinned human-ratification file, and the repository-native local apply boundary. That route is now historical reference behavior. The preferred current route is generic schema-v2 `m5b:product-review:prepare`; it requires a useful exact-provenance package to pass human review before any generic ratification/apply successor is implemented. Neither route consults this frozen host package or the quarantined control plane.
 
 M5b acceptance remains: one real account, public sources fetched through M4, validation and human ratification, durable state, and a shareable Workshop account page whose claims trace to stored sources and whose unverified items are visibly labeled. No such real evaluated page exists yet, so M5b remains in progress.

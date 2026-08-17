@@ -47,9 +47,9 @@ test("roadmap and M4 closeout preserve none authority after one successful consu
   assert.match(packet, /response bytes: `160,901`/);
   assert.match(packet, /response SHA-256: `ab73030ea6e7fc8aa82d2e560988dec769f1f432b2a7648be986505893b22c3d`/);
   const index = readFileSync(join(root, "docs", "runbooks", "INDEX.md"), "utf8");
-  assert.match(index, /next recommended work: independent review of the repository-native M5b prepare\/apply surface/i);
-  assert.match(index, /real source execution and external human ratification remain separately unauthorized/i);
-  assert.match(index, /externally raw-byte-pinned human-ratification file plus a separate one-shot local apply decision/i);
+  assert.match(index, /next recommended work: review and merge the generic schema-v2 meaningful-change evidence gate/i);
+  assert.match(index, /separately authorized fresh exact-provenance v2 prepare/i);
+  assert.match(index, /No generic ratification or apply contract exists yet/i);
   assert.doesNotMatch(index, /possible gate requires PR #289 approval/i);
   assert.match(index, /M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes/);
   assert.match(index, /M4 Gate B attempt 2 is permanently consumed and succeeded once/);

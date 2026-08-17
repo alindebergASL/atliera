@@ -25,7 +25,7 @@ one real account
   -> every unverified item visibly labeled
 ```
 
-Repository-native prepare/apply is the current implementation mechanism for the validation, ratification, durable-state, and rendering portion of the preserved historical FedEx-specific completion path. It remains supported reference behavior, but it is not the preferred/current product route; that role belongs to the generic `m5b:product-review:prepare` surface. It is not a substitute milestone and does not retroactively turn a committed fixture into a real customer result. M5b remains in progress until the real shareable page exists and has been evaluated against the acceptance framing above.
+Repository-native prepare/apply is the supported reference mechanism for the validation, ratification, durable-state, and rendering portion of the preserved historical FedEx-specific completion path. It is not the preferred/current product route; that role belongs to the generic schema-v2 `m5b:product-review:prepare` surface. It is not a substitute milestone and does not retroactively turn a committed fixture into a real customer result. M5b remains in progress until the real shareable page exists and has been evaluated against the acceptance framing above.
 
 The former host Gate B/v2-r3 material is frozen historical provenance only. Host forensic qualification is closed; no v2-r4 is authorized. Archive qualification, V4 reconciliation, host investigation, and the quarantined shared control plane are not acceptance dependencies and are nonblocking.
 

@@ -238,6 +238,18 @@ describe("M5b product-review preparation", () => {
       assert.deepEqual(packet.customerQuestions.find((item: any) =>
         item.question === "What meaningfully changed?").proposalBindingIds,
       Object.values(scenario.request.customerQuestions.whatMeaningfullyChangedSelection));
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "Who is this account?").evidenceBindingIds,
+      scenario.request.customerQuestions.whoIsThisAccountSupport!.evidenceBindingIds);
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "Who is this account?").proposalBindingIds,
+      scenario.request.customerQuestions.whoIsThisAccountSupport!.proposalBindingIds);
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "Why does it matter?").evidenceBindingIds,
+      scenario.request.customerQuestions.whyDoesItMatterSupport!.evidenceBindingIds);
+      assert.deepEqual(packet.customerQuestions.find((item: any) =>
+        item.question === "Why does it matter?").proposalBindingIds,
+      scenario.request.customerQuestions.whyDoesItMatterSupport!.proposalBindingIds);
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "signal" &&
         proposal.classification === "source_fact" && proposal.title.includes("Citrine Works")));
       assert.ok(packet.proposals.some((proposal: any) => proposal.lens === "map" &&

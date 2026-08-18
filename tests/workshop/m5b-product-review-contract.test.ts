@@ -114,6 +114,20 @@ describe("M5b product-review request contract", () => {
         materialChangeAssertion: null,
       });
       assert.equal(refusalCode(() => validateM5bProductReviewRequest(unused)), "unused_evidence_binding");
+
+      const unknownQuestionEvidence = cloneSynthetic(baseline);
+      unknownQuestionEvidence.customerQuestions.whoIsThisAccountSupport.evidenceBindingIds =
+        ["evd_citrine_missing"];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(unknownQuestionEvidence)),
+        "customer_question_support");
+
+      const unsupportedQuestionEvidence = cloneSynthetic(baseline);
+      unsupportedQuestionEvidence.customerQuestions.whoIsThisAccountSupport = {
+        evidenceBindingIds: ["evd_citrine_pilot"],
+        proposalBindingIds: ["prp_citrine_launch_signal"],
+      };
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(unsupportedQuestionEvidence)),
+        "customer_question_support");
     });
   });
 

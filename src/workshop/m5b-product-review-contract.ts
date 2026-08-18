@@ -176,6 +176,20 @@ export interface M5bProductReviewQuestions {
   readonly safeNextTask: string;
 }
 
+export interface M5bProductReviewMeetingQuestion {
+  readonly question: string;
+  readonly whyAsked: string;
+  readonly desiredLearning: string;
+  readonly followUpSignal: string;
+}
+
+export interface M5bProductReviewMeetingPlan {
+  readonly primaryAudience: string;
+  readonly meetingObjective: string;
+  readonly orderedQuestions: readonly M5bProductReviewMeetingQuestion[];
+  readonly overallCloseCriterion: string;
+}
+
 export interface M5bProductReviewSourceRequest {
   readonly sourceId: string;
   readonly title: string;
@@ -226,6 +240,7 @@ export interface M5bProductReviewRequest {
   readonly execution: M5bProductReviewExecution;
   readonly supersession: M5bProductReviewSupersession;
   readonly customerQuestions: M5bProductReviewQuestions;
+  readonly meetingPlan?: M5bProductReviewMeetingPlan;
   readonly sources: readonly M5bProductReviewSourceRequest[];
   readonly evidenceBindings: readonly M5bProductReviewEvidenceRequest[];
   readonly proposals: readonly M5bProductReviewProposalRequest[];
@@ -428,6 +443,53 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
     refuseM5bProductReview("material_change_question");
   }
   return questions;
+}
+
+function meetingPlanText(
+  value: StrictJsonValue | undefined,
+  minBytes: number,
+  maxBytes: number,
+): string {
+  const text = stringAt(value, "meeting_plan", minBytes, maxBytes);
+  if (m5bProductReviewTextClaimsForbiddenTrust(text)) refuseM5bProductReview("meeting_plan_trust");
+  if (m5bProductReviewTextRequestsEffect(text)) refuseM5bProductReview("meeting_plan_effect");
+  return text;
+}
+
+function parseMeetingPlan(value: StrictJsonValue | undefined): M5bProductReviewMeetingPlan {
+  const object = objectAt(value, "request.meetingPlan");
+  exactKeys(object, ["primaryAudience", "meetingObjective", "orderedQuestions", "overallCloseCriterion"]);
+  const questionValues = arrayAt(object.orderedQuestions, "request.meetingPlan.orderedQuestions", 6, false);
+  if (questionValues.length !== 3) refuseM5bProductReview("meeting_plan_questions");
+  const orderedQuestions = questionValues.map((questionValue, index) => {
+    const question = objectAt(questionValue, `request.meetingPlan.orderedQuestions[${index}]`);
+    exactKeys(question, ["question", "whyAsked", "desiredLearning", "followUpSignal"]);
+    return {
+      question: meetingPlanText(question.question, 8, 500),
+      whyAsked: meetingPlanText(question.whyAsked, 8, 500),
+      desiredLearning: meetingPlanText(question.desiredLearning, 8, 500),
+      followUpSignal: meetingPlanText(question.followUpSignal, 8, 500),
+    };
+  });
+  if (new Set(orderedQuestions.map((item) => item.question)).size !== orderedQuestions.length) {
+    refuseM5bProductReview("meeting_plan_questions");
+  }
+  return {
+    primaryAudience: meetingPlanText(object.primaryAudience, 2, 240),
+    meetingObjective: meetingPlanText(object.meetingObjective, 8, 700),
+    orderedQuestions,
+    overallCloseCriterion: meetingPlanText(object.overallCloseCriterion, 12, 900),
+  };
+}
+
+export function validateM5bProductReviewMeetingPlan(raw: unknown): Readonly<M5bProductReviewMeetingPlan> {
+  let snapshot: StrictJsonValue;
+  try {
+    snapshot = snapshotStrictJson(raw, "meeting_plan", REQUEST_JSON_LIMITS);
+  } catch {
+    refuseM5bProductReview("meeting_plan_plain_data");
+  }
+  return deepFreezeOwnData(parseMeetingPlan(snapshot));
 }
 
 export function isM5bProductReviewCanonicalHttpsUrl(value: string): boolean {
@@ -1231,8 +1293,9 @@ export function validateM5bProductReviewRequest(raw: unknown): Readonly<M5bProdu
     refuseM5bProductReview("request_plain_data");
   }
   const root = objectAt(snapshot, "request");
+  const optionalKeys = Object.hasOwn(root, "meetingPlan") ? ["meetingPlan"] : [];
   exactKeys(root, ["kind", "schemaVersion", "subject", "authority", "execution", "supersession",
-    "customerQuestions", "sources", "evidenceBindings", "proposals"]);
+    "customerQuestions", ...optionalKeys, "sources", "evidenceBindings", "proposals"]);
   if (root.kind !== M5B_PRODUCT_REVIEW_REQUEST_KIND || root.schemaVersion !== M5B_PRODUCT_REVIEW_REQUEST_VERSION) {
     refuseM5bProductReview("request_version");
   }
@@ -1249,6 +1312,7 @@ export function validateM5bProductReviewRequest(raw: unknown): Readonly<M5bProdu
     execution: parseExecution(root.execution),
     supersession: parseSupersession(root.supersession),
     customerQuestions: parseQuestions(root.customerQuestions),
+    ...(Object.hasOwn(root, "meetingPlan") ? { meetingPlan: parseMeetingPlan(root.meetingPlan) } : {}),
     sources: sourceValues.map(parseSource),
     evidenceBindings: evidenceValues.map(parseEvidence),
     proposals: proposalValues.map(parseProposal),

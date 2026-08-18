@@ -295,6 +295,35 @@ function renderM5bProductReviewMeetingBrief(
       `  - ${caveats}${task}`,
     ].join("\n");
   });
+  const meetingPlanLines = packet.meetingPlan === undefined ? [] : [
+    "## Structured meeting plan",
+    "",
+    `- **Primary audience:** Request-supplied: “${escapeMarkdown(packet.meetingPlan.primaryAudience)}”`,
+    `- **Meeting objective:** Request-supplied: “${escapeMarkdown(packet.meetingPlan.meetingObjective)}”`,
+    "",
+    ...packet.meetingPlan.orderedQuestions.flatMap((item, index) => [
+      `### ${index + 1}. Discovery question`,
+      "",
+      `Request-supplied question: “${escapeMarkdown(item.question)}”`,
+      "",
+      "**Why this question:**",
+      "",
+      `Request-supplied rationale: “${escapeMarkdown(item.whyAsked)}”`,
+      "",
+      "**Desired learning:**",
+      "",
+      `Request-supplied learning target: “${escapeMarkdown(item.desiredLearning)}”`,
+      "",
+      "**Follow-up signal:**",
+      "",
+      `Request-supplied signal: “${escapeMarkdown(item.followUpSignal)}”`,
+      "",
+    ]),
+    "### Overall close criterion",
+    "",
+    `Request-supplied close criterion: “${escapeMarkdown(packet.meetingPlan.overallCloseCriterion)}”`,
+    "",
+  ];
 
   return [
     "# DRAFT targeted meeting brief — NOT SENT / NOT RATIFIED",
@@ -309,6 +338,7 @@ function renderM5bProductReviewMeetingBrief(
     `- Package-classified event status: **${materialAssertion}**`,
     ...announcedStatusLines,
     "",
+    ...meetingPlanLines,
     "## Five customer questions",
     "",
     ...packet.customerQuestions.flatMap((item, index) => [
@@ -437,6 +467,8 @@ function renderM5bProductReviewWorkshopHtml(
       : `<p><strong>Request-supplied draft answer:</strong></p><blockquote>${escapeHtml(item.answer)}</blockquote>`;
     return `<article class="brief-answer"><h3>${escapeHtml(item.question)}</h3>${answer}${questionSupport(item, index)}</article>`;
   }).join("");
+  const meetingPlanHtml = packet.meetingPlan === undefined ? "" :
+    `<section class="meeting-plan" aria-labelledby="structured-meeting-plan"><h3 id="structured-meeting-plan">Structured meeting plan</h3><dl class="meeting-plan-summary"><div><dt>Primary audience</dt><dd><blockquote>${escapeHtml(packet.meetingPlan.primaryAudience)}</blockquote></dd></div><div><dt>Meeting objective</dt><dd><blockquote>${escapeHtml(packet.meetingPlan.meetingObjective)}</blockquote></dd></div></dl><ol class="meeting-question-list">${packet.meetingPlan.orderedQuestions.map((item) => `<li class="meeting-question-block"><article><h4>Discovery question</h4><blockquote>${escapeHtml(item.question)}</blockquote><p><strong>Why this question:</strong></p><blockquote>${escapeHtml(item.whyAsked)}</blockquote><p><strong>Desired learning:</strong></p><blockquote>${escapeHtml(item.desiredLearning)}</blockquote><p><strong>Follow-up signal:</strong></p><blockquote>${escapeHtml(item.followUpSignal)}</blockquote></article></li>`).join("")}</ol><div class="meeting-close-criterion"><h4>Overall close criterion</h4><blockquote>${escapeHtml(packet.meetingPlan.overallCloseCriterion)}</blockquote></div></section>`;
   const meetingLens = (label: "Signal" | "Map" | "Play", proposal: M5bProductReviewPacketProposal) => {
     const caveats = proposal.caveats.length === 0 ? "" :
       `<p><strong>Needs attention:</strong></p><blockquote>${proposal.caveats.map((value) =>
@@ -477,7 +509,8 @@ html,body{max-width:100%;overflow-x:hidden}*,:before,:after{box-sizing:border-bo
 a{color:#174d37;text-underline-offset:3px}a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #d37232;outline-offset:3px}
 main{width:min(100%,1120px);min-width:0;margin:0 auto;padding:24px;overflow-wrap:anywhere}.boundary{min-width:0;border:1px solid #b56832;background:#fff4e6;border-radius:14px;padding:12px 16px;font-weight:700}.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;color:#35634e;margin:22px 0 4px}h1{font-size:clamp(2rem,5vw,4.5rem);line-height:1.02;margin:.1em 0;max-width:15ch}h2{font-size:clamp(1.45rem,3vw,2.2rem);line-height:1.15}h3{line-height:1.25}.lede{font-size:1.12rem;max-width:68ch}.primary-action{display:inline-flex;align-items:center;justify-content:center;min-height:48px;max-width:100%;padding:11px 18px;border-radius:999px;background:#174d37;color:white;font-weight:800;text-decoration:none;margin:8px 0 18px}.signal-spotlight{min-width:0;border-left:8px solid #d37232;border-radius:16px;padding:17px 20px;background:#203f31;color:#f8fff9;box-shadow:0 12px 28px #18372628}.signal-spotlight p{font-size:1.08rem}.signal-spotlight .tag{color:#ffd9ad;text-transform:uppercase;letter-spacing:.1em;font-weight:800;font-size:.76rem}
 section{min-width:0;margin:32px 0}.question-grid,.proposal-grid,.source-grid,.brief-answer-grid,.brief-lens-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.question-grid>*,.proposal-grid>*,.source-grid>*,.brief-answer-grid>*,.brief-lens-grid>*{min-width:0}.question-card,.proposal-card,.source-card,.brief-answer,.brief-lens,.trust-key{min-width:0;background:#fff;border:1px solid #cdd4ca;border-radius:16px;padding:18px}.question-card h3,.brief-answer h3{font-size:1rem;color:#35634e}.proposal-card{display:flex;flex-direction:column;gap:8px;border-top:6px solid #7a8f7e}.proposal-card.source_fact{border-top-color:#39795b}.proposal-card.analysis{border-top-color:#6671a8}.proposal-card.recommendation{border-top-color:#d37232}.card-labels{display:flex;flex-wrap:wrap;gap:7px}.card-labels span{border-radius:999px;padding:4px 9px;font-size:.76rem;font-weight:800}.classification{background:#e6efe7}.lens{background:#e9e7f5}.pending{background:#fff0dd}.trust-line{color:#46554d;font-size:.9rem}.support,.caveats,.safe-task,.freshness{min-width:0;background:#f5f6f1;border-radius:10px;padding:12px}.safe-task{border:1px solid #d37232;background:#fff8ee}.freshness{border:1px solid #6671a8;background:#f0f1fb;margin:12px 0}.safe-task span{font-size:.88rem;font-weight:700}.evidence{min-width:0}.support strong,.caveats strong,.safe-task strong{display:block;margin-bottom:8px}.evidence summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:800}.evidence ul{padding-left:20px}.evidence-item{min-width:0}.evidence-item blockquote{margin:10px 0;padding-left:12px;border-left:3px solid #9aa99d}.hash,.source-url,code{overflow-wrap:anywhere;word-break:break-word}.hash,.source-url{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.76rem;color:#536059}.local-controls{min-width:0;border:1px solid #829186;border-radius:12px;padding:12px;margin-top:auto}.local-controls legend{font-weight:800}.choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.choice{min-width:0;min-height:44px;display:flex;align-items:center;gap:10px;border:1px solid #8b978f;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}.choice input{width:22px;height:22px;flex:0 0 auto}.local-controls p{font-size:.84rem;margin-bottom:0}.trust-key ul{padding-left:20px}#draft-meeting-brief{border:2px solid #39795b;border-radius:18px;background:#edf5ed;padding:20px}.brief-account{font-size:1.08rem}.brief-answer-grid{margin:16px 0}.brief-answer:last-child{grid-column:1/-1}.brief-lens-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.brief-lens{border-top:6px solid #39795b}.brief-lens:nth-child(2){border-top-color:#6671a8}.brief-lens:nth-child(3){border-top-color:#d37232}.source-details{border-top:1px solid #b8c0b7;padding-top:24px}.source-details>summary{min-height:44px;cursor:pointer;font-weight:800;font-size:1.25rem}.zero-effect{background:#182c23;color:#edf9f0;border-radius:14px;padding:16px}.package-binding{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.78rem;overflow-wrap:anywhere}.footer-note{font-weight:800;color:#824919}
-@media(max-width:720px){main{padding:14px 12px}.question-grid,.proposal-grid,.source-grid,.brief-answer-grid,.brief-lens-grid{grid-template-columns:minmax(0,1fr)}.brief-answer:last-child{grid-column:auto}section{margin:24px 0}.boundary{font-size:.88rem}h1{font-size:2.35rem}.signal-spotlight{padding:14px 15px}.proposal-card,.question-card,.source-card,.brief-answer,.brief-lens{padding:15px}#draft-meeting-brief{padding:15px}}
+.meeting-plan{margin:22px 0;padding:18px;border:1px solid #829186;border-radius:16px;background:#f8faf6}.meeting-plan-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}.meeting-plan-summary>div,.meeting-question-block,.meeting-close-criterion{min-width:0;background:#fff;border:1px solid #cdd4ca;border-radius:12px;padding:14px}.meeting-plan-summary dt{font-weight:800}.meeting-plan-summary dd{margin:0}.meeting-plan-summary blockquote,.meeting-question-block blockquote,.meeting-close-criterion blockquote{margin:8px 0;padding-left:12px;border-left:3px solid #6671a8}.meeting-question-list{display:grid;gap:14px;padding-left:2.2rem}.meeting-question-block{padding-left:16px}.meeting-question-block::marker{font-size:1.2rem;font-weight:900;color:#174d37}.meeting-question-block h4,.meeting-close-criterion h4{margin-top:0}.meeting-close-criterion{margin-top:14px;border-color:#d37232;background:#fff8ee}
+@media(max-width:720px){main{padding:14px 12px}.question-grid,.proposal-grid,.source-grid,.brief-answer-grid,.brief-lens-grid,.meeting-plan-summary{grid-template-columns:minmax(0,1fr)}.brief-answer:last-child{grid-column:auto}section{margin:24px 0}.boundary{font-size:.88rem}h1{font-size:2.35rem}.signal-spotlight{padding:14px 15px}.proposal-card,.question-card,.source-card,.brief-answer,.brief-lens{padding:15px}#draft-meeting-brief{padding:15px}}
 @media(max-width:420px){.choice-row{grid-template-columns:minmax(0,1fr)}.primary-action{width:100%}}
 </style></head><body><main>
 <div class="boundary">DRAFT · NOT SENT · NOT RATIFIED · UNARMED · no apply eligibility · current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}</div>
@@ -488,7 +521,7 @@ section{min-width:0;margin:32px 0}.question-grid,.proposal-grid,.source-grid,.br
 <section aria-labelledby="customer-questions"><p class="eyebrow">Customer meaning</p><h2 id="customer-questions">Five questions for this account</h2><div class="question-grid">${questions}</div></section>
 <section class="trust-key" aria-labelledby="trust-key"><h2 id="trust-key">Read the trust labels literally</h2><ul><li><strong>Package-attributed</strong> means the complete artifact set carries a self-consistent exact excerpt and attributes it to the named source; this rendered file does not independently prove membership in omitted original bytes.</li><li><strong>Human-ratified</strong> and <strong>quality-passed</strong> are different checks; neither has happened.</li><li><strong>Proposed</strong> is not <strong>durable</strong>; this package performs zero graph or database writes.</li><li>Source facts, analysis, and recommendations remain visibly separate below.</li></ul></section>
 <section aria-labelledby="proposal-review"><p class="eyebrow">Individual review</p><h2 id="proposal-review">${countLabel(packet.proposals.length, "pending proposal")}</h2><p>Accept or Reject is a truthful local-only draft control for each item. Nothing is submitted, saved, applied, persisted, or ratified.</p><div class="proposal-grid">${packet.proposals.map((proposal) => proposalHtml(proposal, sourcePack)).join("")}</div></section>
-<section id="draft-meeting-brief" aria-labelledby="meeting-heading"><p class="eyebrow">Account-specific brief · readable here</p><h2 id="meeting-heading">Draft meeting brief</h2><p class="brief-account"><strong>Request-supplied account name:</strong> ${escapeHtml(packet.subject.accountName)} · <strong>Account ID:</strong> <code>${escapeHtml(packet.subject.accountId)}</code></p><div class="freshness"><strong>Freshness and status</strong><p><strong>Evidence current through:</strong> ${escapeHtml(displayCurrency(materialSource.evidenceCurrentThrough))}</p><p><strong>Package-classified event status:</strong> ${escapeHtml(featuredAssertion!)}</p>${announcedStatusHtml}</div><p>DRAFT · NOT SENT · NOT RATIFIED. This inline preparation artifact is editable only by changing and revalidating the source package; it is non-executable, not independently verified, not applied, and not durable. Current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}; apply eligibility: ${String(packet.authority.applyEligibility)}.</p><div class="brief-answer-grid">${meetingAnswers}</div><h3>Meeting prompts from proposed Signal, Map, and Play</h3><div class="brief-lens-grid">${meetingLens("Signal", signal)}${meetingLens("Map", map)}${meetingLens("Play", play)}</div><p class="footer-note">Review internally before use · no send, submit, save, ratify, or apply action exists here.</p></section>
+<section id="draft-meeting-brief" aria-labelledby="meeting-heading"><p class="eyebrow">Account-specific brief · readable here</p><h2 id="meeting-heading">Draft meeting brief</h2><p class="brief-account"><strong>Request-supplied account name:</strong> ${escapeHtml(packet.subject.accountName)} · <strong>Account ID:</strong> <code>${escapeHtml(packet.subject.accountId)}</code></p><div class="freshness"><strong>Freshness and status</strong><p><strong>Evidence current through:</strong> ${escapeHtml(displayCurrency(materialSource.evidenceCurrentThrough))}</p><p><strong>Package-classified event status:</strong> ${escapeHtml(featuredAssertion!)}</p>${announcedStatusHtml}</div><p>DRAFT · NOT SENT · NOT RATIFIED. This inline preparation artifact is editable only by changing and revalidating the source package; it is non-executable, not independently verified, not applied, and not durable. Current effective authorization: ${escapeHtml(packet.authority.currentEffectiveAuthorization)}; apply eligibility: ${String(packet.authority.applyEligibility)}.</p>${meetingPlanHtml}<div class="brief-answer-grid">${meetingAnswers}</div><h3>Meeting prompts from proposed Signal, Map, and Play</h3><div class="brief-lens-grid">${meetingLens("Signal", signal)}${meetingLens("Map", map)}${meetingLens("Play", play)}</div><p class="footer-note">Review internally before use · no send, submit, save, ratify, or apply action exists here.</p></section>
 <details class="source-details"><summary>Evidence currency, source custody, and package hashes</summary><section aria-labelledby="evidence-register"><h2 id="evidence-register">${countLabel(evidence.length, "evidence excerpt")}</h2><ul>${evidenceRegister}</ul></section><section aria-labelledby="source-register"><h2 id="source-register">${countLabel(sourcePack.sources.length, sourceRecordLabel)}</h2><p>Only bounded exact excerpts are in this package. Full source bytes are not embedded.</p><div class="source-grid">${custody}</div></section><section><h2>Cross-package bindings</h2><p class="package-binding">Package ${escapeHtml(packet.packageBinding.packageId)}<br />Request raw ${escapeHtml(packet.packageBinding.requestRawSha256)}<br />Request canonical ${escapeHtml(packet.packageBinding.requestCanonicalSha256)}<br />Source pack ${escapeHtml(packet.sourcePackSha256)}<br />Candidate ${escapeHtml(packet.candidateSha256)}<br />Review packet ${escapeHtml(packet.reviewPacketSha256)}<br />Superseded result ${escapeHtml(packet.packageBinding.supersededPackageResultSha256)}<br />Execution ${escapeHtml(packet.packageBinding.executionCommit)} / ${escapeHtml(packet.packageBinding.executionTree)}<br />Owner authorization ${escapeHtml(packet.packageBinding.ownerAuthorizationId)}</p><p>Supersession preserves the old bytes and producer identity. It does not rewrite the historical package.</p></section></details>
 <section class="zero-effect"><strong>Prepare-command effect boundary</strong><br />Acquisitions 0 · network calls 0 · provider calls 0 · database writes 0 · graph writes 0 · deployments 0 · outbound actions 0 · apply operations 0.<p>These counts cover this prepare command only. Separately authorized source acquisition or retained-custody reads belong in an immutable external execution receipt; generated package files must remain unchanged.</p></section>
 <p class="footer-note">Local draft only · not saved · not ratified · no write authority.</p>
@@ -910,6 +943,9 @@ function buildSourcePack(
       rewritesHistoricalPackage: false }),
     effectBoundary: M5B_PRODUCT_REVIEW_EFFECT_BOUNDARY,
     contentPolicy: Object.freeze({ fullSourceBytesEmbedded: false, boundedExactExcerptsOnly: true }),
+    ...(request.meetingPlan === undefined ? {} : {
+      meetingPlanSha256: m5bProductReviewCanonicalSha256(request.meetingPlan),
+    }),
     sources: Object.freeze(transformed.map((item) => item.source)),
   });
   return Object.freeze({ ...content, sourcePackSha256: m5bProductReviewCanonicalSha256(content) });
@@ -1109,6 +1145,7 @@ function buildReviewPacket(
         proposalBindingIds: Object.freeze([...(support?.proposalBindingIds ?? [])]),
       });
     })),
+    ...(request.meetingPlan === undefined ? {} : { meetingPlan: request.meetingPlan }),
     lenses: Object.freeze((["signal", "map", "play"] as const).map((lens) => Object.freeze({
       lens,
       proposalIds: Object.freeze(proposals.filter((proposal) => proposal.lens === lens)

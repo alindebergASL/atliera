@@ -5,6 +5,7 @@ import type {
   M5bProductReviewEvidenceRole,
   M5bProductReviewLens,
   M5bProductReviewMaterialChangeAssertion,
+  M5bProductReviewMeetingPlan,
   M5bProductReviewRequest,
   M5bProductReviewSafeTask,
   M5bProductReviewSourceKind,
@@ -134,6 +135,7 @@ export interface M5bProductReviewSanitizedSourcePackContent {
     readonly fullSourceBytesEmbedded: false;
     readonly boundedExactExcerptsOnly: true;
   };
+  readonly meetingPlanSha256?: string;
   readonly sources: readonly M5bProductReviewSanitizedSource[];
 }
 
@@ -188,6 +190,7 @@ export interface M5bProductReviewPacketContent {
     readonly writeAuthority: "none";
   };
   readonly customerQuestions: readonly M5bProductReviewQuestionAnswer[];
+  readonly meetingPlan?: M5bProductReviewMeetingPlan;
   readonly lenses: readonly {
     readonly lens: M5bProductReviewLens;
     readonly proposalIds: readonly string[];

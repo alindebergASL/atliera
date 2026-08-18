@@ -37,6 +37,7 @@ import {
   m5bProductReviewTextClaimsForbiddenTrust,
   m5bProductReviewTextRequestsEffect,
   refuseM5bProductReview,
+  validateM5bProductReviewMeetingPlan,
 } from "./m5b-product-review-contract.ts";
 
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -138,11 +139,13 @@ function assertCurrentRenderablePackage(
   // symbols, excessive structures, and other non-JSON runtime inputs.
   m5bProductReviewCanonicalSha256(sourcePack);
   m5bProductReviewCanonicalSha256(packet);
+  const optionalSourcePackKeys = Object.hasOwn(sourcePack, "meetingPlanSha256") ? ["meetingPlanSha256"] : [];
   assertRenderExactKeys(sourcePack, ["kind", "schemaVersion", "packageBinding", "subject", "authority",
-    "supersession", "effectBoundary", "contentPolicy", "sources", "sourcePackSha256"]);
+    "supersession", "effectBoundary", "contentPolicy", ...optionalSourcePackKeys, "sources", "sourcePackSha256"]);
+  const optionalPacketKeys = Object.hasOwn(packet, "meetingPlan") ? ["meetingPlan"] : [];
   assertRenderExactKeys(packet, ["kind", "schemaVersion", "packageBinding", "subject", "sourcePackSha256",
     "candidateSha256", "authority", "effectBoundary", "reviewBoundary", "customerQuestions", "lenses",
-    "sourceRegister", "proposals", "reviewPacketSha256"]);
+    ...optionalPacketKeys, "sourceRegister", "proposals", "reviewPacketSha256"]);
   if (sourcePack.kind !== M5B_PRODUCT_REVIEW_SOURCE_PACK_KIND ||
       sourcePack.schemaVersion !== M5B_PRODUCT_REVIEW_SOURCE_PACK_VERSION ||
       packet.kind !== M5B_PRODUCT_REVIEW_PACKET_KIND ||
@@ -601,6 +604,15 @@ function assertCurrentRenderablePackage(
     }
     if (supportEvidenceIds.some((id: string) => !supportedEvidence.has(id))) {
       refuseM5bProductReview("render_question_binding");
+    }
+  }
+  if ((packet.meetingPlan === undefined) !== (sourcePack.meetingPlanSha256 === undefined)) {
+    refuseM5bProductReview("render_meeting_plan_binding");
+  }
+  if (packet.meetingPlan !== undefined) {
+    validateM5bProductReviewMeetingPlan(packet.meetingPlan);
+    if (sourcePack.meetingPlanSha256 !== m5bProductReviewCanonicalSha256(packet.meetingPlan)) {
+      refuseM5bProductReview("render_meeting_plan_binding");
     }
   }
   const questionMaterialEvidenceIds = packet.customerQuestions[1]!.evidenceBindingIds as readonly string[];

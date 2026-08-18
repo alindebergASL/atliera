@@ -167,6 +167,10 @@ export async function createSyntheticM5bProductReviewScenario(
     },
     customerQuestions: {
       whoIsThisAccount: "Citrine Works is a fictional operations-software company serving regional planning teams.",
+      whoIsThisAccountSupport: {
+        evidenceBindingIds: ["evd_citrine_launch", "evd_citrine_pilot", "evd_citrine_notes"],
+        proposalBindingIds: ["prp_citrine_readiness_analysis"],
+      },
       whatMeaningfullyChanged: `Source states: ${SYNTHETIC_QUOTES.launch}`,
       whatMeaningfullyChangedEvidenceBindingIds: ["evd_citrine_launch"],
       whatMeaningfullyChangedSelection: {
@@ -175,6 +179,10 @@ export async function createSyntheticM5bProductReviewScenario(
         playProposalId: "prp_citrine_meeting_play",
       },
       whyDoesItMatter: "The combined evidence suggests a focused meeting can test whether exception handling is the useful entry point.",
+      whyDoesItMatterSupport: {
+        evidenceBindingIds: ["evd_citrine_launch", "evd_citrine_pilot", "evd_citrine_notes"],
+        proposalBindingIds: ["prp_citrine_readiness_analysis", "prp_citrine_meeting_play"],
+      },
       whatNeedsAttention: "The pilot size is small, evidence currency differs by source, and the checklist need may not generalize.",
       safeNextTask: M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION,
     },

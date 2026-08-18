@@ -580,7 +580,26 @@ function assertCurrentRenderablePackage(
         (index === 4 && item.answer !== M5B_PRODUCT_REVIEW_SAFE_TASK_DESCRIPTION) ||
         (index === 1 ? item.evidenceBindingIds.length === 0 || item.evidenceBindingIds.some((id) =>
           evidenceById.get(id)?.evidenceRole !== "material_change") || item.proposalBindingIds.length !== 3 :
-          item.evidenceBindingIds.length !== 0 || item.proposalBindingIds.length !== 0)) {
+          (index === 0 || index === 2)
+            ? (item.evidenceBindingIds.length === 0) !== (item.proposalBindingIds.length === 0)
+            : item.evidenceBindingIds.length !== 0 || item.proposalBindingIds.length !== 0)) {
+      refuseM5bProductReview("render_question_binding");
+    }
+  }
+  for (const item of [packet.customerQuestions[0]!, packet.customerQuestions[2]!]) {
+    const supportEvidenceIds = item.evidenceBindingIds as readonly string[];
+    const supportProposalIds = item.proposalBindingIds as readonly string[];
+    if (supportEvidenceIds.length === 0) continue;
+    const boundProposals = supportProposalIds.map((id: string) => proposalsById.get(id));
+    if (supportEvidenceIds.some((id: string) => !evidenceById.has(id)) ||
+        boundProposals.some((proposal: M5bProductReviewPacketProposal | undefined) => proposal === undefined)) {
+      refuseM5bProductReview("render_question_binding");
+    }
+    const supportedEvidence = new Set<string>();
+    for (const proposal of boundProposals) {
+      for (const evidenceId of transitiveEvidence(proposal!)) supportedEvidence.add(evidenceId);
+    }
+    if (supportEvidenceIds.some((id: string) => !supportedEvidence.has(id))) {
       refuseM5bProductReview("render_question_binding");
     }
   }

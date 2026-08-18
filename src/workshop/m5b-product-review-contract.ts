@@ -155,8 +155,14 @@ export interface M5bProductReviewSupersession {
   readonly explanation: typeof M5B_PRODUCT_REVIEW_SUPERSESSION_EXPLANATION;
 }
 
+export interface M5bProductReviewQuestionSupport {
+  readonly evidenceBindingIds: readonly string[];
+  readonly proposalBindingIds: readonly string[];
+}
+
 export interface M5bProductReviewQuestions {
   readonly whoIsThisAccount: string;
+  readonly whoIsThisAccountSupport?: M5bProductReviewQuestionSupport | null;
   readonly whatMeaningfullyChanged: string;
   readonly whatMeaningfullyChangedEvidenceBindingIds: readonly string[];
   readonly whatMeaningfullyChangedSelection: {
@@ -165,6 +171,7 @@ export interface M5bProductReviewQuestions {
     readonly playProposalId: string;
   };
   readonly whyDoesItMatter: string;
+  readonly whyDoesItMatterSupport?: M5bProductReviewQuestionSupport | null;
   readonly whatNeedsAttention: string;
   readonly safeNextTask: string;
 }
@@ -358,16 +365,36 @@ function parseSupersession(value: StrictJsonValue | undefined): M5bProductReview
   return { supersededPackageResultSha256, explanation: M5B_PRODUCT_REVIEW_SUPERSESSION_EXPLANATION };
 }
 
+function parseQuestionSupport(
+  value: StrictJsonValue | undefined,
+  code: string,
+): M5bProductReviewQuestionSupport | null {
+  if (value === undefined) return null;
+  const object = objectAt(value, `request.customerQuestions.${code}`);
+  exactKeys(object, ["evidenceBindingIds", "proposalBindingIds"]);
+  return {
+    evidenceBindingIds: uniqueStrings(object.evidenceBindingIds, "customer_question_support",
+      M5B_PRODUCT_REVIEW_LIMITS.evidenceCountMax, EVIDENCE_ID, false),
+    proposalBindingIds: uniqueStrings(object.proposalBindingIds, "customer_question_support",
+      M5B_PRODUCT_REVIEW_LIMITS.proposalCountMax, PROPOSAL_ID, false),
+  };
+}
+
 function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQuestions {
   const object = objectAt(value, "request.customerQuestions");
-  exactKeys(object, ["whoIsThisAccount", "whatMeaningfullyChanged", "whyDoesItMatter",
+  const baseKeys = ["whoIsThisAccount", "whatMeaningfullyChanged", "whyDoesItMatter",
     "whatNeedsAttention", "safeNextTask", "whatMeaningfullyChangedEvidenceBindingIds",
-    "whatMeaningfullyChangedSelection"]);
+    "whatMeaningfullyChangedSelection"];
+  const optionalKeys = ["whoIsThisAccountSupport", "whyDoesItMatterSupport"]
+    .filter((key) => Object.hasOwn(object, key));
+  exactKeys(object, [...baseKeys, ...optionalKeys]);
   const selection = objectAt(object.whatMeaningfullyChangedSelection,
     "request.customerQuestions.whatMeaningfullyChangedSelection");
   exactKeys(selection, ["signalProposalId", "mapProposalId", "playProposalId"]);
   const questions: M5bProductReviewQuestions = {
     whoIsThisAccount: stringAt(object.whoIsThisAccount, "customer_questions", 12, 1_200),
+    whoIsThisAccountSupport: parseQuestionSupport(
+      object.whoIsThisAccountSupport, "whoIsThisAccountSupport"),
     whatMeaningfullyChanged: stringAt(object.whatMeaningfullyChanged, "customer_questions", 12, 1_200),
     whatMeaningfullyChangedEvidenceBindingIds: uniqueStrings(
       object.whatMeaningfullyChangedEvidenceBindingIds, "material_change_question",
@@ -379,6 +406,8 @@ function parseQuestions(value: StrictJsonValue | undefined): M5bProductReviewQue
       playProposalId: stringAt(selection.playProposalId, "proposal_id", 5, 56),
     },
     whyDoesItMatter: stringAt(object.whyDoesItMatter, "customer_questions", 12, 1_200),
+    whyDoesItMatterSupport: parseQuestionSupport(
+      object.whyDoesItMatterSupport, "whyDoesItMatterSupport"),
     whatNeedsAttention: stringAt(object.whatNeedsAttention, "customer_questions", 12, 1_200),
     safeNextTask: stringAt(object.safeNextTask, "customer_questions", 12, 1_200),
   };
@@ -1173,6 +1202,23 @@ function validateRequestRelationships(request: M5bProductReviewRequest): void {
         !/\bdraft\b/iu.test(proposal.title) || !/\bbrief\b/iu.test(proposal.title) ||
         !dependencies.some((dependency) => dependency?.classification === "analysis")) {
       refuseM5bProductReview("recommendation_classification");
+    }
+  }
+
+  for (const support of [request.customerQuestions.whoIsThisAccountSupport,
+    request.customerQuestions.whyDoesItMatterSupport]) {
+    if (support == null) continue;
+    const boundProposals = support.proposalBindingIds.map((id) => proposalsById.get(id));
+    if (support.evidenceBindingIds.some((id) => !evidenceIds.has(id)) ||
+        boundProposals.some((proposal) => proposal === undefined)) {
+      refuseM5bProductReview("customer_question_support");
+    }
+    const supportedEvidence = new Set<string>();
+    for (const proposal of boundProposals) {
+      for (const evidenceId of transitiveEvidence(proposal!)) supportedEvidence.add(evidenceId);
+    }
+    if (support.evidenceBindingIds.some((id) => !supportedEvidence.has(id))) {
+      refuseM5bProductReview("customer_question_support");
     }
   }
 }

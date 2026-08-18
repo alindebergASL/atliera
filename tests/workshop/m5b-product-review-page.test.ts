@@ -164,7 +164,8 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(html, /@media\(max-width:720px\)/);
       assert.match(html, /@media\(max-width:420px\)/);
       assert.match(html, /focus-visible/);
-      assert.match(html, /3 admitted sources/);
+      assert.match(html, /3 development source records/);
+      assert.match(html, /3 evidence excerpts/);
       assert.match(html, /1 evidence binding/);
       assert.match(html, /3 evidence bindings/);
       assert.doesNotMatch(html, /1 evidence bindings/);
@@ -177,7 +178,12 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(html, /generated package files must remain unchanged/);
 
       const anchorHrefs = [...html.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map((match) => match[1]!);
-      assert.deepEqual(anchorHrefs, ["#draft-meeting-brief"]);
+      assert.ok(anchorHrefs.includes("#draft-meeting-brief"));
+      assert.ok(anchorHrefs.includes("#evidence-evd_citrine_launch"));
+      assert.ok(anchorHrefs.includes("#proposal-prp_citrine_launch_signal"));
+      assert.ok(anchorHrefs.includes("#proposal-prp_citrine_readiness_analysis"));
+      assert.ok(anchorHrefs.includes("#proposal-prp_citrine_meeting_play"));
+      assert.ok(anchorHrefs.every((href) => href.startsWith("#")));
       assert.doesNotMatch(html, /<a\b[^>]*href="https:\/\//i);
       assert.equal((html.match(/Canonical HTTPS source:/g) ?? []).length, scenario.request.sources.length);
 
@@ -216,7 +222,13 @@ describe("M5b product-review Workshop and meeting brief", () => {
       }
       assert.ok(destination.includes(scenario.request.evidenceBindings[0]!.exactQuote));
       assert.doesNotMatch(destination, /Source states: Citrine Works introduced Relay Planner/);
-      assert.match(destination, /Material-change evidence:<\/strong> <code>evd_citrine_launch<\/code>/);
+      assert.match(destination,
+        /Material-change evidence:<\/strong> <a href="#evidence-evd_citrine_launch"><code>evd_citrine_launch<\/code><\/a>/);
+      assert.match(destination,
+        /Supporting evidence:<\/strong> <a href="#evidence-evd_citrine_launch"><code>evd_citrine_launch<\/code><\/a>/);
+      assert.match(destination,
+        /Supporting proposals:<\/strong> <a href="#proposal-prp_citrine_readiness_analysis"><code>prp_citrine_readiness_analysis<\/code><\/a>/);
+      assert.match(html, /id="evidence-evd_citrine_launch"/);
       for (const proposal of scenario.request.proposals.filter((item) =>
         item.lens === "signal" || item.classification === "analysis" || item.classification === "recommendation")) {
         if (proposal.classification === "source_fact") {
@@ -294,7 +306,10 @@ describe("M5b product-review Workshop and meeting brief", () => {
       assert.match(brief, /## Five customer questions/);
       assert.match(brief, /## Proposed Signals, Maps, and Plays/);
       assert.match(brief, /## Package evidence register/);
-      assert.match(brief, /Material-change evidence: `evd_citrine_launch`/);
+      assert.match(brief, /Material-change evidence: \[`evd_citrine_launch`\]\(#evidence-evd_citrine_launch\)/);
+      assert.match(brief, /## Freshness and status/);
+      assert.match(brief, /Package-classified event status: \*\*Account event · Affirmed · Completed\*\*/);
+      assert.match(brief, /Reconfirm the current event status before a customer meeting/);
       assert.match(brief, /Evidence role: \*\*Material change\*\*/);
       assert.match(brief, /Material-change assertion: \*\*Account event · Affirmed · Completed\*\*/);
       assert.match(brief, /Attributed (?:material-change )?quotation: “Citrine Works introduced Relay Planner[^”]+approved deployment review\.”/);

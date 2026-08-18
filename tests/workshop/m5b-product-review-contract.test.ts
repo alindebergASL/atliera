@@ -46,8 +46,68 @@ describe("M5b product-review request contract", () => {
         new Set(["source_fact", "analysis", "recommendation"]));
       assert.equal(request.authority.currentEffectiveAuthorization, "none");
       assert.equal(request.authority.applyEligibility, false);
+      assert.equal(Object.hasOwn(request, "meetingPlan"), false);
       assert.ok(Object.isFrozen(request));
       assert.ok(Object.isFrozen(request.proposals[0]));
+    });
+  });
+
+  test("accepts an optional account-neutral structured meeting plan and snapshots its order", async () => {
+    await withScenario((baseline) => {
+      const raw = cloneSynthetic(baseline);
+      raw.meetingPlan = {
+        primaryAudience: "Treasury leaders and Finance partners",
+        meetingObjective: "Learn the account's decision frame and whether a specific follow-up would be useful.",
+        orderedQuestions: [
+          {
+            question: "Which objectives guided the balance among the competing priorities?",
+            whyAsked: "Clarify the account's transaction priorities.",
+            desiredLearning: "The principal trade-offs and measures of success.",
+            followUpSignal: "An unresolved trade-off or metric the audience wants examined.",
+          },
+          {
+            question: "Which dependencies shaped the sequence?",
+            whyAsked: "Separate constraints from choices.",
+            desiredLearning: "The relevant dependencies and decision points.",
+            followUpSignal: "A future milestone or scenario requiring preparation.",
+          },
+          {
+            question: "What should change or remain unchanged in the expected state?",
+            whyAsked: "Test relevance beyond the announced event.",
+            desiredLearning: "The intended state and remaining unknowns.",
+            followUpSignal: "A requested comparison, scenario, or post-results check.",
+          },
+        ],
+        overallCloseCriterion: "Propose a follow-up meeting only if the discussion surfaces at least one question-level follow-up signal; otherwise close with no further meeting proposed.",
+      };
+
+      const request = validateM5bProductReviewRequest(raw);
+      assert.deepEqual(request.meetingPlan, raw.meetingPlan);
+      assert.equal(request.meetingPlan?.orderedQuestions.length, 3);
+      assert.ok(Object.isFrozen(request.meetingPlan));
+      assert.ok(Object.isFrozen(request.meetingPlan?.orderedQuestions));
+      assert.ok(Object.isFrozen(request.meetingPlan?.orderedQuestions[0]));
+
+      const malformed = cloneSynthetic(raw);
+      malformed.meetingPlan.orderedQuestions[0].unexpected = true;
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(malformed)), "request_shape");
+
+      const empty = cloneSynthetic(raw);
+      empty.meetingPlan.orderedQuestions = [];
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(empty)), "meeting_plan_questions");
+
+      const tooFew = cloneSynthetic(raw);
+      tooFew.meetingPlan.orderedQuestions = tooFew.meetingPlan.orderedQuestions.slice(0, 2);
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(tooFew)), "meeting_plan_questions");
+
+      const tooMany = cloneSynthetic(raw);
+      tooMany.meetingPlan.orderedQuestions.push(cloneSynthetic(tooMany.meetingPlan.orderedQuestions[0]));
+      tooMany.meetingPlan.orderedQuestions[3].question = "Which fourth question must be refused?";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(tooMany)), "meeting_plan_questions");
+
+      const effectful = cloneSynthetic(raw);
+      effectful.meetingPlan.overallCloseCriterion = "Schedule another meeting immediately.";
+      assert.equal(refusalCode(() => validateM5bProductReviewRequest(effectful)), "meeting_plan_effect");
     });
   });
 

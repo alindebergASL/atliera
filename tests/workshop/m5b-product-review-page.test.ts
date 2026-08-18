@@ -118,6 +118,7 @@ describe("M5b product-review Workshop and meeting brief", () => {
         outputDir: scenario.outputDir,
       });
       const html = await readFile(join(scenario.outputDir, "workshop-pre-ratification.html"), "utf8");
+      assert.doesNotMatch(html, /class="meeting-plan"/);
       const body = html.slice(html.indexOf("<body>"));
       const primaryAt = body.indexOf("Review the draft meeting brief");
       const signalAt = body.indexOf("Citrine Works introduced Relay Planner");
@@ -250,6 +251,81 @@ describe("M5b product-review Workshop and meeting brief", () => {
     });
   });
 
+  test("flows an optional structured meeting plan into numbered brief blocks and one close criterion", async () => {
+    await withScenario(async (root, scenario) => {
+      const request: any = cloneSynthetic(scenario.request);
+      request.meetingPlan = {
+        primaryAudience: "Treasury leaders and Finance partners",
+        meetingObjective: "Learn the account's decision frame and whether a specific follow-up would be useful.",
+        orderedQuestions: [
+          {
+            question: "Which objectives guided the balance among the competing priorities?",
+            whyAsked: "Clarify the account's transaction priorities.",
+            desiredLearning: "The principal trade-offs and measures of success.",
+            followUpSignal: "An unresolved trade-off or metric the audience wants examined.",
+          },
+          {
+            question: "Which dependencies shaped the sequence?",
+            whyAsked: "Separate constraints from choices.",
+            desiredLearning: "The relevant dependencies and decision points.",
+            followUpSignal: "A future milestone or scenario requiring preparation.",
+          },
+          {
+            question: "What should change or remain unchanged in the expected state?",
+            whyAsked: "Test relevance beyond the announced event.",
+            desiredLearning: "The intended state and remaining unknowns.",
+            followUpSignal: "A requested comparison, scenario, or post-results check.",
+          },
+        ],
+        overallCloseCriterion: "Propose a follow-up meeting only if the discussion surfaces at least one question-level follow-up signal; otherwise close with no further meeting proposed.",
+      };
+      const written = await writeSyntheticRequest(root, "structured-meeting-plan-request.json", request);
+      const outputDir = join(root, "structured-meeting-plan-output");
+      await prepareM5bProductReview({
+        requestPath: written.path,
+        expectedRequestSha256: written.sha256,
+        expectedRequestByteSize: written.bytes.byteLength,
+        sourceFiles: scenario.sourceFiles,
+        outputDir,
+      });
+
+      const packet = JSON.parse(await readFile(join(outputDir, "review-packet.json"), "utf8"));
+      const sourcePack = JSON.parse(await readFile(join(outputDir, "sanitized-source-pack.json"), "utf8"));
+      const candidate = JSON.parse(await readFile(join(outputDir, "candidate.json"), "utf8"));
+      const brief = await readFile(join(outputDir, "meeting-brief.md"), "utf8");
+      const html = await readFile(join(outputDir, "workshop-pre-ratification.html"), "utf8");
+      assert.deepEqual(packet.meetingPlan, request.meetingPlan);
+
+      const substitutedPacket = cloneSynthetic(packet);
+      substitutedPacket.meetingPlan.orderedQuestions[0].question =
+        "Which substituted question was absent from the hash-committed meeting plan?";
+      rehashPacket(substitutedPacket);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, substitutedPacket))), "render_meeting_plan_binding");
+
+      assert.match(brief, /## Structured meeting plan/);
+      assert.equal((brief.match(/^### \d+\. Discovery question$/gm) ?? []).length, 3);
+      assert.equal((brief.match(/^\*\*Why this question:\*\*/gm) ?? []).length, 3);
+      assert.equal((brief.match(/^\*\*Desired learning:\*\*/gm) ?? []).length, 3);
+      assert.equal((brief.match(/^\*\*Follow-up signal:\*\*/gm) ?? []).length, 3);
+      const briefCloseAt = brief.indexOf("### Overall close criterion");
+      assert.ok(briefCloseAt > brief.indexOf("### 3. Discovery question"));
+      assert.ok(brief.includes(request.meetingPlan.overallCloseCriterion));
+
+      const meetingStart = html.indexOf('<section id="draft-meeting-brief"');
+      const meetingEnd = html.indexOf('<details class="source-details">', meetingStart);
+      const meeting = html.slice(meetingStart, meetingEnd);
+      assert.match(meeting, /<section class="meeting-plan"/);
+      assert.equal((meeting.match(/<li class="meeting-question-block">/g) ?? []).length, 3);
+      assert.equal((meeting.match(/<strong>Why this question:<\/strong>/g) ?? []).length, 3);
+      assert.equal((meeting.match(/<strong>Desired learning:<\/strong>/g) ?? []).length, 3);
+      assert.equal((meeting.match(/<strong>Follow-up signal:<\/strong>/g) ?? []).length, 3);
+      const htmlCloseAt = meeting.indexOf('<div class="meeting-close-criterion">');
+      assert.ok(htmlCloseAt > meeting.indexOf('<li class="meeting-question-block">'));
+      assert.ok(meeting.includes(request.meetingPlan.overallCloseCriterion));
+    });
+  });
+
   test("features one connected material-change Signal to Map to Play chain", async () => {
     await withScenario(async (root, scenario) => {
       const request: any = cloneSynthetic(scenario.request);
@@ -347,8 +423,25 @@ describe("M5b product-review Workshop and meeting brief", () => {
         join(scenario.outputDir, "sanitized-source-pack.json"), "utf8"));
       const packet = JSON.parse(await readFile(join(scenario.outputDir, "review-packet.json"), "utf8"));
       const candidate = JSON.parse(await readFile(join(scenario.outputDir, "candidate.json"), "utf8"));
+      assert.equal(Object.hasOwn(packet, "meetingPlan"), false);
       assert.doesNotThrow(() =>
         admitM5bProductReviewPackageArtifacts(artifactSet(sourcePack, candidate, packet)));
+
+      const packetOnlySplice = cloneSynthetic(packet);
+      packetOnlySplice.meetingPlan = {
+        primaryAudience: "Attack-supplied audience",
+        meetingObjective: "Replace the request-supplied meeting plan with different narrative.",
+        orderedQuestions: [{
+          question: "Which unauthorized narrative should replace the original plan?",
+          whyAsked: "Exercise packet-only meeting-plan tampering.",
+          desiredLearning: "Whether detached package admission detects the splice.",
+          followUpSignal: "A packet-only meeting plan accepted without its request commitment.",
+        }],
+        overallCloseCriterion: "Close only after the packet-only meeting-plan splice is detected.",
+      };
+      rehashPacket(packetOnlySplice);
+      assert.equal(refusalCode(() => admitM5bProductReviewPackageArtifacts(
+        artifactSet(sourcePack, candidate, packetOnlySplice))), "render_meeting_plan_binding");
 
       const legacyPacket = cloneSynthetic(packet);
       legacyPacket.schemaVersion = "1";

@@ -1,8 +1,10 @@
 # M5b generic product-review prepare
 
-Status: additive current product route with dormant exact-source controls. No committed artifact authorizes a live acquisition or retained-custody read, and this runbook authorizes no ratification, apply, graph/database write, provider call, network call, deployment, or outbound action.
+Status: additive current pre-ratification package route with dormant exact-source controls. No committed artifact authorizes a live acquisition or retained-custody read, and this runbook authorizes no ratification, apply, graph/database write, provider call, network call, deployment, or outbound action.
 
-This path recovers the product-review package in the current repository schema without changing the historical FedEx package or the existing `m5b:prepare` / `m5b:apply` behavior. It is the preferred current product route. The older FedEx-specific completion path and validators are preserved byte/behavior-compatible historical/reference behavior, not the preferred route. The generic path has no permanent FedEx-specific product branch.
+> **Customer-product classification:** Under `../adr/0004-calm-product-surface-and-internal-package-inspector.md`, the generated `workshop-pre-ratification.html` is an internal Package Inspector / Audit View / developer diagnostic. This package mechanism remains current and supported; the dense renderer is not the prospective Level 1 customer UX baseline.
+
+This path recovers the product-review package in the current repository schema without changing the historical FedEx package or the existing `m5b:prepare` / `m5b:apply` behavior. It is the preferred current generic package-generation/product-review route. The older FedEx-specific completion path and validators are preserved byte/behavior-compatible historical/reference behavior, not the preferred route. The generic path has no permanent FedEx-specific product branch.
 
 ## Pre-effect boundary
 
@@ -12,6 +14,7 @@ This path recovers the product-review package in the current repository schema w
 - a stable ID, title, absolute local path, source kind, content encoding, outer byte size/SHA-256, decoded byte size/SHA-256, canonical credential-free and query-free HTTPS URL, acquisition timestamp, evidence-current-through value or `null`, publisher, and source type for every source;
 - exact evidence quotes, each required to occur once across the admitted sources and typed as `account_identity`, `account_context`, or `material_change`; material-change evidence also carries an affirmative `account_event` assertion with `completed`, `announced`, or `agreement_reached` status, while other roles require that assertion to be `null`;
 - explicit Signal, Map, and draft-meeting-brief Play proposals, with dependencies and visible caveats;
+- an optional account-neutral structured meeting plan with exactly three ordered questions, why each is asked, desired learning, per-question follow-up signals, and one overall close criterion; the plan is committed by hash in the source pack, copied into the review packet, and refused on insertion or substitution;
 - caller-provided execution commit/tree and canonical `preparedAt`, owner authorization ID, and an exact 64-hex `supersededPackageResultSha256`; `preparedAt` is bound into package identity and every candidate capture/creation/update timestamp, while source fetch/access times preserve `acquiredAt` and no source may claim acquisition after preparation;
 - the exact explanation: `Supersession preserves the old package bytes and producer identity; it does not rewrite historical provenance.`
 

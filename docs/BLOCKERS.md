@@ -2,6 +2,12 @@
 
 This file tracks gates that must be satisfied before Atliera moves from architecture to implementation, lab, and launch.
 
+## Current product-direction gate
+
+`adr/0004-calm-product-surface-and-internal-package-inspector.md` is the proposed superseding authority for customer-facing product direction. Its ordinary-experience, progressive-disclosure, and first-time-user requirements are defined in `strategy/calm-everyday-experience-contract.md`, `architecture/progressive-disclosure-ai-review-model.md`, and `qa/zero-training-product-acceptance-gate.md`.
+
+The dense M5b renderer remains an internal Package Inspector / Audit View. No calm customer Account Workspace has been implemented or accepted, and this documentation does not authorize one.
+
 ## Current gate status
 
 | Gate | Status | Current interpretation |
@@ -15,6 +21,8 @@ This file tracks gates that must be satisfied before Atliera moves from architec
 Current strategic reading: validation/proof machinery has outpaced the bootable product surface. The fake-mode Workshop HTTP seam, local durable DB boot contract, local backup/restore round-trip, local bearer auth seam, plan-only lab deployment descriptors, and lab-target staging proofs exist; the bounded lab deployment slice A executed and stopped, slice B proved disposable backup/restore, and Gate 3 remains underbuilt. Any later Gate 3 expansion still requires a fresh explicit operator decision. M5b does not yet contain a separately authorized real-source human-ratified durable account graph or an evaluated shareable account page, and no external-user gate has been run.
 
 M5b acceptance remains customer-facing: one real account, public sources fetched through M4, validation and human ratification, durable state, and a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Generic schema-v2 product-review prepare is the preferred current route for the pre-ratification package; the repository-native FedEx-specific prepare/apply path is historical reference behavior, not a replacement milestone outcome.
+
+That paragraph remains the historical M5b mechanism gate. Under the calm-product decision, `shareable Workshop account page` no longer means that the dense package-inspection renderer is the prospective Level 1 customer experience. The mechanism must support a separate calm answer-first projection, and zero-training acceptance is an additional product gate.
 
 The next M5b effects are blocked because `CURRENT_EFFECTIVE_AUTHORIZATION=NONE`. A future real prepare requires exact reviewed request/source bytes, commit/tree and owner identity plus separately armed source-effect authority. The schema-v2 request must carry a material-change exact excerpt through a source-fact Signal, a dependent Map analysis, and every Play. No generic ratification/apply contract exists yet; it remains deferred until a useful exact-provenance package passes product review. No standing decision authorizes acquisition, retained-custody reads, providers/models, deployment, control-plane use, ratification, or any graph/database write.
 
@@ -31,6 +39,7 @@ Required before implementation:
 - Provenance/validation doc exists.
 - Legacy carry-forward vs leave-behind split is explicit.
 - Signals/Maps/Plays are framed as graph-backed lenses, not separate early modules.
+- Calm Level 1 Account Workspace, progressive disclosure, Package Inspector classification, AI-origin honesty, and authority/supersession docs are merged.
 
 ## Gate 1: Graph foundation before real model/provider work
 
@@ -85,6 +94,8 @@ Required before broader use beyond the initial user:
 - Signals/Maps/Plays render from shared graph-backed objects and do not fork validators, research logic, provenance logic, or data paths.
 - Unsupported/inferred material is visibly labeled.
 - Legacy comparison protocol has been run externally where relevant.
+- Five to eight representative first-time users test the ordinary journey without a walkthrough; at least 80% meet the completion, 60-second understanding, 15-second `Prepare for…`, two-required-input, and two-interaction-evidence thresholds in `qa/zero-training-product-acceptance-gate.md`.
+- Users distinguish source-backed material from AI interpretation or other proposed content; no raw audit machinery, draft/review/publish confusion, or dead/misleading controls appear in the core journey.
 
 ### Gate 4 enforcement status
 

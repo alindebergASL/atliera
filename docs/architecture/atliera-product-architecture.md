@@ -2,6 +2,8 @@
 
 > **For Hermes:** This is a plan-first architecture artifact. Do not implement, deploy, or mutate production from this plan without a separate approved implementation/deployment task.
 
+> **Current product-direction qualifier:** `../adr/0004-calm-product-surface-and-internal-package-inspector.md` is the proposed superseding authority for customer-facing information architecture. This architecture plan remains authoritative for the fresh system, one Graph, shared validation/provenance, provider portability, and safe agent boundaries. Its Workshop and Signals/Maps/Plays language must be read as internal architecture or deliberate expert-surface vocabulary, not as a requirement for the Level 1 customer screen. Historical launch-surface statements below are retained rather than rewritten.
+
 **Goal:** Define the clean-slate Atliera product architecture with Atliera Workshop, Agent, and Graph as the core product structure and Signals/Maps/Plays as launch lenses over the graph rather than premature hard-separated modules.
 
 **Architecture:** Atliera is a new graph-first product, not a legacy report migration. It must boot from an empty database, run in any approved deployment location that satisfies the runtime requirements, and produce durable source/excerpt/claim/object records before any user-facing account intelligence is treated as verified. Legacy account-research reports remain external comparison artifacts only, while the reusable A.5-A.7 validation patterns and graph schemas carry forward deliberately.

@@ -671,6 +671,85 @@ describe("M5b product-review request contract", () => {
   });
 
   describe("tender-offer status correction regressions", () => {
+    const exactSecExcerpt =
+      "FedEx Corp. (NYSE: FDX) (“FedEx”) today announced that it has commenced cash tender offers";
+
+    test("accepts the exact SEC market-metadata plus self-alias excerpt as announced", async () => {
+      assert.doesNotThrow(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        exactSecExcerpt,
+        { kind: "account_event", polarity: "affirmed", status: "announced" },
+      ));
+
+      await withScenario((baseline) => {
+        const request = cloneSynthetic(baseline);
+        request.subject.accountName = "FedEx";
+        request.evidenceBindings[0].exactQuote = exactSecExcerpt;
+        request.evidenceBindings[0].materialChangeAssertion.status = "announced";
+        request.proposals[0].title = `Source states: ${exactSecExcerpt}`;
+        request.proposals[0].summary = request.proposals[0].title;
+        request.customerQuestions.whatMeaningfullyChanged = request.proposals[0].summary;
+        const validated = validateM5bProductReviewRequest(request);
+        assert.equal(validated.evidenceBindings[0]!.exactQuote, exactSecExcerpt);
+      });
+    });
+
+    test("rejects the exact SEC excerpt when only its status is changed to completed", async () => {
+      assert.equal(refusalCode(() => assertM5bProductReviewMaterialChangeQuote(
+        "FedEx",
+        exactSecExcerpt,
+        { kind: "account_event", polarity: "affirmed", status: "completed" },
+      )), "material_change_status");
+
+      await withScenario((baseline) => {
+        const request = cloneSynthetic(baseline);
+        request.subject.accountName = "FedEx";
+        request.evidenceBindings[0].exactQuote = exactSecExcerpt;
+        request.evidenceBindings[0].materialChangeAssertion.status = "announced";
+        request.proposals[0].title = `Source states: ${exactSecExcerpt}`;
+        request.proposals[0].summary = request.proposals[0].title;
+        request.customerQuestions.whatMeaningfullyChanged = request.proposals[0].summary;
+        assert.doesNotThrow(() => validateM5bProductReviewRequest(request));
+
+        request.evidenceBindings[0].materialChangeAssertion.status = "completed";
+        assert.equal(refusalCode(() => validateM5bProductReviewRequest(request)),
+          "material_change_status");
+      });
+    });
+
+    test("keeps the market-metadata plus self-alias grammar fail closed", () => {
+      for (const quote of [
+        "FedEx Corp. (NYSE: UPS) (“FedEx”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NASDAQ: FDX) (“FedEx”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“UPS”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“TNT”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) (Issuer) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (“FedEx”) (NYSE: FDX) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (“FedEx”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (FedEx) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (\"FedEx\") today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“The FedEx Company”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“fedex”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx!!!”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“ＦｅｄＥｘ”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx🚚”) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) Corp. today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) Inc. today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) Holdings today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) (today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) ) today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) on behalf of UPS today announced that it has commenced cash tender offers",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) today announced that it has commenced cash tender offers for notes by UPS",
+        "FedEx Corp. (NYSE: FDX) (“FedEx”) has commenced cash tender offers",
+      ] as const) {
+        assert.throws(() => assertM5bProductReviewMaterialChangeQuote(
+          "FedEx",
+          quote,
+          { kind: "account_event", polarity: "affirmed", status: "announced" },
+        ), M5bProductReviewRefusal, quote);
+      }
+    });
+
     for (const quote of [
       "FedEx Corp. (on behalf of UPS) today announced a tender offer.",
       "FedEx announced a tender offer service.",

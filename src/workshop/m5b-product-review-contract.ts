@@ -565,6 +565,8 @@ const MATERIAL_CHANGE_FINITE_REPORT_WORDS = new Set([
 const TENDER_OFFER_PERFECT_AUXILIARIES = new Set(["had", "has"]);
 const TENDER_OFFER_ACTION = /\b(?:announced|announces|commenced|disclosed|discloses|reported|reports)\b/iu;
 const TENDER_OFFER_FEDEX_MARKET_METADATA = "(NYSE: FDX)";
+const TENDER_OFFER_FEDEX_MARKET_SELF_ALIAS_PREFIX =
+  "FedEx Corp. (NYSE: FDX) (“FedEx”) today ";
 const MATERIAL_CHANGE_AGREEMENT_ACTION_WORDS = new Set([
   "entered", "executed", "reached", "signed",
 ]);
@@ -759,11 +761,18 @@ function tenderOfferPredicateForClassification(
   if (rawPredicate === null || !containsTenderOfferPhrase(rawPredicate)) return null;
 
   const actionIndex = exactQuote.search(TENDER_OFFER_ACTION);
-  const actorParentheticals = actionIndex < 0 ? [] : [...exactQuote.matchAll(/\([^()]{1,96}\)/gu)]
+  const actorPrefix = actionIndex < 0 ? exactQuote : exactQuote.slice(0, actionIndex);
+  const actorParentheticals = actionIndex < 0 ? [] : [...actorPrefix.matchAll(/\([^()]{1,96}\)/gu)]
     .filter((parenthetical) => parenthetical.index < actionIndex);
-  const actorMetadataSafe = actorParentheticals.length === 0 ||
-    (actorParentheticals.length === 1 && normalizedAccountIdentity(accountName) === "fedex" &&
-      actorParentheticals[0]![0] === TENDER_OFFER_FEDEX_MARKET_METADATA);
+  const normalizedActor = normalizedAccountIdentity(accountName);
+  const actorParentheticalDelimitersSafe = (actorPrefix.match(/[()]/gu)?.length ?? 0) ===
+    actorParentheticals.length * 2;
+  const actorMetadataSafe = actorParentheticalDelimitersSafe &&
+    (actorParentheticals.length === 0 ||
+      (normalizedActor === "fedex" && actorParentheticals[0]![0] === TENDER_OFFER_FEDEX_MARKET_METADATA &&
+        (actorParentheticals.length === 1 ||
+          (actorParentheticals.length === 2 &&
+            actorPrefix === TENDER_OFFER_FEDEX_MARKET_SELF_ALIAS_PREFIX))));
   const withoutActorParentheticals = actionIndex < 0 ? exactQuote : exactQuote.replace(
     /\([^()]{1,96}\)/gu,
     (whole, offset: number) => offset < actionIndex ? " " : whole,

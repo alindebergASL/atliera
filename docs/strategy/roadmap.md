@@ -113,7 +113,7 @@ The first externally supplied sanitized schema-v1 real package was internally by
 
 M5b now closes only the **mechanism**: one real account → approved source acquisition → validation → human review/ratification → durable apply/read-back → reproducible Package Inspector evidence. Package review, ratification, apply, read-back, and Package Inspector rendering may set `M5B_MECHANISM_STATUS=SHIPPED` after their exact gates pass, but they can never set customer-product shipment or readiness by themselves.
 
-Customer-product shipment remains separate and requires a calm Level 1 Account Home projected from real durable account state, a genuinely model-produced Background Intelligence proposal proof, the applicable usability/friction/accessibility/content-quality gates, and no trust-label overclaim. `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED` remains true until those later P-track milestones pass. The generic prepare package does not replace that customer outcome.
+Customer-product shipment remains separate and requires a calm Level 1 Account Home projected from real durable account state, a genuinely model-produced Background Intelligence proposal proof, the applicable usability/friction/accessibility/content-quality gates, and no trust-label overclaim. `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED` remains true until the `C1–C6/M7 customer-product gates` pass. The generic prepare package does not replace that customer outcome.
 
 The host-local v2-r3 archive is `FROZEN_UNQUALIFIED_PROVENANCE_ONLY`; host/archive qualification and V4 reconciliation are closed. The shared control plane is quarantined and nonblocking, not a product acceptance requirement. No v2-r4 is authorized.
 

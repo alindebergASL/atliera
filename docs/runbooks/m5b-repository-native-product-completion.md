@@ -2,7 +2,7 @@
 
 Status: implementation prepared for independent review. This document authorizes no real source execution, human ratification, durable real graph write, provider/model call, acquisition, deployment, or customer-readiness claim.
 
-> **Historical/internal classification:** `../adr/0004-calm-product-surface-and-internal-package-inspector.md` preserves this mechanism as historical FedEx-specific validation and Package Inspector evidence. The dense pre-ratification Workshop page is not the prospective Level 1 customer UX baseline.
+> **Historical/internal classification:** `../adr/0004-calm-product-surface-and-internal-package-inspector.md` preserves this mechanism as historical FedEx-specific validation and Package Inspector evidence. The dense pre-ratification Workshop page is not the Level 1 customer UX baseline.
 
 - M5B_STATUS=IN_PROGRESS
 - CURRENT_EFFECTIVE_AUTHORIZATION=NONE

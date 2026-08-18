@@ -6,13 +6,13 @@ This repository is the clean-slate Atliera product foundation for the registered
 
 ## Product direction
 
-Atliera's owner-directed prospective customer-product rule is:
+Atliera's owner-directed customer-product rule, accepted and effective on merge, is:
 
 > **Answers first. Evidence on demand. Machinery by invitation.**
 
 The ordinary product is a calm Account Workspace that puts account meaning, why now, what changed, and one recommended next move before evidence mechanics. Researcher and audit power is progressively disclosed. The dense M5b account-review renderer remains an internal Package Inspector / Audit View; it is not the customer UX baseline.
 
-The canonical proposed repository decision is `docs/adr/0004-calm-product-surface-and-internal-package-inspector.md`, with full product requirements in `docs/strategy/calm-product-hard-pivot.md`, ordinary-experience requirements in `docs/strategy/calm-everyday-experience-contract.md`, disclosure and AI/review boundaries in `docs/architecture/progressive-disclosure-ai-review-model.md`, and first-time-user acceptance in `docs/qa/zero-training-product-acceptance-gate.md`. These documents authorize no implementation until merged and followed by a separate explicit owner decision.
+The canonical accepted repository decision is `docs/adr/0004-calm-product-surface-and-internal-package-inspector.md`, with full product requirements in `docs/strategy/calm-product-hard-pivot.md`, ordinary-experience requirements in `docs/strategy/calm-everyday-experience-contract.md`, disclosure and AI/review boundaries in `docs/architecture/progressive-disclosure-ai-review-model.md`, and first-time-user acceptance in `docs/qa/zero-training-product-acceptance-gate.md`. These documents become effective on merge and authorize no implementation or effect; every implementation or operational slice still requires a separate explicit owner decision.
 
 Internal architecture and expert-surface vocabulary:
 

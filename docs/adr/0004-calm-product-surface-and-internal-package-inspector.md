@@ -1,6 +1,6 @@
 # ADR 0004: Calm product surface and internal Package Inspector
 
-Status: Proposed for merge — owner decision is authoritative; this ADR becomes the in-repository prospective product authority when merged.
+Status: Accepted — effective on merge as the in-repository customer-product authority.
 
 Date: 2026-08-18
 
@@ -28,9 +28,9 @@ Atliera will have one progressively disclosed product:
 2. **Researcher/power-user depth** — claims, exact excerpts, rationale, conflicts, freshness, alternatives, versions, and deltas on deliberate access.
 3. **Audit/developer depth** — packages, internal IDs, hashes, byte spans, bindings, manifests, receipts, execution identities, and authorization/effect boundaries under appropriate restriction.
 
-The ordinary product shows account meaning, why now, what changed, who and what matter, and one recommended next move before evidence mechanics. Its primary action is `Prepare for…`. Important evidence is reachable within two interactions.
+The ordinary product shows account meaning, why now, what changed, who and what matter, and one recommended next move before evidence mechanics. In C1, its action is `View meeting plan` only for an already-admitted plan (otherwise `View evidence`); from C3 onward, `Prepare for…` is the primary action only when it launches the real two-decision preparation journey. Important evidence is reachable within two interactions.
 
-The existing dense M5b `workshop-pre-ratification.html` renderer is reclassified as an internal **Package Inspector / Audit View / developer diagnostic**. It remains supported for its scoped verification role. It will not be polished into or presented as the default customer experience.
+The existing dense M5b `workshop-pre-ratification.html` renderer is reclassified as an internal **Package Inspector / Audit View / developer diagnostic**. The generated `meeting-brief.md` is also an internal pre-ratification review artifact, not a future reviewed-snapshot audience-briefing baseline. Both remain supported for their scoped roles and will not be polished into or presented as the default customer experience.
 
 Signals, Maps, Plays, Workshop, Agent, and Graph remain useful internal architecture and expert-surface concepts. Level 1 uses plain business language and does not require users to know those terms.
 
@@ -58,7 +58,7 @@ The Account Brief Builder and Stanford CIO briefing are owner-supplied **externa
 - security and custody boundaries;
 - the current Package Inspector and historical implementation evidence.
 
-### Superseded prospectively
+### Retired customer-surface authority
 
 This ADR supersedes only customer-facing information-architecture implications that make any of the following the ordinary product baseline:
 
@@ -77,7 +77,9 @@ Representative first-time-user testing is a product gate. Visual polish, determi
 
 ### Implementation posture
 
-This ADR authorizes no implementation. The exactly one recommended first code slice after explicit owner approval is a calm read-only Account Home projected from existing admitted/validated data, with the Package Inspector retained behind an explicit internal boundary. The slice must include a functional `Prepare for…` action that reveals only an already-admitted meeting plan and does not claim new generation, saving, or persistence. Because identity and roles are outside that slice, the Package Inspector must be absent from customer navigation, customer routes, and the customer build and remain only a separate local/test artifact or separately operated internal surface until role-based authorization exists; labeling or obscurity is not an access boundary. Existing targeted CISO and proposal/RFx brief fixtures may provide useful disclosure/layout patterns, but an audience-specific `/brief` route would skip the primary Account Workspace journey and is therefore not selected as the first pivot slice.
+This ADR authorizes no implementation. The exactly one recommended first code slice after explicit owner approval is a calm read-only Account Home projected from existing admitted/validated data, with the Package Inspector retained behind an explicit internal boundary. The slice may include a functional `View meeting plan` action that reveals only an already-admitted plan and does not claim generation, saving, or persistence; it must not expose or test `Prepare for…`. Because identity and roles are outside that slice, the Package Inspector must be absent from customer navigation, customer routes, and the customer build and remain only a separate local/test artifact or separately operated internal surface until role-based authorization exists; labeling or obscurity is not an access boundary. Existing targeted CISO and proposal/RFx brief fixtures may provide useful disclosure/layout patterns, but an audience-specific `/brief` route would skip the primary Account Workspace journey and is therefore not selected as the first pivot slice.
+
+The next required product vertical is C2 Background Intelligence / AI Proposal. Broad customer acceptance is blocked until a governed model/provider run produces at least one evidence-grounded account thesis, meaningful change, implication, or recommended next move that was not supplied by a request or fixture and remains untrusted/proposed until validation and human judgment.
 
 ## Detailed authorities
 

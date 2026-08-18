@@ -1,6 +1,6 @@
 # Atliera calm product hard pivot
 
-Status: **Owner-authoritative decision; proposed in-repository authority pending merge.**
+Status: **Accepted — effective on merge as the governing customer-product direction.**
 
 Decision date: 2026-08-18
 
@@ -12,7 +12,7 @@ Owner decision: `ATLIERA_CALM_PRODUCT_HARD_PIVOT_DOCUMENTATION_SLICE_01`
 
 Atliera is a calm, AI-native account-intelligence product that a competent first-time user can use with little or no training. The ordinary experience is the primary product, not a simplified beginner mode. Researcher, power-user, audit, and developer capabilities are progressively disclosed only when deliberately requested.
 
-The owner decision is binding for future customer-product direction. This tracked artifact becomes the in-repository authority when merged. It does not authorize implementation, provider calls, research, data access, persistence, ratification, publication, deployment, or any other operational effect.
+The owner decision is binding for future customer-product direction. This tracked artifact is the in-repository authority effective on merge. It does not authorize implementation, provider calls, research, data access, persistence, ratification, publication, deployment, or any other operational effect.
 
 Boundary markers:
 
@@ -187,20 +187,30 @@ This sequence is a recommendation, not implementation authority:
    - hide empty modules and raw machinery;
    - show one quiet trust line and evidence on demand;
    - add no provider, persistence, schema, authority, acquisition, deployment, or identity scope.
-3. **Prepare Meeting**
-   - add `Prepare for…` with only audience and desired outcome required;
-   - keep other inputs defaulted and editable;
-   - generate a meeting-oriented output from the same snapshot.
-4. **Exception review and immutable briefing snapshot**
+3. **Background Intelligence / AI Proposal vertical slice**
+   - execute one separately governed model/provider run over admitted source-grounded research or synthesis;
+   - preserve source→excerpt→claim/proposal lineage and execution identity;
+   - keep model output untrusted and proposed until deterministic schema/support validation and human judgment;
+   - route consequential conflicts to human review;
+   - prove at least one genuinely model-produced thesis, meaningful change, implication, or recommended move that was not supplied by a request or fixture;
+   - permit no direct ratification, durable truth, publication, or outbound effect.
+4. **Prepare Meeting**
+   - add `Prepare for…` with only audience and intended outcome required;
+   - summarize date, scope, cutoff, format, duration, and posture behind one `More options` disclosure;
+   - reach a reviewable meeting-oriented draft within four required-path actions and 90 seconds of active input, measured separately from model/background wait and optional evidence review.
+5. **Exception review and immutable briefing snapshot**
    - collect only conflicts, stale or unsupported material, sensitive recommendations, and publication decisions;
    - freeze authorized outputs without rewriting prior snapshots.
-5. **Monitoring and delta**
-   - surface what changed since the reviewed snapshot;
-   - keep historical outputs reproducible.
 6. **Researcher and audit surfaces**
    - progressively expose claim/source quality, alternatives, manifests, hashes, receipts, and execution boundaries to authorized users.
 7. **Additional projections**
    - CIO, CISO, engineering, procurement, proposal, RFI, and RFP outputs over the same reviewed account state.
+8. **Monitoring and delta after M7**
+   - add recurring acquisition/change detection and monitoring only after the M7/C6 first-user gate;
+   - allow earlier slices to inspect only a caller-supplied manual, non-recurring delta;
+   - keep historical outputs reproducible.
+
+The sequence cannot complete over request-supplied or fixture-authored prose. Background Intelligence C2 and its genuinely model-produced, evidence-grounded proposal proof are mandatory before broad customer-product acceptance.
 
 ### Exactly one recommended first code slice
 
@@ -213,23 +223,23 @@ The slice should be projection-only:
 - no new schema, database, graph write, ratification, authorization, identity, or deployment path;
 - because identity/tenant authorization is outside the slice, the Account Home remains a repository-safe local/test projection over fixture or otherwise already-authorized local input; it must not add or deploy a customer route;
 - no fake AI claims for request-supplied or fixture-authored material;
-- one important change with the strongest truthful origin/support label the admitted input allows, concise account meaning, one clearly labeled draft next move, one quiet trust line, and evidence within two interactions; `Source-backed` is permitted only when authenticated/admitted source custody and accepted exact support both exist, otherwise the slice must use the weaker truthful label and cannot claim customer acceptance;
-- one obvious, functional `Prepare for…` action that opens the already-admitted structured meeting plan when present; it must not imply that new preparation, AI generation, saving, or persistence occurred;
-- the first-slice acceptance scenario must contain an admitted plan; when no plan is admitted, hide the action, show an honest preparation-unavailable state, and do not claim the stage-1 product gate passed;
+- enforce the exact default-visible density budget: one thesis, one important change, one implication, one clearly labeled draft next move, one quiet trust/freshness line, and at most three secondary items, with evidence within two interactions; `Source-backed` is permitted only when authenticated/admitted source custody and accepted exact support both exist, otherwise the slice must use the weaker truthful label and cannot claim customer acceptance;
+- when an already-admitted structured meeting plan exists, expose a truthful `View meeting plan` action; it only reveals existing content and must not imply new preparation, AI generation, saving, or persistence;
+- when no plan is admitted, hide `View meeting plan` and show no dead preparation control;
 - no Accept/Reject/save/publish/apply controls;
 - no customer navigation, customer route, or customer build may expose the Package Inspector; because identity/roles are outside this slice, the inspector remains available only as a separate local/test artifact or separately operated internal surface until role-based authorization exists—an obscure URL or an `Internal` label is not an access boundary;
 - responsive and accessible at the existing desktop/tablet/mobile gates;
 - explicit absence handling when admitted data cannot support a module.
 
-Do not begin the interactive `Prepare Meeting` input/generation workflow, monitoring, durable approval, or expert surfaces in that slice. The read-only action above may reveal an already-admitted plan only.
+Do not begin Background Intelligence, the interactive `Prepare Meeting` input/generation workflow, monitoring, durable approval, or expert surfaces in that slice. The read-only action above may reveal an already-admitted plan only.
 
-Stage 1 is not a broad-customer-UX acceptance claim. It must pass the applicable read-only subset of the zero-training gate—60-second account/why-now/next-move understanding, 15-second `Prepare for…` discovery, two-interaction evidence, honest origin/state, no raw audit exposure, and no dead controls. The full preparation-completion, exception, approval, and monitoring scenarios remain HOLD until their corresponding stages exist, and the complete 5–8-user gate must pass before broad customer UX is accepted.
+Stage 1 is not a broad-customer-UX acceptance claim. It must pass the applicable read-only subset of the zero-training gate—60-second account/why-now/next-move understanding, Level 1 density, two-interaction evidence, honest origin/state, no raw audit exposure, and no dead controls. It must **not** test `Prepare for…` discoverability. The full Prepare friction, preparation-completion, background-AI, exception, approval, and monitoring scenarios remain HOLD until their corresponding stages exist, and the complete 5–8-user gate must pass before broad customer UX is accepted.
 
 ## Authority and supersession map
 
-| Artifact | Prospective authority after this decision |
+| Artifact | Authority effective on merge |
 | --- | --- |
-| `../adr/0004-calm-product-surface-and-internal-package-inspector.md` | Canonical decision record; becomes in-repository prospective product authority when merged |
+| `../adr/0004-calm-product-surface-and-internal-package-inspector.md` | Canonical accepted customer-product decision record, effective on merge |
 | This document | Authoritative product identity, principles, sequence, and customer-direction correction |
 | `calm-everyday-experience-contract.md` | Authoritative Level 1 experience and ordinary journey contract |
 | `../architecture/progressive-disclosure-ai-review-model.md` | Authoritative disclosure, AI/human review, correction, and trust-presentation model |
@@ -240,11 +250,11 @@ Stage 1 is not a broad-customer-UX acceptance claim. It must pass the applicable
 | `../architecture/agentic-ai-usage-baseline.md` | Remains authoritative for present-state AI participation until later implementation evidence changes it |
 | `../architecture/synthetic-human-review-loop-v1.md` | Remains a scoped synthetic lab proof, not the customer review journey |
 | `fake-mode-workshop-surface-exit-criteria.md` and product-preview records | Remain scoped implementation/validation evidence, not customer UX acceptance |
-| `../runbooks/m5b-product-review-prepare.md` | Remains the preferred current generic package-generation mechanism; its HTML is an internal inspector, not the customer product baseline |
+| `../runbooks/m5b-product-review-prepare.md` | Remains the preferred current generic package-generation mechanism; its HTML is an internal inspector and its Markdown brief an internal pre-ratification review artifact, not customer or reviewed-snapshot output baselines |
 | M5a/M5b approval, execution, package, and audit records | Remain immutable historical/scoped evidence; they are neither deleted nor relabeled as wasted work |
 | Account Brief Builder and Stanford CIO briefing references | Owner-supplied external references; exact artifacts unavailable in-repo and therefore not claimed as inspected |
 
-Where earlier documentation implies that the dense Workshop, three lens columns, proposal-review grid, or package page is itself the intended ordinary customer experience, this decision supersedes that implication prospectively. Historical claims about what code did, what validation proved, what effects occurred, and what authority was absent remain accurate in their original scope.
+Where earlier documentation implies that the dense Workshop, three lens columns, proposal-review grid, or package page is itself the intended ordinary customer experience, this decision retires that customer-surface implication effective on merge. Historical claims about what code did, what validation proved, what effects occurred, and what authority was absent remain accurate in their original scope.
 
 ## Non-authorization
 

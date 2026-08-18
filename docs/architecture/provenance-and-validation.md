@@ -249,11 +249,26 @@ approval chain use new schema versions, producing new candidate and review
 identities. Historical schema-v2 candidate/review artifacts remain read-only
 records and cannot authorize canonical projection or commit.
 
-Customer-visible free-form prose whose underlying provenance remains
-`verified` is labeled exactly `Reviewed · source-backed`. The label describes
-the evidence review honestly without presenting the prose itself as an
-independently verified fact; conservative, contested, unsupported, stale, and
-pending-review states retain their existing labels and behavior.
+The former customer-label shortcut from `provenance_status: verified` to
+`Reviewed · source-backed` is retired for Level 1 projections. Technical
+verification may establish schema, digest, referential, or support properties;
+it does not establish human review and does not authenticate omitted origin
+bytes by itself.
+
+Level 1 derives two independent dimensions:
+
+- origin/support status: `Source-backed` requires admitted/authenticated source
+  custody plus accepted exact support for the specific statement; package
+  attribution or self-consistency alone is insufficient;
+- human-review disposition: `Reviewed` requires a recorded human review
+  decision for the exact content and does not follow from provenance status.
+
+A combined label is allowed only when both dimensions independently pass. When
+proof is absent, ambiguous, package-only, stale, contested, or pending, the
+projection must fail to the corresponding weaker truthful label. Historical
+fixtures or internal renderers that still display `Reviewed · source-backed`
+remain implementation records, not Level 1 authority, until they
+are migrated or shown to satisfy both independent contracts.
 
 ## Hard invariants
 
@@ -293,19 +308,21 @@ Any graph-first run fails if any occur. These are Atliera's carried-forward A.7 
 - Budget enforcement is pre-call and conservative.
 - Provider responses are untrusted proposals, not accepted evidence.
 
-## Quality thresholds
+## Mechanism and customer-product quality thresholds
 
-Hard invariant pass is necessary but not sufficient. Launch quality also requires useful account intelligence on a deliberate gate corpus. Initial quantitative targets, carried forward from the A.7 discipline and revisable only after a documented internal validation run, are:
+Hard invariant pass is necessary but not sufficient. The following graph/mechanism targets remain required, but they cannot establish customer-product shipment without the C2 model-produced proof and calm Level 1 usability, density, friction, accessibility, trust, and content-quality gates:
 
 - 100% hard invariant pass rate: zero false-verified outputs, zero invented IDs, zero dangling references, zero accepted paraphrases, zero unbudgeted/default-path model calls
 - accepted excerpt rate >= 50% on proposed excerpts for accounts with usable source material
 - zero-output incidents < 10% of gate-corpus accounts with usable source material
 - material-claim coverage >= 80%: at least 80% of material verified/high-confidence claims must have accepted supporting evidence
 - every usable gate account produces at least one useful graph-backed AccountObject
-- at least two launch lenses are materially useful for each usable gate account; all three lenses must render from the same graph where applicable
+- internal Signals/Maps/Plays projections remain coherent over the same Graph where used; no lens count or panel-rendering requirement defines Level 1 shipment
 - unsupported/inferred material is visibly labeled and never styled as verified
+- C2 includes at least one genuinely model-produced, evidence-grounded account thesis, meaningful change, implication, or recommended next move that was not supplied in a request or fixture and remains an untrusted proposal until validated and reviewed
+- the real durable Account Home passes the applicable zero-training, content-quality, density, Prepare-friction, accessibility, and evidence-access gates
 
-Qualitative review still matters, but numbers prevent launch-quality arguments from becoming subjective.
+Mechanism metrics and customer-product gates are cumulative and independent. Neither lens usefulness nor deterministic graph validity substitutes for answer quality or first-time-user acceptance.
 
 ## Legacy comparison protocol
 

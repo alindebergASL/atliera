@@ -1,6 +1,6 @@
 # Zero-training product acceptance gate
 
-Status: **Owner-directed; proposed in-repository first-time-user acceptance authority pending merge.**
+Status: **Accepted; effective on merge as the first-time-user acceptance authority.**
 
 Parent product decision: [`../strategy/calm-product-hard-pivot.md`](../strategy/calm-product-hard-pivot.md)
 
@@ -12,9 +12,11 @@ Passing deterministic validation, rendering without errors, or looking attractiv
 
 The complete gate applies before Atliera calls the ordinary multi-step customer journey accepted. Earlier bounded slices may test only scenarios they truthfully implement, but they remain **HOLD for broad customer acceptance**:
 
-- the projection-only Account Home slice must run the first-readout, meaningful-change, evidence, `Prepare for…` discoverability, trust-origin, raw-audit-exposure, and dead-control checks;
-- it must not be failed for lacking a preparation-generation workflow that its authority explicitly excludes, but it also must not claim the complete gate passed;
-- the full 5–8-user round, including preparation completion, exception review, output approval, and monitoring/delta, is required once those stages exist and before broad customer UX acceptance.
+- C1 projection-only Account Home must run density, first-readout, meaningful-change, evidence, truthful `View meeting plan` behavior when applicable, trust-origin, raw-audit-exposure, and dead-control checks; it must not expose or test `Prepare for…` discoverability;
+- C1 must not be failed for lacking the generation workflow its authority excludes, but it also must not claim the complete gate passed;
+- C2 Background Intelligence must additionally prove actual model-produced evidence-grounded content and the user's ability to distinguish proposal/origin status;
+- C3 and later must run `Prepare for…` discoverability and the full friction gate;
+- monitoring/delta tests remain manual and non-recurring until C9 after M7; the full 5–8-user round includes recurrence only after that capability exists.
 
 ## Gate population
 
@@ -41,14 +43,17 @@ The round passes only when all thresholds hold:
 
 1. At least **80%** of participants complete the core journey without coaching.
 2. At least 80% understand the account, why now, and the recommended next move within **60 seconds** of the Account Workspace becoming usable.
-3. At least 80% find `Prepare for…` within **15 seconds**.
-4. The preparation journey requires no more than **two required inputs**: audience and desired outcome.
-5. At least 80% reach important evidence within **two interactions**.
-6. At least 80% correctly distinguish source-backed information from AI interpretation, request-supplied context, or other proposed content.
-7. No participant is accidentally exposed to raw audit machinery during the core journey.
-8. No participant misunderstands draft versus reviewed, approved, shared, or published state in a way that could cause a consequential mistake.
-9. No dead or misleading control appears in the tested core journey.
-10. The group median reports workload at or below the accepted baseline and confidence at or above the accepted baseline defined before the round.
+3. The Level 1 initial view stays within the exact density budget: one thesis, one change, one implication, one recommended move, one trust/freshness line, and at most three secondary items.
+4. From C3 onward, at least 80% find `Prepare for…` within **15 seconds**; C1 does not expose or measure that label.
+5. The preparation journey requires no more than **two required decisions**: audience and intended outcome.
+6. The required Prepare path takes no more than **four deliberate actions** from starting Prepare to reaching the generated draft.
+7. The required Prepare path takes no more than **90 seconds of active input time**, measured separately from model/background wait and optional evidence review.
+8. At least 80% reach important evidence within **two interactions**.
+9. At least 80% correctly distinguish source-backed information from AI interpretation, request-supplied context, or other proposed content.
+10. No participant is accidentally exposed to raw audit machinery during the core journey.
+11. No participant misunderstands draft versus reviewed, approved, shared, or published state in a way that could cause a consequential mistake.
+12. No dead or misleading control appears in the tested core journey.
+13. The group median reports workload at or below the accepted baseline and confidence at or above the accepted baseline defined before the round.
 
 A safety, trust, or dead-control failure is a hard HOLD even if the percentage averages would otherwise pass. Do not average away a participant's consequential misunderstanding.
 
@@ -123,7 +128,22 @@ Pass conditions:
 - the participant describes account meaning rather than reciting UI labels;
 - the recommended move is evident;
 - source coverage/freshness is understandable without opening audit detail;
+- the default-visible page contains exactly one thesis, change, implication, recommended move, trust line, and no more than three secondary items;
+- people, initiatives, opportunities, evidence mechanics, scoring, provenance, and package detail require deliberate exploration;
 - empty or irrelevant modules do not distract.
+
+### 2A. Background Intelligence / AI Proposal proof
+
+Run this proof at C2 before broad customer-product acceptance. Use admitted evidence and a separately governed model/provider execution.
+
+Pass conditions:
+
+- retained execution evidence identifies the actual provider/model run, budget/authority boundary, and exact input/output lineage;
+- at least one account thesis, meaningful change, implication, or recommended next move is genuinely model-produced rather than copied from request, fixture, or expected output;
+- source → excerpt → claim/proposal lineage is complete and deterministic schema/support validation passes;
+- the result remains visibly untrusted/proposed;
+- consequential conflicts route to human review;
+- the run performs no direct ratification, durable truth write, publication, send, or outbound effect.
 
 ### 3. Meaningful-change discovery
 
@@ -159,8 +179,10 @@ Give a 15-minute conversation goal.
 Pass conditions:
 
 - `Prepare for…` is found within 15 seconds;
-- only audience and desired outcome are required;
-- date, scope, evidence cutoff, and output format have sensible editable defaults;
+- only audience and intended outcome are initially visible required decisions;
+- date, scope, evidence cutoff, output format, duration, and posture have sensible defaults summarized behind one `More options` disclosure;
+- the required path reaches the generated draft within four deliberate actions and 90 seconds of active input time;
+- active input, model/background wait, and optional evidence-review time are recorded separately;
 - the output contains an executive thesis, first move, decision landscape, relevant stakeholders, opportunities/guardrails, open questions, meeting plan, and evidence access where relevant;
 - the participant feels ready without reading a product report or Package Inspector;
 - the participant can find ordered questions, desired learning, follow-up signals, and an overall close criterion.
@@ -192,7 +214,7 @@ Pass conditions:
 
 ### 8. Monitoring and delta
 
-Use a reviewed prior snapshot and later evidence.
+Run this scenario only at C9 after M7/C6. Use a reviewed prior snapshot and later evidence. Before C9, any delta test is explicitly manual/non-recurring and cannot satisfy monitoring acceptance.
 
 Pass conditions:
 
@@ -240,8 +262,12 @@ Record per participant:
 - time to first accurate account explanation;
 - time to identify why now;
 - time to identify the recommended next move;
-- time to find `Prepare for…`;
-- required preparation-input count;
+- time to find `Prepare for…` from C3 onward; C1 records only whether `View meeting plan` or `View evidence` is understandable and does not score Prepare discoverability;
+- from C3 onward, required preparation-decision count;
+- from C3 onward, deliberate-action count from starting Prepare to generated draft;
+- from C3 onward, active input time;
+- model/background wait time, recorded separately when applicable;
+- optional evidence-review time, recorded separately when applicable;
 - evidence interaction count;
 - core-journey completion time;
 - coached versus uncoached completion;

@@ -6,9 +6,9 @@ This index is the human-facing authority map for `docs/runbooks/`. It does not s
 
 ## Product-direction relationship
 
-Runbook `active` status means current mechanism, safety, effect, or historical-status authority. It does **not** make a runbook's renderer or terminology the prospective customer UX authority.
+Runbook `active` status means current mechanism, safety, effect, or historical-status authority. It does **not** make a runbook's renderer or terminology the customer UX authority.
 
-The owner-directed calm-product decision is proposed in `../adr/0004-calm-product-surface-and-internal-package-inspector.md`, with full requirements in `../strategy/calm-product-hard-pivot.md`. It reclassifies the dense M5b page as internal Package Inspector / Audit View while preserving every trust, provenance, authorization, and historical-effect boundary recorded here.
+The owner-directed calm-product decision is accepted and effective on merge in `../adr/0004-calm-product-surface-and-internal-package-inspector.md`, with full requirements in `../strategy/calm-product-hard-pivot.md`. It reclassifies the dense M5b page and generated meeting brief as internal pre-ratification review/audit artifacts while preserving every trust, provenance, authorization, and historical-effect boundary recorded here.
 
 Boundary markers:
 
@@ -27,7 +27,7 @@ Boundary markers:
 - provider_calls_executed_by_this_index: 0
 - provider_spend_by_this_index: false
 - historical M5b next recommended work: review and merge the generic schema-v2 meaningful-change evidence gate; only afterward consider a separately authorized fresh exact-provenance v2 prepare; generic ratification/apply remain deferred until a useful package passes review
-- current product-direction next recommended work: after owner review and merge of the calm-product documentation, consider exactly one separately authorized projection-only calm read-only Account Home over existing admitted/validated data; no implementation is authorized by this index
+- current product-direction next recommended work: consider exactly one separately authorized C1 projection-only calm read-only Account Home over existing admitted/validated data; use `View meeting plan` for an already-admitted plan; C2 Background Intelligence remains a later separately authorized requirement; no implementation is authorized by this index
 - ratified next bounded implementation: none
 - M4 is shipped upon closeout merge; M4 implementation authority has returned to none; the host-local M5b v2-r3 result is provenance only; current effective authorization remains none
 - M4 Gate B attempt 1 remains permanently consumed and failed with zero response bytes
@@ -47,7 +47,7 @@ Per-artifact “next recommended work” sections record the local historical fo
 
 M5b acceptance remains one real account whose public sources are fetched through M4, validated and human-ratified into durable state, then rendered as a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Generic schema-v2 `m5b:product-review:prepare` is the preferred/current product route and now requires an explicitly typed and answer-bound material-change Signal → Map → Play chain before rendering. Evidence roles remain reviewed assertions, so human usefulness review is still mandatory. The reviewed external schema-v1 package failed usefulness review and has execution provenance on hold; it is not a successor baseline. Its prior run reported one archive acquisition/network request and its result records one retained-custody read; those historical effects remain accounted separately from the zero qualified-result and zero future-authorization counters. The old FedEx-specific prepare/apply path and validators remain historical/reference behavior. No real evaluated page exists yet.
 
-That remains the M5b mechanism gate. `preferred/current product route` means the preferred current generic pre-ratification package route, not the prospective Level 1 information architecture. The calm-product decision supersedes only the latter interpretation; no generic ratification/apply or calm Account Home exists yet.
+That remains the M5b mechanism gate. `preferred/current product route` means the preferred current generic pre-ratification package route, not Level 1 information architecture. The calm-product decision retires only the latter interpretation; no generic ratification/apply or calm Account Home exists yet. Mechanism closure and customer-product shipment are separate: package review/ratification/apply/read-back/inspector work may close `M5B_MECHANISM_STATUS`, but `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED` remains until the C1–C6 gates, including real durable Account Home, model-produced Background Intelligence, and usability/content-quality proof, pass.
 
 No runbook entry in this index authorizes provider calls, retries, revalidation, comparison, graph ingestion, production use, default model selection, or readiness claims.
 

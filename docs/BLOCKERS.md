@@ -4,7 +4,7 @@ This file tracks gates that must be satisfied before Atliera moves from architec
 
 ## Current product-direction gate
 
-`adr/0004-calm-product-surface-and-internal-package-inspector.md` is the proposed superseding authority for customer-facing product direction. Its ordinary-experience, progressive-disclosure, and first-time-user requirements are defined in `strategy/calm-everyday-experience-contract.md`, `architecture/progressive-disclosure-ai-review-model.md`, and `qa/zero-training-product-acceptance-gate.md`.
+`adr/0004-calm-product-surface-and-internal-package-inspector.md` is the accepted customer-facing product authority, effective on merge. Its ordinary-experience, progressive-disclosure, and first-time-user requirements are defined in `strategy/calm-everyday-experience-contract.md`, `architecture/progressive-disclosure-ai-review-model.md`, and `qa/zero-training-product-acceptance-gate.md`.
 
 The dense M5b renderer remains an internal Package Inspector / Audit View. No calm customer Account Workspace has been implemented or accepted, and this documentation does not authorize one.
 
@@ -22,11 +22,11 @@ Current strategic reading: validation/proof machinery has outpaced the bootable 
 
 M5b acceptance remains customer-facing: one real account, public sources fetched through M4, validation and human ratification, durable state, and a shareable Workshop account page with every claim traceable to stored sources and every unverified item visibly labeled. Generic schema-v2 product-review prepare is the preferred current route for the pre-ratification package; the repository-native FedEx-specific prepare/apply path is historical reference behavior, not a replacement milestone outcome.
 
-That paragraph remains the historical M5b mechanism gate. Under the calm-product decision, `shareable Workshop account page` no longer means that the dense package-inspection renderer is the prospective Level 1 customer experience. The mechanism must support a separate calm answer-first projection, and zero-training acceptance is an additional product gate.
+That paragraph remains the historical M5b mechanism gate. Under the calm-product decision, package review, ratification, apply, read-back, the Package Inspector, and the generated meeting brief can close the mechanism only. `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED` remains until a calm Level 1 Account Home over real durable state, C2 model-produced Background Intelligence, Prepare friction, and the applicable usability/content-quality/accessibility gates pass.
 
 The next M5b effects are blocked because `CURRENT_EFFECTIVE_AUTHORIZATION=NONE`. A future real prepare requires exact reviewed request/source bytes, commit/tree and owner identity plus separately armed source-effect authority. The schema-v2 request must carry a material-change exact excerpt through a source-fact Signal, a dependent Map analysis, and every Play. No generic ratification/apply contract exists yet; it remains deferred until a useful exact-provenance package passes product review. No standing decision authorizes acquisition, retained-custody reads, providers/models, deployment, control-plane use, ratification, or any graph/database write.
 
-Current qualified M5b product counters: `M5B_STATUS=IN_PROGRESS`; `QUALIFIED_REAL_SOURCE_READS=0`; `REAL_GRAPH_WRITES=0`; `REAL_RATIFICATIONS=0`. Historical accounting remains explicit: `EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_ACQUISITIONS=1`; `EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_NETWORK_REQUESTS=1`; `PACKAGE_RECORDED_HISTORICAL_RETAINED_CUSTODY_READS=1`. The reviewed external schema-v1 package is `PRODUCT_FAIL` with exact execution provenance `HOLD`, so these effects do not advance the acceptance counters, but they are not erased. Current future authority is separate: `CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS=0`; provider calls, deployments/AWS actions, retries, ratifications, apply operations, and graph/database writes remain unauthorized. Hermes's later stopped turn performed zero new source activity. Committed synthetic tests may write only disposable local outputs.
+Current qualified M5b product counters: `M5B_STATUS=IN_PROGRESS`; `M5B_MECHANISM_STATUS=IN_PROGRESS`; `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED`; `QUALIFIED_REAL_SOURCE_READS=0`; `REAL_GRAPH_WRITES=0`; `REAL_RATIFICATIONS=0`. Historical accounting remains explicit: `EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_ACQUISITIONS=1`; `EXTERNALLY_REPORTED_HISTORICAL_ARCHIVE_NETWORK_REQUESTS=1`; `PACKAGE_RECORDED_HISTORICAL_RETAINED_CUSTODY_READS=1`. The reviewed external schema-v1 package is `PRODUCT_FAIL` with exact execution provenance `HOLD`, so these effects do not advance the acceptance counters, but they are not erased. Current future authority is separate: `CURRENT_AUTHORIZED_FUTURE_SOURCE_EFFECTS=0`; provider calls, deployments/AWS actions, retries, ratifications, apply operations, and graph/database writes remain unauthorized. Hermes's later stopped turn performed zero new source activity. Committed synthetic tests may write only disposable local outputs.
 
 The former host Gate B/v2-r3 package is frozen historical provenance only. No v2-r4 is authorized. Host/archive qualification and V4 reconciliation are closed; the shared control plane remains quarantined and nonblocking. Historical outputs and the reviewed schema-v1 package are unratified drafts and cannot satisfy the generic schema-v2 usefulness or any future ratification boundary.
 
@@ -38,7 +38,7 @@ Required before implementation:
 - Product architecture doc exists.
 - Provenance/validation doc exists.
 - Legacy carry-forward vs leave-behind split is explicit.
-- Signals/Maps/Plays are framed as graph-backed lenses, not separate early modules.
+- Signals/Maps/Plays are framed as graph-backed internal/expert projections, not separate early modules or Level 1 panels.
 - Calm Level 1 Account Workspace, progressive disclosure, Package Inspector classification, AI-origin honesty, and authority/supersession docs are merged.
 
 ## Gate 1: Graph foundation before real model/provider work
@@ -63,6 +63,8 @@ Required before any paid/model run:
 - Pre-call budget enforcement exists.
 - Fake adapter dry-run passes.
 - Adversarial activation/budget tests pass.
+- C2 Background Intelligence retains execution identity and source→excerpt→claim/proposal lineage, keeps model output untrusted/proposed, validates schema/support deterministically, routes consequential conflicts to human review, and produces at least one genuinely model-authored thesis/change/implication/next move rather than replaying request/fixture text.
+- C2 performs no direct ratification, durable truth write, publication, send, or outbound effect.
 
 ## Gate 3: Lab deployment
 
@@ -91,15 +93,18 @@ Required before broader use beyond the initial user:
 - Zero-output incidents < 10% of gate-corpus accounts with usable source material.
 - Material-claim coverage >= 80% for verified/high-confidence claims.
 - Useful end-to-end output for usable gate accounts.
-- Signals/Maps/Plays render from shared graph-backed objects and do not fork validators, research logic, provenance logic, or data paths.
+- A calm Level 1 Account Home renders from real durable account state and passes its density budget; internal Signals/Maps/Plays projections may remain diagnostic but cannot satisfy customer shipment.
+- Shared graph-backed projections do not fork validators, research logic, provenance logic, or data paths.
 - Unsupported/inferred material is visibly labeled.
 - Legacy comparison protocol has been run externally where relevant.
-- Five to eight representative first-time users test the ordinary journey without a walkthrough; at least 80% meet the completion, 60-second understanding, 15-second `Prepare for…`, two-required-input, and two-interaction-evidence thresholds in `qa/zero-training-product-acceptance-gate.md`.
+- Five to eight representative first-time users test the ordinary journey without a walkthrough; at least 80% meet uncoached completion, 60-second understanding, and two-interaction evidence thresholds in `qa/zero-training-product-acceptance-gate.md`.
+- From C3 onward, users find `Prepare for…` within 15 seconds; the required path has only audience and intended outcome, no more than four deliberate actions, and no more than 90 seconds active input measured separately from background wait and optional evidence review.
+- Expert-blind content-quality, WCAG 2.2 AA, responsive/overflow, trust-label, and lifecycle-state gates pass.
 - Users distinguish source-backed material from AI interpretation or other proposed content; no raw audit machinery, draft/review/publish confusion, or dead/misleading controls appear in the core journey.
 
 ### Gate 4 enforcement status
 
-The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, `evaluateWorkshopLensUsefulness` provides a deterministic first-pass review for whether graph-backed Signals / Maps / Plays are materially useful, and `assessLaunchGateCorpusManifestFile` ties those pieces into one local assessment object with explicit usable-account Gate 4 metrics. This v0 corpus/review/assessment path is still fixture-only and explicitly does not claim live launch readiness.
+The current validator and quality gate enforce per-bundle invariants and thresholds, the quality gate emits deterministic aggregate corpus metrics when multiple GraphBundles are supplied, `fixtures/gate-corpus/launch-v0.json` documents the selected deterministic v0 launch-gate corpus with executable expected validator/gate outcomes, `evaluateWorkshopLensUsefulness` provides a deterministic diagnostic review for graph-backed internal projections, and `assessLaunchGateCorpusManifestFile` ties those pieces into one local assessment object with explicit usable-account Gate 4 metrics. This v0 corpus/review/assessment path is fixture-only, has no calm Level 1 or model-produced C2 proof, and explicitly does not claim live launch readiness.
 
 `docs/strategy/first-validation-cycle-exit.md` records the first validation cycle exit assessment. It preserves no launch readiness and chooses no-spend methodology codification followed by a narrow product-facing fake-mode runtime slice; it does not approve runtime/model-mode integration, provider comparison, corpus expansion, production writes, or additional live provider calls.
 
@@ -108,7 +113,7 @@ Before launch-readiness assessment, Atliera still needs live or expanded-corpus 
 - minimum usable gate-account count and corpus selection criteria
 - zero-output incident rate across usable gate-corpus accounts
 - material-claim coverage across verified/high-confidence claims
-- lens usefulness across Signals / Maps / Plays
+- calm Level 1 density/usability/content-quality/accessibility proof plus diagnostic coherence of any internal projections
 - hard-invariant pass/fail across the selected usable accounts
 
 See `docs/architecture/atliera-product-architecture.md#launch-readiness-gating-layers`.

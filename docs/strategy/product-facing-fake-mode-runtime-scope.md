@@ -4,7 +4,7 @@ Status: Accepted
 
 Last updated: 2026-05-28
 
-> **Historical phase qualifier:** This remains the accepted fake-mode implementation/validation scope. `../adr/0004-calm-product-surface-and-internal-package-inspector.md` supersedes its renderer/lens-first implications as prospective customer UX. Current fake Workshop surfaces are internal preview/inspection infrastructure unless separately promoted through the calm product and zero-training gates.
+> **Historical phase qualifier:** This remains the accepted fake-mode implementation/validation scope. `../adr/0004-calm-product-surface-and-internal-package-inspector.md` retires its renderer/lens-first implications as customer UX effective on merge. Current fake Workshop surfaces are internal preview/inspection infrastructure unless separately promoted through the calm product and zero-training gates.
 
 ## Purpose
 

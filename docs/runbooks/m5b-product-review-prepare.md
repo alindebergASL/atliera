@@ -2,7 +2,7 @@
 
 Status: additive current pre-ratification package route with dormant exact-source controls. No committed artifact authorizes a live acquisition or retained-custody read, and this runbook authorizes no ratification, apply, graph/database write, provider call, network call, deployment, or outbound action.
 
-> **Customer-product classification:** Under `../adr/0004-calm-product-surface-and-internal-package-inspector.md`, the generated `workshop-pre-ratification.html` is an internal Package Inspector / Audit View / developer diagnostic. This package mechanism remains current and supported; the dense renderer is not the prospective Level 1 customer UX baseline.
+> **Customer-product classification:** Under `../adr/0004-calm-product-surface-and-internal-package-inspector.md`, the generated `workshop-pre-ratification.html` is an internal Package Inspector / Audit View / developer diagnostic and `meeting-brief.md` is an internal pre-ratification review artifact. This package mechanism remains current and supported; neither generated file is the Level 1 UX or future reviewed-snapshot audience-briefing baseline.
 
 This path recovers the product-review package in the current repository schema without changing the historical FedEx package or the existing `m5b:prepare` / `m5b:apply` behavior. It is the preferred current generic package-generation/product-review route. The older FedEx-specific completion path and validators are preserved byte/behavior-compatible historical/reference behavior, not the preferred route. The generic path has no permanent FedEx-specific product branch.
 

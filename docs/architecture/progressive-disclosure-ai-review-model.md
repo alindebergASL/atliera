@@ -1,6 +1,6 @@
 # Progressive disclosure, AI, and human-review model
 
-Status: **Owner-directed; proposed in-repository disclosure and review authority pending merge.**
+Status: **Accepted; effective on merge as the disclosure, AI, and human-review authority.**
 
 Parent product decision: [`../strategy/calm-product-hard-pivot.md`](../strategy/calm-product-hard-pivot.md)
 
@@ -14,18 +14,20 @@ Progressive disclosure is not a split between a simplified product and the real 
 
 ### Level 1 — Everyday
 
+The default-visible density budget is exactly one account thesis, one meaningful change, one implication, one recommended next move, one compact trust/freshness line, and no more than three secondary items total.
+
 Show:
 
 - concise account readout;
 - why now;
 - what changed;
 - why it matters;
-- important people, initiatives, tensions, and opportunities;
+- at most a small capped secondary set of people, initiatives, tensions, opportunities, guardrails, or open questions;
 - one recommended next move;
 - quiet source-coverage, freshness, and attention summary;
-- one obvious `Prepare for…` action.
+- in C1, one truthful `View meeting plan` or `View evidence` action; from C3 onward, one `Prepare for…` action that launches the real minimal journey.
 
-Use plain language. Hide raw control-plane terminology.
+Use plain language. Hide raw control-plane terminology, evidence mechanics, scoring, provenance, and uncapped people/initiative/opportunity modules until deliberate exploration.
 
 ### Level 2 — Researcher or power user
 
@@ -123,7 +125,21 @@ When separately implemented, approved, and evidenced, Atliera should perform the
 - stakeholder, initiative, opportunity, and recommendation analysis;
 - audience-specific briefing preparation.
 
-AI output remains untrusted proposal input. It cannot bypass deterministic validation, evidence admission, trust labeling, authorization, or immutable snapshot rules.
+AI output remains untrusted proposal input. It cannot bypass deterministic validation, evidence admission, trust labeling, authorization, or immutable snapshot rules. Scheduled recurrence and automated change detection remain post-M7/C6; C2 may perform only one bounded approved run over admitted inputs.
+
+## Required C2 Background Intelligence / AI Proposal proof
+
+Broad customer-product acceptance requires a named C2 vertical slice after the deterministic Account Home. It must:
+
+- execute an actual governed model/provider call under explicit provider, model, budget, run, and retry authority;
+- consume admitted source-grounded research or synthesis input rather than treating request prose or fixtures as product intelligence;
+- retain source → excerpt → claim/proposal lineage and exact execution identity;
+- label every model result as untrusted and proposed;
+- pass deterministic schema, reference, excerpt, and support validation;
+- route every consequential conflict or commercially sensitive inference to human judgment;
+- perform no direct ratification, durable truth write, publication, send, or outbound effect.
+
+Acceptance requires at least one genuinely model-produced account thesis, meaningful change, implication, or recommended next move grounded in admitted evidence. Replaying text supplied in the request, fixture, or expected output does not satisfy C2.
 
 ## Automatic, proposed, judged, and authorized work
 
@@ -252,7 +268,7 @@ Level 2 and Level 3 also require deliberate role authorization. The Package Insp
 
 ## Current renderer classification
 
-The M5b `workshop-pre-ratification.html` surface is Level 3 Package Inspector / Audit View material even when it contains readable account sections. Its package labels, repeated proposal controls, IDs, source register, hashes, and effect boundaries are diagnostic truth, not Level 1 product information architecture.
+The M5b `workshop-pre-ratification.html` surface is Level 3 Package Inspector / Audit View material even when it contains readable account sections. The generated `meeting-brief.md` is likewise an internal pre-ratification review artifact, not the baseline for future audience briefings rendered from an authorized reviewed snapshot. Their package labels, proposal content, IDs, source register, hashes, and effect boundaries are diagnostic/review truth, not Level 1 product information architecture.
 
 Retaining that surface is required. Using it as the customer UX baseline is prohibited by the parent decision. `Internal` labeling or a hard-to-find URL is not authorization: until a role-based internal access boundary exists, a customer build/route/navigation must not expose the inspector.
 

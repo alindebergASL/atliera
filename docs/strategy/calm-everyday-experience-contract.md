@@ -1,6 +1,6 @@
 # Calm everyday experience contract
 
-Status: **Owner-directed; proposed in-repository ordinary-experience authority pending merge.**
+Status: **Accepted; effective on merge as the ordinary-experience authority.**
 
 Parent decision: [`calm-product-hard-pivot.md`](calm-product-hard-pivot.md)
 
@@ -45,15 +45,30 @@ Within 60 seconds of the Account Workspace becoming usable, a first-time user mu
 
 The first screen should contain, in this order:
 
-1. account identity and one-sentence readout;
-2. why now / what changed;
-3. why it matters;
+1. account identity and one account thesis;
+2. one meaningful change;
+3. one implication / why it matters;
 4. one recommended next move;
 5. a quiet trust and freshness line;
-6. the obvious `Prepare for…` action;
-7. only then, additional relevant people, initiatives, opportunities, tensions, and open questions.
+6. after the Prepare milestone exists, the obvious `Prepare for…` action; in the projection-only slice, use `View meeting plan` only when an admitted plan already exists;
+7. only then, a small capped secondary set available through deliberate exploration.
 
 Evidence, audit language, source registers, internal classifications, and package mechanics must not displace those answers above the fold.
+
+## Enforceable Level 1 density budget
+
+The default visible Account Home may show:
+
+- exactly one account thesis;
+- exactly one meaningful change;
+- exactly one implication;
+- exactly one recommended next move;
+- exactly one compact trust/freshness line;
+- no more than **three secondary items total** across people, initiatives, opportunities, tensions, guardrails, and open questions.
+
+Secondary items must be ranked and collapsed behind one deliberate `Explore account` (or equivalent) disclosure. Evidence mechanics, scoring, confidence detail, provenance, people directories, initiative catalogs, opportunity lists, package data, and internal classifications require deliberate exploration and do not count as default-visible secondary cards.
+
+The density gate fails if the initial view renders additional lens panels, repeated cards, source lists, evidence excerpts, scores, metadata tables, or more than the capped secondary set. Responsive layouts may rearrange the same budget; they may not increase it. If admitted state cannot support a thesis, change, implication, or recommendation, show the truthful partial/empty exception instead of filler and do not claim the Level 1 acceptance scenario passed.
 
 ## Account Workspace contract
 
@@ -61,7 +76,7 @@ Evidence, audit language, source registers, internal classifications, and packag
 
 Show a concise, prioritized understanding of the account rather than a collection of independent objects. It should distinguish fact, interpretation, and recommendation without making the user parse internal taxonomies.
 
-Required content when supported:
+Content the Account Workspace may make available when supported; the initial view still obeys the density budget above, and secondary content requires deliberate exploration:
 
 - a one-sentence account thesis;
 - why the account matters now;
@@ -92,18 +107,21 @@ The exact values must be derived honestly. The line must not compress materially
 
 ### One primary action
 
-The ordinary screen has one obvious primary action: `Prepare for…`.
+The ordinary screen has one obvious primary action, but its label must match its real capability:
+
+- **C1 projection-only slice:** `View meeting plan` when an admitted plan exists; otherwise `View evidence`. Neither action may imply generation, saving, or persistence.
+- **C3 Prepare milestone and later:** `Prepare for…` only when it launches the real audience/outcome journey and produces a reviewable draft.
 
 Secondary actions may include `Update`, `Monitor`, or `Share` only when they are implemented and relevant. No control may claim to save, accept, ratify, publish, apply, persist, monitor, or share unless that action actually occurs and its resulting state is visible.
 
 ## `Prepare for…`
 
-The preparation journey asks for only two required inputs:
+`Prepare for…` exists only when the product can produce a new reviewable draft. The journey asks for only two initially visible required inputs/decisions:
 
 1. **Who is this for?**
 2. **What outcome do you want?**
 
-Provide sensible editable defaults for:
+Summarize sensible editable defaults compactly behind one deliberate **`More options`** disclosure:
 
 - date and time;
 - scope;
@@ -112,7 +130,18 @@ Provide sensible editable defaults for:
 - duration;
 - internal versus shareable posture.
 
+No optional default may appear as another initially visible decision. Opening `More options` and changing a default are optional actions and are excluded from the required-decision count, but included in an optional-path friction record.
+
 Do not require the user to select internal records, configure a report, choose an ontology, understand Signals/Maps/Plays, or manually bind evidence.
+
+Required-path friction budget:
+
+- no more than two required decisions;
+- no more than four deliberate actions from activating `Prepare for…` to reaching the generated draft: open Prepare, set/confirm audience, set/confirm intended outcome, and request the draft; arrival at the reviewable draft is the result, not a fifth required action;
+- no more than 90 seconds of active user input time;
+- model/background wait time and optional evidence review are measured separately and may not be used to hide excess interaction friction.
+
+A text-entry session for one required decision counts as one deliberate action; each extra required disclosure, confirmation, page transition, or setup choice counts as another.
 
 The prepared output should include, where relevant:
 
@@ -172,7 +201,7 @@ The external and nonbinding Stanford CIO briefing named by the owner is the qual
 
 ## Monitor and update
 
-Monitoring is an ordinary workflow only when a real monitoring capability exists.
+Monitoring is an ordinary workflow only after M7/C6 and only when a real recurring monitoring/change-detection capability exists. Earlier slices may compare a caller-supplied delta manually and non-recurring; they must not schedule, monitor, recur, or claim automated change detection.
 
 The Account Workspace should then show:
 

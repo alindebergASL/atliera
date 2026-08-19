@@ -10,6 +10,7 @@ Date: 2026-08-19
 - Repository base tree: `4e9ec3b3c83b2e81ae7c8528276b70c6cc7dbad6`
 - Branch: `feat/c1-calm-read-only-account-home-02`
 - C1 authority: `EXPLICIT_OWNER_AUTHORIZATION_C1_CALM_READ_ONLY_ACCOUNT_HOME_02`
+- Responsive evidence correction authority: `EXPLICIT_OWNER_AUTHORIZATION_C1_RESPONSIVE_EVIDENCE_CORRECTION_01`
 - Packet ID: `atliera-evidence-horizon-system-v3.1`
 - Packet status: `owner_approved_calibration_amendment`
 - Packet archive SHA-256: `a95ffa97d054b24d80251bd796f4922a35ee342866a338b764037d8c449a06a4`
@@ -44,6 +45,8 @@ C1 is implemented as a local/test-only projection with no HTTP route:
   - writes only the stable checked golden fixture.
 - `fixtures/workshop/c1-calm-account-home.html`
   - is the stable no-plan golden artifact.
+- `fixtures/workshop/c1-calm-account-home-plan.html`
+  - is the stable admitted-plan golden artifact used for responsive evidence-reachability proof.
 
 No source under `src/runtime/` is imported or changed. The existing `/workshop` fake runtime and M5b Package Inspector remain untouched.
 
@@ -59,7 +62,7 @@ No source under `src/runtime/` is imported or changed. The existing `/workshop` 
 | One next move | admitted Play title, labeled draft recommendation | density/order and inference-boundary tests |
 | One compact trust cue | draft/origin/review/freshness line | trust test and screenshots |
 | Established → Open → Next | evidence spine and horizon orientation | density test and screenshots |
-| Evidence within two interactions | one-click native modal for each consequential statement; optional inert canonical reference | evidence and browser-interaction proof |
+| Evidence within two interactions | one-click native modal for each consequential statement; the `What changed` evidence trigger remains visible at tablet/mobile widths in plan and no-plan states | evidence and responsive browser-interaction proof |
 | No more than three secondary items | one closed native `Explore account` disclosure | exact-count test and browser proof |
 | No-plan action | `View evidence` opens change evidence | plan/no-plan test and golden |
 | Plan action | `View existing meeting plan` reveals only admitted plan | plan/no-plan test |
@@ -67,7 +70,7 @@ No source under `src/runtime/` is imported or changed. The existing `/workshop` 
 | No Package Inspector exposure | no link, embed, route, import, or build reference | focused inspector-separation test |
 | Hostile input safety | contextual escaping, strict admission, unsafe-URL refusal | hostile content/URL tests |
 | No client network/navigation | no anchors; canonical HTTPS values render as inert text; hashed CSP; zero client-network boundary | structure/security tests and browser resource inspection |
-| Accessible interaction | native dialog, explicit close control, Escape, focus containment/return, 44px targets | tests and browser interaction proof |
+| Accessible interaction | native dialog, explicit close control, Escape and Close focus return, 44px targets | tests and browser interaction proof |
 | Responsive/reflow | 1440, 1280, 768, 390 plus 640/320 CSS-pixel checks | measured DOM evidence and screenshots |
 | Safe failure | invalid/unadmitted input is rejected before rendering; attempt wrapper emits fixed data-free blocked proof | admission and blocked-proof tests |
 | Existing M5b behavior unchanged | isolated new module and no M5b/runtime modification | full existing test suite gate and diff review |
@@ -121,6 +124,17 @@ Additional browser proof:
 - no active anchor/navigation exists;
 - hashed CSP executes the exact style and controller without `unsafe-inline`.
 
+Responsive evidence correction proof is recorded in `c1-responsive-evidence-browser-proof.json`. At both 768×900 and 390×844, for both admitted-plan and no-plan variants:
+
+- the statement-local `evidence-change` control is visible with a 44px target;
+- its reserved heading width prevents trigger/heading overlap;
+- it opens `#evidence-change` and exposes the exact excerpt plus support/non-support boundaries;
+- Escape and the visible Close button both close the dialog and return focus to the invoking evidence control;
+- the no-plan primary action still opens `evidence-change`;
+- the admitted-plan primary action remains `View existing meeting plan`, opens `#existing-meeting-plan`, and exposes all three admitted questions;
+- the primary action remains fully visible;
+- document `scrollWidth` equals `clientWidth`.
+
 Measured contrast ratios:
 
 - main ink on canvas: 14.49:1;
@@ -136,15 +150,23 @@ Measured contrast ratios:
 ## Golden and screenshot identities
 
 - Golden HTML: `../../fixtures/workshop/c1-calm-account-home.html`
-  - SHA-256: `f68cd15760875835f428767ba64dbd778e3eb4f0f9fe8d9bcdead88580ee6fe8`
+  - SHA-256: `d36322e8e6f4f9415dcf6de80b1f1391cf07b024ac2fbc31951aa20902c2c697`
+- Admitted-plan golden HTML: `../../fixtures/workshop/c1-calm-account-home-plan.html`
+  - SHA-256: `ee53e47ab74aa444be6850a6139abbffd446fcc129e645a9f713c01900ab80c1`
 - Desktop 1440×1100: `c1-account-home-desktop-1440.png`
   - SHA-256: `5baa3e4a188a4496f680654a7ec2738c04d78d60303ad07e9ec80b2da50133ee`
 - Laptop 1280×900: `c1-account-home-laptop-1280.png`
   - SHA-256: `c3c4855a83a9bfd8410720ccdd6aad37385e81b2627d76a1ef6a482292a52e2c`
 - Tablet 768×900: `c1-account-home-tablet-768.png`
-  - SHA-256: `d1632cb151074e14c0687944cf3f84e30c1ed799514e17b7689717f56a28deb2`
+  - SHA-256: `d5faac145d59e9940d48632646001d709cb5dae3ba6d76440642615b2b5c682b`
 - Mobile 390×844: `c1-account-home-mobile-390.png`
-  - SHA-256: `35dbd8c1a29bf5a0fdcdea4d029b71c541d2fc7f6e62a9a7e3b3141b79653b87`
+  - SHA-256: `14d174a92cd404b05d84a5413a99d94c8f6585393daed083057b8db078ec276b`
+- Admitted-plan tablet 768×900: `c1-account-home-plan-tablet-768.png`
+  - SHA-256: `fdcf54e1e25d4e715b26c461fd0c9a77d5ef19c61d0566ac6b6b6440a608121a`
+- Admitted-plan mobile 390×844: `c1-account-home-plan-mobile-390.png`
+  - SHA-256: `4666ad04fcc2220222b8f140a66be9a2c699303c1260779b51eb8e380511c233`
+- Responsive browser proof: `c1-responsive-evidence-browser-proof.json`
+  - SHA-256: `065131e786fb1d3992ad7dc8bbc86449164d7f1906ca017ec9a419fefabef45b`
 
 ## Product/UX scorecard
 
@@ -192,6 +214,21 @@ The first pre-commit review returned HOLD at 83.6/100 for narrow-screen priority
 - replaced `unsafe-inline` CSP with exact SHA-256 style/script authorization;
 - removed active external navigation and made canonical HTTPS references inert;
 - added a fixed data-free blocked proof while preserving pre-render rejection for invalid/unadmitted input.
+
+After exact-head review, the owner found one merge-blocking responsive evidence-reachability defect: the first statement-local trigger was hidden at widths ≤900px, making `What changed` evidence unreachable when the admitted meeting plan owned the primary action. The authorized correction:
+
+- keeps that trigger visible and statement-associated at tablet/mobile widths;
+- uses the existing full label at tablet and compact `Evidence` label at mobile;
+- reserves heading width so the control does not overlap narrative hierarchy;
+- leaves `View existing meeting plan` unchanged in the admitted-plan state;
+- records real-browser plan/no-plan evidence, Escape, Close, focus-return, primary-action, and overflow proof.
+
+Correction verification before commit:
+
+- focused C1, packet, and review-bundle tests: 14/14 PASS;
+- full local `npm run ci`: PASS;
+- `git diff --check`: PASS;
+- fresh exact-head Product/UX, Architecture/Trust, and Accessibility/Security reviews are required after the correction commit.
 
 Independent Architecture/Trust pre-commit review: **PASS**.
 

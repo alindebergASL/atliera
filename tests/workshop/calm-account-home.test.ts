@@ -294,9 +294,11 @@ describe("C1 Calm read-only Account Home", () => {
       assert.match(html, /min-height:\s*44px/u);
       assert.match(html, /@media\s*\(max-width:\s*900px\)/u);
       assert.match(html, /@media\s*\(max-width:\s*520px\)/u);
+      assert.doesNotMatch(html, /\.story-section:first-child \.evidence-trigger\s*\{\s*display:\s*none/u);
+      assert.match(html, /\.story-section:not\(\.next-plane\) \.evidence-trigger\s*\{\s*position:\s*absolute/u);
       assert.match(html, /@media\s*\(prefers-reduced-motion:\s*reduce\)/u);
       assert.match(html, /:focus-visible/u);
-      assert.match(html, /returnFocus\.focus\(\)/u);
+      assert.match(html, /target\.focus\(\)/u);
       assert.match(html, /if\s*\(event\.target\s*===\s*dialog\)\s*dialog\.close\(\)/u);
       assert.doesNotMatch(html, /unsafe-inline/u);
       assert.match(html, /style-src &#39;sha256-[A-Za-z0-9+/=]+&#39;/u);
@@ -339,6 +341,16 @@ describe("C1 Calm read-only Account Home", () => {
       const { artifact } = await prepareC1SyntheticScenario(root, { withMeetingPlan: false });
       const golden = await readFile(join(process.cwd(), "fixtures/workshop/c1-calm-account-home.html"), "utf8");
       assert.equal(golden, artifact.html);
+    });
+  });
+
+  test("keeps the admitted-plan golden Account Home in deterministic sync", async () => {
+    await withRoot(async (root) => {
+      const { artifact } = await prepareC1SyntheticScenario(root, { withMeetingPlan: true });
+      const golden = await readFile(join(process.cwd(), "fixtures/workshop/c1-calm-account-home-plan.html"), "utf8");
+      assert.equal(golden, artifact.html);
+      assert.match(golden, /data-dialog="evidence-change"/u);
+      assert.match(golden, /data-dialog="existing-meeting-plan"/u);
     });
   });
 });

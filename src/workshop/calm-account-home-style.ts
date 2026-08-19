@@ -233,10 +233,9 @@ main { width: min(100% - 40px, 1180px); margin: 0 auto; padding: 44px 0 80px; }
   .story-rail { display: none; }
   .story-body { display: block; }
   .story-section { padding: 0 0 24px 30px; }
-  .story-section:first-child .evidence-trigger { display: none; }
   .story-section:not(.next-plane) .origin-line { display: none; }
-  .story-section:nth-child(2) { position: relative; }
-  .story-section:nth-child(2) .evidence-trigger { position: absolute; top: 0; right: 0; margin-top: 0; }
+  .story-section:not(.next-plane) h2 { width: calc(100% - 220px); }
+  .story-section:not(.next-plane) .evidence-trigger { position: absolute; top: 0; right: 0; margin-top: 0; }
   .next-plane { display: block; grid-column: auto; grid-row: auto; padding: 22px; }
   .horizon ol { grid-template-columns: 1fr; gap: 24px; }
   .horizon ol::before { top: 6px; bottom: 12px; left: 7px; right: auto; width: 2px; height: auto; background: linear-gradient(var(--evidence), var(--open), var(--action)); }
@@ -256,8 +255,9 @@ main { width: min(100% - 40px, 1180px); margin: 0 auto; padding: 44px 0 80px; }
   .story-section { padding: 0 0 16px 22px; }
   .story-section h2 { margin-top: 4px; margin-bottom: 8px; font-size: 26px; }
   .story-copy { font-size: 16px; line-height: 1.4; }
-  .story-section:nth-child(2) .evidence-trigger { width: 88px; font-size: 0; }
-  .story-section:nth-child(2) .evidence-trigger::after { content: "Evidence"; font-size: 12px; }
+  .story-section:not(.next-plane) h2 { width: calc(100% - 96px); }
+  .story-section:not(.next-plane) .evidence-trigger { width: 88px; font-size: 0; text-align: right; }
+  .story-section:not(.next-plane) .evidence-trigger::after { content: "Evidence"; font-size: 12px; }
   .next-plane { margin-left: -4px; margin-right: -4px; padding: 14px; }
   .next-plane .origin-line { margin-top: 10px; }
   .next-plane .trust-line { margin-top: 12px; padding: 8px 10px; font-size: 11px; }
@@ -286,16 +286,13 @@ export const CALM_ACCOUNT_HOME_SCRIPT = `
       if (close instanceof HTMLElement) close.focus();
     });
   });
-  document.querySelectorAll('[data-close-dialog]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const dialog = button.closest('dialog');
-      if (dialog instanceof HTMLDialogElement) dialog.close();
-    });
-  });
   document.querySelectorAll('dialog').forEach((dialog) => {
     dialog.addEventListener('close', () => {
-      if (returnFocus instanceof HTMLElement) returnFocus.focus();
+      const target = returnFocus;
       returnFocus = null;
+      queueMicrotask(() => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
+      });
     });
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) dialog.close();

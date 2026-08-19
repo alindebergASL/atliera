@@ -32,6 +32,7 @@
     "m5b:prepare": "tsx src/cli/m5b-repository-native.ts prepare",
     "m5b:apply": "tsx src/cli/m5b-repository-native.ts apply",
     "m5b:product-review:prepare": "tsx src/cli/m5b-product-review.ts prepare",
+    "c1:account-home:generate": "tsx scripts/generate-c1-calm-account-home.mts",
     "h2:echo-proof": "tsx scripts/generate-h2-echo-mediation-proof.mts",
     "h2:echo-proof:write": "tsx scripts/generate-h2-echo-mediation-proof.mts --write",
     "m4:public-http-fetch-proof": "node --import tsx scripts/generate-m4-public-http-fetch-proof.mts",

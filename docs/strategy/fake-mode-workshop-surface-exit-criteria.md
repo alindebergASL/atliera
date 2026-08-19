@@ -4,6 +4,8 @@ Status: Accepted
 
 Last updated: 2026-05-28
 
+> **Historical phase qualifier:** These criteria remain valid evidence that the deterministic three-lane fake surface exited its named validation phase. They are not customer UX acceptance. Customer direction is governed, effective on merge, by `../adr/0004-calm-product-surface-and-internal-package-inspector.md` and `../qa/zero-training-product-acceptance-gate.md`.
+
 ## Purpose
 
 This document defines the fake-mode Workshop surface exit criteria for the product-facing preview phase described in `product-facing-fake-mode-runtime-scope.md` and exercised by `../runbooks/workshop-runtime-preview-demo.md`.

@@ -1,6 +1,6 @@
 # ADR 0001: Atliera Fresh System
 
-Status: Accepted
+Status: Accepted; customer-facing surface implications are retired effective on merge by [ADR 0004](0004-calm-product-surface-and-internal-package-inspector.md). Fresh-system, Graph, validation, and no-legacy-runtime decisions remain active.
 
 Date: 2026-05-22
 

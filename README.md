@@ -4,14 +4,24 @@ Atliera is an evidence-backed account intelligence workspace.
 
 This repository is the clean-slate Atliera product foundation for the registered `atliera.com` domain. Atliera is separate from the legacy account-research/report system: it should boot from an empty database and use legacy systems only as external comparison references.
 
-Core architecture vocabulary:
+## Product direction
 
-- Atliera Workshop — the main human + agent workspace
+Atliera's owner-directed customer-product rule, accepted and effective on merge, is:
+
+> **Answers first. Evidence on demand. Machinery by invitation.**
+
+The ordinary product is a calm Account Workspace that puts account meaning, why now, what changed, and one recommended next move before evidence mechanics. Researcher and audit power is progressively disclosed. The dense M5b account-review renderer remains an internal Package Inspector / Audit View; it is not the customer UX baseline.
+
+The canonical accepted repository decision is `docs/adr/0004-calm-product-surface-and-internal-package-inspector.md`, with full product requirements in `docs/strategy/calm-product-hard-pivot.md`, ordinary-experience requirements in `docs/strategy/calm-everyday-experience-contract.md`, disclosure and AI/review boundaries in `docs/architecture/progressive-disclosure-ai-review-model.md`, and first-time-user acceptance in `docs/qa/zero-training-product-acceptance-gate.md`. These documents become effective on merge and authorize no implementation or effect; every implementation or operational slice still requires a separate explicit owner decision.
+
+Internal architecture and expert-surface vocabulary:
+
+- Atliera Workshop — the human + agent workspace substrate; not a requirement that Level 1 expose internal lens or package structure
 - Atliera Agent — the app-bounded in-product intelligence capability
 - Atliera Graph — the evidence/source/excerpt/claim/object truth layer
-- Signals / Maps / Plays — launch lenses over the same graph, not separate early data pipelines
+- Signals / Maps / Plays — internal/expert lenses over the same graph, not separate early data pipelines or required everyday navigation
 
-See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/durable-adapter-contracts.md`, `docs/strategy/substrate-to-validation-transition.md`, `docs/safety/untrusted-input-snapshot-contract.md`, and `docs/adr/0001-atliera-fresh-system.md` for the initial architecture plan, current substrate-to-validation transition decision, and load-bearing snapshot-boundary safety contract.
+See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/durable-adapter-contracts.md`, `docs/strategy/substrate-to-validation-transition.md`, `docs/safety/untrusted-input-snapshot-contract.md`, `docs/adr/0001-atliera-fresh-system.md`, and `docs/adr/0004-calm-product-surface-and-internal-package-inspector.md` for the initial architecture plan, current product correction, substrate-to-validation transition decision, and load-bearing snapshot-boundary safety contract.
 
 ## Current implementation surface
 
@@ -27,6 +37,8 @@ The current codebase now extends beyond the original Phase 1 graph foundation wh
 - model route catalog, activation gates, and no-call/guarded proof harnesses that remain explicit, bounded, and inactive by default
 - adversarial graph tests in `tests/graph/`
 - safety tests in `tests/safety/`
+
+Those current renderers are implementation and verification surfaces. They do not yet establish the calm everyday Account Workspace, background AI research/synthesis, or the zero-training product acceptance required by the current product direction.
 
 The repository still does not claim launch readiness. The current Gate 3 foundation includes fake/local Workshop serving, local health, local durable DB boot/migration, local backup/restore, a local bearer auth seam, a plan-only lab deployment descriptor contract, a plan-only deployment-target healthcheck contract, a plan-only lab host supervision contract, a plan-only lab backup policy contract, a plan-only lab deployment execution preflight contract, an inert bounded lab deployment execution approval packet, sanitized status for bounded lab deployment slice A execution, sanitized status for bounded lab slice B backup/restore proof, and a no-side-effect Gate 3 status reconciliation. Slice A packaged the approved fake-mode commit, started the lab service, ran `/healthz` plus the optional `/workshop` shallow smoke, then stopped the service. Slice B used disposable lab data to create a lab-local backup artifact, restore into scratch, verify round-trip integrity, and remove restore scratch. Gate 3 remains underbuilt for persistent deployment and readiness; the next foundation-first step requires an explicit operator decision for the next scoped Gate 3 slice before any further lab expansion, scheduler/backend wiring, process-manager install, nginx/TLS/DNS work, provider/model operation, graph ingestion, production write, or readiness claim.
 

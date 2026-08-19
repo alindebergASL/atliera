@@ -2,7 +2,9 @@
 
 > **For Hermes:** This is a plan-first architecture artifact. Do not implement, deploy, or mutate production from this plan without a separate approved implementation/deployment task.
 
-**Goal:** Define the clean-slate Atliera product architecture with Atliera Workshop, Agent, and Graph as the core product structure and Signals/Maps/Plays as launch lenses over the graph rather than premature hard-separated modules.
+> **Current product-direction authority:** `../adr/0004-calm-product-surface-and-internal-package-inspector.md` is accepted and effective on merge for customer-facing information architecture. This architecture plan remains authoritative for the fresh system, one Graph, shared validation/provenance, provider portability, and safe agent boundaries. Workshop and Signals/Maps/Plays are internal architecture or deliberately requested expert capabilities; they do not define Level 1 information architecture. Historical implementation records are labeled below and carry no prospective customer-surface authority.
+
+**Goal:** Define the clean-slate Atliera system architecture with Workshop, Agent, and Graph as internal structural concepts, Signals/Maps/Plays as shared-Graph expert projections, and the calm answer-first Account Workspace as the Level 1 product contract.
 
 **Architecture:** Atliera is a new graph-first product, not a legacy report migration. It must boot from an empty database, run in any approved deployment location that satisfies the runtime requirements, and produce durable source/excerpt/claim/object records before any user-facing account intelligence is treated as verified. Legacy account-research reports remain external comparison artifacts only, while the reusable A.5-A.7 validation patterns and graph schemas carry forward deliberately.
 
@@ -22,33 +24,35 @@ Canonical brand stack:
 - In-product capability: `Atliera Agent`
 - Evidence/intelligence layer: `Atliera Graph`
 
-Launch lens vocabulary:
+Internal architecture and expert-view vocabulary:
 
 - Research/change lens: `Signals`
 - Stakeholder/account-structure lens: `Maps`
 - Recommendation/action lens: `Plays`
 
-Important framing decision:
+Current framing decision:
 
-- `Workshop`, `Agent`, and `Graph` are locked as the core product structure.
-- `Signals`, `Maps`, and `Plays` should launch as lens-style views over one underlying Atliera Graph, not as hard-separated product modules with separate data paths or workflows.
-- The module framing may become useful later for packaging/pricing, but first launch should keep one Workshop, one Graph, one Agent, and multiple views/lenses.
+- `Workshop`, `Agent`, and `Graph` remain internal system structure and may appear in authorized expert explanations.
+- `Signals`, `Maps`, and `Plays` remain projections over one underlying Atliera Graph and must never fork provenance, validation, research, or data paths.
+- Signals/Maps/Plays may appear only through deliberate Level 2/3 exploration. They are not required tabs, columns, panels, navigation, packaging, or terminology for Level 1.
+- Level 1 is governed by the calm Account Workspace contract: one thesis, one meaningful change, one implication, one recommended next move, one compact trust line, and capped secondary detail.
 
 User-facing copy rule:
 
-- In normal product copy, say `Atliera` by itself: "Ask Atliera", "Open Atliera", "Atliera found three new signals."
+- In normal product copy, say `Atliera` by itself: "Ask Atliera", "Open Atliera", or "Atliera found an important change."
 - `Atliera Agent`, `Atliera Workshop`, and `Atliera Graph` are useful for architecture, docs, enterprise trust explanations, and occasional disambiguation; users should feel like they interact with one product called Atliera.
+- Signals, Maps, and Plays are not Level 1 copy. Use `What changed`, `Account landscape` or `What it means`, and `Recommended next move` when those concepts are deliberately surfaced.
 
 Positioning:
 
-> Atliera is an evidence-backed account intelligence workspace where agents turn fresh research into verified intelligence views: Signals, Maps, and Plays.
+> Atliera is a calm, evidence-backed account-intelligence workspace that answers what matters now, shows the next useful move, and reveals evidence or machinery only when requested.
 
 Hard naming constraints:
 
 - Do not use `Account Atlas` as the public brand.
 - Do not expose legacy `brief builder`, `reports`, or old `Canvas` naming as the new core product language.
-- `Canvas` may remain only as an internal rendering/layout schema term if needed; user-facing workspace language is `Workshop`.
-- Do not let Signals/Maps/Plays imply separate early code paths; they are views over shared graph intelligence unless a later architecture decision says otherwise.
+- `Canvas` may remain only as an internal rendering/layout schema term if needed; Level 1 user-facing language is `Account Workspace`.
+- Do not let Signals/Maps/Plays imply separate early code paths or ordinary-user surfaces; they are internal/expert views over shared graph intelligence unless a later accepted architecture decision says otherwise.
 
 ---
 
@@ -90,10 +94,11 @@ Hard naming constraints:
    - Atliera Agent is an app feature, not a full shell agent on the production host.
    - It should operate through app APIs/jobs/validators, not arbitrary server shell access.
 
-8. One graph, many lenses
-   - Signals, Maps, and Plays are launch lenses over the same evidence graph.
+8. One graph, many projections
+   - Signals, Maps, and Plays are internal/expert projections over the same evidence graph, not Level 1 navigation requirements.
    - They must share claim/evidence/object primitives and validators.
-   - Architectural constraint: lenses may be added, renamed, hidden, or packaged differently, but lenses may not fork provenance logic, validators, research logic, data paths, source fetching, excerpt matching, model activation rules, or budget enforcement.
+   - Architectural constraint: projections may be added, renamed, hidden, or packaged differently, but they may not fork provenance logic, validators, research logic, data paths, source fetching, excerpt matching, model activation rules, or budget enforcement.
+   - Level 1 composes the most important graph-backed meaning into the calm Account Workspace instead of exposing every projection as a panel.
 
 9. Agent proposes, system validates, human ratifies
    - The model proposes candidate evidence, claims, objects, maps, signals, and plays.
@@ -257,19 +262,19 @@ Minimum first-class records:
 
 ---
 
-## 4. Product surfaces and launch lenses
+## 4. Internal architecture and expert projection mappings
 
-The first launch architecture is not three isolated modules. It is one Workshop backed by one Graph, assisted by one Agent, with multiple lens-style views over the same graph objects. Signals, Maps, and Plays are allowed to have distinct UI affordances, but they must not have separate provenance rules, validators, or data pipelines.
+This section records the shared-Graph mapping implemented by the Workshop builder. It is authoritative for internal object classification, validation reuse, and authorized expert projections. It is **retired as Level 1 product-surface authority effective on merge**: ordinary users do not receive three mandatory panels, tabs, or navigation areas.
 
-### Lens surfaces and object-type mapping
+### Internal projection and object-type mapping
 
-Each lens is a distinct product surface with a distinct job:
+Each internal projection has a distinct architectural job:
 
-- `Signals` is the attention surface: graph-backed items that should be noticed, monitored, investigated, qualified, or escalated.
-- `Maps` is the stable-reference surface: relatively stable account context such as stakeholders and account snapshots.
-- `Plays` is the action surface: recommended next moves and tactical guidance.
+- `Signals` classifies attention/change items that may be inspected, monitored, investigated, qualified, or escalated.
+- `Maps` classifies relatively stable account context such as stakeholders and account snapshots.
+- `Plays` classifies proposed next moves and tactical guidance.
 
-The Workshop builder projects each AccountObject `object_type` to exactly one lens. This is the canonical mapping; the per-lens subsections below describe the same mapping in workflow terms and must not contradict it:
+The current Workshop builder projects each AccountObject `object_type` to exactly one internal lens. This mapping constrains existing code and expert views; it does not constrain the Level 1 composition, which selects only the small set of business answers allowed by the density budget:
 
 | object_type | lens |
 | --- | --- |
@@ -281,22 +286,23 @@ The Workshop builder projects each AccountObject `object_type` to exactly one le
 | `play` | Plays |
 | `recommendation` | Plays |
 
-Why `risk` and `open_question` sit in Signals, not Maps:
+Why `risk` and `open_question` map internally to Signals rather than Maps:
 
-- Risks are volatile, attention-demanding items. Rendering them as passive map context would make them feel like account furniture instead of something to monitor or mitigate.
-- Open questions are more ambiguous, but for now they also belong in Signals because they are research prompts / evidence gaps that demand follow-up.
-- Keeping volatile risks and unresolved questions out of Maps preserves Maps as a trustworthy reference surface rather than a mixed surface of stable structure plus speculative attention items.
+- Risks are volatile, attention-demanding items rather than stable context.
+- Open questions are research prompts/evidence gaps that demand follow-up.
+- Keeping volatile risks and unresolved questions out of the stable-reference class preserves semantic clarity for validators and expert projections.
 
-This mapping ratifies the current Workshop builder behavior pinned by PR #127. Future product evidence may justify splitting these two object types — for example, keeping `risk` in Signals while moving `open_question` to Maps — but that is a conditional possibility, not a planned change, and would require its own decision before any code or docs change.
+This mapping ratifies the current Workshop builder behavior pinned by PR #127 as internal architecture. Future evidence may justify changing the classification, but that would require its own decision. No such mapping change is required to compose a calm Account Home.
 
 ### Atliera Workshop
 
 Purpose:
-- Main user surface where teams and Atliera work on account intelligence.
+- Internal workspace substrate and authorized researcher/audit shell over account intelligence.
+- Historical implementation surface for graph/lens verification.
 
 Owns:
 - layout/view state
-- user-facing organization of Signals/Maps/Plays lenses
+- internal/expert organization of Signals/Maps/Plays projections
 - review/approval affordances
 - notes and collaboration surfaces
 
@@ -304,6 +310,7 @@ Must not:
 - be the canonical evidence ledger
 - invent evidence semantics in UI-only edges
 - fallback to legacy report sections
+- define the Level 1 Account Workspace as a set of lens panels
 
 ### Atliera Agent
 
@@ -340,10 +347,10 @@ Must not:
 - depend on Workshop UI state
 - depend on legacy report JSON
 
-### Signals lens
+### Signals internal/expert lens
 
 Purpose:
-- The attention surface: graph-backed items that should be noticed, monitored, investigated, qualified, or escalated.
+- Internal attention classification and optional expert surface for graph-backed items that should be noticed, investigated, qualified, or escalated.
 - Data ingestion, source discovery, source fetching, change detection, and evidence capture.
 
 Renders object types:
@@ -361,10 +368,10 @@ Must not:
 - create verified claims without accepted excerpts
 - treat web-search snippets as durable evidence unless fetched/stored
 
-### Maps lens
+### Maps internal/expert lens
 
 Purpose:
-- The stable-reference surface: relatively stable account context such as stakeholders and account snapshots.
+- Internal stable-reference classification and optional expert surface for context such as stakeholders and account snapshots.
 - Stakeholder, relationship, influence, and account-structure mapping.
 
 Renders object types:
@@ -383,12 +390,12 @@ Must distinguish:
 - user-entered notes
 
 Must not:
-- absorb volatile risks or unresolved questions; those are `risk` and `open_question` objects and belong in Signals so Maps stays a trustworthy stable-reference surface rather than a mix of stable structure and speculative attention items
+- absorb volatile risks or unresolved questions; those remain in the internal Signals classification so the stable-reference class does not mix stable structure with speculative attention items
 
-### Plays lens
+### Plays internal/expert lens
 
 Purpose:
-- The action surface: recommended next moves and tactical guidance.
+- Internal action classification and optional expert surface for recommended next moves and tactical guidance.
 - Sales recommendations and action planning.
 
 Renders object types:
@@ -540,10 +547,10 @@ Verification:
 - import-side-effect tests proving fixture mode makes no model/network calls
 - validator report artifact
 
-### Phase 2 — Atliera Workshop UI shell
+### Phase 2 — Atliera Workshop UI shell (historical implementation phase)
 
-Goal:
-- Establish clean Atliera app shell and Workshop/lens vocabulary without implementing full agentic research.
+Historical goal:
+- Establish the fixture-backed Workshop/lens shell used to verify shared-Graph projection semantics. This phase carries no Level 1 information-architecture authority.
 
 Deliverables:
 - Atliera naming in app config/UI shell
@@ -554,6 +561,7 @@ Deliverables:
 
 Implementation note:
 - Phase 2.1 starts with a static, fixture-backed Workshop shell renderer before choosing a full app framework. This locks graph-to-lens/trust semantics without adding DB/auth/deploy/provider scope.
+- These deliverables remain valid internal preview/expert infrastructure; they do not require three ordinary-user panels.
 
 Verification:
 - `npm test`
@@ -617,16 +625,16 @@ Verification:
 - fake adapter dry-run
 - paid run only with explicit human approval
 
-### Phase 6 — Workshop MVP with useful lenses
+### Phase 6 — Workshop lens MVP (historical plan; internal/expert interpretation)
 
-Goal:
-- Render accepted graph objects into a useful workspace.
+Historical goal:
+- Render accepted graph objects into the Workshop lens shell for validation and expert inspection. Customer Level 1 is now governed by the calm Account Home milestone in `../strategy/roadmap.md`.
 
 Deliverables:
-- account workspace overview
-- Signals panel
-- Maps panel
-- Plays panel
+- internal account overview
+- Signals expert panel
+- Maps expert panel
+- Plays expert panel
 - Evidence drawer
 - provenance/status labels
 
@@ -634,6 +642,7 @@ Verification:
 - graph objects render from empty/fresh DB seeded fixtures
 - unsupported/unverified objects are visibly labeled
 - no legacy report fallback
+- no claim that panel usefulness or three-lane rendering constitutes Level 1 customer acceptance
 
 ### Phase 7 — Fresh EC2 lab deployment
 
@@ -715,31 +724,32 @@ Launch pass criteria:
 - material-claim coverage >= 80% for verified/high-confidence claims
 - useful end-to-end research output for each launch gate account with usable source material
 - every usable gate account produces at least one useful graph-backed AccountObject
-- at least two launch lenses are materially useful for each usable gate account where source material supports them
-- Signals, Maps, and Plays lenses all render from the same graph-backed account objects and do not fork validation/research/provenance/data paths
+- the calm Level 1 Account Home satisfies its density, comprehension, content-quality, trust, accessibility, and evidence-access gates
+- internal Signals, Maps, and Plays projections remain coherent over the same graph-backed account objects and do not fork validation/research/provenance/data paths; no minimum panel or lens count defines customer shipment
 - unsupported or inferred material visibly labeled
 - old legacy reports used only for external comparison, not runtime data
 
 Recommended initial quality bands:
 
-- Pass: all hard invariants pass; all gate accounts produce at least one useful graph-backed object; at least two lens views are materially useful per account where source material supports them.
-- Borderline: all hard invariants pass, but one gate account has sparse output or one lens is weak; proceed only with documented fix/rerun decision.
+- Pass: all hard invariants pass; all gate accounts produce useful supported understanding; the applicable calm Level 1 usability and content-quality gates pass.
+- Borderline: all hard invariants pass, but one gate account has sparse/weak customer meaning or an internal projection is weak; proceed only with a documented fix/rerun decision and no customer-shipment claim.
 - Fail: any hard invariant failure, most output unsupported, zero-output for a usable account, or evidence labels are misleading.
 
 ### Launch readiness gating layers
 
-Launch readiness is not satisfied by one successful fixture, one passing GraphBundle, or pages rendering. It requires gates at multiple layers. Per-bundle gates are necessary but not sufficient: a bundle can pass while the corpus still fails due to sparse output, weak lens usefulness, or too many zero-output accounts.
+Launch readiness is not satisfied by one successful fixture, one passing GraphBundle, panel usefulness, or pages rendering. It requires gates at multiple layers. Per-bundle gates are necessary but not sufficient: a bundle can pass while the corpus still fails due to sparse customer meaning, content-quality failure, usability failure, or too many zero-output accounts.
 
 | Gate | Threshold / rule | Enforcement layer | Target phase | Status |
 | --- | --- | --- | --- | --- |
 | Per-bundle hard invariants | Zero invented IDs; zero false-verified records; accepted excerpts must match source text/spans; verified lens items must trace to verified graph records | Graph validator | Phase 1+ | Implemented for local GraphBundle validation |
 | Per-bundle quality thresholds | Accepted excerpt rate >= 50%; verified/high-confidence claim evidence coverage = 100%; invented ID failures = 0; zero-output bundle fails | Quality gate runner | Phase 1+; integrated into local run artifacts in Phase 1.5+ | Runner implemented; local manifest integration implemented |
 | Aggregate corpus thresholds | Zero-output incidents < 10% of usable gate-corpus accounts; aggregate material-claim coverage meets launch threshold | Aggregate report layer over multiple gate reports/run manifests | Phase 4+ | Initial quality-gate aggregate metrics and selected-manifest assessment helper implemented; assessment now exposes usable-account Gate 4 metrics |
-| Lens usefulness thresholds | At least two launch lenses materially useful per usable gate account where source material supports them | Deterministic Workshop view-model review plus human/product review | Phase 6+ | First-pass deterministic review helper implemented; human/product review remains required |
+| Internal projection usefulness | Workshop lens projections remain coherent and useful for expert/diagnostic purposes; this is not a Level 1 shipment threshold | Deterministic Workshop view-model review plus human/product review | Historical Phase 6+ | First-pass deterministic review helper implemented; customer acceptance is governed separately |
+| Calm Level 1 acceptance | Density budget, accurate account/why-now/next-move comprehension, friction, content quality, accessibility, and evidence within two interactions | Account Home acceptance plus `../qa/zero-training-product-acceptance-gate.md` | Calm product continuation | Not implemented or run |
 | Launch gate corpus hard-invariant pass | All hard invariants pass across the selected usable launch gate corpus of at least N accounts | Aggregate report layer over selected gate corpus | Phase 6+ | Fixture assessment exposes usable hard-invariant failures; N and live/expanded corpus selection criteria must be approved before launch-readiness assessment |
 | Model/runtime safety | Zero default-path provider calls; budgeted/model mode only after explicit approval; no production writes from validation/fixture modes | Safety tests, runtime mode guards, CI, review checklist | Phase 1+; expanded before model mode | Partially implemented; model-mode activation tests still pending |
 
-Aggregate launch readiness must be evaluated only after multiple usable gate accounts have been processed through the same manifest/report pipeline. The quality gate emits aggregate metrics when multiple GraphBundles are supplied, and the selected-manifest assessment now scopes the key Gate 4 metrics to usable accounts, but `pass` still means only that the supplied local corpus passed deterministic graph/gate thresholds; live or expanded corpus selection and human/product lens review remain separate launch-readiness work.
+Aggregate launch readiness must be evaluated only after multiple usable gate accounts have been processed through the same manifest/report pipeline. The quality gate emits aggregate metrics when multiple GraphBundles are supplied, and the selected-manifest assessment now scopes the key Gate 4 metrics to usable accounts, but `pass` still means only that the supplied local corpus passed deterministic graph/gate thresholds; live/expanded corpus selection, model-produced content proof, and calm Level 1 usability/content review remain separate launch-readiness work.
 
 ---
 
@@ -834,7 +844,7 @@ This plan is complete when:
 - Atliera naming and module vocabulary are accepted.
 - Fresh-system/no-legacy critical path is explicit.
 - Evidence graph model is documented.
-- Workshop/Agent/Graph boundaries are documented, and Signals/Maps/Plays are explicitly framed as graph-backed launch lenses rather than separate early modules.
+- Workshop/Agent/Graph boundaries are documented, and Signals/Maps/Plays are explicitly framed as graph-backed internal/expert projections rather than separate early modules or Level 1 panels.
 - A.5-A.7 carry-forward vs leave-behind decisions are documented.
 - Validation hard invariants and quality thresholds are documented.
 - EC2 lab deployment topology is documented.

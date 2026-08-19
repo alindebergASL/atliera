@@ -2,6 +2,8 @@
 
 Status: implementation prepared for independent review. This document authorizes no real source execution, human ratification, durable real graph write, provider/model call, acquisition, deployment, or customer-readiness claim.
 
+> **Historical/internal classification:** `../adr/0004-calm-product-surface-and-internal-package-inspector.md` preserves this mechanism as historical FedEx-specific validation and Package Inspector evidence. The dense pre-ratification Workshop page is not the Level 1 customer UX baseline.
+
 - M5B_STATUS=IN_PROGRESS
 - CURRENT_EFFECTIVE_AUTHORIZATION=NONE
 - REAL_SOURCE_READS=0
@@ -11,9 +13,9 @@ Status: implementation prepared for independent review. This document authorizes
 - acquisitions: 0
 - deployments: 0
 
-## Milestone acceptance remains customer-facing
+## Historical customer-output milestone wording
 
-M5b is still the does-its-job-once customer outcome:
+The historical M5b plan described a does-its-job-once customer outcome as:
 
 ```text
 one real account
@@ -25,7 +27,11 @@ one real account
   -> every unverified item visibly labeled
 ```
 
-Repository-native prepare/apply is the supported reference mechanism for the validation, ratification, durable-state, and rendering portion of the preserved historical FedEx-specific completion path. It is not the preferred/current product route; that role belongs to the generic schema-v2 `m5b:product-review:prepare` surface. It is not a substitute milestone and does not retroactively turn a committed fixture into a real customer result. M5b remains in progress until the real shareable page exists and has been evaluated against the acceptance framing above.
+That sequence is preserved only as historical context. It is not the active customer-product acceptance rule.
+
+Repository-native prepare/apply remains the supported reference mechanism for the validation, ratification, durable-state, apply/read-back, and Package Inspector portion of the historical FedEx-specific path. The generic schema-v2 `m5b:product-review:prepare` surface is the preferred current pre-ratification package route. Neither route is a substitute customer milestone, and neither can turn package review, ratification, durable apply/read-back, the Package Inspector, or a committed fixture into Level 1 customer-product shipment.
+
+The active M5b rule is mechanism-only: close with reproducible Package Inspector evidence, every claim traceable to stored sources, and every unverified item visibly labeled. `M5B_CUSTOMER_PRODUCT_STATUS=NOT_SHIPPED` remains until the separate C1–C6/M7 customer gates pass.
 
 The former host Gate B/v2-r3 material is frozen historical provenance only. Host forensic qualification is closed; no v2-r4 is authorized. Archive qualification, V4 reconciliation, host investigation, and the quarantined shared control plane are not acceptance dependencies and are nonblocking.
 

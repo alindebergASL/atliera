@@ -1,0 +1,340 @@
+{
+  "kind": "c1-responsive-evidence-browser-proof",
+  "schemaVersion": "1",
+  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1_RESPONSIVE_EVIDENCE_CORRECTION_01",
+  "fixtures": {
+    "noPlan": {
+      "path": "fixtures/workshop/c1-calm-account-home.html",
+      "sha256": "d36322e8e6f4f9415dcf6de80b1f1391cf07b024ac2fbc31951aa20902c2c697"
+    },
+    "plan": {
+      "path": "fixtures/workshop/c1-calm-account-home-plan.html",
+      "sha256": "ee53e47ab74aa444be6850a6139abbffd446fcc129e645a9f713c01900ab80c1"
+    }
+  },
+  "expectedExactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+  "expectedSupports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+  "expectedDoesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state.",
+  "scenarios": [
+    {
+      "variant": "no-plan",
+      "fixture": "c1-calm-account-home.html",
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "triggerDisplay": "block",
+      "triggerVisible": true,
+      "triggerText": "Evidence for this statement",
+      "triggerRect": {
+        "top": 343.71875,
+        "bottom": 387.71875,
+        "left": 524.046875,
+        "right": 733,
+        "width": 208.953125,
+        "height": 44
+      },
+      "headingRect": {
+        "top": 370.3125,
+        "bottom": 402.9375,
+        "left": 51,
+        "right": 513,
+        "width": 462
+      },
+      "triggerHeadingOverlap": false,
+      "primaryText": "View evidence",
+      "primaryTarget": "evidence-change",
+      "primaryRect": {
+        "top": 838.703125,
+        "bottom": 886.703125,
+        "left": 42,
+        "right": 197.109375,
+        "width": 155.109375,
+        "height": 48
+      },
+      "primaryFullyVisible": true,
+      "documentClientWidth": 753,
+      "documentScrollWidth": 753,
+      "noHorizontalOverflow": true,
+      "changeEvidence": {
+        "open": true,
+        "dialogId": "evidence-change",
+        "closeFocused": true,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+        "supports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+        "doesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state."
+      },
+      "escape": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "closeButton": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "primaryAction": {
+        "target": "evidence-change",
+        "open": true,
+        "questionCount": 0,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review."
+      },
+      "screenshot": "c1-account-home-tablet-768.png"
+    },
+    {
+      "variant": "no-plan",
+      "fixture": "c1-calm-account-home.html",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "triggerDisplay": "block",
+      "triggerVisible": true,
+      "triggerText": "Evidence for this statement",
+      "triggerRect": {
+        "top": 309.375,
+        "bottom": 353.375,
+        "left": 275,
+        "right": 363,
+        "width": 88,
+        "height": 44
+      },
+      "headingRect": {
+        "top": 331.96875,
+        "bottom": 358.484375,
+        "left": 35,
+        "right": 267,
+        "width": 232
+      },
+      "triggerHeadingOverlap": false,
+      "primaryText": "View evidence",
+      "primaryTarget": "evidence-change",
+      "primaryRect": {
+        "top": 787.671875,
+        "bottom": 835.671875,
+        "left": 22,
+        "right": 177.109375,
+        "width": 155.109375,
+        "height": 48
+      },
+      "primaryFullyVisible": true,
+      "documentClientWidth": 375,
+      "documentScrollWidth": 375,
+      "noHorizontalOverflow": true,
+      "changeEvidence": {
+        "open": true,
+        "dialogId": "evidence-change",
+        "closeFocused": true,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+        "supports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+        "doesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state."
+      },
+      "escape": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "closeButton": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "primaryAction": {
+        "target": "evidence-change",
+        "open": true,
+        "questionCount": 0,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review."
+      },
+      "screenshot": "c1-account-home-mobile-390.png"
+    },
+    {
+      "variant": "plan",
+      "fixture": "c1-calm-account-home-plan.html",
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "triggerDisplay": "block",
+      "triggerVisible": true,
+      "triggerText": "Evidence for this statement",
+      "triggerRect": {
+        "top": 343.71875,
+        "bottom": 387.71875,
+        "left": 524.046875,
+        "right": 733,
+        "width": 208.953125,
+        "height": 44
+      },
+      "headingRect": {
+        "top": 370.3125,
+        "bottom": 402.9375,
+        "left": 51,
+        "right": 513,
+        "width": 462
+      },
+      "triggerHeadingOverlap": false,
+      "primaryText": "View existing meeting plan",
+      "primaryTarget": "existing-meeting-plan",
+      "primaryRect": {
+        "top": 838.703125,
+        "bottom": 886.703125,
+        "left": 42,
+        "right": 292.203125,
+        "width": 250.203125,
+        "height": 48
+      },
+      "primaryFullyVisible": true,
+      "documentClientWidth": 753,
+      "documentScrollWidth": 753,
+      "noHorizontalOverflow": true,
+      "changeEvidence": {
+        "open": true,
+        "dialogId": "evidence-change",
+        "closeFocused": true,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+        "supports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+        "doesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state."
+      },
+      "escape": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "closeButton": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "primaryAction": {
+        "target": "existing-meeting-plan",
+        "open": true,
+        "questionCount": 3,
+        "exactExcerpt": null
+      },
+      "screenshot": "c1-account-home-plan-tablet-768.png"
+    },
+    {
+      "variant": "plan",
+      "fixture": "c1-calm-account-home-plan.html",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "triggerDisplay": "block",
+      "triggerVisible": true,
+      "triggerText": "Evidence for this statement",
+      "triggerRect": {
+        "top": 309.375,
+        "bottom": 353.375,
+        "left": 275,
+        "right": 363,
+        "width": 88,
+        "height": 44
+      },
+      "headingRect": {
+        "top": 331.96875,
+        "bottom": 358.484375,
+        "left": 35,
+        "right": 267,
+        "width": 232
+      },
+      "triggerHeadingOverlap": false,
+      "primaryText": "View existing meeting plan",
+      "primaryTarget": "existing-meeting-plan",
+      "primaryRect": {
+        "top": 787.671875,
+        "bottom": 835.671875,
+        "left": 22,
+        "right": 272.203125,
+        "width": 250.203125,
+        "height": 48
+      },
+      "primaryFullyVisible": true,
+      "documentClientWidth": 375,
+      "documentScrollWidth": 375,
+      "noHorizontalOverflow": true,
+      "changeEvidence": {
+        "open": true,
+        "dialogId": "evidence-change",
+        "closeFocused": true,
+        "exactExcerpt": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+        "supports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+        "doesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state."
+      },
+      "escape": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "closeButton": {
+        "closed": true,
+        "focusReturnedToEvidenceTrigger": true
+      },
+      "primaryAction": {
+        "target": "existing-meeting-plan",
+        "open": true,
+        "questionCount": 3,
+        "exactExcerpt": null
+      },
+      "screenshot": "c1-account-home-plan-mobile-390.png"
+    }
+  ],
+  "effects": {
+    "providerCalls": 0,
+    "sourceAcquisitions": 0,
+    "privateReads": 0,
+    "databaseWrites": 0,
+    "graphWrites": 0,
+    "customerRoutes": 0,
+    "deployments": 0,
+    "outboundActions": 0
+  },
+  "reflowChecks": [
+    {
+      "variant": "no-plan",
+      "viewport": {
+        "width": 640,
+        "height": 900
+      },
+      "label": "200%-equivalent",
+      "triggerVisible": true,
+      "triggerHeadingOverlap": false,
+      "noHorizontalOverflow": true,
+      "primaryText": "View evidence",
+      "primaryTarget": "evidence-change"
+    },
+    {
+      "variant": "no-plan",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "label": "400%-reflow-equivalent",
+      "triggerVisible": true,
+      "triggerHeadingOverlap": false,
+      "noHorizontalOverflow": true,
+      "primaryText": "View evidence",
+      "primaryTarget": "evidence-change"
+    },
+    {
+      "variant": "plan",
+      "viewport": {
+        "width": 640,
+        "height": 900
+      },
+      "label": "200%-equivalent",
+      "triggerVisible": true,
+      "triggerHeadingOverlap": false,
+      "noHorizontalOverflow": true,
+      "primaryText": "View existing meeting plan",
+      "primaryTarget": "existing-meeting-plan"
+    },
+    {
+      "variant": "plan",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "label": "400%-reflow-equivalent",
+      "triggerVisible": true,
+      "triggerHeadingOverlap": false,
+      "noHorizontalOverflow": true,
+      "primaryText": "View existing meeting plan",
+      "primaryTarget": "existing-meeting-plan"
+    }
+  ]
+}

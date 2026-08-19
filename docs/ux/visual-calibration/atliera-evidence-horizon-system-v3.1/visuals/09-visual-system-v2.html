@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atliera Visual System v2</title>
+  <style>
+    :root {
+      --canvas: #f5f3ec;
+      --surface: #fffefa;
+      --ink: #10251e;
+      --ink-2: #53625d;
+      --evidence: #2f6b58;
+      --evidence-wash: #e6eee9;
+      --action: #1557e8;
+      --action-wash: #e8efff;
+      --open: #9c461b;
+      --open-wash: #f8e6d8;
+      --conflict: #a83c32;
+      --conflict-wash: #f6e4e2;
+      --border: #ccd2cb;
+      --focus: #0b63f6;
+      --shadow: 0 16px 38px rgba(16, 37, 30, .09);
+      --r-sm: 10px;
+      --r-md: 16px;
+      --r-lg: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { background: #deded8; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 16px/1.55 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .sheet {
+      width: 1920px;
+      margin: 0 auto;
+      padding: 48px 56px 64px;
+      background:
+        linear-gradient(rgba(16,37,30,.025) 1px, transparent 1px) 0 0/100% 64px,
+        var(--canvas);
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1, .serif { font-family: "Source Serif 4", Iowan Old Style, Georgia, serif; }
+    h1 { font-size: 58px; line-height: 1; font-weight: 500; letter-spacing: -.035em; }
+    h2 { font-size: 18px; line-height: 1.2; letter-spacing: .13em; text-transform: uppercase; }
+    h3 { font-size: 19px; line-height: 1.28; }
+    .meta, .caption { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+    .eyebrow { color: var(--evidence); font-size: 12px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+    .header {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr auto;
+      align-items: end;
+      gap: 34px;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 24px;
+    }
+    .intent { max-width: 560px; font-size: 18px; }
+    .boundary { border: 1px solid var(--ink); border-radius: 8px; padding: 11px 16px; font-size: 14px; white-space: nowrap; }
+    .phasebar {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      padding: 18px 0 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .phasebar span { font-size: 12px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.02fr 1.18fr 1.18fr;
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .stack { display: grid; gap: 24px; align-content: start; }
+    .panel {
+      background: rgba(255,254,250,.78);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 22px;
+      box-shadow: 0 1px 0 rgba(16,37,30,.03);
+    }
+    .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .num {
+      display: inline-grid; place-items: center;
+      width: 25px; height: 25px; border-radius: 50%;
+      color: var(--surface); background: var(--ink); font-size: 13px; font-weight: 800;
+    }
+    .rule { border-top: 1px solid var(--border); margin: 18px 0; }
+    .type-grid { display: grid; grid-template-columns: 1.05fr 1.2fr; gap: 18px; }
+    .specimen { border-right: 1px solid var(--border); padding-right: 18px; }
+    .display-sample { font: 500 42px/1.05 "Source Serif 4", Iowan Old Style, Georgia, serif; letter-spacing: -.025em; }
+    .readout-sample { font-size: 32px; line-height: 1.06; font-weight: 680; letter-spacing: -.035em; margin-top: 18px; }
+    .sample-label { color: var(--ink-2); font-size: 11px; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .12em; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; vertical-align: top; padding: 7px 6px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    th { color: var(--ink-2); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+    .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 18px; }
+    .swatch { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+    .chip { width: 28px; height: 22px; border: 1px solid var(--border); border-radius: 6px; }
+    .ratio { color: var(--ink-2); font-size: 11px; }
+    .space-scale { display: flex; align-items: end; gap: 14px; margin: 18px 0; }
+    .space-scale span { display: grid; place-items: end center; gap: 6px; color: var(--ink-2); font-size: 11px; }
+    .space-scale i { display: block; background: #bcc8c0; width: var(--s); height: var(--s); max-width: 62px; max-height: 62px; }
+    .budget { background: var(--evidence-wash); border-left: 3px solid var(--evidence); padding: 13px 15px; font-weight: 680; }
+    .surface-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .surface {
+      min-height: 96px; padding: 12px; border-radius: var(--r-sm); font-size: 12px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .no-card { border-top: 1px solid var(--ink); border-radius: 0; }
+    .inset { background: var(--evidence-wash); }
+    .raised { background: var(--surface); box-shadow: var(--shadow); }
+    .inverse { background: var(--ink); color: var(--surface); }
+    .attention { background: var(--open-wash); border: 1px solid var(--open); }
+    .spine-layout { display: grid; grid-template-columns: 120px 1fr 118px; gap: 14px; }
+    .spine-state { color: var(--ink-2); font-size: 12px; padding-top: 4px; }
+    .claim {
+      position: relative; padding: 0 0 22px 30px; border-left: 2px solid var(--border);
+    }
+    .claim:last-child { padding-bottom: 0; }
+    .claim::before {
+      content: ""; position: absolute; left: -7px; top: 4px;
+      width: 12px; height: 12px; border: 2px solid var(--canvas); border-radius: 50%; background: var(--node, var(--evidence));
+    }
+    .claim strong { display: block; font-size: 15px; line-height: 1.35; margin-bottom: 5px; }
+    .claim small { color: var(--ink-2); display: block; line-height: 1.45; }
+    .action-link { color: var(--action); font-weight: 680; font-size: 13px; align-self: start; }
+    .horizon {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; position: relative; margin-top: 22px; text-align: center;
+    }
+    .horizon::before { content: ""; position: absolute; top: 16px; left: 13%; right: 13%; border-top: 2px solid var(--border); }
+    .horizon div { position: relative; z-index: 1; }
+    .horizon b { display: grid; place-items: center; margin: 0 auto 8px; width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border); }
+    .horizon .est b { color: white; background: var(--evidence); border-color: var(--evidence); }
+    .horizon .open b { color: var(--open); border-color: var(--open); }
+    .horizon span { font-size: 11px; font-weight: 760; letter-spacing: .1em; }
+    .buttons { display: grid; gap: 9px; }
+    button, .button {
+      min-height: 44px; border-radius: 9px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center;
+      font: 680 14px/1 Inter, ui-sans-serif, sans-serif; border: 1px solid var(--border); color: var(--ink); background: var(--surface);
+    }
+    .primary { color: white; background: var(--action); border-color: var(--action); }
+    .quiet { border-color: transparent; background: transparent; justify-content: flex-start; padding-left: 0; color: var(--action); }
+    .disabled { opacity: .4; }
+    .focused { outline: 2px solid var(--focus); outline-offset: 3px; }
+    .control-note { background: var(--action-wash); padding: 12px; border-radius: var(--r-sm); margin-top: 12px; font-size: 12px; }
+    .motion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .kbd { display: grid; gap: 6px; }
+    .kbd span { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+    .kbd b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: white; font-size: 11px; }
+    .drawer-demo { display: grid; grid-template-columns: 1.2fr .75fr; gap: 16px; }
+    .drawer {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px; box-shadow: var(--shadow);
+    }
+    .drawer.mobile { border-radius: 28px; padding: 16px; }
+    .quote { background: var(--evidence-wash); border-left: 3px solid var(--evidence); padding: 12px; margin: 12px 0; font: 15px/1.45 Georgia, serif; }
+    .trust-grid { display: grid; grid-template-columns: 160px 1fr 1fr; gap: 0; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+    .trust-grid > div { padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .trust-grid > div:nth-child(3n+1) { font-weight: 760; background: #eef0eb; }
+    .trust-grid > div:nth-last-child(-n+3) { border-bottom: 0; }
+    .goodline { margin-top: 14px; border-left: 3px solid var(--evidence); padding: 11px 13px; background: var(--evidence-wash); font-size: 13px; }
+    .exception { margin-top: 9px; border-left: 3px solid var(--conflict); padding: 11px 13px; background: var(--conflict-wash); font-size: 13px; }
+    .do-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; min-height: 150px; }
+    .pair > div { padding: 11px; font-size: 11px; }
+    .pair > div + div { border-left: 1px solid var(--border); background: #f1eee8; }
+    .ok { color: var(--evidence); font-weight: 800; }
+    .no { color: var(--conflict); font-weight: 800; }
+    .mini-answer { font: 500 20px/1.1 Georgia, serif; margin-top: 12px; }
+    .wall { margin-top: 10px; display: grid; gap: 5px; }
+    .wall i { height: 7px; background: #d8d6cf; border-radius: 10px; }
+    .footer {
+      margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--ink);
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; font-size: 13px; color: var(--ink-2);
+    }
+    @media (max-width: 1100px) {
+      .sheet { width: 100%; padding: 28px; }
+      .header, .grid { grid-template-columns: 1fr; }
+      .phasebar { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<main class="sheet">
+  <header class="header">
+    <div><h1>Atliera Visual System v2</h1></div>
+    <div><p class="meta">v2.0 · 19 Aug 2026 · Visual calibration</p><p class="intent"><strong>Calm account intelligence:</strong> answers first, evidence on demand, machinery by invitation.</p></div>
+    <div class="boundary">Visual calibration · Not implementation authority</div>
+  </header>
+
+  <nav class="phasebar" aria-label="Specification sections">
+    <span>Foundations</span><span>Product grammar</span><span>Controls</span><span>Interaction</span><span>Trust</span><span>Do / Don’t</span>
+  </nav>
+
+  <section class="grid">
+    <div class="stack">
+      <article class="panel">
+        <div class="panel-head"><span class="num">1</span><h2>Typography</h2></div>
+        <div class="type-grid">
+          <div class="specimen">
+            <div class="sample-label">Editorial display</div><div class="display-sample">Calm decisions compound.</div>
+            <div class="sample-label">Product readout</div><div class="readout-sample">The account remains clear.</div>
+            <div class="sample-label">Body</div><p>Answer first. Make the next safe action obvious.</p>
+            <div class="sample-label">Utility</div><p class="eyebrow">What changed</p>
+            <div class="sample-label">Evidence mono · C7 only</div><p style="font:13px ui-monospace,monospace">source dated 2026-06-19</p>
+          </div>
+          <table>
+            <thead><tr><th>Role</th><th>Stack</th><th>Size / line</th><th>Weight</th></tr></thead>
+            <tbody>
+              <tr><td>Editorial display</td><td>Source Serif 4 / Georgia</td><td>52 / 56</td><td>500</td></tr>
+              <tr><td>Page title</td><td>Source Serif 4 / Georgia</td><td>36 / 42</td><td>500</td></tr>
+              <tr><td>Product readout</td><td>Inter / system sans</td><td>52 / 56</td><td>680</td></tr>
+              <tr><td>Section title</td><td>Inter / system sans</td><td>22 / 28</td><td>650</td></tr>
+              <tr><td>Body</td><td>Inter / system sans</td><td>16 / 25</td><td>400</td></tr>
+              <tr><td>Utility label</td><td>Inter / system sans</td><td>13 / 18</td><td>750</td></tr>
+              <tr><td>Metadata</td><td>Inter / system sans</td><td>13 / 19</td><td>400</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption" style="margin-top:14px">Reading width 60–75 characters · Wrap long names · Never ellipsize critical meaning.</p>
+        <div class="control-note"><b>Two intentional modes:</b> operational sans for future C9 monitoring/status surfaces; editorial serif for C1 account answers, evidence, preparation, and briefings. Never switch modes within one screen.</div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">2</span><h2>Semantic color</h2></div>
+        <div class="swatches">
+          <div class="swatch"><i class="chip" style="background:#f5f3ec"></i><span>Canvas / Mineral Paper<br><small>#F5F3EC</small></span><span class="ratio">Ink 14.49:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#fffefa"></i><span>Surface / Porcelain<br><small>#FFFEFA</small></span><span class="ratio">UI planes</span></div>
+          <div class="swatch"><i class="chip" style="background:#10251e"></i><span>Ink / Evergreen Black<br><small>#10251E</small></span><span class="ratio">Primary text</span></div>
+          <div class="swatch"><i class="chip" style="background:#53625d"></i><span>Secondary Ink<br><small>#53625D</small></span><span class="ratio">5.78:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#2f6b58"></i><span>Evidence / Eucalyptus<br><small>#2F6B58</small></span><span class="ratio">5.62:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#1557e8"></i><span>Action / Cobalt<br><small>#1557E8</small></span><span class="ratio">5.84:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#9c461b"></i><span>Open / Apricot Ink<br><small>#9C461B</small></span><span class="ratio">5.72:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#a83c32"></i><span>Conflict / Oxide<br><small>#A83C32</small></span><span class="ratio">5.63:1</span></div>
+          <div class="swatch"><i class="chip" style="background:#ccd2cb"></i><span>Border / Reed<br><small>#CCD2CB</small></span><span class="ratio">Non-text</span></div>
+          <div class="swatch"><i class="chip" style="background:#0b63f6"></i><span>Focus / Electric Blue<br><small>#0B63F6</small></span><span class="ratio">2px ring</span></div>
+        </div>
+        <p class="caption" style="margin-top:14px">State always uses icon + label; never color alone. Ratios shown against Mineral Paper where applicable.</p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">3</span><h2>Spacing + layout</h2></div>
+        <div class="space-scale">
+          <span>4<i style="--s:4px"></i></span><span>8<i style="--s:8px"></i></span><span>12<i style="--s:12px"></i></span><span>16<i style="--s:16px"></i></span><span>24<i style="--s:24px"></i></span><span>32<i style="--s:32px"></i></span><span>48<i style="--s:48px"></i></span><span>64<i style="--s:64px"></i></span><span>96<i style="--s:62px"></i></span>
+        </div>
+        <p>Page max 1440 · Reading column 720 · Desktop gutter 48 · Tablet 32 · Mobile 20</p>
+        <div class="budget" style="margin-top:14px">Level 1: 1 thesis · 1 change · 1 implication · 1 next move · 1 trust/freshness line · ≤3 secondary items</div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">4</span><h2>Surfaces</h2></div>
+        <div class="surface-row">
+          <div class="surface no-card"><b>Section, no card</b><small>Preferred. Group by rhythm.</small></div>
+          <div class="surface inset"><b>Inset evidence</b><small>Support and source context.</small></div>
+          <div class="surface raised"><b>Raised drawer</b><small>Focused exploration.</small></div>
+          <div class="surface inverse"><b>Inverse emphasis</b><small>One key move.</small></div>
+          <div class="surface attention"><b>Attention exception</b><small>One item needs judgment.</small></div>
+        </div>
+        <p class="caption" style="margin-top:14px">Group by rhythm first. Cards only when a boundary or action requires one.</p>
+      </article>
+    </div>
+
+    <div class="stack">
+      <article class="panel">
+        <div class="panel-head"><span class="num">5</span><h2>Evidence spine</h2></div>
+        <p class="caption" style="margin-bottom:16px">Answer → context → exact support. The spine expresses lineage—not confidence, review, or progress.</p>
+        <div class="spine-layout">
+          <div class="spine-state"><b>Exact source statement</b><br>Source dated Jun 19, 2026</div>
+          <div class="claim" style="--node:var(--evidence)"><strong>A University source says $4.94M is being redirected into AI.</strong><small>Attributed public source · Scope needs verification.</small></div>
+          <div class="action-link">View evidence →</div>
+
+          <div class="spine-state"><b>Stale interpretation</b><br>Draft</div>
+          <div class="claim" style="--node:var(--open)"><strong>The reinvestment may affect AI planning.</strong><small>Source may be out of date · Needs verification.</small></div>
+          <div class="action-link">View stale source →</div>
+
+          <div class="spine-state"><b>Conflict</b><br>Needs judgment</div>
+          <div class="claim" style="--node:var(--conflict)"><strong>Current amount unresolved.</strong><small>A fictional later revision states $2.1M; verify before updating strategy.</small></div>
+          <div class="action-link">View conflict →</div>
+
+          <div class="spine-state"><b>Unknown</b><br>Not established</div>
+          <div class="claim" style="--node:#87918c"><strong>Remaining spend and vendor intent.</strong><small>No accepted support yet.</small></div>
+          <div class="action-link">What is missing →</div>
+
+          <div class="spine-state"><b>Focused</b><br>Drawer open</div>
+          <div class="claim" style="--node:var(--focus)"><strong>Exact excerpt is in context.</strong><small>Close returns focus to the originating claim.</small></div>
+          <div class="action-link">Hide evidence ↑</div>
+        </div>
+        <div class="control-note"><b>Interaction contract:</b> exact excerpt in ≤2 deliberate interactions. Researcher-only custody detail is a future C7 surface, never default Level 1.</div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">6</span><h2>Evidence horizon</h2></div>
+        <p>A semantic reading order—not a score, probability, progress meter, or decorative gradient.</p>
+        <div class="horizon">
+          <div class="est"><b>✓</b><span>ESTABLISHED</span><p class="caption">Exact source statement</p></div>
+          <div class="open"><b>?</b><span>OPEN</span><p class="caption">Unknowns and boundaries</p></div>
+          <div><b>→</b><span>NEXT</span><p class="caption">One safe move</p></div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">9</span><h2>Evidence drawer / mobile sheet</h2></div>
+        <div class="drawer-demo">
+          <div class="drawer">
+            <p class="eyebrow">Evidence</p><h3>University AI reinvestment</h3>
+            <p class="meta">Attributed public source · Jun 19, 2026</p>
+            <div class="quote">“The university is redirecting … another $4.94 million in artificial intelligence…”</div>
+            <p><b>Supports</b><br><span class="caption">The stated $4.94M AI amount.</span></p>
+            <p style="margin-top:8px"><b>Does not establish</b><br><span class="caption">Remaining spend, procurement, ownership, or vendor intent.</span></p>
+            <p class="action-link" style="margin-top:12px">Open original source ↗</p>
+          </div>
+          <div class="drawer mobile">
+            <p class="eyebrow">Mobile sheet</p><h3>Exact support</h3><p class="meta">Full height · one scroll owner</p>
+            <div class="quote">Exact excerpt stays readable.</div>
+            <p class="caption">Focus trap · Escape · return focus · no nested drawers.</p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="stack">
+      <article class="panel">
+        <div class="panel-head"><span class="num">7</span><h2>Controls</h2></div>
+        <div class="buttons">
+          <span class="button primary">View existing meeting plan</span>
+          <span class="button">View evidence</span>
+          <span class="button quiet">Explore account ↓</span>
+          <span class="button disabled">Disabled</span>
+          <span class="button focused">Focused control</span>
+        </div>
+        <div class="control-note">
+          <b>Conditional labels:</b><br>
+          C1 shows <b>View existing meeting plan</b> only when an admitted plan exists; otherwise <b>View evidence</b>.<br>
+          C3+ may show <b>Prepare for…</b> only when it creates a reviewable internal draft.
+        </div>
+        <p class="caption" style="margin-top:10px">One primary action per screen · Labels predict results · Comfortable target ≥44px.</p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">8</span><h2>Focus + motion</h2></div>
+        <div class="motion-grid">
+          <div>
+            <h3>Focus</h3><p class="caption">2px cobalt ring · 3px offset · never clipped</p>
+            <div class="button focused" style="margin-top:12px">View evidence</div>
+            <div class="kbd" style="margin-top:14px"><span><b>1</b>Header</span><span><b>2</b>Answer</span><span><b>3</b>Evidence</span><span><b>4</b>Primary action</span><span><b>5</b>Secondary disclosure</span></div>
+          </div>
+          <div>
+            <h3>Motion</h3>
+            <table><tbody><tr><td>Quick</td><td>140ms</td></tr><tr><td>Standard</td><td>200ms</td></tr><tr><td>Deliberate</td><td>280ms</td></tr></tbody></table>
+            <p class="caption" style="margin-top:12px">Disclosure · drawer · meaningful change · attention. No shimmer, pulse, parallax, or AI sparkle. Reduced motion preserves meaning statically.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><span class="num">10</span><h2>Trust semantics</h2></div>
+        <p class="caption" style="margin-bottom:12px">Orthogonal dimensions. Never collapse them into one confidence badge.</p>
+        <div class="trust-grid">
+          <div>Origin / support</div><div>Unknown · Attributed only</div><div>Authenticated/admitted origin + accepted exact support</div>
+          <div>Content kind</div><div>Source fact · Interpretation</div><div>Question · Recommendation</div>
+          <div>Review</div><div>Draft · Needs review</div><div>Reviewed</div>
+          <div>Freshness</div><div>Source dated · Stale</div><div>Verified current-through · Superseded</div>
+          <div>Durability / snapshot</div><div>Ephemeral · Not yet saved as a snapshot</div><div>Reviewed snapshot</div>
+          <div>Audience approval</div><div>Not approved</div><div>Approved for named audience / use</div>
+          <div>Delivery</div><div>Not shared</div><div>Shared · Published</div>
+          <div>Attention</div><div>None</div><div>Conflict needs review</div>
+        </div>
+        <div class="goodline"><b>Good compact line:</b> Draft interpretation · Attributed public source · Source dated Jun 19, 2026 · Scope needs verification</div>
+        <div class="exception"><b>One calm exception:</b> Conflict needs review · Current amount unresolved</div>
+        <p class="caption" style="margin-top:10px">Source support never implies human review. AI-generated never implies verified. “Source-backed” requires admitted/authenticated custody plus accepted exact support.</p>
+      </article>
+    </div>
+  </section>
+
+  <article class="panel" style="margin-top:24px">
+    <div class="panel-head"><span class="num">11</span><h2>Do / Don’t</h2></div>
+    <div class="do-grid">
+      <div class="pair"><div><span class="ok">● DO</span><div class="mini-answer">Answer first.</div><p class="caption">One thesis, change, implication, and next move.</p></div><div><span class="no">× DON’T</span><b>Equal-weight card grid</b><div class="wall"><i></i><i></i><i></i><i></i></div></div></div>
+      <div class="pair"><div><span class="ok">● DO</span><b>One compact trust cue</b><p class="caption" style="margin-top:12px">Source dated · Scope open</p></div><div><span class="no">× DON’T</span><b>Repeated disclaimer wall</b><div class="wall"><i></i><i></i><i></i><i></i></div></div></div>
+      <div class="pair"><div><span class="ok">● DO</span><b>Evidence on demand</b><p class="action-link" style="margin-top:22px">View evidence →</p></div><div><span class="no">× DON’T</span><b>Hashes and source register</b><p style="font:11px ui-monospace; margin-top:14px">a76f… 92db… 4c8e…</p></div></div>
+      <div class="pair"><div><span class="ok">● DO</span><b>Specific next move</b><p class="caption" style="margin-top:12px">Verify the funding decision frame.</p></div><div><span class="no">× DON’T</span><b>Generic “View details”</b><div class="button" style="margin-top:16px">View details</div></div></div>
+    </div>
+  </article>
+
+  <footer class="footer">
+    <p><b>Design intent</b><br>Useful immediately · Explainable within two interactions · Powerful only when invited.</p>
+    <p><b>Milestone truth</b><br>C1 projection · C2 model proposal · C3 preparation · C4 review/snapshot · C7 researcher detail · C9 monitoring.</p>
+    <p><b>Implementation proof still required</b><br>Semantic HTML · keyboard/focus · WCAG 2.2 AA · 200–400% reflow · responsive screenshots · hostile-input tests.</p>
+  </footer>
+</main>
+</body>
+</html>

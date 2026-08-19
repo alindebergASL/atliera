@@ -1,0 +1,243 @@
+{
+  "packet_id": "atliera-evidence-horizon-system-v3.1",
+  "version": "3.1.0",
+  "created_date": "2026-08-18",
+  "timezone": "America/Los_Angeles",
+  "status": "owner_approved_calibration_amendment",
+  "approved_by": "Andrew Lindeberg",
+  "approval_date": "2026-08-18",
+  "approval_note": "The owner explicitly accepted the v3 direction and then amended it to preserve the four predecessor visual-generation v2 concepts as the expressive floor and retain Workshop as a future calm account-local mode. Approval applies to visual calibration; only a separate exact v3.1 prompt may authorize bounded implementation.",
+  "purpose": "Production-oriented visual calibration joining Atliera's calm evidence-aware system with its owner-approved expressive lineage and future Workshop continuity.",
+  "distribution": "Owner-approved v3.1 calibration for the separately authorized C1 handoff; the packet alone is not implementation authority.",
+  "handoff_rule": "Only the separately supplied exact v3.1 Hermes prompt may authorize C1; the prior v3 prompt is superseded for not-yet-started work.",
+  "supersedes": {
+    "packet_id": "atliera-evidence-horizon-system-v3",
+    "version": "3.0.0",
+    "archive_name": "atliera-evidence-horizon-system-v3.zip",
+    "archive_size_bytes": 17157877,
+    "archive_sha256": "ced89e558dff85ad951b95dcba83e8c3c20447ac5bae797fc0807d4df8e62c4b",
+    "manifest_sha256": "ab30b7d40403712a0daca4a1b902bfb67788bd6b89d0cddeaab2dded7962ee94",
+    "sha256sums_sha256": "e6db87738a1620e76503b4a1e267bdad8c86b804bff21bddf1f97ff7a5fb494a",
+    "rule": "v3.1 supersedes v3 for every not-yet-started C1 handoff; do not hot-swap an active slice"
+  },
+  "repository_baseline": {
+    "commit": "3766e4502103e20ae00d8a38f36ba213b470354e",
+    "tree": "4e9ec3b3c83b2e81ae7c8528276b70c6cc7dbad6"
+  },
+  "authority_hierarchy": [
+    "Merged repository product, trust, security, and milestone documents",
+    "01_ACCEPTANCE_BRIEF.md",
+    "06_DESIGN_LINEAGE_AND_WORKSHOP_AMENDMENT.md for expressive lineage and future Account Workspace information architecture",
+    "visuals/09-visual-system-v2.html for exact visual tokens and interaction rules",
+    "current milestone-labeled PNG concepts for state and journey calibration",
+    "predecessor visual-generation v2 PNGs as expressive and originality references only"
+  ],
+  "delta_from_predecessor": {
+    "added": [
+      "05_CHANGELOG_AND_LINEAGE.md",
+      "06_DESIGN_LINEAGE_AND_WORKSHOP_AMENDMENT.md",
+      "lineage/v2-owner-references/01-editorial-intelligence.png",
+      "lineage/v2-owner-references/02-change-horizon.png",
+      "lineage/v2-owner-references/03-question-stage.png",
+      "lineage/v2-owner-references/04-evidence-horizon-recommended.png"
+    ],
+    "amended": [
+      "00_README.md",
+      "01_ACCEPTANCE_BRIEF.md",
+      "02_QA_SCORECARD.md",
+      "03_GENERATION_PROMPT_SET.md",
+      "04_HERMES_HANDOFF_STATUS.md"
+    ],
+    "unchanged_visual_system": [
+      "visuals/01-my-accounts-today.png",
+      "visuals/02-steady-state-account-home.png",
+      "visuals/03-evidence-on-demand-storyboard.png",
+      "visuals/04-prepare-composer-future-c3.png",
+      "visuals/05-approved-briefing-snapshot-future-c4.png",
+      "visuals/06-calm-conflict-review-future-c4.png",
+      "visuals/07-responsive-journey-c1-c3.png",
+      "visuals/08-calm-state-board.png",
+      "visuals/09-visual-system-v2.html",
+      "visuals/09-visual-system-v2.png"
+    ]
+  },
+  "public_source_scenario": {
+    "organization": "University of Utah",
+    "primary_source_date": "2026-06-19",
+    "primary_source_url": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+    "safe_summary": "The official university article reports that $4.94M is being redirected into artificial intelligence within a three-year reinvestment process.",
+    "boundary": "The source statement does not establish remaining amount, detailed allocation, procurement timing or status, decision ownership, vendor intent, or sales opportunity."
+  },
+  "files": [
+    {
+      "path": "00_README.md",
+      "role": "packet overview and authority boundary",
+      "bytes": 6526,
+      "sha256": "d46e63c7e8cea1c522af52b0f87b1c2e1ba93d599a3e5e359e17ba7916bc5d13"
+    },
+    {
+      "path": "01_ACCEPTANCE_BRIEF.md",
+      "role": "experience, trust, milestone, and acceptance contract",
+      "bytes": 9005,
+      "sha256": "18893463c3441e39d6f24ee059760076af0fad3db2bcdff6418029e31bdff2a1"
+    },
+    {
+      "path": "02_QA_SCORECARD.md",
+      "role": "critical-gate and weighted visual QA record",
+      "bytes": 4146,
+      "sha256": "4b4403d778f037a6b96079b426168377abf516bca2073740ead28693453528f6"
+    },
+    {
+      "path": "03_GENERATION_PROMPT_SET.md",
+      "role": "built-in image-generation prompt intent and constraints",
+      "bytes": 5250,
+      "sha256": "3cf0bc650f3f4e4fd768a82d117884fb2771196e8947ae726f0c84c76373e598"
+    },
+    {
+      "path": "04_HERMES_HANDOFF_STATUS.md",
+      "role": "explicit pause and next authorization boundary",
+      "bytes": 2867,
+      "sha256": "302bcb0bd8d277770a1299a292fbf8ee2ae78c05551b5ba668a6b083d8d46f03"
+    },
+    {
+      "path": "05_CHANGELOG_AND_LINEAGE.md",
+      "role": "v3 predecessor identity, v3.1 delta, and handoff supersession record",
+      "bytes": 2764,
+      "sha256": "c3379c6facb54d02068aebff82a59531fa417024fa5fde5ebfd79fae24b53152"
+    },
+    {
+      "path": "06_DESIGN_LINEAGE_AND_WORKSHOP_AMENDMENT.md",
+      "role": "binding expressive lineage and future Account Workspace / Workshop contract",
+      "bytes": 8584,
+      "sha256": "8e571bbbcf833b3be42ee0db222dbcdda977678e8c53c0b80ee4fd7f7b6e977f"
+    },
+    {
+      "path": "lineage/v2-owner-references/01-editorial-intelligence.png",
+      "original_supplied_filename": "01-editorial-intelligence.png",
+      "role": "predecessor visual-generation v2 expressive reference: premium authored account narrative",
+      "dimensions": "1536x1024",
+      "mime_type": "image/png",
+      "bytes": 1533337,
+      "supplied_sha256": "b9e7203c7d0c2180d913a093b87e9a81159e87149fab0d43fa1a84ad75536add",
+      "sha256": "b9e7203c7d0c2180d913a093b87e9a81159e87149fab0d43fa1a84ad75536add",
+      "permitted_influence": "editorial hierarchy, asymmetric composition, connected proof, composed next-move plane",
+      "prohibited_interpretation": "not a pixel specification, capability claim, account truth, fixture, or trust-state proof"
+    },
+    {
+      "path": "lineage/v2-owner-references/02-change-horizon.png",
+      "original_supplied_filename": "02-change-horizon.png",
+      "role": "predecessor visual-generation v2 expressive reference: meaningful-change product identity",
+      "dimensions": "1586x992",
+      "mime_type": "image/png",
+      "bytes": 1272084,
+      "supplied_sha256": "385692c44039d840052e2b61808dcebe74d628aab0e070892c4576d0acd8dd31",
+      "sha256": "385692c44039d840052e2b61808dcebe74d628aab0e070892c4576d0acd8dd31",
+      "permitted_influence": "established/open/next orientation, continuity, and an ownable horizon motif",
+      "prohibited_interpretation": "does not authorize monitoring, background intelligence, detected deltas, counts, or current-through claims"
+    },
+    {
+      "path": "lineage/v2-owner-references/03-question-stage.png",
+      "original_supplied_filename": "03-question-stage.png",
+      "role": "predecessor visual-generation v2 expressive reference: natural-language account exploration",
+      "dimensions": "1586x992",
+      "mime_type": "image/png",
+      "bytes": 1336627,
+      "supplied_sha256": "cf0ca80a4b38b07f0cb96959521e9e06839fd7ab357ae3968b0dbc241f2d98fc",
+      "sha256": "cf0ca80a4b38b07f0cb96959521e9e06839fd7ab357ae3968b0dbc241f2d98fc",
+      "permitted_influence": "question-led information scent, focused answer stage, and useful open questions",
+      "prohibited_interpretation": "not a chatbot, prompt interface, C1 Workshop tab, C3 composer, or proof of reviewed/current state"
+    },
+    {
+      "path": "lineage/v2-owner-references/04-evidence-horizon-recommended.png",
+      "original_supplied_filename": "04-evidence-horizon-recommended.png",
+      "role": "predecessor visual-generation v2 recommended expressive synthesis",
+      "dimensions": "1536x1024",
+      "mime_type": "image/png",
+      "bytes": 1463608,
+      "supplied_sha256": "8a64f0c0f4b784f34a5e4fcd63a7ef6fc03b18f7ce953d2ec55b9e771ffe169e",
+      "sha256": "8a64f0c0f4b784f34a5e4fcd63a7ef6fc03b18f7ce953d2ec55b9e771ffe169e",
+      "permitted_influence": "evidence spine, question-led exploration, change orientation, persistent-workspace identity",
+      "prohibited_interpretation": "does not authorize generated shell controls, a meeting plan without admitted content, or unsupported lifecycle claims"
+    },
+    {
+      "path": "visuals/01-my-accounts-today.png",
+      "role": "future C9 meaningful-change prioritization",
+      "dimensions": "1536x1024",
+      "bytes": 1584330,
+      "sha256": "c43bcd72e095c6352f34dab134ce2dccc5f6eecb6c8043d50d95e545c41105d8"
+    },
+    {
+      "path": "visuals/02-steady-state-account-home.png",
+      "role": "future C9 steady-state Account Home",
+      "dimensions": "1568x1003",
+      "bytes": 1545646,
+      "sha256": "c51d94a2ccb4e087407f5d8675b25277ae8db0fe5d63b7ea7a63d6f9e09e506c"
+    },
+    {
+      "path": "visuals/03-evidence-on-demand-storyboard.png",
+      "role": "C1 evidence path and future C7 researcher detail",
+      "dimensions": "1604x980",
+      "bytes": 1675005,
+      "sha256": "f841552fa69ab1ff786cf5c31dd0a96977315de79500b177d76b9753ee5a1319"
+    },
+    {
+      "path": "visuals/04-prepare-composer-future-c3.png",
+      "role": "future C3 two-input preparation composer",
+      "dimensions": "1536x1024",
+      "bytes": 1561220,
+      "sha256": "d61e8d8fdc16a7507a9f09b66e3936b876c5ba5f8d7a8353b90c92e96e29af39"
+    },
+    {
+      "path": "visuals/05-approved-briefing-snapshot-future-c4.png",
+      "role": "future C4 approved internal briefing snapshot",
+      "dimensions": "1536x1024",
+      "bytes": 1539057,
+      "sha256": "d4a73b678d61a4d98270790ce881f0100a057f0b138db72b2327c734a2902837"
+    },
+    {
+      "path": "visuals/06-calm-conflict-review-future-c4.png",
+      "role": "future C4 single consequential conflict review",
+      "dimensions": "1536x1024",
+      "bytes": 1453997,
+      "sha256": "bfb827122731cda9759b8b56eb3ded29f36913360a9e49cf49bf5cfce4670605"
+    },
+    {
+      "path": "visuals/07-responsive-journey-c1-c3.png",
+      "role": "responsive C1, future C2, and future C3 progression",
+      "dimensions": "1604x980",
+      "bytes": 1555465,
+      "sha256": "21c8a044eddd96cbeb13cd3b1570890d91602384fcad1c48d3ccfb36b1dee41b"
+    },
+    {
+      "path": "visuals/08-calm-state-board.png",
+      "role": "cross-milestone state calibration board",
+      "dimensions": "1536x1024",
+      "bytes": 1853702,
+      "sha256": "6793f8bb25bbcb1040b41982e372156b4f19b1374ab187b8b2b537525dfe72a3"
+    },
+    {
+      "path": "visuals/09-visual-system-v2.html",
+      "role": "authoritative exact visual and interaction system companion",
+      "bytes": 26429,
+      "sha256": "89f372ebac051bc5223005615b6cbe3d9e7791131869a807fa4dce9cc827fbbc"
+    },
+    {
+      "path": "visuals/09-visual-system-v2.png",
+      "role": "high-resolution visual-system overview preview",
+      "dimensions": "3072x2048",
+      "bytes": 5442693,
+      "sha256": "04a76e89535fa9b7f50c075fca94d26457be538f41bd4d88d5c4c8752534ecbe"
+    }
+  ],
+  "verification": {
+    "visual_review": "PASS",
+    "product_ux_review": "PASS",
+    "architecture_trust_review": "PASS",
+    "png_full_decode": "PASS",
+    "predecessor_v2_byte_preservation": "PASS",
+    "expressive_lineage_review": "PASS",
+    "workshop_c1_boundary": "PASS_AS_CONTRACT_CODE_PROOF_REQUIRED",
+    "html_exact_semantics": "PASS",
+    "implementation_authority": "NONE_IN_PACKET_SEPARATE_EXACT_PROMPT_REQUIRED"
+  }
+}

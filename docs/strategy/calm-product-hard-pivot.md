@@ -121,9 +121,9 @@ The intended stack is:
    - meeting plan;
    - exact evidence available within two interactions.
 
-The Account Brief Builder is a reference for the everyday workspace, not a runtime dependency or customer-facing name. The Stanford CIO briefing is a reference for output quality. Neither exact artifact is present in this repository at the verified main tree: repository search found only the architecture prohibition on exposing legacy `brief builder` naming and found no Stanford/CIO briefing artifact. The exact artifacts are therefore **external and nonbinding** under `CONTRIBUTING.md`; the owner-codified product qualities in this decision govern. This documentation records the references and intended qualities but does not claim to have inspected their exact bytes, layout, provenance, or current availability.
+The owner-approved C1 visual calibration record is `../ux/visual-calibration/atliera-evidence-horizon-system-v3.1/`. It contains the Evidence Horizon v3.1 production/trust visual system plus four byte-preserved expressive-lineage references. The packet is subordinate to this pivot, ADR 0004, the trust/validation architecture, the zero-training gate, and the roadmap. It is visual calibration rather than runtime input; it supplies no account facts or fixture truth; it is not a pixel-copy requirement; and it authorizes no behavior or effect beyond the separately approved C1 slice.
 
-The nearest repository-managed output references are `fixtures/workshop/targeted-ciso-meeting-brief-v1.html`, `fixtures/workshop/targeted-proposal-rfx-brief-v1.html`, and their renderer `src/workshop/targeted-brief.ts`. They are synthetic targeted-output examples with useful progressive evidence disclosure. They are not substitutes for the unavailable Account Brief Builder or Stanford CIO artifacts, and they do not define the everyday Account Workspace.
+The Account Brief Builder and Stanford CIO briefing remain owner-supplied quality references rather than runtime dependencies or public product names. Their exact source artifacts remain external and nonbinding under `CONTRIBUTING.md`; the imported v3.1 packet translates the approved ease, editorial quality, expressive lineage, and production-craft expectations without making those external artifacts account truth or implementation authority.
 
 ## Binding product requirements
 
@@ -252,7 +252,8 @@ Stage 1 is not a broad-customer-UX acceptance claim. It must pass the applicable
 | `fake-mode-workshop-surface-exit-criteria.md` and product-preview records | Remain scoped implementation/validation evidence, not customer UX acceptance |
 | `../runbooks/m5b-product-review-prepare.md` | Remains the preferred current generic package-generation mechanism; its HTML is an internal inspector and its Markdown brief an internal pre-ratification review artifact, not customer or reviewed-snapshot output baselines |
 | M5a/M5b approval, execution, package, and audit records | Remain immutable historical/scoped evidence; they are neither deleted nor relabeled as wasted work |
-| Account Brief Builder and Stanford CIO briefing references | Owner-supplied external references; exact artifacts unavailable in-repo and therefore not claimed as inspected |
+| `../ux/visual-calibration/atliera-evidence-horizon-system-v3.1/` | Owner-approved C1 visual calibration, subordinate to canonical product/trust contracts; not runtime input, account truth, fixture truth, a pixel-copy requirement, or authority beyond C1 |
+| Account Brief Builder and Stanford CIO briefing references | Owner-supplied external and nonbinding quality references; not runtime dependencies, account truth, or public product names |
 
 Where earlier documentation implies that the dense Workshop, three lens columns, proposal-review grid, or package page is itself the intended ordinary customer experience, this decision retires that customer-surface implication effective on merge. Historical claims about what code did, what validation proved, what effects occurred, and what authority was absent remain accurate in their original scope.
 

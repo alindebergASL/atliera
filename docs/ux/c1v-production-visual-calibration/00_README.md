@@ -1,6 +1,6 @@
 # C1V-01 coded production visual calibration
 
-Status: **ready for owner direction selection after exact-head verification; neither direction is selected or canonical**
+Status: **owner accepted 2026-08-20 — Editorial Evidence Synthesis is the canonical visual basis for C2 (head `a863500`)**
 
 Authority: `EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SELECTION_01`
 
@@ -47,4 +47,4 @@ No active prototype contains Workshop or Prepare. The separately labeled future 
 
 ## Decision status
 
-The owner selected exactly one bounded A×B synthesis pass on 2026-08-20 (see `OWNER_DECISION_RECORD.md`): Direction A foundation carrying Direction B's information grammar, one dark decision plane, mobile answer-first. A and B remain unselected as canonical directions; the synthesis is one calibration pass for final owner review, not a canonical selection. C1 remains merged and unchanged; C2 remains paused; the zero-training user gate remains open.
+On 2026-08-20 the owner accepted the corrected synthesis — **Editorial Evidence Synthesis** — as the canonical visual basis for C2 and future ordinary-user Atliera surfaces (see `OWNER_DECISION_RECORD.md`). The acceptance establishes visual and interaction direction only: the review prototype is not deployed, production-integrated, or customer-ready, and it is not evidence of current C2 capability. Decision language and non-blocking C2 guardrails are recorded in the decision record. C1 remains merged and unchanged; C2 remains paused; the zero-training user gate remains open.

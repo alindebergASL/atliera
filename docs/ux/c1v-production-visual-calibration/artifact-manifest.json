@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "00_README.md",
-      "byteSize": 3584,
-      "sha256": "46edfd7291806bef67c1c72c3465db76e745947a76f2788dc0dafc57d61c5afa"
+      "byteSize": 3719,
+      "sha256": "dcc4ecea8b27f712edd512b84ac0bdf3d0050afe7191c85f3a3b40e189383bb5"
     },
     {
       "path": "01_ACCEPTANCE_BRIEF.md",
@@ -35,8 +35,8 @@
     },
     {
       "path": "OWNER_DECISION_RECORD.md",
-      "byteSize": 1759,
-      "sha256": "2ac2b0a51dfe23dcbf31b41be4193622198c5c185e4d7becd8ccad12d66b8826"
+      "byteSize": 3766,
+      "sha256": "79cbb39b7677dfd4a54fbfd5c250ad0818deb785bf0efcb76e02a4f3bc62ef34"
     },
     {
       "path": "browser-interaction-proof.json",

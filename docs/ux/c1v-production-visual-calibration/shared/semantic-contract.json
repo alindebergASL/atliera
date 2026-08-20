@@ -1,0 +1,89 @@
+{
+  "kind": "c1v-shared-semantic-contract",
+  "schemaVersion": "1",
+  "source": "merged C1 deterministic Citrine fixture",
+  "account": {
+    "name": "Citrine Works",
+    "fixtureMetadata": "fictional",
+    "thesis": "Citrine Works is a fictional operations-software company serving regional planning teams."
+  },
+  "change": {
+    "statement": "Citrine Works introduced Relay Planner on July 14, 2026 for regional operations teams after an approved deployment review.",
+    "kind": "Attributed source fact",
+    "review": "Not reviewed"
+  },
+  "interpretation": {
+    "statement": "Exception handling is a plausible discovery focus",
+    "kind": "Draft interpretation",
+    "review": "Not reviewed"
+  },
+  "recommendation": {
+    "statement": "Draft a targeted exception-workflow meeting brief for internal review",
+    "kind": "Draft recommendation",
+    "externalAction": "No external action"
+  },
+  "trustSummary": "Draft · Attributed synthetic sources · Not reviewed · Freshness not established · Not saved · Not approved · Not shared",
+  "source": {
+    "title": "Citrine Works Relay Planner product note (fictional)",
+    "publisher": "Citrine Fixture Press",
+    "sourceDate": "Not separately established",
+    "retrievalContext": "Recorded in repository fixture Jul 15, 2026",
+    "originSupport": "Attributed synthetic source",
+    "canonicalUrl": null
+  },
+  "changeBoundary": {
+    "supports": "The admitted exact excerpt supports the attributed product-introduction statement.",
+    "doesNotEstablish": "It does not establish adoption, customer demand, buying intent, budget, or the account's current operating state."
+  },
+  "interpretationBoundary": {
+    "supports": "The admitted exact excerpts support the cited launch, pilot, and operating-context facts used by this draft interpretation.",
+    "doesNotEstablish": "The sources do not directly establish this interpretation, customer priorities, buying intent, or commercial urgency."
+  },
+  "recommendationBoundary": {
+    "supports": "The admitted facts provide context for considering this draft next move.",
+    "doesNotEstablish": "The sources do not establish that the account wants this action, a meeting, a vendor, or any external commitment."
+  },
+  "additionalExcerpts": [
+    "Citrine Works completed a fictional pilot scenario with eighteen of twenty-four invited planners.",
+    "Three regional teams requested a shared exception checklist before the next planning session."
+  ],
+  "meetingPlan": {
+    "primaryAudience": "Operations leaders",
+    "meetingObjective": "Understand how regional teams evaluate exception handling after the product introduction.",
+    "questions": [
+      {
+        "question": "Where do planning exceptions create the most manual coordination today?",
+        "whyAsked": "Locate the operational constraint without presuming demand.",
+        "desiredLearning": "The highest-cost exception pattern and who owns it.",
+        "followUpSignal": "The audience identifies a bounded workflow they want examined."
+      },
+      {
+        "question": "What would need to remain stable during any workflow change?",
+        "whyAsked": "Separate the desired improvement from protected operating constraints.",
+        "desiredLearning": "The controls, handoffs, and service commitments that cannot regress.",
+        "followUpSignal": "The audience names a protected constraint or evidence requirement."
+      },
+      {
+        "question": "Which result would justify a focused second conversation?",
+        "whyAsked": "Set an honest close criterion without assuming a commercial next step.",
+        "desiredLearning": "The measurable learning or comparison that would make follow-up useful.",
+        "followUpSignal": "The audience requests one specific comparison or scenario."
+      }
+    ],
+    "overallCloseCriterion": "Close without another action unless the audience requests one specific comparison, scenario, or evidence check.",
+    "boundary": "This plan already existed in the admitted input. Viewing it performs no generation, saving, approval, or delivery."
+  },
+  "effects": {
+    "providerCalls": 0,
+    "networkCalls": 0,
+    "sourceAcquisitions": 0,
+    "privateReads": 0,
+    "databaseWrites": 0,
+    "graphWrites": 0,
+    "identityChanges": 0,
+    "customerRoutes": 0,
+    "persistenceWrites": 0,
+    "outboundActions": 0,
+    "deploymentActions": 0
+  }
+}

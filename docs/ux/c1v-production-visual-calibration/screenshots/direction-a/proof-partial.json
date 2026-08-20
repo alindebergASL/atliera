@@ -1,0 +1,153 @@
+{
+  "id": "direction-a",
+  "scenarios": [
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1331,
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "label": "desktop"
+    },
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1293,
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "label": "laptop"
+    },
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1338,
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "label": "tablet"
+    },
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1744,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "label": "mobile"
+    },
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1970,
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "label": "400%-reflow-equivalent"
+    },
+    {
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "a-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Review the basis",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1404,
+      "viewport": {
+        "width": 640,
+        "height": 900
+      },
+      "label": "200%-zoom-equivalent"
+    }
+  ],
+  "evidence": {
+    "correctDialog": true,
+    "exactExcerptReachable": true,
+    "supportBoundaryReachable": true,
+    "nonSupportBoundaryReachable": true,
+    "originTarget": "a-evidence-change",
+    "closeFocused": true,
+    "closeReturnsFocus": true,
+    "escapeReturnsFocus": true
+  },
+  "plan": {
+    "primaryActionPreserved": true,
+    "opensOnlyExistingPlan": true,
+    "questionCount": 3
+  },
+  "reducedMotion": true,
+  "effects": {
+    "network": 0,
+    "storage": 0,
+    "navigation": 0,
+    "forms": 0
+  }
+}

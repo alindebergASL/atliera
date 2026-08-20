@@ -1,0 +1,29 @@
+:root { --ink:#14211d; --muted:#65716d; --paper:#f3f0e8; --white:#fffdf8; --line:#c9cec9; --a:#2e2449; --b:#0d3440; --action:#284ad9; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); }
+header, main, footer { width:min(100% - 40px,1240px); margin:0 auto; }
+header { padding:40px 0 30px; border-bottom:1px solid var(--ink); }
+.kicker { margin:0 0 12px; color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+h1 { max-width:900px; margin:0; font:500 clamp(48px,7vw,86px)/.95 Georgia,serif; letter-spacing:-.05em; }
+.lede { max-width:780px; margin:20px 0 0; color:var(--muted); font-size:18px; line-height:1.6; }
+main { padding:36px 0 70px; }
+.direction-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.direction { min-height:360px; padding:30px; color:white; display:flex; flex-direction:column; justify-content:space-between; }
+.direction.a { background:var(--a); }
+.direction.b { background:var(--b); }
+.direction h2 { max-width:480px; margin:0; font:500 44px/1 Georgia,serif; letter-spacing:-.035em; }
+.direction p { max-width:520px; line-height:1.55; }
+.review-links { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+a { min-height:44px; display:inline-flex; align-items:center; justify-content:center; padding:0 16px; border:1px solid currentColor; color:inherit; font-weight:800; text-underline-offset:4px; }
+a:focus-visible { outline:3px solid #ffcb70; outline-offset:3px; }
+.boundary { margin:34px 0 0; padding:22px 0; border-top:1px solid var(--ink); border-bottom:1px solid var(--line); color:var(--muted); }
+.comparison { margin-top:44px; }
+.comparison h2 { margin:0 0 20px; font:500 34px/1.05 Georgia,serif; }
+.comparison-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.comparison-grid.two { grid-template-columns:1fr 1fr; }
+.figure { margin:0; background:var(--white); border:1px solid var(--line); }
+.figure img { width:100%; height:auto; display:block; }
+.figure figcaption { padding:14px; color:var(--muted); font-size:13px; }
+footer { padding:24px 0 50px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+@media(max-width:760px){ .direction-grid,.comparison-grid,.comparison-grid.two{grid-template-columns:1fr} .direction{min-height:320px;padding:24px} h1{font-size:50px} }
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}

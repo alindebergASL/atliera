@@ -8,7 +8,7 @@
       "label": "desktop",
       "viewport": {
         "width": 1440,
-        "height": 1000
+        "height": 1100
       },
       "noHorizontalOverflow": true,
       "primaryVisible": true,
@@ -22,13 +22,22 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 1482
+      "firstViewport": {
+        "viewportHeight": 1100,
+        "planeTop": 842,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": true,
+        "bothHeadlinesComplete": true,
+        "headlineUnitBottom": 1010,
+        "fits": true
+      },
+      "scrollHeight": 1287
     },
     {
       "label": "laptop",
       "viewport": {
         "width": 1280,
-        "height": 800
+        "height": 900
       },
       "noHorizontalOverflow": true,
       "primaryVisible": true,
@@ -42,7 +51,16 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 1440
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 758,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": true,
+        "bothHeadlinesComplete": true,
+        "headlineUnitBottom": 878,
+        "fits": true
+      },
+      "scrollHeight": 1186
     },
     {
       "label": "tablet",
@@ -62,7 +80,16 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 1613
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 742,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1099,
+        "fits": false
+      },
+      "scrollHeight": 1549
     },
     {
       "label": "mobile",
@@ -82,7 +109,16 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 2192
+      "firstViewport": {
+        "viewportHeight": 844,
+        "planeTop": 1089,
+        "stillOpenHeadlineComplete": false,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1511,
+        "fits": false
+      },
+      "scrollHeight": 2126
     },
     {
       "label": "400%-reflow-equivalent",
@@ -102,7 +138,16 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 2360
+      "firstViewport": {
+        "viewportHeight": 844,
+        "planeTop": 1151,
+        "stillOpenHeadlineComplete": false,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1612,
+        "fits": false
+      },
+      "scrollHeight": 2300
     },
     {
       "label": "200%-zoom-equivalent",
@@ -122,7 +167,16 @@
         "Exact support",
         "Evidence + assumptions"
       ],
-      "scrollHeight": 1700
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 765,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1122,
+        "fits": false
+      },
+      "scrollHeight": 1614
     }
   ],
   "evidence": {

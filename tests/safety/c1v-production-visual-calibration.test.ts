@@ -220,6 +220,26 @@ test("C1V synthesis artifacts are isolated, deterministic, interactive, and effe
   assert.match(html, /decision-row/u);
   assert.doesNotMatch(html, /How to read the horizon|horizon-stage|stage-grid|trust-state-strip/u);
 
+  // Correction 3 (2026-08-20 owner): each stage has exactly one visual number.
+  // The 01–04 kicker badges are the only stage numerals: no hero marginal index
+  // and no question-rail counter duplicates them.
+  assert.doesNotMatch(html, /insight-index/u);
+  assert.doesNotMatch(css, /insight-index/u);
+  assert.doesNotMatch(css, /\.question-list li::before\s*\{\s*counter-increment/u);
+  const stageNums = [...html.matchAll(/class="stage-num"[^>]*>([^<]+)</gu)].map((m) => m[1]!.trim());
+  assert.deepEqual(stageNums, ["01", "02", "03", "04"], "synthesis stage numbers 01–04 exactly once");
+
+  // Correction 2 (2026-08-20 owner): the grammar sheet documents Editorial
+  // Evidence Synthesis and its four-state grammar — not Direction A alone.
+  const grammar = await readFile(join(ROOT, SYN, "grammar.html"), "utf8");
+  assert.match(grammar, /Synthesis · Editorial Evidence Synthesis · component grammar/u);
+  assert.match(grammar, /four-state grammar/u);
+  assert.doesNotMatch(grammar, /Direction A · component grammar/u);
+  for (const state of ["Established", "Meaningfully changed", "Still open", "Recommended next move"]) {
+    assert.ok(grammar.includes(state), `synthesis grammar state: ${state}`);
+  }
+  assert.equal((grammar.match(/class="stage-num"/gu) ?? []).length, 4, "grammar sheet documents four states");
+
   const future = await readFile(join(ROOT, SYN, "future-workshop-compatibility.html"), "utf8");
   assert.match(future, /Static future Account and Workshop compatibility frame/u);
   assert.match(future, /Account \| Workshop/u);
@@ -261,6 +281,22 @@ test("C1V synthesis artifacts are isolated, deterministic, interactive, and effe
     assert.equal(scenario.minimumTouchTarget, true);
     assert.equal(scenario.trustVisible, true);
     assert.equal(scenario.statementEvidenceVisible, true);
+  }
+
+  // Correction 1 (2026-08-20 owner): the complete Still open and Next headline
+  // units sit inside the first viewport at 1440×1100 and 1280×900.
+  const foldDesktop = proof.scenarios.find((s: any) => s.label === "desktop")!;
+  const foldLaptop = proof.scenarios.find((s: any) => s.label === "laptop")!;
+  assert.ok(foldDesktop && foldLaptop, "desktop + laptop scenarios present");
+  assert.deepEqual(foldDesktop.viewport, { width: 1440, height: 1100 });
+  assert.deepEqual(foldLaptop.viewport, { width: 1280, height: 900 });
+  for (const scenario of [foldDesktop, foldLaptop]) {
+    assert.equal(scenario.firstViewport.stillOpenHeadlineComplete, true, `${scenario.label}: Still open headline complete`);
+    assert.equal(scenario.firstViewport.nextHeadlineComplete, true, `${scenario.label}: Next headline complete`);
+    assert.equal(scenario.firstViewport.bothHeadlinesComplete, true, `${scenario.label}: both headlines complete`);
+    assert.equal(scenario.firstViewport.fits, true, `${scenario.label}: headline unit fits first viewport`);
+    assert.ok(scenario.firstViewport.headlineUnitBottom <= scenario.viewport.height, `${scenario.label}: headlineUnitBottom within viewport`);
+    assert.ok(scenario.firstViewport.planeTop >= 0, `${scenario.label}: plane present`);
   }
   assert.equal(proof.evidence.correctDialog, true);
   assert.equal(proof.evidence.exactExcerptReachable, true);

@@ -34,7 +34,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .product-shell { min-height: calc(100vh - 52px); border-top: 8px solid var(--plum); }
 .product-header {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 20px;
-  width: min(100% - 48px, 1320px); margin: 0 auto; padding: 20px 0 17px;
+  width: min(100% - 48px, 1320px); margin: 0 auto; padding: 16px 0 13px;
   border-bottom: 1px solid var(--rule);
 }
 .product-mark { margin: 0; font: 600 20px/1 var(--serif); letter-spacing: -.02em; }
@@ -42,22 +42,20 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .account-identity { display: flex; align-items: baseline; gap: 8px; margin: 0; }
 .account-identity strong { font-size: 14px; }
 .fixture-meta { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 30px 0 68px; }
+main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 22px 0 68px; }
 .editorial-grid { display: grid; grid-template-columns: minmax(0, 1fr) 252px; gap: clamp(38px, 6vw, 92px); }
 .reading-stage { min-width: 0; }
-.intro-line { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
+.intro-line { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
 .intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
 .kicker { margin: 0; color: var(--evidence); font-size: 11px; font-weight: 850; letter-spacing: .17em; text-transform: uppercase; }
-.insight-hero { position: relative; padding: 0 0 38px clamp(0px, 4vw, 62px); }
-.insight-index { position: absolute; left: 0; top: 8px; color: var(--assumption); font: italic 18px/1 var(--serif); }
-.insight-index::after { content: ""; display: block; width: 1px; height: 92px; margin: 12px auto 0; background: var(--assumption); }
+.insight-hero { position: relative; padding: 0 0 22px clamp(0px, 4vw, 62px); }
 .insight-hero h1 {
-  max-width: 920px; margin: 0; font: 500 clamp(48px, 6.2vw, 92px)/.95 var(--serif);
+  max-width: 920px; margin: 0; font: 500 clamp(48px, 5.1vw, 92px)/.95 var(--serif);
   letter-spacing: -.052em; text-wrap: balance;
 }
-.insight-deck { max-width: 760px; margin: 22px 0 0; color: var(--muted); font-size: clamp(17px, 1.7vw, 22px); }
-.annotation-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 22px; }
-.hero-action { margin-top: 20px; }
+.insight-deck { max-width: 760px; margin: 18px 0 0; color: var(--muted); font-size: clamp(17px, 1.45vw, 22px); }
+.annotation-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 18px; }
+.hero-action { margin-top: 18px; }
 .established-context { max-width: 640px; margin: 14px 0 0; color: var(--muted); font-size: 12px; letter-spacing: .02em; }
 .trust-quiet { margin: 0; color: var(--muted); font-size: 12px; }
 .basis-action {
@@ -71,11 +69,11 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 30px 0 68px; }
 .basis-action.assumption .basis-glyph::after { background: var(--paper); box-shadow: 10px 8px 0 var(--paper); border: 1.5px solid currentColor; }
 .change-essay {
   display: grid; grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr); gap: 34px;
-  margin: 4px 0 0 clamp(0px, 10vw, 150px); padding: 30px 0;
+  margin: 4px 0 0 clamp(0px, 10vw, 150px); padding: 22px 0;
   border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule);
 }
-.change-label h2 { margin: 7px 0 0; font: 500 clamp(28px, 3vw, 44px)/1.05 var(--serif); }
-.change-statement { margin: 0; font-size: clamp(19px, 2vw, 27px); line-height: 1.35; }
+.change-label h2 { margin: 7px 0 0; font: 500 clamp(28px, 2.45vw, 44px)/1.05 var(--serif); }
+.change-statement { margin: 0; font-size: clamp(19px, 1.7vw, 27px); line-height: 1.35; }
 .source-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .next-move {
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: end;
@@ -93,10 +91,9 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 30px 0 68px; }
 }
 .question-rail { align-self: start; padding-top: 42px; }
 .question-rail h2 { margin: 0 0 20px; color: var(--muted); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
-.question-list { margin: 0; padding: 0; list-style: none; counter-reset: q; }
-.question-list li { position: relative; padding: 18px 0 18px 44px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 14px; }
+.question-list { margin: 0; padding: 0; list-style: none; }
+.question-list li { padding: 18px 0; border-top: 1px solid var(--rule); color: var(--muted); font-size: 14px; }
 .question-list li:last-child { border-bottom: 1px solid var(--rule); }
-.question-list li::before { counter-increment: q; content: "0" counter(q); position: absolute; left: 0; top: 18px; color: var(--plum); font: italic 15px/1 var(--serif); }
 .question-list strong { display: block; color: var(--ink); font-weight: 750; }
 .page-trust { margin: 24px 0 0 clamp(0px, 4vw, 62px); color: var(--muted); font-size: 12px; }
 .evidence-panel {
@@ -140,9 +137,8 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 30px 0 68px; }
   .editorial-grid { grid-template-columns: 1fr; gap: 20px; }
   .question-rail { padding-top: 10px; }
   .question-list { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-  .question-list li { padding: 12px 8px 12px 28px; border: 0; }
+  .question-list li { padding: 12px 8px; border: 0; }
   .question-list li:last-child { border: 0; }
-  .question-list li::before { top: 13px; }
   .change-essay { margin-left: 0; }
   .next-move { margin-left: 0; }
   .page-trust { margin-left: 0; }
@@ -154,8 +150,6 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 30px 0 68px; }
   .product-header { padding-top: 14px; }
   main { padding-top: 18px; }
   .insight-hero { padding-left: 0; }
-  .insight-index { position: static; display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .insight-index::after { width: 48px; height: 1px; margin: 0; }
   .insight-hero h1 { font-size: clamp(42px, 12.5vw, 62px); }
   .change-essay { grid-template-columns: 1fr; gap: 14px; padding: 22px 0; }
   .question-list { grid-template-columns: 1fr 1fr; }
@@ -284,8 +278,8 @@ body[data-capture="product"] .product-shell { min-height: 100vh; }
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: clamp(28px, 4vw, 64px);
   align-items: start;
-  margin: 26px 0 0 clamp(0px, 4vw, 62px);
-  padding: 34px 36px;
+  margin: 18px 0 0 clamp(0px, 4vw, 62px);
+  padding: 24px 36px;
   background: var(--plum);
   column-gap: clamp(28px, 4vw, 64px);
 }
@@ -307,7 +301,7 @@ body[data-capture="product"] .product-shell { min-height: 100vh; }
 }
 .decision-row .open-boundary h2 {
   margin: 10px 0 0;
-  font: 500 clamp(20px, 2vw, 28px)/1.15 var(--serif);
+  font: 500 clamp(20px, 1.7vw, 28px)/1.15 var(--serif);
   color: #fffdf8;
 }
 .decision-row .open-boundary .open-copy { color: #e8e3f1; }
@@ -321,7 +315,7 @@ body[data-capture="product"] .product-shell { min-height: 100vh; }
 .decision-row .next-move h2 {
   margin: 0;
   max-width: 560px;
-  font: 500 clamp(26px, 2.9vw, 42px)/1.04 var(--serif);
+  font: 500 clamp(26px, 2.4vw, 42px)/1.04 var(--serif);
   letter-spacing: -.03em;
   color: #fffdf8;
 }
@@ -347,9 +341,19 @@ body[data-capture="product"] .product-shell { min-height: 100vh; }
   font: italic 500 13px/1.5 var(--serif);
 }
 
-/* --- first-viewport target: decision plane top within 1100px on desktop --- */
-@media (min-width: 901px) {
-  .decision-row { min-height: 300px; }
+/* --- first-viewport target: Still open + Next headline units complete within
+     1440×1100 and 1280×900 (review harness included). Continuous type scale;
+     laptop-range rhythm only — desktop composition unchanged. --- */
+@media (min-width: 901px) and (max-width: 1350px) {
+  .product-header { padding: 12px 0 10px; }
+  main { padding-top: 14px; }
+  .intro-line { margin-bottom: 12px; }
+  .insight-hero { padding-bottom: 18px; }
+  .annotation-row { margin-top: 14px; }
+  .hero-action { margin-top: 14px; }
+  .change-essay { padding: 18px 0; }
+  .decision-row { margin-top: 10px; padding-top: 20px; }
+  .decision-row .next-move h2 { max-width: 620px; }
 }
 
 /* --- mobile: account answer first, grammar stacked --- */

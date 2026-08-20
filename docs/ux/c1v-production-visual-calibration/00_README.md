@@ -47,4 +47,4 @@ No active prototype contains Workshop or Prepare. The separately labeled future 
 
 ## Decision status
 
-Neither direction is selected. The advisory tradeoff analysis in `04_COMPARATIVE_SCORECARD.md` is not owner approval. C1 remains merged and unchanged; C2 remains paused; the zero-training user gate remains open.
+The owner selected exactly one bounded A×B synthesis pass on 2026-08-20 (see `OWNER_DECISION_RECORD.md`): Direction A foundation carrying Direction B's information grammar, one dark decision plane, mobile answer-first. A and B remain unselected as canonical directions; the synthesis is one calibration pass for final owner review, not a canonical selection. C1 remains merged and unchanged; C2 remains paused; the zero-training user gate remains open.

@@ -1,0 +1,148 @@
+{
+  "kind": "c1v-synthesis-interaction-proof",
+  "schemaVersion": 1,
+  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SYNTHESIS_01",
+  "id": "synthesis",
+  "scenarios": [
+    {
+      "label": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1482
+    },
+    {
+      "label": "laptop",
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1440
+    },
+    {
+      "label": "tablet",
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1613
+    },
+    {
+      "label": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 2192
+    },
+    {
+      "label": "400%-reflow-equivalent",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 2360
+    },
+    {
+      "label": "200%-zoom-equivalent",
+      "viewport": {
+        "width": 640,
+        "height": 900
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "scrollHeight": 1700
+    }
+  ],
+  "evidence": {
+    "correctDialog": true,
+    "exactExcerptReachable": true,
+    "supportBoundaryReachable": true,
+    "closeReturnsFocus": true,
+    "nonSupportBoundaryReachable": true,
+    "escapeReturnsFocus": true
+  },
+  "plan": {
+    "primaryActionPreserved": true,
+    "opensOnlyExistingPlan": true,
+    "questionCount": 3
+  },
+  "reducedMotion": true,
+  "effects": {
+    "network": 0,
+    "storage": 0,
+    "navigation": 0,
+    "forms": 0
+  }
+}

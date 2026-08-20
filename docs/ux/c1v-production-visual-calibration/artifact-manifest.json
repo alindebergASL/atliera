@@ -1,12 +1,12 @@
 {
   "kind": "c1v-artifact-manifest",
-  "schemaVersion": "1",
-  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SELECTION_01",
+  "schemaVersion": 2,
+  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SYNTHESIS_01",
   "files": [
     {
       "path": "00_README.md",
-      "byteSize": 3342,
-      "sha256": "ca389fcc9ca65b2f1f2682e6b777069426973b4e9de81454a15d85f671dc48b1"
+      "byteSize": 3584,
+      "sha256": "46edfd7291806bef67c1c72c3465db76e745947a76f2788dc0dafc57d61c5afa"
     },
     {
       "path": "01_ACCEPTANCE_BRIEF.md",
@@ -35,8 +35,8 @@
     },
     {
       "path": "OWNER_DECISION_RECORD.md",
-      "byteSize": 641,
-      "sha256": "cbf1b33c00b052801af6daddc3a3e886cf9f599ee22b4356566b3c9a43dd921a"
+      "byteSize": 1759,
+      "sha256": "2ac2b0a51dfe23dcbf31b41be4193622198c5c185e4d7becd8ccad12d66b8826"
     },
     {
       "path": "browser-interaction-proof.json",
@@ -90,8 +90,8 @@
     },
     {
       "path": "index.html",
-      "byteSize": 2635,
-      "sha256": "2c37c4ca543e9f2bac12cd9ee37d55813cf30e44657570da72f2e7bfc1eb7a83"
+      "byteSize": 3269,
+      "sha256": "0fb794b2c4cc5663f0348cf5901d4f771b412910e38a781d8f7712358ce3d1e1"
     },
     {
       "path": "masked-review/concept-1.png",
@@ -319,6 +319,101 @@
       "sha256": "cd4d30165cb3732d66c2fe0206c1d40c45e5b50d620f50a3058d5f6838109090"
     },
     {
+      "path": "screenshots/synthesis/component-grammar.png",
+      "byteSize": 146621,
+      "sha256": "8d6ca173c18a4a05593190c7284315772b3849738a3e902c5ad77a10ee2f0b60"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-admitted-plan.png",
+      "byteSize": 195376,
+      "sha256": "ee18d1ce2217d734d0c43709b3cef365e31259481daa65dc4bbb8ffdbd2fc151"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-default-no-plan.png",
+      "byteSize": 194483,
+      "sha256": "f7c226f2d78459b7aea0b6628c5b2a82056826595eec9b47bb6fcd33361f190b"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-evidence-open.png",
+      "byteSize": 250817,
+      "sha256": "e6c1912b714f5e681d31de80a2b24ffafdbbf5970800ece86f075a6d1771d480"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-existing-plan-open.png",
+      "byteSize": 251185,
+      "sha256": "4d12c72ff57894a40bc29af6d6c167a40305b4c9a0f2a7a57423d7e8c592c326"
+    },
+    {
+      "path": "screenshots/synthesis/future-workshop-compatibility.png",
+      "byteSize": 102121,
+      "sha256": "8b325de212be22aeff716f55cf9ac0931cf86613c59db4c67cb6df5ed7417cd8"
+    },
+    {
+      "path": "screenshots/synthesis/interaction-capture.gif",
+      "byteSize": 1142399,
+      "sha256": "43e96fbd4a95eedc37d49ad17e6cef2ce9992d27dc0ca82c7da6b86e7cc1d810"
+    },
+    {
+      "path": "screenshots/synthesis/keyboard-focus.png",
+      "byteSize": 66853,
+      "sha256": "534c292676ce8811775da579495aa3daad2eb0bdb757fdb4741ce54ef363a2f4"
+    },
+    {
+      "path": "screenshots/synthesis/laptop-default.png",
+      "byteSize": 158364,
+      "sha256": "f4145e570a9dd035b19a1b22eadccebe7b1ff11f4250b4cd4a6b6d79e96355c6"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-admitted-plan.png",
+      "byteSize": 67651,
+      "sha256": "c484f3b4de0ff911fbbe627f7021aba9a753f1f35f947df7d742041a96daf050"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-default.png",
+      "byteSize": 66853,
+      "sha256": "534c292676ce8811775da579495aa3daad2eb0bdb757fdb4741ce54ef363a2f4"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-evidence-open.png",
+      "byteSize": 69954,
+      "sha256": "9a462ee543986409ecbabbec330267cac51aff42fac3ae188b5f90bb61bb9142"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-existing-plan-open.png",
+      "byteSize": 67731,
+      "sha256": "329d87aac24892d62f2cd8596023d3aaa0cd68f0f151a2c1b546574b35d83657"
+    },
+    {
+      "path": "screenshots/synthesis/narrow-320-reflow.png",
+      "byteSize": 61619,
+      "sha256": "709c273617d8e2c591b4a95cccc749106d0d7cd1af27d658a5f1f5ed452c61c8"
+    },
+    {
+      "path": "screenshots/synthesis/reduced-motion.png",
+      "byteSize": 66853,
+      "sha256": "534c292676ce8811775da579495aa3daad2eb0bdb757fdb4741ce54ef363a2f4"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-default.png",
+      "byteSize": 109539,
+      "sha256": "da6e1c3fc11229bd17415b36438b8cc85147946bed04b0e7a66db90d62e4f042"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-evidence-open.png",
+      "byteSize": 131846,
+      "sha256": "a7a82ec27689db7c9025585b62cda8c7b700b4b08fc298c5228048c97678e7c0"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-existing-plan-open.png",
+      "byteSize": 128389,
+      "sha256": "e7b23ba244d7ccc1448d243551b0ea7af9da7f2062708ca6832b4c96031c3779"
+    },
+    {
+      "path": "screenshots/synthesis/zoom-200-equivalent.png",
+      "byteSize": 105139,
+      "sha256": "772da690dcee8182d6e83c0ec7e59b629a54d6bf0864adabad3cbe446c589a00"
+    },
+    {
       "path": "shared/prototype-runtime.js",
       "byteSize": 2402,
       "sha256": "fd8276e0bcff4699b667d83c2c542b776ffba4e8bb3d2791cb52c3c3c9332a88"
@@ -327,6 +422,31 @@
       "path": "shared/semantic-contract.json",
       "byteSize": 4393,
       "sha256": "78bf8900ba7459810ab08e38cd5dadf07ac948b0af47e22672458b0c8aacc32e"
+    },
+    {
+      "path": "synthesis/editorial-evidence-synthesis.css",
+      "byteSize": 19906,
+      "sha256": "0f0f96e33d20b34d0e19c16b9341c7171bdebc2a1089892f2512e3ffdda2fb58"
+    },
+    {
+      "path": "synthesis/future-workshop-compatibility.html",
+      "byteSize": 1752,
+      "sha256": "bcef53f390236e3ecbae653de1146ffa1a0b3e794e855a694a29b6a872f2e8ca"
+    },
+    {
+      "path": "synthesis/grammar.html",
+      "byteSize": 2410,
+      "sha256": "785081ab8df8c20525661c50e56df16e4118720234b2acf7491726529faf70fb"
+    },
+    {
+      "path": "synthesis/index.html",
+      "byteSize": 14512,
+      "sha256": "9727ad72ddd21da952e47807a65242d3eb9fb1287cbf9cf50f9abc03714200ef"
+    },
+    {
+      "path": "synthesis-interaction-proof.json",
+      "byteSize": 3847,
+      "sha256": "714f0f3aa60b03da11b757dbd21f21d7d999445eb2328b820ec7b7d7fb0710f7"
     }
   ]
 }

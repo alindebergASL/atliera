@@ -179,3 +179,98 @@ test("C1V artifacts are isolated, deterministic, interactive, and effect-free", 
   const sums = await readFile(join(ROOT, "SHA256SUMS"), "utf8");
   for (const entry of manifest.files) assert.ok(sums.includes(`${entry.sha256}  ${entry.path}`), entry.path);
 });
+
+test("C1V synthesis artifacts are isolated, deterministic, interactive, and effect-free", async () => {
+  const SYN = "synthesis";
+
+  const html = await readFile(join(ROOT, SYN, "index.html"), "utf8");
+  const css = await readFile(join(ROOT, SYN, "editorial-evidence-synthesis.css"), "utf8");
+
+  assert.match(html, /Content-Security-Policy/u);
+  assert.match(html, /default-src 'none'/u);
+  assert.match(html, /connect-src 'none'/u);
+  assert.doesNotMatch(html, /<style\b|<script(?![^>]+src=)|style=|onclick=|onerror=|href="#"|<form\b|<input\b|<select\b|\bdisabled\b/iu);
+  assert.doesNotMatch(html, /https?:\/\/|(?:src|href)="\/\//iu);
+  assert.doesNotMatch(html, /Package Inspector|\bM5b\b|Prepare for…|Create brief|Generate briefing|Save briefing|Share briefing|Send briefing/iu);
+  assert.doesNotMatch(css, /@import|url\s*\(/iu);
+  assert.match(css, /min-height:\s*(?:44|50)px/u);
+  assert.match(css, /:focus-visible/u);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/u);
+  assert.match(css, /@media\s*\(max-width:/u);
+
+  for (const phrase of REQUIRED_PARITY) assert.ok(visibleText(html).includes(phrase), `synthesis: ${phrase}`);
+
+  const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/giu)];
+  assert.ok(buttons.length >= 9, "synthesis button count");
+  for (const [, attrs = ""] of buttons) {
+    assert.match(attrs, /data-(?:open-panel|close-panel|state-control)/u);
+    assert.doesNotMatch(attrs, /\bdisabled\b/u);
+  }
+  const targets = [...html.matchAll(/data-open-panel="([^"]+)"/gu)].map((match) => match[1]);
+  for (const target of targets) assert.match(html, new RegExp(`id="${target}"`, "u"));
+  assert.equal((html.match(/data-primary-action/gu) ?? []).length, 2);
+  assert.match(html, /data-no-plan-only[^>]+data-open-panel="s-evidence-change"/u);
+  assert.match(html, /data-plan-only[^>]+data-open-panel="s-existing-plan"/u);
+  assert.equal((html.match(/class="plan-question"/gu) ?? []).length, 3);
+  assert.equal((html.match(/class="evidence-panel"/gu) ?? []).length, 4);
+
+  // A foundation × B grammar structural identity
+  assert.match(html, /insight-hero|question-rail/u);
+  assert.match(html, /stage-kicker/u);
+  assert.match(html, /decision-row/u);
+  assert.doesNotMatch(html, /How to read the horizon|horizon-stage|stage-grid|trust-state-strip/u);
+
+  const future = await readFile(join(ROOT, SYN, "future-workshop-compatibility.html"), "utf8");
+  assert.match(future, /Static future Account and Workshop compatibility frame/u);
+  assert.match(future, /Account \| Workshop/u);
+  assert.doesNotMatch(future, /<button\b|<input\b|<form\b|<script\b/iu);
+
+  const SYNTH_SHOTS = [
+    ["desktop-default-no-plan.png", [1440, 1100]],
+    ["desktop-evidence-open.png", [1440, 1100]],
+    ["desktop-admitted-plan.png", [1440, 1100]],
+    ["desktop-existing-plan-open.png", [1440, 1100]],
+    ["laptop-default.png", [1280, 900]],
+    ["tablet-default.png", [768, 900]],
+    ["tablet-evidence-open.png", [768, 900]],
+    ["tablet-existing-plan-open.png", [768, 900]],
+    ["mobile-default.png", [390, 844]],
+    ["mobile-evidence-open.png", [390, 844]],
+    ["mobile-admitted-plan.png", [390, 844]],
+    ["mobile-existing-plan-open.png", [390, 844]],
+    ["narrow-320-reflow.png", [320, 844]],
+    ["zoom-200-equivalent.png", [640, 900]],
+    ["keyboard-focus.png", [390, 844]],
+    ["reduced-motion.png", [390, 844]],
+    ["component-grammar.png", [1440, 1100]],
+    ["future-workshop-compatibility.png", [1440, 900]],
+  ] as const;
+  for (const [name, dimensions] of SYNTH_SHOTS) {
+    const bytes = await readFile(join(ROOT, "screenshots", SYN, name));
+    assert.deepEqual(pngDimensions(bytes), dimensions, `${SYN}/${name}`);
+  }
+  const capture = await readFile(join(ROOT, "screenshots", SYN, "interaction-capture.gif"));
+  assert.equal(capture.subarray(0, 6).toString("ascii"), "GIF89a");
+
+  const proof: any = JSON.parse(await readFile(join(ROOT, "synthesis-interaction-proof.json"), "utf8"));
+  assert.equal(proof.id, "synthesis");
+  assert.equal(proof.scenarios.length, 6);
+  for (const scenario of proof.scenarios) {
+    assert.equal(scenario.noHorizontalOverflow, true);
+    assert.equal(scenario.primaryVisible, true);
+    assert.equal(scenario.minimumTouchTarget, true);
+    assert.equal(scenario.trustVisible, true);
+    assert.equal(scenario.statementEvidenceVisible, true);
+  }
+  assert.equal(proof.evidence.correctDialog, true);
+  assert.equal(proof.evidence.exactExcerptReachable, true);
+  assert.equal(proof.evidence.supportBoundaryReachable, true);
+  assert.equal(proof.evidence.nonSupportBoundaryReachable, true);
+  assert.equal(proof.evidence.closeReturnsFocus, true);
+  assert.equal(proof.evidence.escapeReturnsFocus, true);
+  assert.equal(proof.plan.primaryActionPreserved, true);
+  assert.equal(proof.plan.opensOnlyExistingPlan, true);
+  assert.equal(proof.plan.questionCount, 3);
+  assert.equal(proof.reducedMotion, true);
+  assert.deepEqual(proof.effects, { network: 0, storage: 0, navigation: 0, forms: 0 });
+});

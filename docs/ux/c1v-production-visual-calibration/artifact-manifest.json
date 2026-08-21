@@ -1,0 +1,452 @@
+{
+  "kind": "c1v-artifact-manifest",
+  "schemaVersion": 2,
+  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SYNTHESIS_01",
+  "files": [
+    {
+      "path": "00_README.md",
+      "byteSize": 3719,
+      "sha256": "dcc4ecea8b27f712edd512b84ac0bdf3d0050afe7191c85f3a3b40e189383bb5"
+    },
+    {
+      "path": "01_ACCEPTANCE_BRIEF.md",
+      "byteSize": 3756,
+      "sha256": "a0fe77b3471352b714debbebae5fec5530cf30d0dd0d2ad9694ef1b92bff52b1"
+    },
+    {
+      "path": "02_DIRECTION_A_EDITORIAL_INTELLIGENCE.md",
+      "byteSize": 3602,
+      "sha256": "ad2b42beb9530530a1e1e5808c07700bdb7abde59ddb382c9b557a59e02ebe6a"
+    },
+    {
+      "path": "03_DIRECTION_B_EVIDENCE_HORIZON.md",
+      "byteSize": 3742,
+      "sha256": "120e5735c2def83b6517b8e09fccc8ba7c252c12b49baae26eabf5b051fa56c9"
+    },
+    {
+      "path": "05_INTERACTION_AND_TRUST_PROOF.md",
+      "byteSize": 3294,
+      "sha256": "c43c36b85dd4dfe2c182d36029a57a128647766fd250a1bb0f39971daf92f843"
+    },
+    {
+      "path": "06_FUTURE_WORKSHOP_COMPATIBILITY.md",
+      "byteSize": 1801,
+      "sha256": "a5fbd184f2e9e15d2ce486e100db2c4c53b9deb6788e89925203b95828a839f1"
+    },
+    {
+      "path": "OWNER_DECISION_RECORD.md",
+      "byteSize": 3766,
+      "sha256": "79cbb39b7677dfd4a54fbfd5c250ad0818deb785bf0efcb76e02a4f3bc62ef34"
+    },
+    {
+      "path": "browser-interaction-proof.json",
+      "byteSize": 9115,
+      "sha256": "e7cf696b0011695258171c7f43fa60cf413f005f589754a5e0fa6406ee18061c"
+    },
+    {
+      "path": "comparison.html",
+      "byteSize": 2769,
+      "sha256": "7b17fb29f731425a6e67312d4580e3db5faabe6564e49d96be1ea48dee6f0977"
+    },
+    {
+      "path": "direction-a/editorial-intelligence.css",
+      "byteSize": 15460,
+      "sha256": "41376b19988986f4d43f7c481d4c2d7f6b0b9b7aa1e1c197e09b2693cb926ef8"
+    },
+    {
+      "path": "direction-a/future-workshop-compatibility.html",
+      "byteSize": 1748,
+      "sha256": "4e0c974caabd3569a3eb3c7268f2220b82bbf4b94e5dcdea0d57ad67cead3929"
+    },
+    {
+      "path": "direction-a/grammar.html",
+      "byteSize": 2406,
+      "sha256": "70d527e3bc0764a91f07360dc85e213a7833df91e4da41ba15dba800877c0330"
+    },
+    {
+      "path": "direction-a/index.html",
+      "byteSize": 13509,
+      "sha256": "8784390b0b67373b0f6dac7fa7bc631c4e06fd222242040cf436e70e796df7ea"
+    },
+    {
+      "path": "direction-b/evidence-horizon.css",
+      "byteSize": 17836,
+      "sha256": "4be151cb67ae9a4e9106487e46a94c4547894687efc6ac69b895f51668c567b2"
+    },
+    {
+      "path": "direction-b/future-workshop-compatibility.html",
+      "byteSize": 1858,
+      "sha256": "26003455a1b767afde01adbfd6ecff8627f8e78726c76090864e33b412a8e251"
+    },
+    {
+      "path": "direction-b/grammar.html",
+      "byteSize": 2433,
+      "sha256": "2fa0f7890c967dc089e8654c9cca222add39d0fc232877c6a8b26a8f03d907ad"
+    },
+    {
+      "path": "direction-b/index.html",
+      "byteSize": 13460,
+      "sha256": "a9284b517018acca28e44968d72f65dcbd2e7550e14f1367e9a7d56812fb9223"
+    },
+    {
+      "path": "index.html",
+      "byteSize": 3269,
+      "sha256": "0fb794b2c4cc5663f0348cf5901d4f771b412910e38a781d8f7712358ce3d1e1"
+    },
+    {
+      "path": "masked-review/concept-1.png",
+      "byteSize": 174363,
+      "sha256": "c6ecb940396b92365fe1d7888fe6e8b1ed0dc9d2ed2667aa5836b0877d31c18d"
+    },
+    {
+      "path": "masked-review/concept-2.png",
+      "byteSize": 185855,
+      "sha256": "ade8bcaf5e97cde20ac85e2a01f4f31df98f6165a310d29ca361dacc6d2e4e47"
+    },
+    {
+      "path": "review.css",
+      "byteSize": 2599,
+      "sha256": "b3fbde9265fe95e744e31936b047beadebf84d52adb1562d7c52be403bc2674b"
+    },
+    {
+      "path": "screenshots/comparison/comparison-overview.png",
+      "byteSize": 1097350,
+      "sha256": "79d14072836617d1c14dc51a3cd5d195fddf7f1d48c1afc3b48e7929d3ae0aaa"
+    },
+    {
+      "path": "screenshots/comparison/review-index.png",
+      "byteSize": 181432,
+      "sha256": "2ecf3aa6b56dac8ceddaaebe7f79da96505a60835f05ca3e1bf58cc4e913cd91"
+    },
+    {
+      "path": "screenshots/direction-a/component-grammar.png",
+      "byteSize": 146621,
+      "sha256": "8d6ca173c18a4a05593190c7284315772b3849738a3e902c5ad77a10ee2f0b60"
+    },
+    {
+      "path": "screenshots/direction-a/desktop-admitted-plan.png",
+      "byteSize": 183347,
+      "sha256": "efca0806cebd576f068f32034a4f6fdc9eab330e02b8773007190fe9efb1d562"
+    },
+    {
+      "path": "screenshots/direction-a/desktop-default-no-plan.png",
+      "byteSize": 182497,
+      "sha256": "87120b3c21b88b62388c14c742a398d032427b62fa6d317d5df92c58935cdeb4"
+    },
+    {
+      "path": "screenshots/direction-a/desktop-evidence-open.png",
+      "byteSize": 289099,
+      "sha256": "729f837496c1156e96a279c6c657ff4d8ca623387184a55da1830d0a66aabe55"
+    },
+    {
+      "path": "screenshots/direction-a/desktop-existing-plan-open.png",
+      "byteSize": 290237,
+      "sha256": "a84972022853ce2949ec72571e4b57a4a4fb31d99f1f106452cf8060eab54e6b"
+    },
+    {
+      "path": "screenshots/direction-a/future-workshop-compatibility.png",
+      "byteSize": 102810,
+      "sha256": "73ce6bb93c148fcf43487b8ac8d2ba9a96bbea8ff849dff9e91c8828b16925a3"
+    },
+    {
+      "path": "screenshots/direction-a/interaction-capture.gif",
+      "byteSize": 602416,
+      "sha256": "d72a7dec9d596509e1304d513331ab5006de2425fe0314e6910f83c5ba02ab56"
+    },
+    {
+      "path": "screenshots/direction-a/keyboard-focus.png",
+      "byteSize": 69478,
+      "sha256": "187a39c5402ae6720a7a73b693604cc58267005c9963ff38455d29bc35fd1bc8"
+    },
+    {
+      "path": "screenshots/direction-a/laptop-default.png",
+      "byteSize": 147865,
+      "sha256": "152be70a7b63319aa2fd865ab6b6eee0505def82574d04d31eb99608091b235b"
+    },
+    {
+      "path": "screenshots/direction-a/mobile-admitted-plan.png",
+      "byteSize": 70292,
+      "sha256": "739ad00762bb964444ff6fc34b91bb02703e8e60da1e1d1f5af4bbd889d68047"
+    },
+    {
+      "path": "screenshots/direction-a/mobile-default.png",
+      "byteSize": 69412,
+      "sha256": "1c212ab7d24ba44996d40cb054514b62d9ff6ecfbc324f532509064f4ded5eab"
+    },
+    {
+      "path": "screenshots/direction-a/mobile-evidence-open.png",
+      "byteSize": 120096,
+      "sha256": "7c9873d18eb1a51d5b184049bb00d2299e1e7ac57ef8cd4eabdf850ccecb15af"
+    },
+    {
+      "path": "screenshots/direction-a/mobile-existing-plan-open.png",
+      "byteSize": 114902,
+      "sha256": "068ab9b0b3e63381f051cf8fd98ccef1179f71b2f5f5578103d4b34afb2838b2"
+    },
+    {
+      "path": "screenshots/direction-a/narrow-320-reflow.png",
+      "byteSize": 56981,
+      "sha256": "fca44b6761fc2f29f22e0d5083401f078d1d5bf0c4df4928417e50dd69742f72"
+    },
+    {
+      "path": "screenshots/direction-a/proof-partial.json",
+      "byteSize": 3930,
+      "sha256": "27a658eb11211399028ba5416ca989d813b9de0b45324d0757d0fb69346d5599"
+    },
+    {
+      "path": "screenshots/direction-a/reduced-motion.png",
+      "byteSize": 69412,
+      "sha256": "1c212ab7d24ba44996d40cb054514b62d9ff6ecfbc324f532509064f4ded5eab"
+    },
+    {
+      "path": "screenshots/direction-a/tablet-default.png",
+      "byteSize": 106891,
+      "sha256": "0483dbf455d88eaded9b089b54da844a5f94afd26e77dcdca199b4c18cd51c0c"
+    },
+    {
+      "path": "screenshots/direction-a/tablet-evidence-open.png",
+      "byteSize": 193471,
+      "sha256": "e66bd884f4fae8ab4aad6c663604a3fb4555a51317f8dd9ca25faf929d637628"
+    },
+    {
+      "path": "screenshots/direction-a/tablet-existing-plan-open.png",
+      "byteSize": 192442,
+      "sha256": "ab872bef72a708593937460eaa6eb19e4554f7c80054e9b32cc11a9956b0357a"
+    },
+    {
+      "path": "screenshots/direction-a/zoom-200-equivalent.png",
+      "byteSize": 96731,
+      "sha256": "c284132c9451cf90a57a986df435c56b7a28fa6cd14e3f004cb01c0d1d3a85a5"
+    },
+    {
+      "path": "screenshots/direction-b/component-grammar.png",
+      "byteSize": 156086,
+      "sha256": "7d17db8a929d592921f8f359498584c8468962517c40fad750dbab0f74269f48"
+    },
+    {
+      "path": "screenshots/direction-b/desktop-admitted-plan.png",
+      "byteSize": 190720,
+      "sha256": "6ccdf202d05108dec11d2a5b8aa1a4e002f454f9bd58727322055f1b10f5733a"
+    },
+    {
+      "path": "screenshots/direction-b/desktop-default-no-plan.png",
+      "byteSize": 187087,
+      "sha256": "e38ebfbe6189e1927966e6242cfbaa641502ebc43d560baf74ba0cdc8e57a82d"
+    },
+    {
+      "path": "screenshots/direction-b/desktop-evidence-open.png",
+      "byteSize": 276563,
+      "sha256": "964d7b14387f9a9c5eefcff897647b5070d07b47c536622b01d75befb8fc38f5"
+    },
+    {
+      "path": "screenshots/direction-b/desktop-existing-plan-open.png",
+      "byteSize": 283165,
+      "sha256": "b018cc9e5e33824810dd08b6b07eea8ac45f144fcd79d5b35fae7314b8a98e42"
+    },
+    {
+      "path": "screenshots/direction-b/future-workshop-compatibility.png",
+      "byteSize": 126132,
+      "sha256": "f301602eccd9cd612ee093d04a90aa6c2e06aeb7c0a5b1a50cfd6f1ef45ca0fd"
+    },
+    {
+      "path": "screenshots/direction-b/interaction-capture.gif",
+      "byteSize": 639003,
+      "sha256": "6be854da53476633faa71cbf1d6893bfc12daf082fadfdb7a3b19531cd74c110"
+    },
+    {
+      "path": "screenshots/direction-b/keyboard-focus.png",
+      "byteSize": 66161,
+      "sha256": "a8ec68592d81a1d184ecd1c9540bbbb9e411560c02f9d3d0d9b4492cb76b99de"
+    },
+    {
+      "path": "screenshots/direction-b/laptop-default.png",
+      "byteSize": 164251,
+      "sha256": "f3f22b78f4e6dcddc7251417ac135a2f359beb92e02128f7161c46a4924e6ebd"
+    },
+    {
+      "path": "screenshots/direction-b/mobile-admitted-plan.png",
+      "byteSize": 66596,
+      "sha256": "b0b60849e5998c80526f6f46af713dfbb176c5d0568b1b55bdccd3ef906e9138"
+    },
+    {
+      "path": "screenshots/direction-b/mobile-default.png",
+      "byteSize": 66114,
+      "sha256": "2c9a3028be119e848dc7df9325d8d2aabe28b08f289b1700979ee7a33b7a1386"
+    },
+    {
+      "path": "screenshots/direction-b/mobile-evidence-open.png",
+      "byteSize": 112063,
+      "sha256": "e042f7a493ad951e9bfbd70f1ec7b8cf201006c4b3d4f6a64bf40188275c96ec"
+    },
+    {
+      "path": "screenshots/direction-b/mobile-existing-plan-open.png",
+      "byteSize": 106755,
+      "sha256": "1e0aa29a2bb0ceb781dc09a5d277a3194963e725be22db8afdb40b8cd3062dde"
+    },
+    {
+      "path": "screenshots/direction-b/narrow-320-reflow.png",
+      "byteSize": 58993,
+      "sha256": "0f8d036f683c6d0ac8d75934beb28835e3a612f35ea85a06b2b2f52f7e98a6d3"
+    },
+    {
+      "path": "screenshots/direction-b/proof-partial.json",
+      "byteSize": 3804,
+      "sha256": "4bbc19a38f0ef3236af1379bdaaa6f9bb7dda471e42e4a1abea5e63c93995e65"
+    },
+    {
+      "path": "screenshots/direction-b/reduced-motion.png",
+      "byteSize": 66114,
+      "sha256": "2c9a3028be119e848dc7df9325d8d2aabe28b08f289b1700979ee7a33b7a1386"
+    },
+    {
+      "path": "screenshots/direction-b/tablet-default.png",
+      "byteSize": 120790,
+      "sha256": "b05351df8611f8243a99a9904906de203d00f65e9e82b941775eeb43d7c2aec4"
+    },
+    {
+      "path": "screenshots/direction-b/tablet-evidence-open.png",
+      "byteSize": 198874,
+      "sha256": "111db54ddf61c0f47b45bf7bc2af853c29264091674094d902611fd809a05273"
+    },
+    {
+      "path": "screenshots/direction-b/tablet-existing-plan-open.png",
+      "byteSize": 210913,
+      "sha256": "d0eeafc639d18256abdd082c6e89c3077c73b8612593d7409e032dbda290acfd"
+    },
+    {
+      "path": "screenshots/direction-b/zoom-200-equivalent.png",
+      "byteSize": 90736,
+      "sha256": "cd4d30165cb3732d66c2fe0206c1d40c45e5b50d620f50a3058d5f6838109090"
+    },
+    {
+      "path": "screenshots/synthesis/component-grammar.png",
+      "byteSize": 139883,
+      "sha256": "ec6a279e97c0f719ec435f5fb53c6e646c9659cfa1e7d88104fe8e22560f1df8"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-admitted-plan.png",
+      "byteSize": 210079,
+      "sha256": "4b842e6e9415a3eacc3ee262a6645599d8946a7320ab83cfed4a4bcaecce3c44"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-default-no-plan.png",
+      "byteSize": 209136,
+      "sha256": "5568f1a712345245a6626e29d1c4a556f8788b4d804858212c040a36c2b2e232"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-evidence-open.png",
+      "byteSize": 268063,
+      "sha256": "4b79d088dae8e52e74f15374c8953d8725002fc210c1520d0b1b378cbf0362a8"
+    },
+    {
+      "path": "screenshots/synthesis/desktop-existing-plan-open.png",
+      "byteSize": 268574,
+      "sha256": "e731ccc6c0be98473519642bda25e6d1c628831165405469ff8653121875ba1c"
+    },
+    {
+      "path": "screenshots/synthesis/future-workshop-compatibility.png",
+      "byteSize": 102121,
+      "sha256": "8b325de212be22aeff716f55cf9ac0931cf86613c59db4c67cb6df5ed7417cd8"
+    },
+    {
+      "path": "screenshots/synthesis/interaction-capture.gif",
+      "byteSize": 1145719,
+      "sha256": "98f65ebf0272fd6e7cbe142aabd7dfa841d2a4b62943b2f044a83915feaa4c17"
+    },
+    {
+      "path": "screenshots/synthesis/keyboard-focus.png",
+      "byteSize": 78003,
+      "sha256": "ae2ffe0f0cf9713e17f11e7ff77b641069d3e76f8102cee046cc88834ec1ee81"
+    },
+    {
+      "path": "screenshots/synthesis/laptop-default.png",
+      "byteSize": 181437,
+      "sha256": "06db28d1fc377152736f8b0c9e280a5f9ea1db721d9008a7915244297e8d0778"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-admitted-plan.png",
+      "byteSize": 78799,
+      "sha256": "c358494c16b799a2275c758b30c8fe331412274a99a1ae0ac1d7b1b3e21238c6"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-default.png",
+      "byteSize": 78003,
+      "sha256": "ae2ffe0f0cf9713e17f11e7ff77b641069d3e76f8102cee046cc88834ec1ee81"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-evidence-open.png",
+      "byteSize": 69954,
+      "sha256": "9a462ee543986409ecbabbec330267cac51aff42fac3ae188b5f90bb61bb9142"
+    },
+    {
+      "path": "screenshots/synthesis/mobile-existing-plan-open.png",
+      "byteSize": 67731,
+      "sha256": "329d87aac24892d62f2cd8596023d3aaa0cd68f0f151a2c1b546574b35d83657"
+    },
+    {
+      "path": "screenshots/synthesis/narrow-320-reflow.png",
+      "byteSize": 68025,
+      "sha256": "bd2a42373ed85af3c1a4d93cc0bbe1ea7e6a15cedced723cf3f3f5ee6bae7bb4"
+    },
+    {
+      "path": "screenshots/synthesis/reduced-motion.png",
+      "byteSize": 78003,
+      "sha256": "ae2ffe0f0cf9713e17f11e7ff77b641069d3e76f8102cee046cc88834ec1ee81"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-default.png",
+      "byteSize": 117047,
+      "sha256": "db717877efc56a0f2a942d0720f23758c059b19cca01e883d02b4e3b746f5bb4"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-evidence-open.png",
+      "byteSize": 134799,
+      "sha256": "099744cb4be1f060425c613f9277599be3e81b0cfcba276c812aeef644ad6f5c"
+    },
+    {
+      "path": "screenshots/synthesis/tablet-existing-plan-open.png",
+      "byteSize": 131896,
+      "sha256": "57dbc6517d521bc5e14306757e75e28a635f2ff8bc7c9e00f2c06901c4056f89"
+    },
+    {
+      "path": "screenshots/synthesis/zoom-200-equivalent.png",
+      "byteSize": 116001,
+      "sha256": "cba0a5b2d7021da830e86146263400e57156b8f5b797261506fd5d052e926699"
+    },
+    {
+      "path": "shared/prototype-runtime.js",
+      "byteSize": 2402,
+      "sha256": "fd8276e0bcff4699b667d83c2c542b776ffba4e8bb3d2791cb52c3c3c9332a88"
+    },
+    {
+      "path": "shared/semantic-contract.json",
+      "byteSize": 4393,
+      "sha256": "78bf8900ba7459810ab08e38cd5dadf07ac948b0af47e22672458b0c8aacc32e"
+    },
+    {
+      "path": "synthesis/editorial-evidence-synthesis.css",
+      "byteSize": 19725,
+      "sha256": "2211ad114d6b52bb22e362f9b882cd5fa316cf9403e021427479769aae27f1d3"
+    },
+    {
+      "path": "synthesis/future-workshop-compatibility.html",
+      "byteSize": 1752,
+      "sha256": "bcef53f390236e3ecbae653de1146ffa1a0b3e794e855a694a29b6a872f2e8ca"
+    },
+    {
+      "path": "synthesis/grammar.html",
+      "byteSize": 3643,
+      "sha256": "9a1c6112d2c9423ab8eb30757dc3ec126ac4649dd8202992a08387e4b7a7915d"
+    },
+    {
+      "path": "synthesis/index.html",
+      "byteSize": 14443,
+      "sha256": "a3a96983893f2dceb7c8d67eb734d943dff1b499a15010f6968bfc4081ce5625"
+    },
+    {
+      "path": "synthesis-interaction-proof.json",
+      "byteSize": 5465,
+      "sha256": "6d183c2f2cfb646490d80eced88401d8a06d2b9c08328f4bba5d63204ed30f6b"
+    }
+  ]
+}

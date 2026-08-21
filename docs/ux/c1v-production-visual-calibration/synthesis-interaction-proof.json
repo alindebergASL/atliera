@@ -1,0 +1,202 @@
+{
+  "kind": "c1v-synthesis-interaction-proof",
+  "schemaVersion": 1,
+  "authority": "EXPLICIT_OWNER_AUTHORIZATION_C1V_CODED_VISUAL_DIRECTION_SYNTHESIS_01",
+  "id": "synthesis",
+  "scenarios": [
+    {
+      "label": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 1100,
+        "planeTop": 842,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": true,
+        "bothHeadlinesComplete": true,
+        "headlineUnitBottom": 1010,
+        "fits": true
+      },
+      "scrollHeight": 1287
+    },
+    {
+      "label": "laptop",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 758,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": true,
+        "bothHeadlinesComplete": true,
+        "headlineUnitBottom": 878,
+        "fits": true
+      },
+      "scrollHeight": 1186
+    },
+    {
+      "label": "tablet",
+      "viewport": {
+        "width": 768,
+        "height": 900
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 742,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1099,
+        "fits": false
+      },
+      "scrollHeight": 1549
+    },
+    {
+      "label": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 844,
+        "planeTop": 1089,
+        "stillOpenHeadlineComplete": false,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1511,
+        "fits": false
+      },
+      "scrollHeight": 2126
+    },
+    {
+      "label": "400%-reflow-equivalent",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 844,
+        "planeTop": 1151,
+        "stillOpenHeadlineComplete": false,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1612,
+        "fits": false
+      },
+      "scrollHeight": 2300
+    },
+    {
+      "label": "200%-zoom-equivalent",
+      "viewport": {
+        "width": 640,
+        "height": 900
+      },
+      "noHorizontalOverflow": true,
+      "primaryVisible": true,
+      "primaryLabel": "Review the basis",
+      "primaryTarget": "s-evidence-change",
+      "minimumTouchTarget": true,
+      "trustVisible": true,
+      "statementEvidenceVisible": true,
+      "visibleEvidenceActions": [
+        "Evidence + assumptions",
+        "Exact support",
+        "Evidence + assumptions"
+      ],
+      "firstViewport": {
+        "viewportHeight": 900,
+        "planeTop": 765,
+        "stillOpenHeadlineComplete": true,
+        "nextHeadlineComplete": false,
+        "bothHeadlinesComplete": false,
+        "headlineUnitBottom": 1122,
+        "fits": false
+      },
+      "scrollHeight": 1614
+    }
+  ],
+  "evidence": {
+    "correctDialog": true,
+    "exactExcerptReachable": true,
+    "supportBoundaryReachable": true,
+    "closeReturnsFocus": true,
+    "nonSupportBoundaryReachable": true,
+    "escapeReturnsFocus": true
+  },
+  "plan": {
+    "primaryActionPreserved": true,
+    "opensOnlyExistingPlan": true,
+    "questionCount": 3
+  },
+  "reducedMotion": true,
+  "effects": {
+    "network": 0,
+    "storage": 0,
+    "navigation": 0,
+    "forms": 0
+  }
+}

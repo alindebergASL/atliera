@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-qael9ozdGtsVLoD23AWjnHxga8+grpeeETam8zwjc/4=&#39;; script-src &#39;sha256-h+Z+HtzMmplefNuUvT0alA7AQxy+1Ta5Ay9vifYx8vE=&#39;; img-src data:; connect-src &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;"><title>Atliera account intelligence — FedEx Corporation</title><style>
+:root {
+  --paper: #f7f1e5;
+  --paper-strong: #fffaf0;
+  --ink: #24201d;
+  --muted: #6f675f;
+  --rule: rgba(36,32,29,.24);
+  --plum: #49253d;
+  --cobalt: #1647b9;
+  --blue-wash: #e7ebf9;
+  --warm-wash: #efe4d5;
+  --review: #8c3d2f;
+  --focus: #0b63f6;
+  --serif: Iowan Old Style, Baskerville, Georgia, serif;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); color: var(--ink); scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); font: 16px/1.5 var(--sans); overflow-wrap: anywhere; }
+button, summary { font: inherit; touch-action: manipulation; }
+button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.site-frame { min-height: 100vh; border-top: 4px solid var(--ink); }
+.product-header {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 20px;
+  width: min(100% - 48px, 1320px); margin: 0 auto; padding: 14px 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand { margin: 0; font: 700 17px/1 var(--serif); letter-spacing: .01em; }
+.mode-line { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 12px; }
+.mode-active { color: var(--ink); font-weight: 800; }
+.mode-future { opacity: .64; }
+main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
+.intro-line { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
+.eyebrow, .stage-kicker, .section-label, .source-kicker {
+  margin: 0; color: var(--cobalt); font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase;
+}
+.freshness { margin: 0; color: var(--muted); font-size: 12px; }
+.review-cue { color: var(--review); font-weight: 800; }
+.account-hero { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(230px, .35fr); gap: 54px; padding-left: clamp(0px, 4vw, 58px); }
+.account-hero h1 { margin: 4px 0 6px; font: 500 clamp(40px, 5.3vw, 78px)/.94 var(--serif); letter-spacing: -.052em; }
+.account-thesis { max-width: 900px; margin: 0; font: 500 clamp(19px, 1.8vw, 27px)/1.23 var(--serif); letter-spacing: -.02em; text-wrap: balance; }
+.hero-aside { align-self: end; padding-top: 12px; border-top: 1px solid var(--ink); color: var(--muted); font-size: 13px; }
+.hero-aside p { margin: 0; }
+.grammar {
+  display: grid; grid-template-columns: minmax(0, .88fr) minmax(480px, 1.12fr); gap: clamp(30px, 4vw, 60px);
+  margin: 20px 0 0 clamp(0px, 4vw, 58px); align-items: stretch;
+}
+.context-plane { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.stage { position: relative; padding: 16px 0 14px 58px; }
+.stage + .stage { border-top: 1px solid var(--rule); }
+.stage-num { position: absolute; left: 0; top: 17px; color: var(--plum); font: 800 11px/1 var(--sans); letter-spacing: .12em; }
+.stage h2 { margin: 4px 0 5px; font: 500 clamp(25px, 2.4vw, 38px)/1.02 var(--serif); letter-spacing: -.03em; }
+.stage-copy { margin: 0; font-size: clamp(14px, 1.15vw, 17px); line-height: 1.34; }
+.analysis-line { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.statement-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
+.statement-state { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.evidence-trigger {
+  min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
+  font-weight: 800; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
+}
+.decision-plane { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; padding: 22px 28px; background: var(--plum); color: #fffaf3; }
+.decision-plane .stage { padding: 0; }
+.decision-plane .stage + .stage { border: 0; padding-left: 26px; border-left: 1px solid rgba(255,255,255,.26); }
+.decision-plane .stage-num { position: static; display: block; margin-bottom: 6px; color: #e2cfd8; }
+.decision-plane .stage h2 { margin-top: 0; font-size: clamp(25px, 2.25vw, 36px); color: #fffaf3; }
+.decision-plane .stage-copy { color: #f0e7eb; }
+.decision-plane .statement-state { color: #d8cbd1; }
+.decision-plane .evidence-trigger { color: #cdd9ff; }
+.primary-action {
+  min-height: 44px; margin-top: 9px; padding: 0 17px; border: 1px solid #fffaf3; border-radius: 0;
+  background: #fffaf3; color: var(--plum); font-weight: 850; cursor: pointer;
+}
+.research-disclosure { margin: 26px 0 0 clamp(0px, 10vw, 150px); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.research-disclosure summary { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; font-weight: 800; }
+.research-disclosure summary::-webkit-details-marker { display: none; }
+.research-disclosure summary::after { content: "+"; color: var(--cobalt); font-size: 22px; }
+.research-disclosure[open] summary::after { content: "−"; }
+.research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; padding: 18px 0 26px; }
+.research-grid h3 { margin: 0 0 10px; font: 500 24px/1.05 var(--serif); }
+.research-grid ul { margin: 0; padding-left: 18px; }
+.research-grid li + li { margin-top: 7px; }
+.coverage-list { list-style: none; padding: 0 !important; }
+.coverage-list li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); }
+.coverage-state { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.boundary-footer { margin: 22px 0 0; color: var(--muted); font-size: 12px; }
+.evidence-dialog {
+  width: min(760px, calc(100vw - 24px)); max-height: min(820px, calc(100vh - 24px)); padding: 0;
+  border: 0; background: var(--paper-strong); color: var(--ink); box-shadow: 0 24px 90px rgba(36,32,29,.34);
+}
+.evidence-dialog::backdrop { background: rgba(36,32,29,.58); }
+.dialog-frame { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: inherit; }
+.dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 22px 24px 16px; border-bottom: 1px solid var(--rule); }
+.dialog-header h2 { margin: 4px 0 0; font: 500 31px/1.04 var(--serif); }
+.icon-button { min-width: 70px; min-height: 44px; border: 1px solid var(--rule); background: var(--paper-strong); color: var(--ink); font-weight: 800; cursor: pointer; }
+.dialog-scroll { overflow: auto; padding: 24px; overscroll-behavior: contain; }
+.related-statement { padding: 18px; background: var(--blue-wash); }
+.related-statement p:last-child { margin: 7px 0 0; }
+.evidence-source { padding: 20px 0; border-bottom: 1px solid var(--rule); }
+.evidence-source h3 { margin: 5px 0 10px; font: 500 23px/1.1 var(--serif); }
+.evidence-source blockquote { margin: 0; padding: 15px 18px; border-left: 3px solid var(--cobalt); background: var(--paper); font: 500 17px/1.42 var(--serif); }
+.source-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 15px 0 0; }
+.source-meta dt { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.source-meta dd { margin: 2px 0 0; }
+.source-url { margin: 12px 0 0; color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.evidence-boundary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.evidence-boundary > div { padding: 16px; background: var(--warm-wash); }
+.evidence-boundary h3 { margin: 0 0 6px; }
+.evidence-boundary p { margin: 0; }
+@media (min-width: 901px) and (max-width: 1350px) {
+  .product-header { padding: 11px 0 9px; }
+  main { padding-top: 12px; }
+  .intro-line { margin-bottom: 9px; }
+  .account-hero { gap: 36px; }
+  .account-hero h1 { font-size: clamp(38px, 4.6vw, 62px); }
+  .account-thesis { font-size: clamp(18px, 1.55vw, 22px); }
+  .grammar { margin-top: 14px; gap: 28px; }
+  .stage { padding-top: 12px; padding-bottom: 10px; }
+  .stage-num { top: 13px; }
+  .stage h2 { font-size: clamp(24px, 2.1vw, 31px); }
+  .stage-copy { font-size: 14px; }
+  .analysis-line { margin-top: 4px; }
+  .statement-tools { margin-top: 4px; }
+  .decision-plane { padding: 18px 22px; }
+  .decision-plane .stage h2 { font-size: clamp(24px, 2vw, 29px); }
+}
+@media (max-width: 900px) {
+  .account-hero { grid-template-columns: 1fr; gap: 0; padding-left: 0; }
+  .hero-aside { display: none; }
+  .grammar { grid-template-columns: 1fr; margin-left: 0; gap: 18px; }
+  .decision-plane { grid-template-columns: 1fr 1fr; }
+  .research-disclosure { margin-left: 0; }
+}
+@media (max-width: 520px) {
+  .product-header, main { width: min(100% - 24px, 1320px); }
+  .product-header { padding: 10px 0 9px; }
+  .mode-line { font-size: 10px; gap: 6px; }
+  main { padding-top: 10px; }
+  .intro-line { margin-bottom: 8px; }
+  .freshness { font-size: 10px; }
+  .account-hero h1 { margin-top: 2px; font-size: 38px; }
+  .account-thesis { font-size: 16px; line-height: 1.3; }
+  .grammar { margin-top: 10px; gap: 10px; }
+  .stage { padding: 10px 0 9px 38px; }
+  .stage-num { top: 12px; }
+  .stage h2 { margin-top: 1px; font-size: 23px; }
+  .stage-copy { font-size: 14px; line-height: 1.32; }
+  .analysis-line { display: none; }
+  .statement-tools { margin-top: 3px; }
+  .decision-plane { grid-template-columns: 1fr; gap: 13px; padding: 15px; }
+  .decision-plane .stage + .stage { padding: 13px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.26); }
+  .decision-plane .stage h2 { font-size: 23px; }
+  .primary-action { margin-top: 7px; }
+  .research-grid, .source-meta, .evidence-boundary { grid-template-columns: 1fr; }
+  .coverage-list li { grid-template-columns: 110px 1fr; }
+  .dialog-header, .dialog-scroll { padding-left: 17px; padding-right: 17px; }
+  .dialog-header h2 { font-size: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style></head>
+<body><div class="site-frame">
+<header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
+<main id="main-content">
+  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence current through Jul 21, 2026</p></div>
+  <section class="account-hero" aria-labelledby="account-title"><div><h1 id="account-title">FedEx Corporation</h1><p class="account-thesis">FedEx Corporation appears to be in a post-separation operating-model reset centered on an integrated Express network, Network 2.0 implementation, digital and AI-enabled workflows, and a changed segment and leadership structure; commercial implications remain unproven without evidence of procurement status, decision authority, budget availability, or vendor intent.</p><div class="statement-tools"><span class="statement-state">Evidence-informed interpretation</span><button class="evidence-trigger" type="button" data-dialog="evidence-thesis">Evidence</button></div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
+  <section class="grammar" aria-label="Editorial Evidence Synthesis">
+    <div class="context-plane">
+      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2><p class="stage-copy">FedEx says it is shifting from separate operations to one integrated, flexible, efficient, and intelligent network that runs on a modern technology stack and has a structurally lower cost to serve.</p><div class="statement-tools"><span class="statement-state">Source-backed fact</span><button class="evidence-trigger" type="button" data-dialog="evidence-established">Evidence</button></div></article>
+      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2><p class="stage-copy">Effective June 1, 2026, FedEx changed its fiscal year end from May 31 to December 31.</p><p class="analysis-line"><strong>Why it may matter:</strong> The Network 2.0 schedule and integration cautions suggest that operational consolidation may remain an active management priority through the expected U.S. completion timeline, but the evidence does not establish any active procurement or vendor selection process.</p><div class="statement-tools"><span class="statement-state">Source-backed fact</span><button class="evidence-trigger" type="button" data-dialog="evidence-changed">Evidence</button><button class="evidence-trigger" type="button" data-dialog="evidence-meaning">Analysis boundary</button></div></article>
+    </div>
+    <div class="decision-plane">
+      <article class="stage open"><span class="stage-num" aria-hidden="true">03</span><p class="stage-kicker">Still open</p><h2>Still open</h2><p class="stage-copy">What is the current availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference for any spend related to Network 2.0, digital backbone work, AI-enabled workflows, or Developer Portal integration tooling?</p><div class="statement-tools"><span class="statement-state">Unresolved question</span><button class="evidence-trigger" type="button" data-dialog="evidence-open">Why this is open</button></div></article>
+      <article class="stage next"><span class="stage-num" aria-hidden="true">04</span><p class="stage-kicker">Recommended next move</p><h2>Recommended next move</h2><p class="stage-copy">Prioritize account validation before outreach: map the post-spin entity boundary, identify current decision owners for Network 2.0 and digital transformation, verify whether FedEx Supply Chain remains under FedEx control, and only then ask procurement about availability, remaining amount, eligible uses, procurement status, vendor intent or preference, and supplier onboarding requirements.</p><div class="statement-tools"><span class="statement-state">Recommended action · proposed</span></div><button class="primary-action" type="button" data-dialog="evidence-next">Review the support</button></article>
+    </div>
+  </section>
+  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><ul class="coverage-list"><li>
+    <span>Identity structure</span>
+    <span class="coverage-state">covered</span>
+  </li><li>
+    <span>Strategic direction</span>
+    <span class="coverage-state">covered</span>
+  </li><li>
+    <span>Financial context</span>
+    <span class="coverage-state">partial · Financial evidence is limited to FedEx Freight separation-related cash distribution context and does not establish current budget availability, approved spend, or procurement funding.</span>
+  </li><li>
+    <span>Digital modernization</span>
+    <span class="coverage-state">covered</span>
+  </li><li>
+    <span>Leadership governance</span>
+    <span class="coverage-state">partial · Leadership titles are covered, but decision authority for procurement and technology programs is not established.</span>
+  </li><li>
+    <span>Procurement</span>
+    <span class="coverage-state">partial · Only a general diverse-supplier sourcing statement is admitted; no active procurement, sourcing event, category owner, vendor criteria, or buying intent is established.</span>
+  </li><li>
+    <span>Partnerships technology</span>
+    <span class="coverage-state">partial · Technology direction and an AI-driven Developer Portal assistant are covered, but external technology partners, vendors, or preference are not established.</span>
+  </li><li>
+    <span>Constraints</span>
+    <span class="coverage-state">covered</span>
+  </li><li>
+    <span>Recent changes</span>
+    <span class="coverage-state">covered</span>
+  </li><li>
+    <span>Gaps contradictions</span>
+    <span class="coverage-state">gap · No direct authoritative conflict is admitted, but gaps remain around post-spin entity control, procurement status, budget availability, and whether the announced FedEx Supply Chain sale has closed.</span>
+  </li></ul></section><section><h3>Entity boundaries</h3><ul><li><strong>FedEx Corporation:</strong> FedEx Corporation is the parent holding company and account under research; statements about the parent should not automatically be applied to subsidiaries, separated companies, or portfolio businesses.</li><li><strong>Related entity:</strong> Federal Express Corporation is an integrated air-ground operating subsidiary distinct from the parent; evidence mentions it in the context of integrating Federal Express and legacy FedEx Ground networks.</li><li><strong>Related entity:</strong> FedEx Freight Holding Company, Inc. was separated on June 1, 2026 and is no longer consolidated by FedEx or reported as a FedEx segment in the admitted evidence.</li><li><strong>Related entity:</strong> FedEx Dataworks is a named digital unit with a distinct operating role; leadership evidence links it to the CDIO, but does not establish that it controls all FedEx digital procurement.</li><li><strong>Related entity:</strong> FedEx Supply Chain is a portfolio business for which FedEx announced a planned sale expected to close in the second half of calendar year 2026; admitted evidence does not establish that the transaction has closed.</li></ul><h3>Material gaps</h3><ul><li>No admitted evidence establishes active procurement, buying intent, vendor preference, approved spend, available budget, or commercial urgency.</li><li>No admitted evidence identifies the current decision authority or controlling entity for Network 2.0, digital backbone, AI-enabled workflows, or Developer Portal integration tooling.</li><li>No admitted evidence establishes whether the announced FedEx Supply Chain sale to CMA CGM Group has closed.</li><li>No admitted evidence maps which systems, facilities, contacts, or responsibilities moved to FedEx Freight versus remained with FedEx Corporation after the spin-off.</li><li>No admitted evidence details FedEx supplier onboarding steps, category ownership, or procurement process beyond a general diverse-supplier sourcing statement.</li></ul><p class="boundary-footer">Model proposal: openai-codex / gpt-5.5 · 1 bounded call · 13 searches · 4 public retrievals. No Graph, database, publication, customer, or deployment effects.</p></section></div></details>
+  <p class="boundary-footer">Proposed account intelligence for local review only. Nothing here is approved, saved to durable account truth, sent, shared, deployed, or used to prepare a meeting.</p>
+</main><dialog class="evidence-dialog" id="evidence-thesis" aria-labelledby="evidence-thesis-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-thesis-title">Account thesis</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>FedEx Corporation appears to be in a post-separation operating-model reset centered on an integrated Express network, Network 2.0 implementation, digital and AI-enabled workflows, and a changed segment and leadership structure; commercial implications remain unproven without evidence of procurement status, decision authority, budget availability, or vendor intent.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>FedEx Corporation Form 8-K</h3>
+      <blockquote>Effective June 1, 2026, FedEx Corporation (“FedEx”) changed its fiscal year end from May 31 to December 31.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 5</p>
+      <h3>FedEx Corporation Form 8-K</h3>
+      <blockquote>As a result of the Spin-Off, FedEx will no longer consolidate the FedEx Freight business and FedEx Freight is no longer a reportable segment.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 6</p>
+      <h3>FedEx Corporation Form 8-K</h3>
+      <blockquote>Following the Spin-Off and beginning the first quarter of the Transition Period, FedEx realigned its internal reporting and management structure, resulting in the identification of two new reportable segments: Express U.S. Domestic and Express International.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-established" aria-labelledby="evidence-established-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-established-title">Source-backed fact</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Source-backed fact</p><p>FedEx says it is shifting from separate operations to one integrated, flexible, efficient, and intelligent network that runs on a modern technology stack and has a structurally lower cost to serve.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted exact excerpts support this attributed statement with the qualifiers shown.</p></div>
+          <div><h3>What remains outside it</h3><p>They do not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless those facts are stated explicitly.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-changed" aria-labelledby="evidence-changed-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-changed-title">Source-backed fact</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Source-backed fact</p><p>Effective June 1, 2026, FedEx changed its fiscal year end from May 31 to December 31.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 8-K</h3>
+      <blockquote>Effective June 1, 2026, FedEx Corporation (“FedEx”) changed its fiscal year end from May 31 to December 31.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted exact excerpts support this attributed statement with the qualifiers shown.</p></div>
+          <div><h3>What remains outside it</h3><p>They do not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless those facts are stated explicitly.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-meaning" aria-labelledby="evidence-meaning-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-meaning-title">Evidence-informed interpretation</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>The Network 2.0 schedule and integration cautions suggest that operational consolidation may remain an active management priority through the expected U.S. completion timeline, but the evidence does not establish any active procurement or vendor selection process.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>There can be no assurance that the Federal Express and legacy FedEx Ground businesses and networks, which historically operated separately and independently, can successfully be fully integrated as planned.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-open" aria-labelledby="evidence-open-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-open-title">Unresolved question</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Unresolved question</p><p>What is the current availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference for any spend related to Network 2.0, digital backbone work, AI-enabled workflows, or Developer Portal integration tooling?</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>In May 2026, we introduced an AI-driven assistant within the FedEx Developer Portal to help developers more efficiently access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The research boundary shows why this question remains open.</p></div>
+          <div><h3>What remains outside it</h3><p>Atliera has not filled the gap with an assumption or converted the question into an account fact.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-next" aria-labelledby="evidence-next-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-next-title">Recommended action · proposed</h2></div>
+        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Recommended action · proposed</p><p>Prioritize account validation before outreach: map the post-spin entity boundary, identify current decision owners for Network 2.0 and digital transformation, verify whether FedEx Supply Chain remains under FedEx control, and only then ask procurement about availability, remaining amount, eligible uses, procurement status, vendor intent or preference, and supplier onboarding requirements.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>FedEx Corporation Current Report on Form 8-K</h3>
+      <blockquote>On June 1, 2026, FedEx Corporation (“FedEx”) completed the previously announced separation of FedEx Freight Holding Company, Inc. (“FedEx Freight”) through a distribution of 80.1% of the outstanding shares of FedEx Freight common stock to FedEx stockholders.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 1, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 1, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 1, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>FedEx Corporation Form 8-K</h3>
+      <blockquote>As a result of the Spin-Off, FedEx will no longer consolidate the FedEx Freight business and FedEx Freight is no longer a reportable segment.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 21, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>On July 1, 2026, FedEx announced that it would sell its FedEx Supply Chain business to CMA CGM Group for $1.4 billion as part of a strategic portfolio streamlining effort. The transaction is expected to close in the second half of calendar year 2026.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 5</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>In the U.S., this includes seeking diverse suppliers and strengthening our supply chain by sourcing from small, minority-, and women-owned businesses.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for considering this one safe next move.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not request, approve, authorize, schedule, send, or commit this action.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><script>
+(() => {
+  let returnFocus = null;
+  document.querySelectorAll('[data-dialog]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-dialog');
+      const dialog = id ? document.getElementById(id) : null;
+      if (!(dialog instanceof HTMLDialogElement)) return;
+      returnFocus = button;
+      dialog.showModal();
+      const close = dialog.querySelector('[data-close-dialog]');
+      if (close instanceof HTMLElement) close.focus();
+    });
+  });
+  document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.addEventListener('close', () => {
+      const target = returnFocus;
+      returnFocus = null;
+      queueMicrotask(() => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
+      });
+    });
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+})();
+</script></div></body></html>

@@ -1,0 +1,42 @@
+{
+  "kind": "atliera.account-intelligence-effect-receipt",
+  "schemaVersion": "1",
+  "accountId": "acc_fedex_corp",
+  "exactSearchQueries": [
+    "site:investors.fedex.com annual report 2025 FedEx strategy Network 2.0 DRIVE",
+    "site:sec.gov/Archives/edgar/data/1048911 FedEx 2025 10-K",
+    "site:newsroom.fedex.com FedEx DRIVE Network 2.0 transformation official",
+    "site:investors.fedex.com FedEx leadership governance 2025 board official",
+    "site:investors.fedex.com FedEx AI digital data modernization official",
+    "site:fedex.com procurement supplier sustainability FedEx official",
+    "site:investors.fedex.com FedEx Freight spin-off completion June 2026 official",
+    "site:sec.gov/Archives/edgar/data/1048911 FedEx 2025 8-K material change",
+    "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) mission organizational structure material subsidiaries transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+    "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) strategic priorities operating direction plan transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+    "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) budget financial report grants funding appropriations transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+    "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) AI data digital infrastructure modernization transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+    "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) recent material changes announcements annual report transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+  ],
+  "retrievedUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+    "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+    "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+    "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/"
+  ],
+  "searchQueriesExecuted": 13,
+  "retrievalsExecuted": 4,
+  "admittedSources": 4,
+  "providerCallsExecuted": 1,
+  "provider": "openai-codex",
+  "model": "gpt-5.5",
+  "inputTokens": 8703,
+  "outputTokens": 4537,
+  "estimatedCostUsd": 0,
+  "privateNetworkEffects": 0,
+  "databaseWrites": 0,
+  "graphWrites": 0,
+  "persistenceWrites": 0,
+  "deployments": 0,
+  "publications": 0,
+  "customerActions": 0
+}

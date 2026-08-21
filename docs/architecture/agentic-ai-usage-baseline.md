@@ -18,7 +18,8 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 - Runtime Workshop preview remains fake-mode/no-write and reports `providerCallsMade: 0` with `productionWrites: false`.
 - No app server or worker path currently invokes `ModelProvider.generate`.
 - No source call sites currently invoke `ModelAdapter.propose`.
-- The `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; and the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`. None is a default runtime app path.
+- The only `.propose(` source call site is the C2-01 review-only `AccountIntelligenceProviderBoundary` invocation in `src/account-intelligence/refresh.ts`; it requires an explicitly injected, single-use provider boundary and is not wired to an app server, worker, customer route, persistence path, or default runtime.
+- The `.generate(` source call sites are the C2-01 review-only injected provider boundary, `src/account-intelligence/provider.ts`; the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; and the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`. None is a default runtime app path.
 - No source path constructs `ExternalCommandModelProvider` as a default runtime dependency.
 - No resident autonomous shell agent is installed or required by the app.
 - No worker polling loop currently dequeues jobs to execute model/tool plans.
@@ -29,6 +30,8 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 Recent `owl-alpha` usage was limited to explicitly approved validation runs. Those runs exercised provider-boundary and product-preview slices under merged approval/status docs, private evidence retention, activation gates, cost ledgers, sanitized graph outputs, manifest/bootstrap verification, and no-spend / no-paid-fallback constraints. The no-spend batch assessment record is `live-product-preview-broader-batch-usefulness-assessment.md`; it preserves `approves_expansion_or_comparison: false` and provider calls made 0 in the assessment path.
 
 That evidence is validation evidence, not default app behavior. It shows bounded approved provider calls can traverse the validation substrate and feed the existing graph-backed Workshop surface. It does not make Atliera's normal runtime materially agentic yet.
+
+C2-01 adds one explicitly authorized, review-only multi-account proposal slice. Its provider boundary is single-use per account, zero-tool, non-durable, and absent from default application composition. The resulting Utah and FedEx outputs remain proposed/unreviewed review evidence; they do not change runtime/model-mode integration, launch readiness, production readiness, or autonomous behavior.
 
 `ExternalCommandModelProvider` is a sealed validation seam for real providers. It isolates provider transport behind an external command and keeps provider SDKs, credentials, raw provider bodies, prompts, and wrapper logs out of the application source and committed repository evidence.
 

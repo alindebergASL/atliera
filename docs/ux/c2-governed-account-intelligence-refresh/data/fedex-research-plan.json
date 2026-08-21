@@ -1,0 +1,112 @@
+{
+  "kind": "atliera.account-research-plan",
+  "schemaVersion": "1",
+  "accountId": "acc_fedex_corp",
+  "generatedFromRequestSha256": "ef52f1caa35a1f5ee0fb39b81b581712c1cfd312db288053cf98e4bb11669d47",
+  "queries": [
+    {
+      "queryId": "query-01",
+      "taxonomy": "identity_structure",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) mission organizational structure material subsidiaries transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-02",
+      "taxonomy": "strategic_direction",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) strategic priorities operating direction plan transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-03",
+      "taxonomy": "financial_context",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) budget financial report grants funding appropriations transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-04",
+      "taxonomy": "digital_modernization",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) AI data digital infrastructure modernization transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-05",
+      "taxonomy": "leadership_governance",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) leadership governance board decision authority transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-06",
+      "taxonomy": "procurement",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) procurement solicitations contracts purchasing portal transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-07",
+      "taxonomy": "partnerships_technology",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) partnerships technology vendors established presence transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-08",
+      "taxonomy": "constraints",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) regulatory policy security operating constraints transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-09",
+      "taxonomy": "recent_changes",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) recent material changes announcements annual report transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-10",
+      "taxonomy": "gaps_contradictions",
+      "query": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) official records amendments contradictions status transportation, logistics, and business services global; headquartered in Memphis, Tennessee",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    }
+  ],
+  "queryLimit": 30,
+  "admittedSourceLimit": 15,
+  "priorities": [
+    "identity_structure",
+    "strategic_direction",
+    "financial_context",
+    "digital_modernization",
+    "leadership_governance",
+    "procurement",
+    "partnerships_technology",
+    "constraints",
+    "recent_changes",
+    "gaps_contradictions"
+  ]
+}

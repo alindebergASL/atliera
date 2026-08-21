@@ -1,0 +1,565 @@
+{
+  "kind": "atliera.account-intelligence-proposal",
+  "schemaVersion": "1",
+  "accountId": "acc_university_of_utah",
+  "accountThesis": {
+    "statementId": "stmt_thesis_001",
+    "state": "evidence-informed interpretation",
+    "text": "University of Utah appears to be repositioning instruction-related resources through a three-year H.B. 265 strategic reinvestment framework that includes Responsible AI, engineering, behavioral health, biotechnology, nursing and simulation, and civic engagement education; commercial significance remains unestablished.",
+    "evidenceIds": [
+      "evidence_91fb1b3bf691b0defdf4",
+      "evidence_a9d8e80afbb470e3a5a3",
+      "evidence_aa06c442d08aad5c8cb8"
+    ],
+    "entityIds": [
+      "acc_university_of_utah"
+    ],
+    "riskFlags": [
+      "funding_status_ambiguity",
+      "unsupported_commercial_assumption"
+    ]
+  },
+  "establishedContext": [
+    {
+      "statementId": "stmt_established_001",
+      "state": "source-backed fact",
+      "text": "University of Utah described a three-year reallocation and reinvestment framework with designations, targets, and rationale to reach its H.B. 265 legislative target of $19.6 million.",
+      "evidenceIds": [
+        "evidence_91fb1b3bf691b0defdf4"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_established_002",
+      "state": "source-backed fact",
+      "text": "University of Utah listed phase totals for reallocation and reinvestment as $7,483,189 for FY2026, $6,226,451 for FY2027, and $5,875,560 for FY2028.",
+      "evidenceIds": [
+        "evidence_6af9b3a4be2eda0ea004",
+        "evidence_b05b32656b672b54eabe",
+        "evidence_b5e6928ff905a89a19ed"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_established_003",
+      "state": "source-backed fact",
+      "text": "University of Utah described Phase 1 Responsible AI as preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation, with interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems.",
+      "evidenceIds": [
+        "evidence_aa06c442d08aad5c8cb8"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_004",
+      "state": "source-backed fact",
+      "text": "Utah System of Higher Education material stated that H.B. 265 established a three-year strategic reinvestment requirement for degree-granting institutions and was coupled with base budget set-asides equal to 10% of state tax dollars within institutional instruction budgets.",
+      "evidenceIds": [
+        "evidence_2a5c964c8ef6d7f7cc6b"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_established_005",
+      "state": "source-backed fact",
+      "text": "Utah System of Higher Education material stated that degree-granting institutions must reallocate at least 30% of equivalent funding amounts in FY2026, 70% in FY2027, and 100% in FY2028 in order to recover set-aside funds.",
+      "evidenceIds": [
+        "evidence_1022aa3b977809d3004e"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    }
+  ],
+  "meaningfullyChanged": [
+    {
+      "statementId": "stmt_changed_001",
+      "state": "source-backed fact",
+      "text": "University of Utah Communications reported that the university is redirecting $4.95 million into engineering programs, $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology, and $1.5 million in nursing and simulation programs over the three-year reinvestment process.",
+      "evidenceIds": [
+        "evidence_a9d8e80afbb470e3a5a3"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_002",
+      "state": "source-backed fact",
+      "text": "University of Utah Communications reported that during the 2025 Legislature, Utah lawmakers required state colleges and universities to cut and reinvest $60 million over three years, and that the U was responsible for one-third of that total.",
+      "evidenceIds": [
+        "evidence_57ea55e4883fc4627b20"
+      ],
+      "entityIds": [
+        "acc_university_of_utah",
+        "entity_state_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_003",
+      "state": "source-backed fact",
+      "text": "University of Utah Year Two progress material listed Responsible AI at $4,939,436 in the approved three-year column and $4,939,435 in the current three-year column, with no net change shown in the excerpt.",
+      "evidenceIds": [
+        "evidence_175e89ab7dc438a1bd5d",
+        "evidence_8b368890779e935f142d"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_004",
+      "state": "source-backed fact",
+      "text": "University of Utah Year Two progress material listed a total of $19,589,662 in both the three-year and current three-year columns, with no net change shown in the excerpt.",
+      "evidenceIds": [
+        "evidence_175e89ab7dc438a1bd5d",
+        "evidence_666b6f5a4766efdf1762"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_005",
+      "state": "source-backed fact",
+      "text": "University of Utah Year Two progress material stated that faculty hiring runs about 12 months, so early funds supported one-time AI teaching and productivity tools, and a competitive AI talent market refined the FTE plan.",
+      "evidenceIds": [
+        "evidence_2e20762caf4b11701059"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_006",
+      "state": "source-backed fact",
+      "text": "Utah Board of Higher Education minutes state that Tony Wagner presented the University of Utah’s plan and responded to questions from Board members, including several related to AI.",
+      "evidenceIds": [
+        "evidence_3f23e25a0705202a9dde"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_007",
+      "state": "source-backed fact",
+      "text": "Utah Board of Higher Education minutes state that a motion concerning the University of Utah Year Two Strategic Reinvestment Plan was made, seconded, and passed unanimously by Board members in attendance.",
+      "evidenceIds": [
+        "evidence_8598ede0df66bb13f65d"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_008",
+      "state": "source-backed fact",
+      "text": "Utah System of Higher Education material stated that the University of Utah is proposing to increase its net reinvestment in instruction from the originally approved amount of $5,595,600 to $5,931,393 upon full plan implementation.",
+      "evidenceIds": [
+        "evidence_108ab18a22da1f9e08e8"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    }
+  ],
+  "whyChangeMayMatter": [
+    {
+      "statementId": "stmt_matter_001",
+      "state": "evidence-informed interpretation",
+      "text": "The admitted evidence suggests AI is a named instructional reinvestment area rather than an isolated technology topic, because Responsible AI is tied to workforce preparation and interdisciplinary training across AI, machine learning, cybersecurity, healthcare, and autonomous systems.",
+      "evidenceIds": [
+        "evidence_aa06c442d08aad5c8cb8",
+        "evidence_c0bc6cf74d035bc8e08a"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_002",
+      "state": "evidence-informed interpretation",
+      "text": "The evidence suggests timing and execution may be shaped by hiring-cycle constraints, since Year Two material says faculty hiring runs about 12 months and early funds supported one-time AI teaching and productivity tools.",
+      "evidenceIds": [
+        "evidence_2e20762caf4b11701059"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_003",
+      "state": "evidence-informed interpretation",
+      "text": "Commercial significance remains unestablished because the admitted evidence describes reinvestment categories, planning context, and governance activity, but does not establish procurement status, eligible vendor uses, decision authority, available remaining amount, or vendor intent or preference.",
+      "evidenceIds": [
+        "evidence_a9d8e80afbb470e3a5a3",
+        "evidence_2e20762caf4b11701059",
+        "evidence_8598ede0df66bb13f65d"
+      ],
+      "entityIds": [
+        "acc_university_of_utah",
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": [
+        "unsupported_commercial_assumption",
+        "funding_status_ambiguity",
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_004",
+      "state": "evidence-informed interpretation",
+      "text": "Because USHE materials frame the reinvestment requirement and Board process while University materials describe the University plan, account analysis should separate system-level oversight from University-level planning and avoid merging those entities into one budget or procurement owner.",
+      "evidenceIds": [
+        "evidence_2a5c964c8ef6d7f7cc6b",
+        "evidence_1022aa3b977809d3004e",
+        "evidence_3f23e25a0705202a9dde",
+        "evidence_8598ede0df66bb13f65d"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    }
+  ],
+  "stillOpenQuestions": [
+    {
+      "statementId": "stmt_open_001",
+      "state": "unresolved question",
+      "text": "For each University of Utah reinvestment category, what amount, if any, remains available; what portion is already encumbered or restricted; what procurement status applies; what uses are eligible; which entity has decision authority or control; and is there any vendor intent or preference?",
+      "evidenceIds": [
+        "evidence_a9d8e80afbb470e3a5a3",
+        "evidence_666b6f5a4766efdf1762"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity",
+        "unsupported_commercial_assumption"
+      ]
+    },
+    {
+      "statementId": "stmt_open_002",
+      "state": "unresolved question",
+      "text": "For Responsible AI specifically, what amount, if any, remains available; what portion relates to faculty hiring versus one-time AI teaching and productivity tools; what procurement status applies; what uses are eligible; which University unit or controlling entity has decision authority; and is there any vendor intent or preference?",
+      "evidenceIds": [
+        "evidence_8b368890779e935f142d",
+        "evidence_2e20762caf4b11701059"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity",
+        "unsupported_commercial_assumption"
+      ]
+    },
+    {
+      "statementId": "stmt_open_003",
+      "state": "unresolved question",
+      "text": "How should the University of Utah, Utah System of Higher Education, and State of Utah roles be separated for budget control, oversight, and any procurement process connected to H.B. 265 reinvestment?",
+      "evidenceIds": [
+        "evidence_57ea55e4883fc4627b20",
+        "evidence_2a5c964c8ef6d7f7cc6b",
+        "evidence_8598ede0df66bb13f65d"
+      ],
+      "entityIds": [
+        "acc_university_of_utah",
+        "entity_utah_system_higher_education",
+        "entity_state_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "stmt_open_004",
+      "state": "unresolved question",
+      "text": "Does the proposed increase in net reinvestment in instruction from $5,595,600 to $5,931,393 upon full plan implementation change University-level availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, or vendor intent or preference?",
+      "evidenceIds": [
+        "evidence_108ab18a22da1f9e08e8"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity",
+        "unsupported_commercial_assumption"
+      ]
+    }
+  ],
+  "recommendedNextMove": {
+    "statementId": "stmt_next_001",
+    "state": "recommendation",
+    "text": "Treat the H.B. 265 strategic reinvestment evidence as a governance and planning signal only, then verify University-level ownership, remaining availability, procurement status, eligible uses, and vendor intent or preference before drawing any account action conclusions.",
+    "evidenceIds": [
+      "evidence_91fb1b3bf691b0defdf4",
+      "evidence_a9d8e80afbb470e3a5a3",
+      "evidence_2e20762caf4b11701059",
+      "evidence_8598ede0df66bb13f65d"
+    ],
+    "entityIds": [
+      "acc_university_of_utah",
+      "entity_utah_system_higher_education"
+    ],
+    "riskFlags": [
+      "funding_status_ambiguity",
+      "entity_boundary",
+      "unsupported_commercial_assumption"
+    ]
+  },
+  "sourceAndEntityBoundaries": [
+    {
+      "entityId": "acc_university_of_utah",
+      "boundary": "University of Utah is the account and the source of University-level strategic reinvestment materials; University of Utah Health, the Utah System of Higher Education, and the State of Utah should not be merged into University budget or procurement claims."
+    },
+    {
+      "entityId": "entity_university_of_utah_health",
+      "boundary": "University of Utah Health is a related academic health enterprise, not the University account itself; the admitted evidence does not support merging its funding or procurement activity with the account."
+    },
+    {
+      "entityId": "entity_utah_system_higher_education",
+      "boundary": "Utah System of Higher Education and its Board provide system and governance context for the strategic reinvestment process, but they are not the University account or a University budget owner in the admitted evidence."
+    },
+    {
+      "entityId": "entity_state_of_utah",
+      "boundary": "State of Utah provides legislative and appropriations context through the admitted evidence, but it is not the University account or a University procurement owner."
+    }
+  ],
+  "riskConflictFlags": [
+    {
+      "flag": "funding_status_ambiguity",
+      "statementIds": [
+        "stmt_thesis_001",
+        "stmt_established_001",
+        "stmt_established_002",
+        "stmt_established_004",
+        "stmt_established_005",
+        "stmt_changed_001",
+        "stmt_changed_002",
+        "stmt_changed_003",
+        "stmt_changed_004",
+        "stmt_changed_005",
+        "stmt_changed_008",
+        "stmt_matter_001",
+        "stmt_matter_002",
+        "stmt_matter_003",
+        "stmt_matter_004",
+        "stmt_open_001",
+        "stmt_open_002",
+        "stmt_open_003",
+        "stmt_open_004",
+        "stmt_next_001"
+      ],
+      "needsReview": true,
+      "reason": "The admitted evidence includes exact and qualified reinvestment amounts, phased targets, set-asides, proposed changes, and one-time uses, but does not establish availability, remaining amount, procurement status, eligible uses, or spend control."
+    },
+    {
+      "flag": "entity_boundary",
+      "statementIds": [
+        "stmt_established_004",
+        "stmt_established_005",
+        "stmt_changed_002",
+        "stmt_changed_006",
+        "stmt_changed_007",
+        "stmt_changed_008",
+        "stmt_matter_003",
+        "stmt_matter_004",
+        "stmt_open_003",
+        "stmt_open_004",
+        "stmt_next_001"
+      ],
+      "needsReview": true,
+      "reason": "The admitted evidence spans University of Utah, Utah System of Higher Education, and State of Utah roles; these entities must remain separated for budget, oversight, and procurement interpretation."
+    },
+    {
+      "flag": "unsupported_commercial_assumption",
+      "statementIds": [
+        "stmt_thesis_001",
+        "stmt_matter_003",
+        "stmt_open_001",
+        "stmt_open_002",
+        "stmt_open_004",
+        "stmt_next_001"
+      ],
+      "needsReview": true,
+      "reason": "The admitted evidence does not establish commercial significance, procurement status, vendor intent or preference, or eligible vendor uses."
+    },
+    {
+      "flag": "stale_evidence",
+      "statementIds": [
+        "stmt_established_001",
+        "stmt_established_002",
+        "stmt_established_003"
+      ],
+      "needsReview": false,
+      "reason": "The 2025 plan evidence is older than the 2026 Year Two evidence but remains useful as baseline context when clearly labeled by date and not treated as current execution proof."
+    }
+  ],
+  "researchCoverage": [
+    {
+      "taxonomy": "identity_structure",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_a6cef8e35398e29ddc6f"
+      ],
+      "status": "partial",
+      "gap": "Entity relationships are identified for the account, University of Utah Health, Utah System of Higher Education, and State of Utah, but operating-unit ownership inside the University is not established."
+    },
+    {
+      "taxonomy": "strategic_direction",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_e281dcc35f7b276a0a73"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "financial_context",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_8d72bf5b9a36503b4f27",
+        "source_e281dcc35f7b276a0a73"
+      ],
+      "status": "partial",
+      "gap": "Amounts and framework are covered, but availability, encumbrance, remaining amount, eligible uses, and controlling authority are not established."
+    },
+    {
+      "taxonomy": "digital_modernization",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28"
+      ],
+      "status": "partial",
+      "gap": "Responsible AI and AI teaching/productivity tools are identified, but technical scope, systems affected, procurement status, and vendor context are not established."
+    },
+    {
+      "taxonomy": "leadership_governance",
+      "sourceIds": [
+        "source_a6cef8e35398e29ddc6f",
+        "source_8d72bf5b9a36503b4f27"
+      ],
+      "status": "partial",
+      "gap": "Board-level process is covered, but University-level decision owners and procurement authority are not established."
+    },
+    {
+      "taxonomy": "procurement",
+      "sourceIds": [],
+      "status": "gap",
+      "gap": "No admitted evidence establishes active procurement, sourcing process, contract vehicle, decision authority, eligible vendor uses, or vendor intent or preference."
+    },
+    {
+      "taxonomy": "partnerships_technology",
+      "sourceIds": [],
+      "status": "gap",
+      "gap": "No admitted evidence establishes technology partners, vendors, systems, or implementation partners."
+    },
+    {
+      "taxonomy": "constraints",
+      "sourceIds": [
+        "source_8d72bf5b9a36503b4f27",
+        "source_e281dcc35f7b276a0a73",
+        "source_bb85b3bc37d724c7bf28"
+      ],
+      "status": "partial",
+      "gap": "Set-aside and reallocation timing constraints are covered, but restrictions, encumbrances, and eligible uses are not established."
+    },
+    {
+      "taxonomy": "recent_changes",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_a6cef8e35398e29ddc6f",
+        "source_8d72bf5b9a36503b4f27"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "gaps_contradictions",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_8d72bf5b9a36503b4f27"
+      ],
+      "status": "partial",
+      "gap": "No consequential conflict is established, but funding status, entity boundaries, and commercial significance remain unresolved."
+    }
+  ],
+  "materialGaps": [
+    "University-level decision owner and controlling entity for each reinvestment category are not established.",
+    "Remaining available amount, encumbrance status, eligible uses, and procurement status are not established for the reinvestment amounts.",
+    "Responsible AI technical scope, implementation path, and whether one-time AI teaching and productivity tools involved any procurement are not established.",
+    "Vendor intent or preference is not established.",
+    "University of Utah Health relevance is not established beyond being a related entity and should not be merged into account claims."
+  ],
+  "reviewStatus": "needs_review"
+}

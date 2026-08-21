@@ -1,0 +1,600 @@
+{
+  "kind": "atliera.c2-01-execution-ledger",
+  "schemaVersion": "1",
+  "searchQueries": [
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-01",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu \"$4.94 million\" AI reinvestment"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-02",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu 4.94M \"artificial intelligence\" budget"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-03",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu \"three-year\" reinvestment AI budget"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-04",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu filetype:pdf \"reinvestment\" \"artificial intelligence\""
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-05",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:ushe.edu June 11 2026 Board Higher Education University Utah $4.94 AI reinvestment"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-06",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:ushe.edu filetype:pdf University of Utah 4.94 artificial intelligence HB 265"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-07",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:le.utah.gov HB 265 strategic reinvestment University of Utah artificial intelligence 2025"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-08",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu \"4.94 million\" \"Responsible AI\""
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-09",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu University of Utah mission leadership strategic priorities official"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-10",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:ai.utah.edu responsible AI initiative University of Utah official"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "lead-query-11",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:utah.edu procurement bids University of Utah official"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-01",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) mission organizational structure material subsidiaries public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-02",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) strategic priorities operating direction plan public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-03",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) budget financial report grants funding appropriations public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-04",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) AI data digital infrastructure modernization public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-05",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) leadership governance board decision authority public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_university_of_utah",
+      "queryId": "query-06",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"University of Utah\" (site:utah.edu) procurement solicitations contracts purchasing portal public research university Utah, United States"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-01",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:investors.fedex.com annual report 2025 FedEx strategy Network 2.0 DRIVE"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-02",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:sec.gov/Archives/edgar/data/1048911 FedEx 2025 10-K"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-03",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:newsroom.fedex.com FedEx DRIVE Network 2.0 transformation official"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-04",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:investors.fedex.com FedEx leadership governance 2025 board official"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-05",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:investors.fedex.com FedEx AI digital data modernization official"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-06",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:fedex.com procurement supplier sustainability FedEx official"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-07",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:investors.fedex.com FedEx Freight spin-off completion June 2026 official"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "lead-query-08",
+      "queryKind": "operator_research_lead",
+      "exactQuery": "site:sec.gov/Archives/edgar/data/1048911 FedEx 2025 8-K material change"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "query-01",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) mission organizational structure material subsidiaries transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "query-02",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) strategic priorities operating direction plan transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "query-03",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) budget financial report grants funding appropriations transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "query-04",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) AI data digital infrastructure modernization transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "queryId": "query-09",
+      "queryKind": "generated_taxonomy",
+      "exactQuery": "\"FedEx Corporation\" (site:fedex.com OR site:investors.fedex.com) recent material changes announcements annual report transportation, logistics, and business services global; headquartered in Memphis, Tennessee"
+    }
+  ],
+  "urlRetrievalAttempts": [
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469107,
+      "url": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469107,
+      "url": "https://ushe.edu/strategic-reinvestment-at-ushe-institutions-ahead-of-schedule-adding-faculty-and-instructional-resources-in-critical-programs-that-drive-economic-outcomes/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469107,
+      "url": "https://ushe.edu/ushe-meeting-event/utah-board-of-higher-education-meeting-31/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469107,
+      "url": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469107,
+      "url": "https://ushe.edu/utah-board-of-higher-education-approves-updated-strategic-reinvestment-plans-for-university-of-utah-utah-state-university-and-weber-state-university/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469740,
+      "url": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469740,
+      "url": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/AvuyFXyUnzpouo3QcUpRHx0SrGHHv9HmRuqdwQPeOHIA/Agenda%20Document"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469740,
+      "url": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469740,
+      "url": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469771,
+      "url": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/AvuyFXyUnzpouo3QcUpRHx0SrGHHv9HmRuqdwQPeOHIA/Agenda%20Document"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_university_of_utah",
+      "messageId": 469771,
+      "url": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470023,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000104891125000011/fdx-20250531.htm"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470023,
+      "url": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470023,
+      "url": "https://investors.fedex.com/news-and-events/investor-news/investor-news-details/2025/FedEx-Reports-Fourth-Quarter-Diluted-EPS-of-6-88-and-Adjusted-Diluted-EPS-of-6-07/default.aspx"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470023,
+      "url": "https://investors.fedex.com/financial-information/A-Message-from-Our-Executive-Chairman-and-Lead-Independent-Director-25/"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470023,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470221,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470221,
+      "url": "https://www.fedex.com/en-us/sustainability/reports.html"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470221,
+      "url": "https://www.fedex.com/en-us/about/leadership.html"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470238,
+      "url": "https://data.sec.gov/submissions/CIK0001048911.json"
+    },
+    {
+      "phase": "subagent_research",
+      "accountId": "acc_fedex_corp",
+      "messageId": 470272,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://le.utah.gov/Session/2025/bills/amended/AP_HB0265_2025-02-19_11-41-19.pdf"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://about.utah.edu/"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://ai.utah.edu/about.php"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://www.purchasing.utah.edu/doing-business-with-the-university/"
+    },
+    {
+      "phase": "parent_verification",
+      "accountId": "shared",
+      "messageId": null,
+      "url": "https://investors.fedex.com/news-and-events/investor-news/investor-news-details/2026/FedEx-Corporation-Hosts-2026-Investor-Day/default.aspx"
+    }
+  ],
+  "counts": {
+    "searchQueries": 30,
+    "urlRetrievalAttempts": 30,
+    "uniqueUrlsRetrieved": 24,
+    "admittedSourcesByAccount": {
+      "acc_university_of_utah": 5,
+      "acc_fedex_corp": 4
+    },
+    "exactExcerptsByAccount": {
+      "acc_university_of_utah": 20,
+      "acc_fedex_corp": 20
+    }
+  },
+  "providerBaseline": {
+    "provider": "openai-codex",
+    "model": "gpt-5.5",
+    "calls": 1,
+    "inputTokens": 3725,
+    "outputTokens": 39,
+    "reasoningTokens": 16,
+    "totalTokens": 3764,
+    "estimatedCostUsd": 0.0
+  },
+  "effects": {
+    "privateNetwork": 0,
+    "graphWrites": 0,
+    "databaseWrites": 0,
+    "identityCustomerRouteEffects": 0,
+    "deploymentPublicationOutboundEffects": 0
+  },
+  "providerExecution": {
+    "activityFrozen": true,
+    "calls": 8,
+    "receipts": [
+      {
+        "receipt": "atliera-c2-provider-probe-usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 3725,
+        "outputTokens": 39,
+        "reasoningTokens": 16,
+        "totalTokens": 3764,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": "safe_toolset_configured_for_readiness_probe",
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "validated"
+      },
+      {
+        "receipt": "c2_84c9eac0dc45ca68862cecea.fedex-attempt-01.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 3889,
+        "outputTokens": 4586,
+        "reasoningTokens": 74,
+        "totalTokens": 8475,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "rejected",
+        "deterministicRejection": "researchCoverage[9] status partial with sourceIds []"
+      },
+      {
+        "receipt": "c2_84c9eac0dc45ca68862cecea.fedex-attempt-02.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 8703,
+        "outputTokens": 4537,
+        "reasoningTokens": 25,
+        "totalTokens": 13240,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "validated"
+      },
+      {
+        "receipt": "c2_b449c700996c906c80dfc7cf.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 4225,
+        "outputTokens": 4462,
+        "reasoningTokens": 97,
+        "totalTokens": 8687,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "rejected",
+        "deterministicRejection": "proposal.accountThesis contains forbidden commercial upgrade language"
+      },
+      {
+        "receipt": "c2_b449c700996c906c80dfc7cf.utah-attempt-02.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 4274,
+        "outputTokens": 5124,
+        "reasoningTokens": 34,
+        "totalTokens": 9398,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "rejected",
+        "deterministicRejection": "qualified funding question missing recognized semantic variants; later proven validator matcher defect"
+      },
+      {
+        "receipt": "c2_b449c700996c906c80dfc7cf.utah-attempt-03.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 4282,
+        "outputTokens": 5904,
+        "reasoningTokens": 128,
+        "totalTokens": 10186,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "rejected",
+        "deterministicRejection": "safe negated commercial language and unresolved vendor-preference question; later proven validator contradiction"
+      },
+      {
+        "receipt": "c2_b449c700996c906c80dfc7cf.utah-attempt-04.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 4309,
+        "outputTokens": 4520,
+        "reasoningTokens": 114,
+        "totalTokens": 8829,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "validated"
+      },
+      {
+        "receipt": "c2_b449c700996c906c80dfc7cf.utah-attempt-05.usage.json",
+        "provider": "openai-codex",
+        "model": "gpt-5.5",
+        "inputTokens": 4319,
+        "outputTokens": 3620,
+        "reasoningTokens": 208,
+        "totalTokens": 7939,
+        "estimatedCostUsd": 0.0,
+        "toolsOffered": 0,
+        "toolCalls": 0,
+        "webAccess": 0,
+        "fileAccess": 0,
+        "storage": false,
+        "validationDisposition": "rejected",
+        "deterministicRejection": "qualified funding question missing remaining amount and vendor intent"
+      }
+    ],
+    "cumulative": {
+      "inputTokens": 37726,
+      "outputTokens": 32792,
+      "reasoningTokens": 696,
+      "totalTokens": 70518,
+      "estimatedCostUsd": 0.0
+    },
+    "historicalAuthorization": {
+      "outputTokenCeiling": 25000,
+      "actualBeforeRevisedAuthorization": 28255,
+      "overrun": 3255,
+      "disclosed": true
+    },
+    "revisedAuthorization": {
+      "additionalCallsAuthorized": 1,
+      "additionalOutputTokensAuthorized": 6000,
+      "cumulativeOutputTokenCeiling": 34255
+    },
+    "finalCeilingState": {
+      "actualOutputTokens": 32792,
+      "remainingOutputTokens": 1463,
+      "withinRevisedCeiling": true
+    },
+    "fedexCorrectiveCall": {
+      "receipt": "c2_84c9eac0dc45ca68862cecea.fedex-attempt-02.usage.json",
+      "provider": "openai-codex",
+      "model": "gpt-5.5",
+      "inputTokens": 8703,
+      "outputTokens": 4537,
+      "reasoningTokens": 25,
+      "totalTokens": 13240,
+      "estimatedCostUsd": 0.0,
+      "toolsOffered": 0,
+      "toolCalls": 0,
+      "webAccess": 0,
+      "fileAccess": 0,
+      "storage": false,
+      "validationDisposition": "validated"
+    }
+  },
+  "validatedAccounts": {
+    "acc_university_of_utah": {
+      "proposal": "data/university-of-utah-validated-proposal.json",
+      "reviewStatus": "needs_review",
+      "modelReceipt": "c2_b449c700996c906c80dfc7cf.utah-attempt-04.usage.json"
+    },
+    "acc_fedex_corp": {
+      "proposal": "data/fedex-validated-proposal.json",
+      "reviewStatus": "needs_review",
+      "modelReceipt": "c2_84c9eac0dc45ca68862cecea.fedex-attempt-02.usage.json"
+    }
+  },
+  "forbiddenEffects": {
+    "privateAuthenticatedSources": 0,
+    "graphWrites": 0,
+    "databaseWrites": 0,
+    "durableProductWrites": 0,
+    "identityCustomerRoutes": 0,
+    "deployments": 0,
+    "previewPublications": 0,
+    "sharingSendingCustomerActions": 0,
+    "monitoringSubscriptions": 0,
+    "c3C4C9Workshop": 0
+  }
+}

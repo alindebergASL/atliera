@@ -47,6 +47,7 @@ export async function executeAccountIntelligenceRefresh(
     providerCallsExecuted: providerResult.receipt.callsSucceeded,
     provider: providerResult.receipt.provider,
     model: providerResult.receipt.model,
+    promptSha256: providerResult.receipt.promptSha256,
     inputTokens: providerResult.receipt.inputTokens,
     outputTokens: providerResult.receipt.outputTokens,
     estimatedCostUsd: providerResult.receipt.costUsd,

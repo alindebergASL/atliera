@@ -132,7 +132,7 @@ function dialogFor(
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="${dialogId}-title">${escapeHtml(title)}</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · ${escapeHtml(stateLabel(statement))}</p><p>${escapeHtml(statement.text)}</p></section>
@@ -151,12 +151,19 @@ function evidenceButton(dialogId: string, label = "Evidence"): string {
 
 function buildViewModel(data: Readonly<ValidatedAccountIntelligence>): Readonly<C2AccountHomeViewModel> {
   const p = data.proposal;
-  const latestCurrentThrough = data.admittedSources.map((source) => source.evidenceCurrentThrough)
-    .filter((value): value is string => value !== null).sort().at(-1) ?? null;
+  const currentThroughDates = data.admittedSources.map((source) => source.evidenceCurrentThrough)
+    .filter((value): value is string => value !== null).sort();
   const latestRetrieval = data.admittedSources.map((source) => source.retrievedAt).sort().at(-1) ?? null;
+  const hasMissingCurrentThrough = currentThroughDates.length !== data.admittedSources.length;
+  const earliestCurrentThrough = currentThroughDates.at(0) ?? null;
+  const latestCurrentThrough = currentThroughDates.at(-1) ?? null;
   const freshnessCue = latestCurrentThrough === null
-    ? `Retrieved ${humanDate(latestRetrieval)} · freshness not fully established`
-    : `Evidence current through ${humanDate(latestCurrentThrough)}`;
+    ? `Retrieved ${humanDate(latestRetrieval)} · freshness not established`
+    : hasMissingCurrentThrough
+      ? `Evidence freshness mixed · through ${humanDate(latestCurrentThrough)} where established · recheck`
+      : earliestCurrentThrough === latestCurrentThrough
+        ? `Evidence current through ${humanDate(latestCurrentThrough)}`
+        : `Evidence current-through span ${humanDate(earliestCurrentThrough)}–${humanDate(latestCurrentThrough)} · recheck older support`;
   return Object.freeze({
     accountName: data.request.accountName,
     thesis: p.accountThesis,

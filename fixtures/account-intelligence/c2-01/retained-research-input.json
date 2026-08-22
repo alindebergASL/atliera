@@ -19,6 +19,36 @@
           "geography": "Utah, United States",
           "notes": [
             "Owner lead is discovery context only and is not evidence."
+          ],
+          "primaryAccountEntityId": "acc_university_of_utah",
+          "trustedOfficialHosts": [
+            {
+              "hostname": "attheu.utah.edu",
+              "allowSubdomains": false,
+              "entityIds": [
+                "acc_university_of_utah"
+              ]
+            },
+            {
+              "hostname": "public.onboardmeetings.com",
+              "allowSubdomains": false,
+              "entityIds": [
+                "acc_university_of_utah",
+                "entity_university_of_utah_health",
+                "entity_utah_system_higher_education",
+                "entity_state_of_utah"
+              ]
+            },
+            {
+              "hostname": "ushe.edu",
+              "allowSubdomains": false,
+              "entityIds": [
+                "acc_university_of_utah",
+                "entity_university_of_utah_health",
+                "entity_utah_system_higher_education",
+                "entity_state_of_utah"
+              ]
+            }
           ]
         },
         "requestedAt": "2026-08-21T17:00:00.000Z"
@@ -510,6 +540,31 @@
           "geography": "global; headquartered in Memphis, Tennessee",
           "notes": [
             "Repository-safe second account for the generic pipeline gate."
+          ],
+          "primaryAccountEntityId": "acc_fedex_corporation",
+          "trustedOfficialHosts": [
+            {
+              "hostname": "www.sec.gov",
+              "allowSubdomains": false,
+              "entityIds": [
+                "acc_fedex_corporation",
+                "entity_federal_express",
+                "entity_fedex_freight",
+                "entity_fedex_dataworks",
+                "entity_fedex_supply_chain"
+              ]
+            },
+            {
+              "hostname": "investors.fedex.com",
+              "allowSubdomains": false,
+              "entityIds": [
+                "acc_fedex_corporation",
+                "entity_federal_express",
+                "entity_fedex_freight",
+                "entity_fedex_dataworks",
+                "entity_fedex_supply_chain"
+              ]
+            }
           ]
         },
         "requestedAt": "2026-08-21T17:00:00.000Z"

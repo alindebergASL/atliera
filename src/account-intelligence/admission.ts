@@ -227,23 +227,41 @@ export function admitAccountResearch(
   const discoveriesSnapshot = snapshotStrictJson(discoveriesInput, "discoveries", LIMITS);
   const discoveries = array(discoveriesSnapshot, "discoveries", 30)
     .map((item, index) => snapshotDiscovery(item, plan, index));
-  const discoveryUrls = new Set(discoveries.flatMap((item) => [
-    ...(item.resultUrl === null ? [] : [item.resultUrl]),
-    ...item.derivedRetrievalUrls,
-  ]));
-  const queryIds = new Set(discoveries.map((item) => item.queryId));
-
   const retrievedSnapshot = snapshotStrictJson(retrievedSourcesInput, "retrievedSources", LIMITS);
   const retrieved = array(retrievedSnapshot, "retrievedSources", plan.admittedSourceLimit, true)
     .map((item, index) => snapshotRetrieved(item, index));
   if (new Set(retrieved.map((item) => item.retrievalId)).size !== retrieved.length) {
     throw new Error("retrieval ids must be unique");
   }
+  const trustedEntityIds = new Set<string>([request.admittedContext.primaryAccountEntityId, ...request.admittedContext.trustedOfficialHosts.flatMap((rule) => rule.entityIds)]);
+  const entityDefinitions = new Map<string, string>();
+  for (const source of retrieved) {
+    for (const entity of [source.entity, ...source.relatedEntities]) {
+      if (!trustedEntityIds.has(entity.entityId)) throw new Error("source entity is not admitted by trusted account context");
+      if (entity.kind === "account" &&
+          (entity.entityId !== request.admittedContext.primaryAccountEntityId || entity.name !== request.accountName)) {
+        throw new Error("primary account entity identity mismatch");
+      }
+      const definition = JSON.stringify([entity.name, entity.kind, entity.relationshipToAccount]);
+      const prior = entityDefinitions.get(entity.entityId);
+      if (prior !== undefined && prior !== definition) throw new Error("entity definition conflict refused");
+      entityDefinitions.set(entity.entityId, definition);
+    }
+    if (source.sourceClass === "official_primary") {
+      const hostname = new URL(source.canonicalUrl).hostname.toLowerCase();
+      const allowed = request.admittedContext.trustedOfficialHosts.some((rule) =>
+        (hostname === rule.hostname || (rule.allowSubdomains && hostname.endsWith(`.${rule.hostname}`))) &&
+        rule.entityIds.includes(source.entity.entityId));
+      if (!allowed) throw new Error("official primary source host/entity policy refused");
+    }
+  }
   const urls = new Set<string>();
   const sources: AdmittedAccountSource[] = retrieved.map((source) => {
-    if (!discoveryUrls.has(source.canonicalUrl) ||
-        source.discoveredByQueryIds.some((queryId) => !queryIds.has(queryId))) {
-      throw new Error("retrieved source must descend from recorded search discovery");
+    const boundLineageUrls = new Set(discoveries
+      .filter((item) => source.discoveredByQueryIds.includes(item.queryId))
+      .flatMap((item) => [...(item.resultUrl === null ? [] : [item.resultUrl]), ...item.derivedRetrievalUrls]));
+    if (!boundLineageUrls.has(source.canonicalUrl)) {
+      throw new Error("retrieved source must descend from its recorded search query lineage");
     }
     if (urls.has(source.canonicalUrl)) throw new Error("duplicate canonical source URL refused");
     urls.add(source.canonicalUrl);

@@ -38,5 +38,18 @@
   "persistenceWrites": 0,
   "deployments": 0,
   "publications": 0,
-  "customerActions": 0
+  "customerActions": 0,
+  "promptSha256": "789dc56a16cc2901c86a1d03ca76fa8ec47ba8a59fb608babe21580c7b81e7e5",
+  "artifactLineage": {
+    "runId": "c2_84c9eac0dc45ca68862cecea",
+    "selectedAttemptId": "fedex-attempt-02",
+    "promptSha256": "789dc56a16cc2901c86a1d03ca76fa8ec47ba8a59fb608babe21580c7b81e7e5",
+    "rawResponseSha256": "aa1f37deb9af68062c3ed30a7160b267e7cf76c7f24253730344ac4a40334aa5",
+    "usageReceiptSha256": "a1d242fee86e321770bb28b359303d4d467c789d0dc7ee9f6988939eeb0a4f2e",
+    "validatedProposalSha256": "da64d305f3f07c5c6fbf4fad33c834621a306f4d28e42aa47e5a71a08dcea59c",
+    "promptFileSha256": "789dc56a16cc2901c86a1d03ca76fa8ec47ba8a59fb608babe21580c7b81e7e5",
+    "privatePromptCommitted": false,
+    "privateRawResponseCommitted": false,
+    "privateArtifactHashesVerified": true
+  }
 }

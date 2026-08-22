@@ -20,10 +20,10 @@ import {
 import { createHash } from "node:crypto";
 
 const LIMITS: StrictJsonLimits = Object.freeze({
-  max_array_length: 20,
-  max_depth: 5,
-  max_expanded_json_value_occurrences: 100,
-  max_nodes: 20,
+  max_array_length: 30,
+  max_depth: 7,
+  max_expanded_json_value_occurrences: 500,
+  max_nodes: 200,
   max_object_fields: 12,
   max_string_utf8_bytes: 2_048,
   max_total_string_utf8_bytes: 16_384,
@@ -77,7 +77,26 @@ export function snapshotAccountResearchRequest(value: unknown): Readonly<Account
   }
   const aliases = uniqueStrings(root.knownAliases, "accountResearchRequest.knownAliases", 10);
   const context = object(root.admittedContext, "accountResearchRequest.admittedContext");
-  assertExactKeys(context, ["sector", "geography", "notes"], "accountResearchRequest.admittedContext");
+  assertExactKeys(context, ["sector", "geography", "notes", "primaryAccountEntityId", "trustedOfficialHosts"], "accountResearchRequest.admittedContext");
+  const primaryAccountEntityId = string(context.primaryAccountEntityId, "accountResearchRequest.admittedContext.primaryAccountEntityId", 128);
+  if (!SAFE_ID.test(primaryAccountEntityId)) throw new Error("accountResearchRequest.admittedContext.primaryAccountEntityId refused");
+  const trustedOfficialHosts = array(context.trustedOfficialHosts, "accountResearchRequest.admittedContext.trustedOfficialHosts", 20).map((item, index) => {
+    const path = `accountResearchRequest.admittedContext.trustedOfficialHosts[${String(index)}]`;
+    const rule = object(item, path);
+    assertExactKeys(rule, ["hostname", "allowSubdomains", "entityIds"], path);
+    const allowSubdomains = rule.allowSubdomains;
+    if (typeof allowSubdomains !== "boolean") throw new Error(`${path}.allowSubdomains must be boolean`);
+    const hostname = string(rule.hostname, `${path}.hostname`, 253).toLowerCase();
+    if (!DOMAIN.test(hostname)) throw new Error(`${path}.hostname refused`);
+    const entityIds = uniqueStrings(rule.entityIds, `${path}.entityIds`, 20);
+    if (entityIds.length === 0 || entityIds.some((entityId) => !SAFE_ID.test(entityId))) {
+      throw new Error(`${path}.entityIds refused`);
+    }
+    return { hostname, allowSubdomains, entityIds };
+  });
+  if (new Set(trustedOfficialHosts.map((item) => item.hostname)).size !== trustedOfficialHosts.length) {
+    throw new Error("accountResearchRequest.admittedContext.trustedOfficialHosts must be unique");
+  }
   const request: AccountResearchRequest = {
     kind: ACCOUNT_INTELLIGENCE_REQUEST_KIND,
     schemaVersion: ACCOUNT_INTELLIGENCE_REQUEST_VERSION,
@@ -89,6 +108,8 @@ export function snapshotAccountResearchRequest(value: unknown): Readonly<Account
       sector: nullableString(context.sector, "accountResearchRequest.admittedContext.sector"),
       geography: nullableString(context.geography, "accountResearchRequest.admittedContext.geography"),
       notes: uniqueStrings(context.notes, "accountResearchRequest.admittedContext.notes", 10),
+      primaryAccountEntityId,
+      trustedOfficialHosts,
     },
     requestedAt: strictIso(root.requestedAt, "accountResearchRequest.requestedAt"),
   };

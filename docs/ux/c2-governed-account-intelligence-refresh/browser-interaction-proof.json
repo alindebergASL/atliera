@@ -11,28 +11,52 @@
         "height": 128
       },
       "established": {
-        "top": 409,
-        "bottom": 444,
+        "top": 417,
+        "bottom": 452,
         "height": 35
       },
       "changed": {
-        "top": 610,
-        "bottom": 645,
+        "top": 626,
+        "bottom": 661,
         "height": 35
       },
       "open": {
-        "top": 427,
-        "bottom": 460,
+        "top": 435,
+        "bottom": 468,
         "height": 33
       },
       "next": {
-        "top": 427,
-        "bottom": 493,
+        "top": 435,
+        "bottom": 501,
         "height": 66
       }
     },
-    "maxHeadlineBottom": 645,
-    "headroom": 455,
+    "maxHeadlineBottom": 661,
+    "headroom": 439,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -52,28 +76,52 @@
         "height": 73
       },
       "established": {
-        "top": 308,
-        "bottom": 335,
+        "top": 316,
+        "bottom": 343,
         "height": 27
       },
       "changed": {
-        "top": 480,
-        "bottom": 508,
+        "top": 496,
+        "bottom": 524,
         "height": 27
       },
       "open": {
-        "top": 326,
-        "bottom": 352,
+        "top": 334,
+        "bottom": 360,
         "height": 26
       },
       "next": {
-        "top": 326,
-        "bottom": 352,
+        "top": 334,
+        "bottom": 360,
         "height": 26
       }
     },
-    "maxHeadlineBottom": 508,
-    "headroom": 392,
+    "maxHeadlineBottom": 524,
+    "headroom": 376,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -88,33 +136,57 @@
     },
     "headings": {
       "thesis": {
-        "top": 147,
-        "bottom": 241,
+        "top": 165,
+        "bottom": 259,
         "height": 93
       },
       "established": {
-        "top": 341,
-        "bottom": 367,
+        "top": 367,
+        "bottom": 393,
         "height": 26
       },
       "changed": {
-        "top": 504,
-        "bottom": 529,
+        "top": 538,
+        "bottom": 563,
         "height": 26
       },
       "open": {
-        "top": 806,
-        "bottom": 832,
+        "top": 848,
+        "bottom": 874,
         "height": 26
       },
       "next": {
-        "top": 806,
-        "bottom": 832,
+        "top": 848,
+        "bottom": 874,
         "height": 26
       }
     },
-    "maxHeadlineBottom": 832,
-    "headroom": 68,
+    "maxHeadlineBottom": 874,
+    "headroom": 26,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -129,33 +201,57 @@
     },
     "headings": {
       "thesis": {
-        "top": 136,
-        "bottom": 261,
+        "top": 169,
+        "bottom": 294,
         "height": 125
       },
       "established": {
-        "top": 338,
-        "bottom": 361,
+        "top": 377,
+        "bottom": 400,
         "height": 23
       },
       "changed": {
-        "top": 517,
-        "bottom": 540,
+        "top": 560,
+        "bottom": 583,
         "height": 23
       },
       "open": {
-        "top": 801,
-        "bottom": 824,
+        "top": 840,
+        "bottom": 863,
         "height": 23
       },
       "next": {
-        "top": 1039,
-        "bottom": 1063,
+        "top": 1086,
+        "bottom": 1110,
         "height": 23
       }
     },
-    "maxHeadlineBottom": 1063,
-    "headroom": -219,
+    "maxHeadlineBottom": 1110,
+    "headroom": -266,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -175,28 +271,52 @@
         "height": 159
       },
       "established": {
-        "top": 441,
-        "bottom": 476,
+        "top": 449,
+        "bottom": 484,
         "height": 35
       },
       "changed": {
-        "top": 664,
-        "bottom": 699,
+        "top": 680,
+        "bottom": 715,
         "height": 35
       },
       "open": {
-        "top": 459,
-        "bottom": 492,
+        "top": 467,
+        "bottom": 500,
         "height": 33
       },
       "next": {
-        "top": 459,
-        "bottom": 525,
+        "top": 467,
+        "bottom": 533,
         "height": 66
       }
     },
-    "maxHeadlineBottom": 699,
-    "headroom": 401,
+    "maxHeadlineBottom": 715,
+    "headroom": 385,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -211,33 +331,57 @@
     },
     "headings": {
       "thesis": {
-        "top": 136,
-        "bottom": 281,
+        "top": 169,
+        "bottom": 314,
         "height": 146
       },
       "established": {
-        "top": 359,
-        "bottom": 382,
+        "top": 398,
+        "bottom": 421,
         "height": 23
       },
       "changed": {
-        "top": 538,
-        "bottom": 561,
+        "top": 581,
+        "bottom": 604,
         "height": 23
       },
       "open": {
-        "top": 711,
-        "bottom": 734,
+        "top": 750,
+        "bottom": 773,
         "height": 23
       },
       "next": {
-        "top": 949,
-        "bottom": 973,
+        "top": 996,
+        "bottom": 1020,
         "height": 23
       }
     },
-    "maxHeadlineBottom": 973,
-    "headroom": -129,
+    "maxHeadlineBottom": 1020,
+    "headroom": -176,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
     "horizontalOverflow": 0,
     "darkDecisionPlanes": 1,
     "primaryActions": [
@@ -251,6 +395,7 @@
     "dialogContainsExactSupport": true,
     "dialogContainsSourceBoundary": true,
     "dialogClosedAfterClose": true,
+    "focusReturnedToTrigger": true,
     "researchDisclosureOpen": true,
     "interactionNetworkRequests": [],
     "locationUnchanged": true,
@@ -263,6 +408,8 @@
       "session": 0
     },
     "formsSubmitted": 0,
+    "inactiveWorkshopContrastRatio": 4.94,
+    "darkPlaneFocusContrastRatio": 9.02,
     "navigationEffects": 0,
     "providerCallsDuringRender": 0,
     "productionWrites": 0

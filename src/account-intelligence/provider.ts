@@ -26,6 +26,16 @@ export interface AccountIntelligenceProviderReceipt {
   readonly callsAttempted: 1;
   readonly callsSucceeded: 1;
   readonly retries: 0;
+  readonly storage: false;
+}
+
+export class AccountIntelligenceProviderRefusal extends Error {
+  readonly receipt: Readonly<{ code: "output_token_limit_exceeded"; provider: string; model: string; reportedOutputTokens: number; maxOutputTokens: number; callsAttempted: 1; callsSucceeded: 0; storage: false }>;
+  constructor(receipt: AccountIntelligenceProviderRefusal["receipt"]) {
+    super("account intelligence provider output token limit exceeded");
+    this.name = "AccountIntelligenceProviderRefusal";
+    this.receipt = Object.freeze(receipt);
+  }
 }
 
 export interface AccountIntelligenceProviderResult {
@@ -39,6 +49,7 @@ export interface AccountIntelligenceProviderBoundaryOptions {
   readonly outOfRepoCorpusRef: string;
   readonly maxOutputTokens: number;
   readonly maxCostUsd: number;
+  readonly providerStorage: false;
 }
 
 const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._/-]{2,255}$/u;
@@ -49,7 +60,8 @@ const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._/-]{2,255}$/u;
  * network, or retry behavior is constructed here.
  */
 export class AccountIntelligenceProviderBoundary {
-  readonly #provider: ModelProvider;
+  readonly #providerName: string;
+  readonly #generate: ModelProvider["generate"];
   readonly #model: string;
   readonly #corpusRef: string;
   readonly #maxOutputTokens: number;
@@ -68,7 +80,20 @@ export class AccountIntelligenceProviderBoundary {
     if (!Number.isFinite(options.maxCostUsd) || options.maxCostUsd <= 0 || options.maxCostUsd > 10) {
       throw new Error("provider cost cap refused");
     }
-    this.#provider = options.provider;
+    if (options.providerStorage !== false) throw new Error("provider storage must be false");
+    const nameDescriptor = Object.getOwnPropertyDescriptor(options.provider, "name");
+    let generateOwner: object | null = options.provider;
+    let generateDescriptor: PropertyDescriptor | undefined;
+    while (generateOwner !== null && generateDescriptor === undefined) {
+      generateDescriptor = Object.getOwnPropertyDescriptor(generateOwner, "generate");
+      generateOwner = Object.getPrototypeOf(generateOwner);
+    }
+    if (nameDescriptor === undefined || !("value" in nameDescriptor) || typeof nameDescriptor.value !== "string" ||
+        generateDescriptor === undefined || !("value" in generateDescriptor) || typeof generateDescriptor.value !== "function") {
+      throw new Error("provider dependency shape refused");
+    }
+    this.#providerName = nameDescriptor.value;
+    this.#generate = generateDescriptor.value.bind(options.provider) as ModelProvider["generate"];
     this.#model = options.model;
     this.#corpusRef = options.outOfRepoCorpusRef;
     this.#maxOutputTokens = options.maxOutputTokens;
@@ -99,14 +124,21 @@ export class AccountIntelligenceProviderBoundary {
         prompt_sha256: promptSha256,
       },
     });
-    const response = await this.#provider.generate(modelRequest);
+    const response = await this.#generate(modelRequest);
     if (response.idempotencyKey !== idempotencyKey || response.model !== this.#model ||
-        response.provider !== this.#provider.name || response.cost.currency !== "USD" ||
+        response.provider !== this.#providerName || response.cost.currency !== "USD" ||
         response.cost.amount < 0 || response.cost.amount > this.#maxCostUsd ||
         !Number.isSafeInteger(response.usage.inputTokens) || response.usage.inputTokens < 0 ||
         !Number.isSafeInteger(response.usage.outputTokens) || response.usage.outputTokens < 0 ||
         response.usage.totalTokens !== response.usage.inputTokens + response.usage.outputTokens) {
       throw new Error("account intelligence provider receipt refused");
+    }
+    if (response.usage.outputTokens > this.#maxOutputTokens) {
+      throw new AccountIntelligenceProviderRefusal({
+        code: "output_token_limit_exceeded", provider: this.#providerName, model: this.#model,
+        reportedOutputTokens: response.usage.outputTokens, maxOutputTokens: this.#maxOutputTokens,
+        callsAttempted: 1, callsSucceeded: 0, storage: false,
+      });
     }
     const rawObjects = response.output.account_objects as unknown as readonly unknown[];
     if (rawObjects.length !== 1) throw new Error("provider must return exactly one account intelligence proposal");
@@ -124,6 +156,7 @@ export class AccountIntelligenceProviderBoundary {
         callsAttempted: 1,
         callsSucceeded: 1,
         retries: 0,
+        storage: false,
       }),
     });
   }

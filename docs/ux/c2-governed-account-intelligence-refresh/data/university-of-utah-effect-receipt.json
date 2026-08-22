@@ -43,5 +43,18 @@
   "persistenceWrites": 0,
   "deployments": 0,
   "publications": 0,
-  "customerActions": 0
+  "customerActions": 0,
+  "promptSha256": "360aaed18005ecd9b24798649689c8bdf4b769e0bce2286fad6772a804c31013",
+  "artifactLineage": {
+    "runId": "c2_b449c700996c906c80dfc7cf",
+    "selectedAttemptId": "utah-attempt-04",
+    "promptSha256": "360aaed18005ecd9b24798649689c8bdf4b769e0bce2286fad6772a804c31013",
+    "rawResponseSha256": "468988bc1127c4ab9d83e0914cb0752b2a948438c1914ba61bcb604ee795951f",
+    "usageReceiptSha256": "83b02f32271df7d659fbe30e5549890ff4fe4b1ab95bd22ed0d4223704aa5c00",
+    "validatedProposalSha256": "8b04e33107657e780ff14e8e51d950884eef0a8ee9c05e0bfcd2a11afee1dd4c",
+    "promptFileSha256": "360aaed18005ecd9b24798649689c8bdf4b769e0bce2286fad6772a804c31013",
+    "privatePromptCommitted": false,
+    "privateRawResponseCommitted": false,
+    "privateArtifactHashesVerified": true
+  }
 }

@@ -34,7 +34,13 @@ export function makeC2FixtureInput(options: {
     accountName,
     canonicalPublicDomains: [domain],
     knownAliases: [],
-    admittedContext: { sector: "transportation", geography: "North America", notes: [] },
+    admittedContext: {
+      sector: "transportation",
+      geography: "North America",
+      notes: [],
+      primaryAccountEntityId: accountId,
+      trustedOfficialHosts: [{ hostname: domain, allowSubdomains: false, entityIds: [accountId] }],
+    },
     requestedAt: "2026-08-21T12:00:00.000Z",
   };
   const plan = createAccountResearchPlan(request);
@@ -160,11 +166,13 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
 export class FixtureAccountIntelligenceProvider implements ModelProvider {
   readonly name: string;
   readonly #mutate: ((proposal: AccountIntelligenceProposal) => void) | undefined;
+  readonly #outputTokens: number;
   calls = 0;
 
-  constructor(options: { name?: string; mutate?: (proposal: AccountIntelligenceProposal) => void } = {}) {
+  constructor(options: { name?: string; mutate?: (proposal: AccountIntelligenceProposal) => void; outputTokens?: number } = {}) {
     this.name = options.name ?? "fixture-account-intelligence-provider";
     this.#mutate = options.mutate;
+    this.#outputTokens = options.outputTokens ?? 300;
   }
 
   async generate(request: ModelProviderRequest): Promise<ModelProviderResponse> {
@@ -175,7 +183,7 @@ export class FixtureAccountIntelligenceProvider implements ModelProvider {
       model: request.model,
       idempotencyKey: request.idempotencyKey,
       output: { excerpts: [], claims: [], account_objects: [proposal] as never[] },
-      usage: { inputTokens: 500, outputTokens: 300, totalTokens: 800 },
+      usage: { inputTokens: 500, outputTokens: this.#outputTokens, totalTokens: 500 + this.#outputTokens },
       cost: { currency: "USD", amount: 0 },
     };
   }

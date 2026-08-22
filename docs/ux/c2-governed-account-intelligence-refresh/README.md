@@ -30,6 +30,17 @@ The accounts use the same request, planner, admission, model-output schema, vali
 - One strong dark decision plane contains `Still open` and `Recommended next move`.
 - Rendering causes no provider call, network request, storage mutation, form submission, navigation, or production write.
 
+## Reviewer repair gates
+
+- `official_primary` admission requires an exact or explicitly subdomain-enabled trusted host policy bound to the source entity.
+- Every retrieval URL must descend from its own recorded query result or explicit result-derived URL.
+- Primary and related entities are bound to validated account context.
+- Provider identity/callable/storage/limits are snapshotted; over-limit output fails closed with a refusal receipt.
+- Mixed freshness renders a date span/recheck cue rather than a misleading newest-only date.
+- Statement-local evidence controls measure at least 44px; contrast measures 4.94:1 (inactive text) and 9.02:1 (dark-plane focus).
+- Dialog close is a non-submit button; focus returns to the trigger and observed submit count is zero.
+- `model-artifact-lineage.json` links each selected attempt to prompt/raw/usage/proposal SHA-256 values without committing private prompts or responses.
+
 ## Evidence and effects
 
 - Search queries: 30 (closed)
@@ -44,6 +55,7 @@ The accounts use the same request, planner, admission, model-output schema, vali
 See:
 
 - `execution-ledger.json` — exact queries, retrievals, model receipts, historical token overrun, revised authorization, and forbidden effects
+- `model-artifact-lineage.json` — selected attempt IDs and verified prompt/raw/usage/proposal hashes
 - `browser-interaction-proof.json` — viewport geometry and interaction effects
 - `visual-artifact-manifest.json` and `SHA256SUMS` — review artifact hashes
 - `data/` — admitted sources, plans, validated non-durable proposals, and per-account effect receipts

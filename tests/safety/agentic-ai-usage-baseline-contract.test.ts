@@ -72,7 +72,7 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /No app server or worker path currently invokes `ModelProvider\.generate`/i);
     assert.match(doc, /No source call sites currently invoke `ModelAdapter\.propose`/i);
     assert.match(doc, /The only `\.propose\(` source call site is the C2-01 review-only `AccountIntelligenceProviderBoundary` invocation/i);
-    assert.match(doc, /The `\.generate\(` source call sites are the C2-01 review-only injected provider boundary/i);
+    assert.match(doc, /C2-01 invokes its descriptor-snapshotted provider callable through `#generate`/i);
     assert.match(doc, /lab\/test-only runtime proof harness/i);
     assert.match(doc, /Codex-auth bridge adapter/i);
     assert.match(doc, /`ExternalCommandModelProvider` is a sealed validation seam/i);
@@ -98,11 +98,10 @@ test("agentic AI usage baseline records current runtime and validation boundarie
       ["src/account-intelligence/refresh.ts:LINE:const providerResult = await input.providerBoundary.propose(request, plan, admitted.sources);"],
     );
     const generateMatches = matchingSourceLines(/\.generate\(/);
-    assert.equal(generateMatches.length, 4);
+    assert.equal(generateMatches.length, 3);
     assert.deepEqual(
       generateMatches.map((match) => match.replace(/:\d+:/, ":LINE:")),
       [
-        "src/account-intelligence/provider.ts:LINE:const response = await this.#provider.generate(modelRequest);",
         "src/model/codex-auth-provider-bridge.ts:LINE:response = await this.transport.generate(request);",
         "src/model/provider-validation.ts:LINE:response = await input.provider.generate(input.request);",
         "src/validation/live-provider-moderate-proof-verifier.ts:LINE:const response: ModelProviderResponse = await input.provider.generate(input.request);",

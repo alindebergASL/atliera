@@ -23,13 +23,16 @@ Reviewed against the owner-accepted Editorial Evidence Synthesis direction.
 
 ## Geometry
 
-- Utah 1440×1100: required headline unit bottom y=645; 455px headroom
-- Utah 1280×900: required headline unit bottom y=508; 392px headroom (minimum required: 22px)
-- Utah 768×900: required headline unit bottom y=832; 68px headroom
-- Utah 390×844: recommended-next headline y=1039; not materially later than the accepted direction’s prior mobile decision sequence (~1089)
-- FedEx 1440×1100: required headline unit bottom y=699; 401px headroom
-- FedEx 390×844: recommended-next headline y=949
+- Utah 1440×1100: required headline unit bottom y=661; 439px headroom
+- Utah 1280×900: required headline unit bottom y=524; 376px headroom (minimum required: 22px)
+- Utah 768×900: required headline unit bottom y=874; 26px headroom
+- Utah 390×844: recommended-next headline y=1086; not materially later than the accepted direction’s prior mobile decision sequence (~1089)
+- FedEx 1440×1100: required headline unit bottom y=715; 385px headroom
+- FedEx 390×844: recommended-next headline y=996
 - Horizontal overflow: 0 at every measured viewport
+- Statement-local evidence controls: minimum 53×44 CSS px
+- Inactive Workshop text contrast: 4.94:1
+- Dark-plane focus indicator contrast: 9.02:1
 
 ## Interaction proof
 

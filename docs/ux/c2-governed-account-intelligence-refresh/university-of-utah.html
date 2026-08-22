@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-qael9ozdGtsVLoD23AWjnHxga8+grpeeETam8zwjc/4=&#39;; script-src &#39;sha256-h+Z+HtzMmplefNuUvT0alA7AQxy+1Ta5Ay9vifYx8vE=&#39;; img-src data:; connect-src &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;"><title>Atliera account intelligence — University of Utah</title><style>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-FVhs3iVrF6P+Aj6U0YI2nm4MaNPYT3+7RD0egMVL+eU=&#39;; script-src &#39;sha256-hcGuEITB0s+N3ccVZE0B4zGfm56YINzixl0PqKXFe+o=&#39;; img-src data:; connect-src &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;"><title>Atliera account intelligence — University of Utah</title><style>
 :root {
   --paper: #f7f1e5;
   --paper-strong: #fffaf0;
@@ -29,7 +29,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .brand { margin: 0; font: 700 17px/1 var(--serif); letter-spacing: .01em; }
 .mode-line { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 12px; }
 .mode-active { color: var(--ink); font-weight: 800; }
-.mode-future { opacity: .64; }
+.mode-future { color: var(--muted); opacity: 1; }
 main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .intro-line { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
@@ -57,7 +57,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .statement-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
 .statement-state { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
 .evidence-trigger {
-  min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
+  min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
   font-weight: 800; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
 }
 .decision-plane { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; padding: 22px 28px; background: var(--plum); color: #fffaf3; }
@@ -68,6 +68,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .decision-plane .stage-copy { color: #f0e7eb; }
 .decision-plane .statement-state { color: #d8cbd1; }
 .decision-plane .evidence-trigger { color: #cdd9ff; }
+.decision-plane button:focus-visible { outline-color: #ffd166; }
 .primary-action {
   min-height: 44px; margin-top: 9px; padding: 0 17px; border: 1px solid #fffaf3; border-radius: 0;
   background: #fffaf3; color: var(--plum); font-weight: 850; cursor: pointer;
@@ -141,8 +142,8 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
   .freshness { font-size: 10px; }
   .account-hero h1 { margin-top: 2px; font-size: 38px; }
   .account-thesis { font-size: 16px; line-height: 1.3; }
-  .grammar { margin-top: 10px; gap: 10px; }
-  .stage { padding: 10px 0 9px 38px; }
+  .grammar { margin-top: 10px; gap: 0; }
+  .stage { padding: 8px 0 7px 38px; }
   .stage-num { top: 12px; }
   .stage h2 { margin-top: 1px; font-size: 23px; }
   .stage-copy { font-size: 14px; line-height: 1.32; }
@@ -164,7 +165,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 <body><div class="site-frame">
 <header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
 <main id="main-content">
-  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence current through Jul 9, 2026</p></div>
+  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence current-through span Jun 6, 2025–Jul 9, 2026 · recheck older support</p></div>
   <section class="account-hero" aria-labelledby="account-title"><div><h1 id="account-title">University of Utah</h1><p class="account-thesis">University of Utah appears to be repositioning instruction-related resources through a three-year H.B. 265 strategic reinvestment framework that includes Responsible AI, engineering, behavioral health, biotechnology, nursing and simulation, and civic engagement education; commercial significance remains unestablished.</p><div class="statement-tools"><span class="statement-state">Evidence-informed interpretation</span><button class="evidence-trigger" type="button" data-dialog="evidence-thesis">Evidence</button></div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
   <section class="grammar" aria-label="Editorial Evidence Synthesis">
     <div class="context-plane">
@@ -212,7 +213,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-thesis-title">Account thesis</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>University of Utah appears to be repositioning instruction-related resources through a three-year H.B. 265 strategic reinvestment framework that includes Responsible AI, engineering, behavioral health, biotechnology, nursing and simulation, and civic engagement education; commercial significance remains unestablished.</p></section>
@@ -272,7 +273,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-established-title">Source-backed fact</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Source-backed fact</p><p>University of Utah described a three-year reallocation and reinvestment framework with designations, targets, and rationale to reach its H.B. 265 legislative target of $19.6 million.</p></section>
@@ -302,7 +303,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-changed-title">Source-backed fact</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Source-backed fact</p><p>University of Utah Communications reported that the university is redirecting $4.95 million into engineering programs, $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology, and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</p></section>
@@ -332,7 +333,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-meaning-title">Evidence-informed interpretation</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>The admitted evidence suggests AI is a named instructional reinvestment area rather than an isolated technology topic, because Responsible AI is tied to workforce preparation and interdisciplinary training across AI, machine learning, cybersecurity, healthcare, and autonomous systems.</p></section>
@@ -377,7 +378,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-open-title">Unresolved question</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Unresolved question</p><p>For each University of Utah reinvestment category, what amount, if any, remains available; what portion is already encumbered or restricted; what procurement status applies; what uses are eligible; which entity has decision authority or control; and is there any vendor intent or preference?</p></section>
@@ -422,7 +423,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     <div class="dialog-frame">
       <header class="dialog-header">
         <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-next-title">Recommended action · proposed</h2></div>
-        <form method="dialog"><button class="icon-button" type="submit" data-close-dialog aria-label="Close evidence">Close</button></form>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
       </header>
       <div class="dialog-scroll">
         <section class="related-statement"><p class="section-label">Related statement · Recommended action · proposed</p><p>Treat the H.B. 265 strategic reinvestment evidence as a governance and planning signal only, then verify University-level ownership, remaining availability, procurement status, eligible uses, and vendor intent or preference before drawing any account action conclusions.</p></section>
@@ -508,6 +509,9 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
     });
   });
   document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-close-dialog]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
+    });
     dialog.addEventListener('close', () => {
       const target = returnFocus;
       returnFocus = null;

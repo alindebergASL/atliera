@@ -18,6 +18,12 @@ export const ACCOUNT_RESEARCH_TAXONOMY = Object.freeze([
 
 export type AccountResearchTaxonomy = typeof ACCOUNT_RESEARCH_TAXONOMY[number];
 
+export interface TrustedOfficialHost {
+  readonly hostname: string;
+  readonly allowSubdomains: boolean;
+  readonly entityIds: readonly string[];
+}
+
 export interface AccountResearchRequest {
   readonly kind: typeof ACCOUNT_INTELLIGENCE_REQUEST_KIND;
   readonly schemaVersion: typeof ACCOUNT_INTELLIGENCE_REQUEST_VERSION;
@@ -29,6 +35,8 @@ export interface AccountResearchRequest {
     readonly sector: string | null;
     readonly geography: string | null;
     readonly notes: readonly string[];
+    readonly primaryAccountEntityId: string;
+    readonly trustedOfficialHosts: readonly TrustedOfficialHost[];
   };
   readonly requestedAt: string;
 }
@@ -204,6 +212,7 @@ export interface AccountIntelligenceEffectReceipt {
   readonly providerCallsExecuted: number;
   readonly provider: string;
   readonly model: string;
+  readonly promptSha256: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;

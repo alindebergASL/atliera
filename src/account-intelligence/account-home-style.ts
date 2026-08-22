@@ -28,7 +28,7 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); o
 .brand { margin: 0; font: 700 17px/1 var(--serif); letter-spacing: .01em; }
 .mode-line { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 12px; }
 .mode-active { color: var(--ink); font-weight: 800; }
-.mode-future { opacity: .64; }
+.mode-future { color: var(--muted); opacity: 1; }
 main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .intro-line { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
@@ -56,7 +56,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .statement-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
 .statement-state { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
 .evidence-trigger {
-  min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
+  min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
   font-weight: 800; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
 }
 .decision-plane { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; padding: 22px 28px; background: var(--plum); color: #fffaf3; }
@@ -67,6 +67,7 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .decision-plane .stage-copy { color: #f0e7eb; }
 .decision-plane .statement-state { color: #d8cbd1; }
 .decision-plane .evidence-trigger { color: #cdd9ff; }
+.decision-plane button:focus-visible { outline-color: #ffd166; }
 .primary-action {
   min-height: 44px; margin-top: 9px; padding: 0 17px; border: 1px solid #fffaf3; border-radius: 0;
   background: #fffaf3; color: var(--plum); font-weight: 850; cursor: pointer;
@@ -140,8 +141,8 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
   .freshness { font-size: 10px; }
   .account-hero h1 { margin-top: 2px; font-size: 38px; }
   .account-thesis { font-size: 16px; line-height: 1.3; }
-  .grammar { margin-top: 10px; gap: 10px; }
-  .stage { padding: 10px 0 9px 38px; }
+  .grammar { margin-top: 10px; gap: 0; }
+  .stage { padding: 8px 0 7px 38px; }
   .stage-num { top: 12px; }
   .stage h2 { margin-top: 1px; font-size: 23px; }
   .stage-copy { font-size: 14px; line-height: 1.32; }
@@ -176,6 +177,9 @@ export const C2_ACCOUNT_HOME_SCRIPT = `
     });
   });
   document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-close-dialog]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
+    });
     dialog.addEventListener('close', () => {
       const target = returnFocus;
       returnFocus = null;

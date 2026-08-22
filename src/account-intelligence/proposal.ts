@@ -449,7 +449,21 @@ export function createAccountIntelligencePrompt(
       riskFlags: ["allowed risk flag"],
     },
   };
-  const prompt = JSON.stringify({ instructions, request, sourceData });
+  const modelRequest = {
+    kind: request.kind,
+    schemaVersion: request.schemaVersion,
+    accountId: request.accountId,
+    accountName: request.accountName,
+    canonicalPublicDomains: request.canonicalPublicDomains,
+    knownAliases: request.knownAliases,
+    admittedContext: {
+      sector: request.admittedContext.sector,
+      geography: request.admittedContext.geography,
+      notes: request.admittedContext.notes,
+    },
+    requestedAt: request.requestedAt,
+  };
+  const prompt = JSON.stringify({ instructions, request: modelRequest, sourceData });
   if (Buffer.byteLength(prompt, "utf8") > 500_000) throw new Error("model prompt exceeds bounded input size");
   return prompt;
 }

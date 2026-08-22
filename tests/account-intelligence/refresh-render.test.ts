@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { renderC2AccountHome } from "../../src/account-intelligence/account-home.ts";
-import { AccountIntelligenceProviderBoundary } from "../../src/account-intelligence/provider.ts";
+import { AccountIntelligenceProviderBoundary, AccountIntelligenceProviderRefusal } from "../../src/account-intelligence/provider.ts";
 import { executeAccountIntelligenceRefresh } from "../../src/account-intelligence/refresh.ts";
 import { FixtureAccountIntelligenceProvider, makeC2FixtureInput } from "../fixtures/c2-account-intelligence.ts";
 
@@ -15,6 +15,7 @@ async function runFixture(options: Parameters<typeof makeC2FixtureInput>[0] = {}
     outOfRepoCorpusRef: `external-corpus/c2/${input.request.accountId}`,
     maxOutputTokens: 4_000,
     maxCostUsd: 1,
+    providerStorage: false,
   });
   const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
   return { input, provider, boundary, result };
@@ -29,6 +30,7 @@ test("refresh produces one validated proposal and truthful zero-side-effect rece
   assert.equal(result.effectReceipt.providerCallsExecuted, 1);
   assert.equal(result.effectReceipt.inputTokens, 500);
   assert.equal(result.effectReceipt.outputTokens, 300);
+  assert.match(result.effectReceipt.promptSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.effectReceipt.estimatedCostUsd, 0);
   for (const key of ["privateNetworkEffects", "databaseWrites", "graphWrites", "persistenceWrites",
     "deployments", "publications", "customerActions"] as const) assert.equal(result.effectReceipt[key], 0);
@@ -79,4 +81,50 @@ test("malicious HTML from admitted source is inert escaped text in the renderer"
   assert.doesNotMatch(html, /<img\b/iu);
   assert.doesNotMatch(html, /onerror="alert\(1\)"/u);
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
+});
+
+test("provider dependency snapshot resists post-validation mutation and rejects accessors", async () => {
+  const input = makeC2FixtureInput();
+  const provider = new FixtureAccountIntelligenceProvider();
+  const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
+    outOfRepoCorpusRef: "external-corpus/c2/provider-snapshot", maxOutputTokens: 4_000, maxCostUsd: 1, providerStorage: false });
+  (provider as unknown as { generate: () => never }).generate = () => { throw new Error("mutated generate invoked"); };
+  const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
+  assert.equal(result.effectReceipt.provider, "fixture-account-intelligence-provider");
+  const accessorProvider = Object.defineProperties({}, {
+    name: { enumerable: true, get: () => "getter-provider" },
+    generate: { enumerable: true, get: () => async () => undefined },
+  });
+  assert.throws(() => new AccountIntelligenceProviderBoundary({ provider: accessorProvider as never,
+    model: "fixture-model", outOfRepoCorpusRef: "external-corpus/c2/accessor", maxOutputTokens: 4_000,
+    maxCostUsd: 1, providerStorage: false }), /dependency shape refused/u);
+});
+
+test("provider output above requested maximum fails closed with a truthful refusal receipt", async () => {
+  const input = makeC2FixtureInput();
+  const provider = new FixtureAccountIntelligenceProvider({ outputTokens: 301 });
+  const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
+    outOfRepoCorpusRef: "external-corpus/c2/output-cap", maxOutputTokens: 300, maxCostUsd: 1, providerStorage: false });
+  await assert.rejects(() => executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary }), (error: unknown) => {
+    assert.ok(error instanceof AccountIntelligenceProviderRefusal);
+    assert.deepEqual(error.receipt, {
+      code: "output_token_limit_exceeded", provider: "fixture-account-intelligence-provider", model: "fixture-model",
+      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0, storage: false,
+    });
+    return true;
+  });
+});
+
+test("freshness cue distinguishes single, mixed, missing, and stale material evidence", async () => {
+  const { result } = await runFixture();
+  const source = result.admittedSources[0]!;
+  assert.match(renderC2AccountHome(result).html, /Evidence current through Aug 20, 2026/u);
+  const extra = (id: string, currentThrough: string | null) => ({ ...source, sourceId: id,
+    canonicalUrl: `https://harbor-transit.example.org/${id}`, evidenceCurrentThrough: currentThrough, excerpts: [] });
+  const mixed = { ...result, admittedSources: [source, extra("source-mixed", "2025-01-15")] };
+  assert.match(renderC2AccountHome(mixed).html, /Evidence current-through span Jan 15, 2025–Aug 20, 2026 · recheck older support/u);
+  const missing = { ...result, admittedSources: [source, extra("source-missing", null)] };
+  assert.match(renderC2AccountHome(missing).html, /Evidence freshness mixed · through Aug 20, 2026 where established · recheck/u);
+  const stale = { ...result, admittedSources: [extra("source-stale", "2023-01-01"), source] };
+  assert.match(renderC2AccountHome(stale).html, /Jan 1, 2023–Aug 20, 2026 · recheck older support/u);
 });

@@ -19,7 +19,7 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 - No app server or worker path currently invokes `ModelProvider.generate`.
 - No source call sites currently invoke `ModelAdapter.propose`.
 - The only `.propose(` source call site is the C2-01 review-only `AccountIntelligenceProviderBoundary` invocation in `src/account-intelligence/refresh.ts`; it requires an explicitly injected, single-use provider boundary and is not wired to an app server, worker, customer route, persistence path, or default runtime.
-- The `.generate(` source call sites are the C2-01 review-only injected provider boundary, `src/account-intelligence/provider.ts`; the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; and the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`. None is a default runtime app path.
+- The `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; and the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`. C2-01 invokes its descriptor-snapshotted provider callable through `#generate`, so it does not reread a mutable provider container. None is a default runtime app path.
 - No source path constructs `ExternalCommandModelProvider` as a default runtime dependency.
 - No resident autonomous shell agent is installed or required by the app.
 - No worker polling loop currently dequeues jobs to execute model/tool plans.

@@ -1,49 +1,54 @@
 {
   "artifacts": [
     {
+      "path": "screenshots/browser-interaction-proof.png",
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "bytes": 271095
+    },
+    {
       "path": "screenshots/fedex-1440x1100.png",
-      "sha256": "89d77993bb6da6f7f0ca73069eda2672459fdc9db606fc07f2e63a427d79c3bb",
-      "bytes": 262273
+      "sha256": "ae8be0af1687524eec3bb37a743c4e67ced76d49749fc769d17e8c2ac7239fe0",
+      "bytes": 265664
     },
     {
       "path": "screenshots/fedex-390x844.png",
-      "sha256": "94e3708930d3ea931a91f33c5e0d1277af6702ead1c3002b36829a78d3f28abf",
-      "bytes": 97731
+      "sha256": "db693a859abf47d208a6fef0aab1318fdfb3d7b403761143f02c3ae7bf70bc46",
+      "bytes": 95243
     },
     {
       "path": "screenshots/utah-1280x900.png",
-      "sha256": "09cce37c0e809250e5a80d182b241ba230dd92ece3363da10fa1f30f72f6dd34",
-      "bytes": 213492
+      "sha256": "ff90e81a9c63a99b89bc30ac7c6bbd160cb403ff917bf5efcee95f36f3295383",
+      "bytes": 209118
     },
     {
       "path": "screenshots/utah-1440x1100.png",
-      "sha256": "77054b6fef8331061c51b4e2f519fcb1c81254b786f85183e89ba60d0c973d94",
-      "bytes": 267423
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "bytes": 271095
     },
     {
       "path": "screenshots/utah-390x844.png",
-      "sha256": "77f979ba59ae5c5914a445df4af5f93fb2c162f1afa0d9cf1c446aa02905d6e0",
-      "bytes": 98207
+      "sha256": "18a1942d092bf03cb6efed86ee15603a9588a66e782249cb510870d94fbb5c6b",
+      "bytes": 94994
     },
     {
       "path": "screenshots/utah-768x900.png",
-      "sha256": "58d06f4ae504fd5b85afb27a1cddc36f0f306a82daff95167221e2d744fc1c36",
-      "bytes": 154433
+      "sha256": "a516b6f4fc44157698a04d13833accc604938f7c2c9ec4f973f7f8815bd1f1a3",
+      "bytes": 142697
     },
     {
       "path": "screenshots/utah-evidence-open.png",
-      "sha256": "0d19c5553890519b8371b4b8add073c34ccef093b7102bcd1c97215cf8664778",
-      "bytes": 288902
+      "sha256": "2c9bfcdadcd6c5f5886e51bd8dccc7cf8d6cdf644f065840782be6c4bda71e84",
+      "bytes": 290290
     },
     {
       "path": "screenshots/utah-needs-review.png",
-      "sha256": "bc27d964ba61c737f14d3bcd5b4d55e38b2654dad0b632236f5e58985a90242e",
-      "bytes": 267584
+      "sha256": "c5b4dc2f18d083dd3bfe0f11cd99848b041cbccecd5610ec27040ad6889c7da3",
+      "bytes": 271497
     },
     {
       "path": "screenshots/utah-partial-coverage.png",
-      "sha256": "59622a15d2be535788fb85c94f65e06b9e130cdd845042d414f0b69e3ec00379",
-      "bytes": 316363
+      "sha256": "05e4e4a05bdec38ad40589022b25943c02cd0ebb94c45841d7b73ec3dc3d505e",
+      "bytes": 313790
     }
   ]
 }

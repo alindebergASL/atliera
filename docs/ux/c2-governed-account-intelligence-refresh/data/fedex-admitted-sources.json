@@ -1,0 +1,381 @@
+[
+  {
+    "sourceId": "source_d977c3229551121ddf90",
+    "retrievalId": "retrieval-fd-r10",
+    "entity": {
+      "entityId": "acc_fedex_corporation",
+      "name": "FedEx Corporation",
+      "kind": "account",
+      "relationshipToAccount": "The parent holding company and account under research."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_federal_express",
+        "name": "Federal Express Corporation",
+        "kind": "subsidiary",
+        "relationshipToAccount": "The integrated air-ground operating subsidiary; distinct from the parent."
+      },
+      {
+        "entityId": "entity_fedex_freight",
+        "name": "FedEx Freight Holding Company, Inc.",
+        "kind": "other_related_entity",
+        "relationshipToAccount": "Separated public company after June 1, 2026; no longer consolidated as a FedEx segment."
+      },
+      {
+        "entityId": "entity_fedex_dataworks",
+        "name": "FedEx Dataworks",
+        "kind": "business_unit",
+        "relationshipToAccount": "Named digital unit with a distinct operating role."
+      },
+      {
+        "entityId": "entity_fedex_supply_chain",
+        "name": "FedEx Supply Chain",
+        "kind": "business_unit",
+        "relationshipToAccount": "Portfolio business whose announced sale was not established as closed in admitted evidence."
+      }
+    ],
+    "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+    "title": "FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026",
+    "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-07-20",
+    "eventDate": "2026-05-31",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-07-20",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+    "retrievedByteSize": 2887,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "identity_structure",
+      "strategic_direction",
+      "digital_modernization",
+      "leadership_governance",
+      "procurement",
+      "partnerships_technology",
+      "constraints",
+      "recent_changes"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-02"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_16ccb0f3a7984c6d1dfb",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.",
+        "exactExcerptSha256": "41d02252e0589cd311ce5e91c39eda1434a5e0276263025afcd6cc995594b75b",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 241
+      },
+      {
+        "evidenceId": "evidence_49cdd6f0f4b6dd5f3ef3",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.",
+        "exactExcerptSha256": "f1517f75a6fdc089c27b13f2929735f9c4d3bdb11d387d8d5fbf1587d135dd45",
+        "sourceCharStart": 243,
+        "sourceCharEnd": 697
+      },
+      {
+        "evidenceId": "evidence_e6b06390315d2c346286",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.",
+        "exactExcerptSha256": "29742e7ce01cc0ea1830c78d3e302bed8fa558e03a8662790ad54cfbda146639",
+        "sourceCharStart": 699,
+        "sourceCharEnd": 1074
+      },
+      {
+        "evidenceId": "evidence_45b2bd6a55736d897000",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "In May 2026, we introduced an AI-driven assistant within the FedEx Developer Portal to help developers more efficiently access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.",
+        "exactExcerptSha256": "5aee653ec0c3fd5652df723d5ac26b9ca2b960126b0d043fcc33ea4cb9da3736",
+        "sourceCharStart": 1076,
+        "sourceCharEnd": 1312
+      },
+      {
+        "evidenceId": "evidence_18c2565f78ccb4bd74d4",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Vishal Talwar Executive Vice President, Chief Digital and Information Officer (CDIO) of FedEx, and President of FedEx Dataworks … since August 2025.",
+        "exactExcerptSha256": "40f721fe4f7dadb16009039c51fedb3b3b71329794f96409252c2190b4ea432e",
+        "sourceCharStart": 1314,
+        "sourceCharEnd": 1462
+      },
+      {
+        "evidenceId": "evidence_4c8fa42648327c1c5d7e",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Kawal Preet Executive Vice President, Planning, Engineering, and Transformation … since October 2025.",
+        "exactExcerptSha256": "9ced15973d44f1711572779dd9904ca19d951d476710d81865f1c176bff567b3",
+        "sourceCharStart": 1464,
+        "sourceCharEnd": 1565
+      },
+      {
+        "evidenceId": "evidence_bd3a9eb41bd7a8e8d028",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Claude F. Russ Enterprise Vice President, Finance and Interim Chief Financial Officer and Interim Chief Accounting Officer … since June 2026.",
+        "exactExcerptSha256": "f9d0ce13b772cad300ead23ffb530ac7641faf0191a19f87461ca7007c1c45ab",
+        "sourceCharStart": 1567,
+        "sourceCharEnd": 1708
+      },
+      {
+        "evidenceId": "evidence_11518ec661224f24b5df",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "In the U.S., this includes seeking diverse suppliers and strengthening our supply chain by sourcing from small, minority-, and women-owned businesses.",
+        "exactExcerptSha256": "da1ab6f1ca45f79ac9b7f9d3fa330a11abe14749b570edef108ae639cbad6711",
+        "sourceCharStart": 1710,
+        "sourceCharEnd": 1860
+      },
+      {
+        "evidenceId": "evidence_5c730cb8a78f02017d97",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "There can be no assurance that the Federal Express and legacy FedEx Ground businesses and networks, which historically operated separately and independently, can successfully be fully integrated as planned.",
+        "exactExcerptSha256": "a7ff74237de7338862221fd19fa0b4c856f91550c7829734ec719c97dceaa760",
+        "sourceCharStart": 1862,
+        "sourceCharEnd": 2068
+      },
+      {
+        "evidenceId": "evidence_06b36e0f76a7d35999f7",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "The actual amount and timing of costs to be incurred and related cost savings and reductions to our permanent cost structure resulting from these initiatives and enhancements may differ from our current expectations and estimates.",
+        "exactExcerptSha256": "45def8df1b9607e2a6efa4f85891d66c7d3ea8367c4e220700aa43b8a5bf1d30",
+        "sourceCharStart": 2070,
+        "sourceCharEnd": 2300
+      },
+      {
+        "evidenceId": "evidence_ccb99ea7c9039564be51",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "The rapid evolution and increased sophistication, availability, and use of emerging technologies such as AI technologies and machine learning by us, our customers, suppliers, business partners, third-party providers, and bad actors may increase the likelihood of the occurrence of data breaches and operational disruptions.",
+        "exactExcerptSha256": "e63be97dbc5a0028ce7ad6854d495dbbd2dfa27984314a4fd96469cc97f1fa9e",
+        "sourceCharStart": 2302,
+        "sourceCharEnd": 2625
+      },
+      {
+        "evidenceId": "evidence_8b72a6919e0e14f56820",
+        "sourceId": "source_d977c3229551121ddf90",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "On July 1, 2026, FedEx announced that it would sell its FedEx Supply Chain business to CMA CGM Group for $1.4 billion as part of a strategic portfolio streamlining effort. The transaction is expected to close in the second half of calendar year 2026.",
+        "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+        "sourceCharStart": 2627,
+        "sourceCharEnd": 2877
+      }
+    ]
+  },
+  {
+    "sourceId": "source_a77158808bdbab2eb341",
+    "retrievalId": "retrieval-fd-r06",
+    "entity": {
+      "entityId": "acc_fedex_corporation",
+      "name": "FedEx Corporation",
+      "kind": "account",
+      "relationshipToAccount": "The parent holding company and account under research."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_federal_express",
+        "name": "Federal Express Corporation",
+        "kind": "subsidiary",
+        "relationshipToAccount": "The integrated air-ground operating subsidiary; distinct from the parent."
+      },
+      {
+        "entityId": "entity_fedex_freight",
+        "name": "FedEx Freight Holding Company, Inc.",
+        "kind": "other_related_entity",
+        "relationshipToAccount": "Separated public company after June 1, 2026; no longer consolidated as a FedEx segment."
+      }
+    ],
+    "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+    "title": "FedEx Corporation Form 8-K",
+    "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-07-21",
+    "eventDate": "2026-07-21",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-07-21",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+    "retrievedByteSize": 514,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "identity_structure",
+      "leadership_governance",
+      "recent_changes"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-08"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_38a4c1f0e117f146f7a3",
+        "sourceId": "source_a77158808bdbab2eb341",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Effective June 1, 2026, FedEx Corporation (“FedEx”) changed its fiscal year end from May 31 to December 31.",
+        "exactExcerptSha256": "8f81041bd7bae1118de97a8337705c5fb6e747b05f9ec052ccac6ef3f8db94b8",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 107
+      },
+      {
+        "evidenceId": "evidence_72c5c0218f9baea018cb",
+        "sourceId": "source_a77158808bdbab2eb341",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "As a result of the Spin-Off, FedEx will no longer consolidate the FedEx Freight business and FedEx Freight is no longer a reportable segment.",
+        "exactExcerptSha256": "f1810f6b960121ce1527c324813cd9eb6ae815f996207d86d21c18df80291ef1",
+        "sourceCharStart": 109,
+        "sourceCharEnd": 250
+      },
+      {
+        "evidenceId": "evidence_28652f6d60f6c24b1830",
+        "sourceId": "source_a77158808bdbab2eb341",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Following the Spin-Off and beginning the first quarter of the Transition Period, FedEx realigned its internal reporting and management structure, resulting in the identification of two new reportable segments: Express U.S. Domestic and Express International.",
+        "exactExcerptSha256": "39b864f337615a96a526abd32826425cae282932640c6bb2eceee4eeb9b62483",
+        "sourceCharStart": 252,
+        "sourceCharEnd": 510
+      }
+    ]
+  },
+  {
+    "sourceId": "source_3df5e62d8edd76c614ca",
+    "retrievalId": "retrieval-fd-r05",
+    "entity": {
+      "entityId": "acc_fedex_corporation",
+      "name": "FedEx Corporation",
+      "kind": "account",
+      "relationshipToAccount": "The parent holding company and account under research."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_fedex_freight",
+        "name": "FedEx Freight Holding Company, Inc.",
+        "kind": "other_related_entity",
+        "relationshipToAccount": "Separated public company after June 1, 2026; no longer consolidated as a FedEx segment."
+      }
+    ],
+    "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+    "title": "FedEx Corporation Current Report on Form 8-K",
+    "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-06-01",
+    "eventDate": "2026-06-01",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-06-01",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+    "retrievedByteSize": 509,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "identity_structure",
+      "financial_context",
+      "recent_changes"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-07"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_67c1c585e23b6fa4679e",
+        "sourceId": "source_3df5e62d8edd76c614ca",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "On June 1, 2026, FedEx Corporation (“FedEx”) completed the previously announced separation of FedEx Freight Holding Company, Inc. (“FedEx Freight”) through a distribution of 80.1% of the outstanding shares of FedEx Freight common stock to FedEx stockholders.",
+        "exactExcerptSha256": "8e1784bfce83c3a8b4424c46665a104edce5321926838351eed71057ab072831",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 258
+      },
+      {
+        "evidenceId": "evidence_4e1ee2a4b6b8e9618f1c",
+        "sourceId": "source_3df5e62d8edd76c614ca",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "On May 28, 2026, as part of the separation, FedEx Freight … made a cash distribution of approximately $4.1 billion to FedEx funded through the incurrence of indebtedness by FedEx Freight and the use of excess cash on hand at FedEx Freight.",
+        "exactExcerptSha256": "361aabe8e88b2df6031011f98a992b71c30670920cf5906cce15e4cfa1d67ccc",
+        "sourceCharStart": 260,
+        "sourceCharEnd": 499
+      }
+    ]
+  },
+  {
+    "sourceId": "source_eb7937a06de6828cbf49",
+    "retrievalId": "retrieval-fd-r02",
+    "entity": {
+      "entityId": "acc_fedex_corporation",
+      "name": "FedEx Corporation",
+      "kind": "account",
+      "relationshipToAccount": "The parent holding company and account under research."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_federal_express",
+        "name": "Federal Express Corporation",
+        "kind": "subsidiary",
+        "relationshipToAccount": "The integrated air-ground operating subsidiary; distinct from the parent."
+      },
+      {
+        "entityId": "entity_fedex_dataworks",
+        "name": "FedEx Dataworks",
+        "kind": "business_unit",
+        "relationshipToAccount": "Named digital unit with a distinct operating role."
+      }
+    ],
+    "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+    "title": "FY25 Chairman’s Letter",
+    "publisher": "FedEx Corporation Investor Relations",
+    "sourceClass": "official_primary",
+    "publicationDate": null,
+    "eventDate": "2025-05-31",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2025-05-31",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+    "retrievedByteSize": 511,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "strategic_direction",
+      "digital_modernization",
+      "recent_changes"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-01"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_b7f0838fd78a912be4b7",
+        "sourceId": "source_eb7937a06de6828cbf49",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "Through our DRIVE transformation, we reimagined our operations, closed performance gaps, and built a more flexible, efficient and intelligent network.",
+        "exactExcerptSha256": "81a2915c7efe86e250edc80897b343ed8d11ae9d9d14acaffd60ed3cfc7f1a5a",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 150
+      },
+      {
+        "evidenceId": "evidence_9acac3f865e40a5f7581",
+        "sourceId": "source_eb7937a06de6828cbf49",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "By the end of FY25, Network 2.0 had been rolled out to nearly 290 locations across the U.S. and Canada, including the completion of the rollout in Canada in May.",
+        "exactExcerptSha256": "0cb4c75c58e666245691f7595cf11297fe015712969cd3f28fb49d964ca87fef",
+        "sourceCharStart": 152,
+        "sourceCharEnd": 313
+      },
+      {
+        "evidenceId": "evidence_ebbf8b72539e10304f84",
+        "sourceId": "source_eb7937a06de6828cbf49",
+        "entityId": "acc_fedex_corporation",
+        "exactExcerpt": "We also established a new global technology leadership structure, appointing our first-ever Chief Digital and Information Officer, to accelerate our digital strategy and technology transformation.",
+        "exactExcerptSha256": "09dc523db2fc3d8aa73c643ad0600c2a0fb644e8b4c7e74f3a1f41137268ba21",
+        "sourceCharStart": 315,
+        "sourceCharEnd": 511
+      }
+    ]
+  }
+]

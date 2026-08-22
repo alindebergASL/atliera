@@ -1,0 +1,112 @@
+{
+  "kind": "atliera.account-research-plan",
+  "schemaVersion": "1",
+  "accountId": "acc_university_of_utah",
+  "generatedFromRequestSha256": "739c9a0aa7c0c3cf638ca1b6d9487375d2d7e59f348b21d147db1d37a5b0bd46",
+  "queries": [
+    {
+      "queryId": "query-01",
+      "taxonomy": "identity_structure",
+      "query": "\"University of Utah\" (site:utah.edu) mission organizational structure material subsidiaries public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-02",
+      "taxonomy": "strategic_direction",
+      "query": "\"University of Utah\" (site:utah.edu) strategic priorities operating direction plan public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-03",
+      "taxonomy": "financial_context",
+      "query": "\"University of Utah\" (site:utah.edu) budget financial report grants funding appropriations public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-04",
+      "taxonomy": "digital_modernization",
+      "query": "\"University of Utah\" (site:utah.edu) AI data digital infrastructure modernization public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-05",
+      "taxonomy": "leadership_governance",
+      "query": "\"University of Utah\" (site:utah.edu) leadership governance board decision authority public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-06",
+      "taxonomy": "procurement",
+      "query": "\"University of Utah\" (site:utah.edu) procurement solicitations contracts purchasing portal public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-07",
+      "taxonomy": "partnerships_technology",
+      "query": "\"University of Utah\" (site:utah.edu) partnerships technology vendors established presence public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-08",
+      "taxonomy": "constraints",
+      "query": "\"University of Utah\" (site:utah.edu) regulatory policy security operating constraints public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-09",
+      "taxonomy": "recent_changes",
+      "query": "\"University of Utah\" (site:utah.edu) recent material changes announcements annual report public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    },
+    {
+      "queryId": "query-10",
+      "taxonomy": "gaps_contradictions",
+      "query": "\"University of Utah\" (site:utah.edu) official records amendments contradictions status public research university Utah, United States",
+      "preferredSourceClasses": [
+        "official_primary",
+        "reputable_secondary_if_needed"
+      ]
+    }
+  ],
+  "queryLimit": 30,
+  "admittedSourceLimit": 15,
+  "priorities": [
+    "identity_structure",
+    "strategic_direction",
+    "financial_context",
+    "digital_modernization",
+    "leadership_governance",
+    "procurement",
+    "partnerships_technology",
+    "constraints",
+    "recent_changes",
+    "gaps_contradictions"
+  ]
+}

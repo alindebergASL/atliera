@@ -1,0 +1,130 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { renderC2AccountHome } from "../../src/account-intelligence/account-home.ts";
+import { AccountIntelligenceProviderBoundary, AccountIntelligenceProviderRefusal } from "../../src/account-intelligence/provider.ts";
+import { executeAccountIntelligenceRefresh } from "../../src/account-intelligence/refresh.ts";
+import { FixtureAccountIntelligenceProvider, makeC2FixtureInput } from "../fixtures/c2-account-intelligence.ts";
+
+async function runFixture(options: Parameters<typeof makeC2FixtureInput>[0] = {}) {
+  const input = makeC2FixtureInput(options);
+  const provider = new FixtureAccountIntelligenceProvider();
+  const boundary = new AccountIntelligenceProviderBoundary({
+    provider,
+    model: "fixture-model",
+    outOfRepoCorpusRef: `external-corpus/c2/${input.request.accountId}`,
+    maxOutputTokens: 4_000,
+    maxCostUsd: 1,
+    providerStorage: false,
+  });
+  const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
+  return { input, provider, boundary, result };
+}
+
+test("refresh produces one validated proposal and truthful zero-side-effect receipt", async () => {
+  const { provider, result } = await runFixture();
+  assert.equal(provider.calls, 1);
+  assert.equal(result.effectReceipt.searchQueriesExecuted, 1);
+  assert.equal(result.effectReceipt.retrievalsExecuted, 1);
+  assert.equal(result.effectReceipt.admittedSources, 1);
+  assert.equal(result.effectReceipt.providerCallsExecuted, 1);
+  assert.equal(result.effectReceipt.inputTokens, 500);
+  assert.equal(result.effectReceipt.outputTokens, 300);
+  assert.match(result.effectReceipt.promptSha256, /^[a-f0-9]{64}$/u);
+  assert.equal(result.effectReceipt.estimatedCostUsd, 0);
+  for (const key of ["privateNetworkEffects", "databaseWrites", "graphWrites", "persistenceWrites",
+    "deployments", "publications", "customerActions"] as const) assert.equal(result.effectReceipt[key], 0);
+  assert.ok(result.proposal.establishedContext[0]!.evidenceIds.every((id) =>
+    result.admittedSources.some((source) => source.excerpts.some((excerpt) => excerpt.evidenceId === id))));
+});
+
+test("provider boundary is single-use and refuses retry", async () => {
+  const { input, boundary } = await runFixture();
+  await assert.rejects(() => executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary }), /already consumed/u);
+});
+
+test("changing account input changes plan, evidence, and synthesis without changing product code", async () => {
+  const first = await runFixture({ accountId: "acct-harbor", accountName: "Harbor Transit", domain: "harbor.example.org" });
+  const second = await runFixture({ accountId: "acct-northstar", accountName: "Northstar Manufacturing", domain: "northstar.example.org" });
+  assert.notDeepEqual(first.result.plan.queries, second.result.plan.queries);
+  assert.notEqual(first.result.admittedSources[0]!.retrievedContentSha256, second.result.admittedSources[0]!.retrievedContentSha256);
+  assert.notEqual(first.result.proposal.accountThesis.text, second.result.proposal.accountThesis.text);
+  assert.equal(first.result.proposal.researchCoverage.length, second.result.proposal.researchCoverage.length);
+});
+
+test("Editorial Evidence Synthesis renderer keeps answers first and machinery behind disclosure", async () => {
+  const { result } = await runFixture();
+  const artifact = renderC2AccountHome(result);
+  assert.equal(artifact.kind, "c2-governed-account-intelligence-home");
+  assert.match(artifact.html, /Established/u);
+  assert.match(artifact.html, /Meaningfully changed/u);
+  assert.match(artifact.html, /Still open/u);
+  assert.match(artifact.html, /Recommended next move/u);
+  assert.equal((artifact.html.match(/class="stage-num"/gu) ?? []).length, 4);
+  assert.equal((artifact.html.match(/class="decision-plane"/gu) ?? []).length, 1);
+  assert.match(artifact.html, /<details class="research-disclosure">/u);
+  assert.match(artifact.html, /<dialog class="evidence-dialog"/u);
+  assert.match(artifact.html, /connect-src &#39;none&#39;/u);
+  assert.doesNotMatch(artifact.html, /\b(?:dashboard|activity timeline|confidence gauge|Package Inspector)\b/iu);
+  assert.doesNotMatch(artifact.html, /<a\b[^>]*>Workshop<\/a>|<button\b[^>]*>Workshop<\/button>/iu);
+  assert.doesNotMatch(artifact.html, /source_[a-f0-9]+|evidence_[a-f0-9]+|retrieval-/iu);
+  assert.equal(artifact.boundary.clientNetworkCalls, 0);
+  assert.equal(artifact.boundary.providerCalls, 0);
+  assert.equal(artifact.boundary.workshopBehavior, 0);
+});
+
+test("malicious HTML from admitted source is inert escaped text in the renderer", async () => {
+  const established = "Harbor Transit publishes an official record.";
+  const changed = '<img src=x onerror="alert(1)"> Harbor Transit proposed funding.';
+  const { result } = await runFixture({ retrievedText: `${established}\n${changed}`, candidateExcerpts: [established, changed] });
+  const html = renderC2AccountHome(result).html;
+  assert.doesNotMatch(html, /<img\b/iu);
+  assert.doesNotMatch(html, /onerror="alert\(1\)"/u);
+  assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
+});
+
+test("provider dependency snapshot resists post-validation mutation and rejects accessors", async () => {
+  const input = makeC2FixtureInput();
+  const provider = new FixtureAccountIntelligenceProvider();
+  const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
+    outOfRepoCorpusRef: "external-corpus/c2/provider-snapshot", maxOutputTokens: 4_000, maxCostUsd: 1, providerStorage: false });
+  (provider as unknown as { generate: () => never }).generate = () => { throw new Error("mutated generate invoked"); };
+  const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
+  assert.equal(result.effectReceipt.provider, "fixture-account-intelligence-provider");
+  const accessorProvider = Object.defineProperties({}, {
+    name: { enumerable: true, get: () => "getter-provider" },
+    generate: { enumerable: true, get: () => async () => undefined },
+  });
+  assert.throws(() => new AccountIntelligenceProviderBoundary({ provider: accessorProvider as never,
+    model: "fixture-model", outOfRepoCorpusRef: "external-corpus/c2/accessor", maxOutputTokens: 4_000,
+    maxCostUsd: 1, providerStorage: false }), /dependency shape refused/u);
+});
+
+test("provider output above requested maximum fails closed with a truthful refusal receipt", async () => {
+  const input = makeC2FixtureInput();
+  const provider = new FixtureAccountIntelligenceProvider({ outputTokens: 301 });
+  const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
+    outOfRepoCorpusRef: "external-corpus/c2/output-cap", maxOutputTokens: 300, maxCostUsd: 1, providerStorage: false });
+  await assert.rejects(() => executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary }), (error: unknown) => {
+    assert.ok(error instanceof AccountIntelligenceProviderRefusal);
+    assert.deepEqual(error.receipt, {
+      code: "output_token_limit_exceeded", provider: "fixture-account-intelligence-provider", model: "fixture-model",
+      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0, storage: false,
+    });
+    return true;
+  });
+});
+
+test("freshness cue distinguishes single, mixed, missing, and stale material evidence", async () => {
+  const { result } = await runFixture();
+  const source = result.admittedSources[0]!;
+  assert.match(renderC2AccountHome(result).html, /Evidence current through Aug 20, 2026/u);
+  const extra = (id: string, currentThrough: string | null) => ({ ...source, sourceId: id,
+    canonicalUrl: `https://harbor-transit.example.org/${id}`, evidenceCurrentThrough: currentThrough, excerpts: [] });
+  const mixed = { ...result, admittedSources: [source, extra("source-mixed", "2025-01-15")] };
+  assert.match(renderC2AccountHome(mixed).html, /Evidence current-through span Jan 15, 2025–Aug 20, 2026 · recheck older support/u);
+  const missing = { ...result, admittedSources: [source, extra("source-missing", null)] };
+  assert.match(renderC2AccountHome(missing).html, /Evidence freshness mixed · through Aug 20, 2026 where established · recheck/u);
+  const stale = { ...result, admittedSources: [extra("source-stale", "2023-01-01"), source] };
+  assert.match(renderC2AccountHome(stale).html, /Jan 1, 2023–Aug 20, 2026 · recheck older support/u);
+});

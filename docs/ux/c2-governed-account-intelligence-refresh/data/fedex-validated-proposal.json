@@ -1,0 +1,564 @@
+{
+  "kind": "atliera.account-intelligence-proposal",
+  "schemaVersion": "1",
+  "accountId": "acc_fedex_corp",
+  "accountThesis": {
+    "statementId": "stmt_thesis_001",
+    "state": "evidence-informed interpretation",
+    "text": "FedEx Corporation appears to be in a post-separation operating-model reset centered on an integrated Express network, Network 2.0 implementation, digital and AI-enabled workflows, and a changed segment and leadership structure; commercial implications remain unproven without evidence of procurement status, decision authority, budget availability, or vendor intent.",
+    "evidenceIds": [
+      "evidence_16ccb0f3a7984c6d1dfb",
+      "evidence_49cdd6f0f4b6dd5f3ef3",
+      "evidence_e6b06390315d2c346286",
+      "evidence_38a4c1f0e117f146f7a3",
+      "evidence_72c5c0218f9baea018cb",
+      "evidence_28652f6d60f6c24b1830"
+    ],
+    "entityIds": [
+      "acc_fedex_corporation"
+    ],
+    "riskFlags": [
+      "unsupported_commercial_assumption"
+    ]
+  },
+  "establishedContext": [
+    {
+      "statementId": "stmt_established_001",
+      "state": "source-backed fact",
+      "text": "FedEx says it is shifting from separate operations to one integrated, flexible, efficient, and intelligent network that runs on a modern technology stack and has a structurally lower cost to serve.",
+      "evidenceIds": [
+        "evidence_16ccb0f3a7984c6d1dfb"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_002",
+      "state": "source-backed fact",
+      "text": "FedEx says Network 2.0 is transforming its surface network in the U.S. and Canada by modernizing and consolidating sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing its enterprise linehaul network; it says Network 2.0 is fully implemented in Canada and expected to complete U.S. implementation by the end of calendar year 2027.",
+      "evidenceIds": [
+        "evidence_49cdd6f0f4b6dd5f3ef3"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_003",
+      "state": "source-backed fact",
+      "text": "FedEx describes its digital transformation as underpinned by its digital backbone and AI capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows focused on efficiency, differentiation, and new value creation.",
+      "evidenceIds": [
+        "evidence_e6b06390315d2c346286"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_004",
+      "state": "source-backed fact",
+      "text": "FedEx introduced an AI-driven assistant within the FedEx Developer Portal in May 2026 to help developers access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.",
+      "evidenceIds": [
+        "evidence_45b2bd6a55736d897000"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_005",
+      "state": "source-backed fact",
+      "text": "FedEx disclosed leadership changes including Vishal Talwar as Executive Vice President, Chief Digital and Information Officer, and President of FedEx Dataworks since August 2025; Kawal Preet as Executive Vice President, Planning, Engineering, and Transformation since October 2025; and Claude F. Russ as Enterprise Vice President, Finance and Interim Chief Financial Officer and Interim Chief Accounting Officer since June 2026.",
+      "evidenceIds": [
+        "evidence_18c2565f78ccb4bd74d4",
+        "evidence_4c8fa42648327c1c5d7e",
+        "evidence_bd3a9eb41bd7a8e8d028"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_dataworks"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_established_006",
+      "state": "source-backed fact",
+      "text": "FedEx states that in the U.S. it seeks diverse suppliers and strengthens its supply chain by sourcing from small, minority-, and women-owned businesses.",
+      "evidenceIds": [
+        "evidence_11518ec661224f24b5df"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_007",
+      "state": "source-backed fact",
+      "text": "FedEx cautions that there can be no assurance that the Federal Express and legacy FedEx Ground businesses and networks, which historically operated separately and independently, can be fully integrated as planned.",
+      "evidenceIds": [
+        "evidence_5c730cb8a78f02017d97"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_federal_express"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_established_008",
+      "state": "source-backed fact",
+      "text": "FedEx cautions that the actual amount and timing of costs and related cost savings and reductions to its permanent cost structure from initiatives and enhancements may differ from current expectations and estimates.",
+      "evidenceIds": [
+        "evidence_06b36e0f76a7d35999f7"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_established_009",
+      "state": "source-backed fact",
+      "text": "FedEx cautions that rapid evolution and increased sophistication, availability, and use of emerging technologies such as AI and machine learning by FedEx, customers, suppliers, business partners, third-party providers, and bad actors may increase the likelihood of data breaches and operational disruptions.",
+      "evidenceIds": [
+        "evidence_ccb99ea7c9039564be51"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    }
+  ],
+  "meaningfullyChanged": [
+    {
+      "statementId": "stmt_changed_001",
+      "state": "source-backed fact",
+      "text": "Effective June 1, 2026, FedEx changed its fiscal year end from May 31 to December 31.",
+      "evidenceIds": [
+        "evidence_38a4c1f0e117f146f7a3"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_changed_002",
+      "state": "source-backed fact",
+      "text": "FedEx completed the previously announced separation of FedEx Freight Holding Company, Inc. on June 1, 2026 through a distribution of 80.1% of FedEx Freight common stock to FedEx stockholders; as a result, FedEx no longer consolidates FedEx Freight and FedEx Freight is no longer a reportable segment.",
+      "evidenceIds": [
+        "evidence_67c1c585e23b6fa4679e",
+        "evidence_72c5c0218f9baea018cb"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_freight"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_003",
+      "state": "source-backed fact",
+      "text": "Following the FedEx Freight Spin-Off and beginning the first quarter of the Transition Period, FedEx realigned its internal reporting and management structure and identified two new reportable segments: Express U.S. Domestic and Express International.",
+      "evidenceIds": [
+        "evidence_28652f6d60f6c24b1830"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_freight"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_004",
+      "state": "source-backed fact",
+      "text": "On July 1, 2026, FedEx announced that it would sell its FedEx Supply Chain business to CMA CGM Group for $1.4 billion as part of a strategic portfolio streamlining effort, and the transaction was expected to close in the second half of calendar year 2026.",
+      "evidenceIds": [
+        "evidence_8b72a6919e0e14f56820"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_supply_chain"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_changed_005",
+      "state": "source-backed fact",
+      "text": "FedEx stated that by the end of FY25, Network 2.0 had been rolled out to nearly 290 locations across the U.S. and Canada, including completion of the rollout in Canada in May.",
+      "evidenceIds": [
+        "evidence_9acac3f865e40a5f7581"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "stmt_changed_006",
+      "state": "source-backed fact",
+      "text": "FedEx stated that it established a new global technology leadership structure and appointed its first-ever Chief Digital and Information Officer to accelerate its digital strategy and technology transformation.",
+      "evidenceIds": [
+        "evidence_ebbf8b72539e10304f84"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    }
+  ],
+  "whyChangeMayMatter": [
+    {
+      "statementId": "stmt_matter_001",
+      "state": "evidence-informed interpretation",
+      "text": "The Network 2.0 schedule and integration cautions suggest that operational consolidation may remain an active management priority through the expected U.S. completion timeline, but the evidence does not establish any active procurement or vendor selection process.",
+      "evidenceIds": [
+        "evidence_49cdd6f0f4b6dd5f3ef3",
+        "evidence_5c730cb8a78f02017d97"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "unsupported_commercial_assumption"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_002",
+      "state": "evidence-informed interpretation",
+      "text": "The CDIO role, FedEx Dataworks leadership linkage, digital backbone language, and Developer Portal AI assistant indicate a visible enterprise emphasis on digital modernization and AI-enabled workflows, but the evidence does not identify external vendor preference, spend authority, or procurement timing.",
+      "evidenceIds": [
+        "evidence_e6b06390315d2c346286",
+        "evidence_45b2bd6a55736d897000",
+        "evidence_18c2565f78ccb4bd74d4",
+        "evidence_ebbf8b72539e10304f84"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_dataworks"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "unsupported_commercial_assumption"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_003",
+      "state": "evidence-informed interpretation",
+      "text": "The FedEx Freight separation, segment realignment, fiscal-year change, and announced FedEx Supply Chain sale may affect account mapping and comparability of prior-year operating context, so account-intelligence work should keep parent, separated, subsidiary, and portfolio-business boundaries explicit.",
+      "evidenceIds": [
+        "evidence_38a4c1f0e117f146f7a3",
+        "evidence_72c5c0218f9baea018cb",
+        "evidence_28652f6d60f6c24b1830",
+        "evidence_67c1c585e23b6fa4679e",
+        "evidence_8b72a6919e0e14f56820"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_freight",
+        "entity_fedex_supply_chain"
+      ],
+      "riskFlags": [
+        "entity_boundary"
+      ]
+    },
+    {
+      "statementId": "stmt_matter_004",
+      "state": "evidence-informed interpretation",
+      "text": "FedEx's risk language around AI, machine learning, data breaches, and operational disruptions suggests that modernization efforts may carry governance, resilience, and cybersecurity considerations, but the evidence does not specify current buying needs or vendor evaluation.",
+      "evidenceIds": [
+        "evidence_ccb99ea7c9039564be51",
+        "evidence_e6b06390315d2c346286"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "unsupported_commercial_assumption"
+      ]
+    }
+  ],
+  "stillOpenQuestions": [
+    {
+      "statementId": "stmt_open_001",
+      "state": "unresolved question",
+      "text": "What is the current availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference for any spend related to Network 2.0, digital backbone work, AI-enabled workflows, or Developer Portal integration tooling?",
+      "evidenceIds": [
+        "evidence_49cdd6f0f4b6dd5f3ef3",
+        "evidence_e6b06390315d2c346286",
+        "evidence_45b2bd6a55736d897000"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "stmt_open_002",
+      "state": "unresolved question",
+      "text": "Which FedEx organization controls decisions for enterprise digital transformation: the parent company, Federal Express Corporation, FedEx Dataworks, Express U.S. Domestic, Express International, or another function?",
+      "evidenceIds": [
+        "evidence_18c2565f78ccb4bd74d4",
+        "evidence_28652f6d60f6c24b1830"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_federal_express",
+        "entity_fedex_dataworks"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "stmt_open_003",
+      "state": "unresolved question",
+      "text": "Has the announced FedEx Supply Chain sale to CMA CGM Group closed, and if not, which entity controls any technology, integration, or transition decisions for FedEx Supply Chain before closing?",
+      "evidenceIds": [
+        "evidence_8b72a6919e0e14f56820"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_supply_chain"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "stmt_open_004",
+      "state": "unresolved question",
+      "text": "After the FedEx Freight separation, which contacts, systems, facilities, and technology responsibilities remain with FedEx Corporation versus FedEx Freight Holding Company, Inc.?",
+      "evidenceIds": [
+        "evidence_67c1c585e23b6fa4679e",
+        "evidence_72c5c0218f9baea018cb",
+        "evidence_28652f6d60f6c24b1830"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_freight"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "stmt_open_005",
+      "state": "unresolved question",
+      "text": "How do FedEx's diverse-supplier sourcing statements translate into current procurement requirements, vendor onboarding criteria, or category-specific sourcing processes?",
+      "evidenceIds": [
+        "evidence_11518ec661224f24b5df"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "recommendedNextMove": {
+    "statementId": "stmt_next_001",
+    "state": "recommendation",
+    "text": "Prioritize account validation before outreach: map the post-spin entity boundary, identify current decision owners for Network 2.0 and digital transformation, verify whether FedEx Supply Chain remains under FedEx control, and only then ask procurement about availability, remaining amount, eligible uses, procurement status, vendor intent or preference, and supplier onboarding requirements.",
+    "evidenceIds": [
+      "evidence_49cdd6f0f4b6dd5f3ef3",
+      "evidence_67c1c585e23b6fa4679e",
+      "evidence_72c5c0218f9baea018cb",
+      "evidence_8b72a6919e0e14f56820",
+      "evidence_11518ec661224f24b5df"
+    ],
+    "entityIds": [
+      "acc_fedex_corporation",
+      "entity_fedex_freight",
+      "entity_fedex_supply_chain"
+    ],
+    "riskFlags": [
+      "entity_boundary",
+      "insufficient_evidence"
+    ]
+  },
+  "sourceAndEntityBoundaries": [
+    {
+      "entityId": "acc_fedex_corporation",
+      "boundary": "FedEx Corporation is the parent holding company and account under research; statements about the parent should not automatically be applied to subsidiaries, separated companies, or portfolio businesses."
+    },
+    {
+      "entityId": "entity_federal_express",
+      "boundary": "Federal Express Corporation is an integrated air-ground operating subsidiary distinct from the parent; evidence mentions it in the context of integrating Federal Express and legacy FedEx Ground networks."
+    },
+    {
+      "entityId": "entity_fedex_freight",
+      "boundary": "FedEx Freight Holding Company, Inc. was separated on June 1, 2026 and is no longer consolidated by FedEx or reported as a FedEx segment in the admitted evidence."
+    },
+    {
+      "entityId": "entity_fedex_dataworks",
+      "boundary": "FedEx Dataworks is a named digital unit with a distinct operating role; leadership evidence links it to the CDIO, but does not establish that it controls all FedEx digital procurement."
+    },
+    {
+      "entityId": "entity_fedex_supply_chain",
+      "boundary": "FedEx Supply Chain is a portfolio business for which FedEx announced a planned sale expected to close in the second half of calendar year 2026; admitted evidence does not establish that the transaction has closed."
+    }
+  ],
+  "riskConflictFlags": [
+    {
+      "flag": "entity_boundary",
+      "statementIds": [
+        "stmt_established_005",
+        "stmt_established_007",
+        "stmt_changed_002",
+        "stmt_changed_003",
+        "stmt_changed_004",
+        "stmt_matter_002",
+        "stmt_matter_003",
+        "stmt_open_002",
+        "stmt_open_003",
+        "stmt_open_004",
+        "stmt_next_001"
+      ],
+      "needsReview": true,
+      "reason": "Several statements involve related entities whose control, consolidation, or operating roles differ from FedEx Corporation, including a separated FedEx Freight entity, a subsidiary, a digital unit, and a portfolio business with only an announced sale."
+    },
+    {
+      "flag": "unsupported_commercial_assumption",
+      "statementIds": [
+        "stmt_thesis_001",
+        "stmt_matter_001",
+        "stmt_matter_002",
+        "stmt_matter_004"
+      ],
+      "needsReview": true,
+      "reason": "The admitted evidence supports strategic and operational change but does not establish procurement activity, vendor preference, budget availability, buying intent, or commercial urgency."
+    },
+    {
+      "flag": "insufficient_evidence",
+      "statementIds": [
+        "stmt_open_001",
+        "stmt_open_002",
+        "stmt_open_003",
+        "stmt_open_004",
+        "stmt_open_005",
+        "stmt_next_001"
+      ],
+      "needsReview": false,
+      "reason": "Open questions identify areas where the admitted evidence is not sufficient to determine procurement status, decision authority, current control, or supplier process details."
+    }
+  ],
+  "researchCoverage": [
+    {
+      "taxonomy": "identity_structure",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_a77158808bdbab2eb341",
+        "source_3df5e62d8edd76c614ca"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "strategic_direction",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_eb7937a06de6828cbf49"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "financial_context",
+      "sourceIds": [
+        "source_3df5e62d8edd76c614ca"
+      ],
+      "status": "partial",
+      "gap": "Financial evidence is limited to FedEx Freight separation-related cash distribution context and does not establish current budget availability, approved spend, or procurement funding."
+    },
+    {
+      "taxonomy": "digital_modernization",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_eb7937a06de6828cbf49"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "leadership_governance",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_a77158808bdbab2eb341"
+      ],
+      "status": "partial",
+      "gap": "Leadership titles are covered, but decision authority for procurement and technology programs is not established."
+    },
+    {
+      "taxonomy": "procurement",
+      "sourceIds": [
+        "source_d977c3229551121ddf90"
+      ],
+      "status": "partial",
+      "gap": "Only a general diverse-supplier sourcing statement is admitted; no active procurement, sourcing event, category owner, vendor criteria, or buying intent is established."
+    },
+    {
+      "taxonomy": "partnerships_technology",
+      "sourceIds": [
+        "source_d977c3229551121ddf90"
+      ],
+      "status": "partial",
+      "gap": "Technology direction and an AI-driven Developer Portal assistant are covered, but external technology partners, vendors, or preference are not established."
+    },
+    {
+      "taxonomy": "constraints",
+      "sourceIds": [
+        "source_d977c3229551121ddf90"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "recent_changes",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_a77158808bdbab2eb341",
+        "source_3df5e62d8edd76c614ca",
+        "source_eb7937a06de6828cbf49"
+      ],
+      "status": "covered",
+      "gap": null
+    },
+    {
+      "taxonomy": "gaps_contradictions",
+      "sourceIds": [],
+      "status": "gap",
+      "gap": "No direct authoritative conflict is admitted, but gaps remain around post-spin entity control, procurement status, budget availability, and whether the announced FedEx Supply Chain sale has closed."
+    }
+  ],
+  "materialGaps": [
+    "No admitted evidence establishes active procurement, buying intent, vendor preference, approved spend, available budget, or commercial urgency.",
+    "No admitted evidence identifies the current decision authority or controlling entity for Network 2.0, digital backbone, AI-enabled workflows, or Developer Portal integration tooling.",
+    "No admitted evidence establishes whether the announced FedEx Supply Chain sale to CMA CGM Group has closed.",
+    "No admitted evidence maps which systems, facilities, contacts, or responsibilities moved to FedEx Freight versus remained with FedEx Corporation after the spin-off.",
+    "No admitted evidence details FedEx supplier onboarding steps, category ownership, or procurement process beyond a general diverse-supplier sourcing statement."
+  ],
+  "reviewStatus": "needs_review"
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "atliera.c2-model-artifact-lineage",
+  "schemaVersion": "1",
+  "entries": [
+    {
+      "accountId": "acc_university_of_utah",
+      "runId": "c2_b449c700996c906c80dfc7cf",
+      "selectedAttemptId": "utah-attempt-04",
+      "promptSha256": "360aaed18005ecd9b24798649689c8bdf4b769e0bce2286fad6772a804c31013",
+      "rawResponseSha256": "468988bc1127c4ab9d83e0914cb0752b2a948438c1914ba61bcb604ee795951f",
+      "usageReceiptSha256": "83b02f32271df7d659fbe30e5549890ff4fe4b1ab95bd22ed0d4223704aa5c00",
+      "validatedProposalSha256": "8b04e33107657e780ff14e8e51d950884eef0a8ee9c05e0bfcd2a11afee1dd4c",
+      "promptFileSha256": "360aaed18005ecd9b24798649689c8bdf4b769e0bce2286fad6772a804c31013",
+      "privatePromptCommitted": false,
+      "privateRawResponseCommitted": false,
+      "privateArtifactHashesVerified": true
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "runId": "c2_84c9eac0dc45ca68862cecea",
+      "selectedAttemptId": "fedex-attempt-02",
+      "promptSha256": "789dc56a16cc2901c86a1d03ca76fa8ec47ba8a59fb608babe21580c7b81e7e5",
+      "rawResponseSha256": "aa1f37deb9af68062c3ed30a7160b267e7cf76c7f24253730344ac4a40334aa5",
+      "usageReceiptSha256": "a1d242fee86e321770bb28b359303d4d467c789d0dc7ee9f6988939eeb0a4f2e",
+      "validatedProposalSha256": "da64d305f3f07c5c6fbf4fad33c834621a306f4d28e42aa47e5a71a08dcea59c",
+      "promptFileSha256": "789dc56a16cc2901c86a1d03ca76fa8ec47ba8a59fb608babe21580c7b81e7e5",
+      "privatePromptCommitted": false,
+      "privateRawResponseCommitted": false,
+      "privateArtifactHashesVerified": true
+    }
+  ]
+}

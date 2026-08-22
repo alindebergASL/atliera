@@ -8,6 +8,17 @@ import { test } from "node:test";
 const REPO = process.cwd();
 const ROOT = join(REPO, "docs/ux/c1v-production-visual-calibration");
 const ALLOWED_TEST = "tests/safety/c1v-production-visual-calibration.test.ts";
+const SEPARATE_C2_SCOPES = [
+  "docs/ux/c2-governed-account-intelligence-refresh/",
+  "fixtures/account-intelligence/",
+  "src/account-intelligence/",
+  "tests/account-intelligence/",
+  "tests/fixtures/c2-account-intelligence.ts",
+  "tests/safety/c2-account-intelligence-hardcoding.test.ts",
+  "tests/safety/c2-governed-account-intelligence-review-bundle.test.ts",
+  "docs/architecture/agentic-ai-usage-baseline.md",
+  "tests/safety/agentic-ai-usage-baseline-contract.test.ts",
+] as const;
 const DIRECTIONS = ["direction-a", "direction-b"] as const;
 
 function sha256(value: Uint8Array | string): string {
@@ -80,6 +91,7 @@ test("C1V artifacts are isolated, deterministic, interactive, and effect-free", 
   const status = execFileSync("git", ["status", "--porcelain=v1", "-uall"], { cwd: REPO, encoding: "utf8" });
   for (const line of status.split("\n").filter(Boolean)) {
     const path = line.slice(3).split(" -> ").at(-1)!;
+    if (SEPARATE_C2_SCOPES.some((scope) => scope.endsWith("/") ? path.startsWith(scope) : path === scope)) continue;
     assert.ok(path.startsWith("docs/ux/c1v-production-visual-calibration/") || path === ALLOWED_TEST, path);
   }
 

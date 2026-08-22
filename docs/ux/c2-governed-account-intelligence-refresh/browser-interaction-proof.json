@@ -1,0 +1,417 @@
+{
+  "utah-1440x1100.png": {
+    "viewport": {
+      "width": 1440,
+      "height": 1100
+    },
+    "headings": {
+      "thesis": {
+        "top": 181,
+        "bottom": 308,
+        "height": 128
+      },
+      "established": {
+        "top": 417,
+        "bottom": 452,
+        "height": 35
+      },
+      "changed": {
+        "top": 626,
+        "bottom": 661,
+        "height": 35
+      },
+      "open": {
+        "top": 435,
+        "bottom": 468,
+        "height": 33
+      },
+      "next": {
+        "top": 435,
+        "bottom": 501,
+        "height": 66
+      }
+    },
+    "maxHeadlineBottom": 661,
+    "headroom": 439,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "utah-1280x900.png": {
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "headings": {
+      "thesis": {
+        "top": 147,
+        "bottom": 221,
+        "height": 73
+      },
+      "established": {
+        "top": 316,
+        "bottom": 343,
+        "height": 27
+      },
+      "changed": {
+        "top": 496,
+        "bottom": 524,
+        "height": 27
+      },
+      "open": {
+        "top": 334,
+        "bottom": 360,
+        "height": 26
+      },
+      "next": {
+        "top": 334,
+        "bottom": 360,
+        "height": 26
+      }
+    },
+    "maxHeadlineBottom": 524,
+    "headroom": 376,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "utah-768x900.png": {
+    "viewport": {
+      "width": 768,
+      "height": 900
+    },
+    "headings": {
+      "thesis": {
+        "top": 165,
+        "bottom": 259,
+        "height": 93
+      },
+      "established": {
+        "top": 367,
+        "bottom": 393,
+        "height": 26
+      },
+      "changed": {
+        "top": 538,
+        "bottom": 563,
+        "height": 26
+      },
+      "open": {
+        "top": 848,
+        "bottom": 874,
+        "height": 26
+      },
+      "next": {
+        "top": 848,
+        "bottom": 874,
+        "height": 26
+      }
+    },
+    "maxHeadlineBottom": 874,
+    "headroom": 26,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "utah-390x844.png": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "headings": {
+      "thesis": {
+        "top": 169,
+        "bottom": 294,
+        "height": 125
+      },
+      "established": {
+        "top": 377,
+        "bottom": 400,
+        "height": 23
+      },
+      "changed": {
+        "top": 560,
+        "bottom": 583,
+        "height": 23
+      },
+      "open": {
+        "top": 840,
+        "bottom": 863,
+        "height": 23
+      },
+      "next": {
+        "top": 1086,
+        "bottom": 1110,
+        "height": 23
+      }
+    },
+    "maxHeadlineBottom": 1110,
+    "headroom": -266,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "fedex-1440x1100.png": {
+    "viewport": {
+      "width": 1440,
+      "height": 1100
+    },
+    "headings": {
+      "thesis": {
+        "top": 181,
+        "bottom": 340,
+        "height": 159
+      },
+      "established": {
+        "top": 449,
+        "bottom": 484,
+        "height": 35
+      },
+      "changed": {
+        "top": 680,
+        "bottom": 715,
+        "height": 35
+      },
+      "open": {
+        "top": 467,
+        "bottom": 500,
+        "height": 33
+      },
+      "next": {
+        "top": 467,
+        "bottom": 533,
+        "height": 66
+      }
+    },
+    "maxHeadlineBottom": 715,
+    "headroom": 385,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "fedex-390x844.png": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "headings": {
+      "thesis": {
+        "top": 169,
+        "bottom": 314,
+        "height": 146
+      },
+      "established": {
+        "top": 398,
+        "bottom": 421,
+        "height": 23
+      },
+      "changed": {
+        "top": 581,
+        "bottom": 604,
+        "height": 23
+      },
+      "open": {
+        "top": 750,
+        "bottom": 773,
+        "height": 23
+      },
+      "next": {
+        "top": 996,
+        "bottom": 1020,
+        "height": 23
+      }
+    },
+    "maxHeadlineBottom": 1020,
+    "headroom": -176,
+    "evidenceTargets": [
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 53,
+        "height": 44
+      },
+      {
+        "width": 107,
+        "height": 44
+      },
+      {
+        "width": 95,
+        "height": 44
+      }
+    ],
+    "minEvidenceTargetWidth": 53,
+    "minEvidenceTargetHeight": 44,
+    "horizontalOverflow": 0,
+    "darkDecisionPlanes": 1,
+    "primaryActions": [
+      "Review the support"
+    ],
+    "accountBeforeResearch": true
+  },
+  "interaction": {
+    "evidenceTriggerClicks": 1,
+    "dialogOpenAfterTrigger": true,
+    "dialogContainsExactSupport": true,
+    "dialogContainsSourceBoundary": true,
+    "dialogClosedAfterClose": true,
+    "focusReturnedToTrigger": true,
+    "researchDisclosureOpen": true,
+    "interactionNetworkRequests": [],
+    "locationUnchanged": true,
+    "storageBefore": {
+      "local": 0,
+      "session": 0
+    },
+    "storageAfter": {
+      "local": 0,
+      "session": 0
+    },
+    "formsSubmitted": 0,
+    "inactiveWorkshopContrastRatio": 4.94,
+    "darkPlaneFocusContrastRatio": 9.02,
+    "navigationEffects": 0,
+    "providerCallsDuringRender": 0,
+    "productionWrites": 0
+  }
+}

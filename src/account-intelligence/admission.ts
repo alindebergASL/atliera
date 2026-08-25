@@ -17,13 +17,15 @@ import type {
   AccountSourceClass,
   AdmittedAccountSource,
   AdmittedEvidenceExcerpt,
+  AdmittedResearchPolicyReceipt,
   RetrievedSourceInput,
   SearchDiscoveryRecord,
 } from "./contracts.ts";
 import { ACCOUNT_RESEARCH_TAXONOMY } from "./contracts.ts";
+import type { SnapshottedResearchPolicy } from "./research-policy.ts";
 
 const LIMITS: StrictJsonLimits = Object.freeze({
-  max_array_length: 40,
+  max_array_length: 60,
   max_depth: 8,
   max_expanded_json_value_occurrences: 20_000,
   max_nodes: 2_000,
@@ -110,7 +112,7 @@ function snapshotDiscovery(value: StrictJsonValue, plan: AccountResearchPlan, in
   const queryId = safeId(root.queryId, `${path}.queryId`);
   const query = plan.queries.find((item) => item.queryId === queryId);
   const queryKind = string(root.queryKind, `${path}.queryKind`, 40);
-  if (queryKind !== "generated_taxonomy" && queryKind !== "operator_research_lead") {
+  if (queryKind !== "generated_taxonomy" && queryKind !== "operator_research_lead" && queryKind !== "owner_authorized_exact_url") {
     throw new Error(`${path}.queryKind refused`);
   }
   const researchLeadReason = nullableString(root.researchLeadReason, `${path}.researchLeadReason`);
@@ -121,8 +123,8 @@ function snapshotDiscovery(value: StrictJsonValue, plan: AccountResearchPlan, in
   if (queryKind === "generated_taxonomy" && researchLeadReason !== null) {
     throw new Error(`${path} generated query cannot claim an operator lead reason`);
   }
-  if (queryKind === "operator_research_lead" && (query !== undefined || researchLeadReason === null)) {
-    throw new Error(`${path} operator research lead must use a supplemental id and state its reason`);
+  if ((queryKind === "operator_research_lead" || queryKind === "owner_authorized_exact_url") && (query !== undefined || researchLeadReason === null)) {
+    throw new Error(`${path} operator/owner research lead must use a supplemental id and state its reason`);
   }
   if (root.snippetUsedAsEvidence !== false) throw new Error(`${path} search snippets may not become evidence`);
   const resultUrl = nullableHttpsUrl(root.resultUrl, `${path}.resultUrl`);
@@ -168,12 +170,33 @@ function snapshotTaxonomy(value: StrictJsonValue | undefined, path: string): Acc
   return items as AccountResearchTaxonomy[];
 }
 
+function snapshotTaxonomyEvidence(value: StrictJsonValue | undefined, path: string, excerptCount: number, coverage: readonly AccountResearchTaxonomy[]) {
+  const rows = array(value, path, ACCOUNT_RESEARCH_TAXONOMY.length, true).map((item, index) => {
+    const rowPath = `${path}[${String(index)}]`;
+    const row = object(item, rowPath);
+    assertExactKeys(row, ["taxonomy", "candidateExcerptIndexes"], rowPath);
+    const taxonomy = enumValue(row.taxonomy, ACCOUNT_RESEARCH_TAXONOMY, `${rowPath}.taxonomy`);
+    const candidateExcerptIndexes = array(row.candidateExcerptIndexes, `${rowPath}.candidateExcerptIndexes`, 20, true).map((entry, entryIndex) => {
+      if (typeof entry !== "number" || !Number.isInteger(entry) || entry < 0 || entry >= excerptCount) {
+        throw new Error(`${rowPath}.candidateExcerptIndexes[${String(entryIndex)}] refused`);
+      }
+      return entry;
+    });
+    if (new Set(candidateExcerptIndexes).size !== candidateExcerptIndexes.length) throw new Error(`${rowPath}.candidateExcerptIndexes must be unique`);
+    return { taxonomy, candidateExcerptIndexes };
+  });
+  if (new Set(rows.map((row) => row.taxonomy)).size !== rows.length || rows.length !== coverage.length || coverage.some((taxonomy) => !rows.some((row) => row.taxonomy === taxonomy))) {
+    throw new Error(`${path} must bind every declared taxonomy exactly once`);
+  }
+  return rows;
+}
+
 function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSourceInput {
   const path = `retrievedSources[${String(index)}]`;
   const root = object(value, path);
   assertExactKeys(root, ["retrievalId", "discoveredByQueryIds", "entity", "relatedEntities", "canonicalUrl", "title", "publisher",
     "sourceClass", "publicationDate", "eventDate", "retrievedAt", "evidenceCurrentThrough", "retrievalContentKind", "retrievedText",
-    "candidateExcerpts", "taxonomyCoverage", "declaredConflictIds"], path);
+    "candidateExcerpts", "taxonomyCoverage", "taxonomyEvidence", "declaredConflictIds"], path);
   const retrievedText = string(root.retrievedText, `${path}.retrievedText`, 1_048_576);
   if (Buffer.byteLength(retrievedText, "utf8") > 1_048_576) throw new Error(`${path}.retrievedText exceeds byte limit`);
   const candidateExcerpts = stringArray(root.candidateExcerpts, `${path}.candidateExcerpts`, 20, true);
@@ -190,6 +213,8 @@ function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSour
   if (new Set([entity.entityId, ...relatedEntities.map((item) => item.entityId)]).size !== relatedEntities.length + 1) {
     throw new Error(`${path} entity boundaries must be unique`);
   }
+  const taxonomyCoverage = snapshotTaxonomy(root.taxonomyCoverage, `${path}.taxonomyCoverage`);
+  const taxonomyEvidence = snapshotTaxonomyEvidence(root.taxonomyEvidence, `${path}.taxonomyEvidence`, candidateExcerpts.length, taxonomyCoverage);
   return {
     retrievalId: safeId(root.retrievalId, `${path}.retrievalId`),
     discoveredByQueryIds: stringArray(root.discoveredByQueryIds, `${path}.discoveredByQueryIds`, 30, true),
@@ -207,7 +232,8 @@ function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSour
       `${path}.retrievalContentKind`),
     retrievedText,
     candidateExcerpts,
-    taxonomyCoverage: snapshotTaxonomy(root.taxonomyCoverage, `${path}.taxonomyCoverage`),
+    taxonomyCoverage,
+    taxonomyEvidence,
     declaredConflictIds: stringArray(root.declaredConflictIds, `${path}.declaredConflictIds`, 20),
   };
 }
@@ -215,17 +241,23 @@ function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSour
 export interface AdmittedAccountResearch {
   readonly discoveries: readonly SearchDiscoveryRecord[];
   readonly sources: readonly AdmittedAccountSource[];
+  readonly policyReceipt: Readonly<AdmittedResearchPolicyReceipt>;
 }
 
 export function admitAccountResearch(
   request: Readonly<AccountResearchRequest>,
   plan: Readonly<AccountResearchPlan>,
+  policySnapshot: Readonly<SnapshottedResearchPolicy>,
   discoveriesInput: unknown,
   retrievedSourcesInput: unknown,
 ): Readonly<AdmittedAccountResearch> {
   if (request.accountId !== plan.accountId) throw new Error("request and plan account mismatch");
+  const policy = policySnapshot.policy;
+  if (policy.accountId !== request.accountId || policy.primaryAccountEntity.name !== request.accountName) {
+    throw new Error("research policy account identity mismatch");
+  }
   const discoveriesSnapshot = snapshotStrictJson(discoveriesInput, "discoveries", LIMITS);
-  const discoveries = array(discoveriesSnapshot, "discoveries", 30)
+  const discoveries = array(discoveriesSnapshot, "discoveries", 50)
     .map((item, index) => snapshotDiscovery(item, plan, index));
   const retrievedSnapshot = snapshotStrictJson(retrievedSourcesInput, "retrievedSources", LIMITS);
   const retrieved = array(retrievedSnapshot, "retrievedSources", plan.admittedSourceLimit, true)
@@ -233,13 +265,13 @@ export function admitAccountResearch(
   if (new Set(retrieved.map((item) => item.retrievalId)).size !== retrieved.length) {
     throw new Error("retrieval ids must be unique");
   }
-  const trustedEntityIds = new Set<string>([request.admittedContext.primaryAccountEntityId, ...request.admittedContext.trustedOfficialHosts.flatMap((rule) => rule.entityIds)]);
+  const trustedEntityIds = new Set<string>([policy.primaryAccountEntity.entityId, ...policy.trustedOfficialHosts.flatMap((rule) => rule.entityIds)]);
   const entityDefinitions = new Map<string, string>();
   for (const source of retrieved) {
     for (const entity of [source.entity, ...source.relatedEntities]) {
       if (!trustedEntityIds.has(entity.entityId)) throw new Error("source entity is not admitted by trusted account context");
       if (entity.kind === "account" &&
-          (entity.entityId !== request.admittedContext.primaryAccountEntityId || entity.name !== request.accountName)) {
+          (entity.entityId !== policy.primaryAccountEntity.entityId || entity.name !== request.accountName)) {
         throw new Error("primary account entity identity mismatch");
       }
       const definition = JSON.stringify([entity.name, entity.kind, entity.relationshipToAccount]);
@@ -249,7 +281,7 @@ export function admitAccountResearch(
     }
     if (source.sourceClass === "official_primary") {
       const hostname = new URL(source.canonicalUrl).hostname.toLowerCase();
-      const allowed = request.admittedContext.trustedOfficialHosts.some((rule) =>
+      const allowed = policy.trustedOfficialHosts.some((rule) =>
         (hostname === rule.hostname || (rule.allowSubdomains && hostname.endsWith(`.${rule.hostname}`))) &&
         rule.entityIds.includes(source.entity.entityId));
       if (!allowed) throw new Error("official primary source host/entity policy refused");
@@ -298,10 +330,14 @@ export function admitAccountResearch(
       retrievedByteSize: Buffer.byteLength(source.retrievedText, "utf8"),
       untrustedInstructionsDetected: INSTRUCTION_PATTERN.test(source.retrievedText),
       taxonomyCoverage: source.taxonomyCoverage,
+      taxonomyEvidenceBindings: source.taxonomyEvidence.map((row) => ({
+        taxonomy: row.taxonomy,
+        evidenceIds: row.candidateExcerptIndexes.map((index) => excerpts[index]!.evidenceId),
+      })),
       declaredConflictIds: source.declaredConflictIds,
       discoveredByQueryIds: source.discoveredByQueryIds,
       excerpts,
     };
   });
-  return deepFreezeOwnData({ discoveries, sources });
+  return deepFreezeOwnData({ discoveries, sources, policyReceipt: policySnapshot.receipt });
 }

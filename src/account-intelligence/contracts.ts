@@ -35,8 +35,6 @@ export interface AccountResearchRequest {
     readonly sector: string | null;
     readonly geography: string | null;
     readonly notes: readonly string[];
-    readonly primaryAccountEntityId: string;
-    readonly trustedOfficialHosts: readonly TrustedOfficialHost[];
   };
   readonly requestedAt: string;
 }
@@ -61,7 +59,7 @@ export interface AccountResearchPlan {
 
 export interface SearchDiscoveryRecord {
   readonly queryId: string;
-  readonly queryKind: "generated_taxonomy" | "operator_research_lead";
+  readonly queryKind: "generated_taxonomy" | "operator_research_lead" | "owner_authorized_exact_url";
   readonly researchLeadReason: string | null;
   readonly exactQuery: string;
   readonly resultUrl: string | null;
@@ -89,6 +87,29 @@ export interface AccountEntityBoundary {
   readonly relationshipToAccount: string;
 }
 
+export interface AdmittedResearchPolicy {
+  readonly kind: "atliera.admitted-account-research-policy";
+  readonly schemaVersion: "1";
+  readonly policyId: string;
+  readonly accountId: string;
+  readonly primaryAccountEntity: AccountEntityBoundary;
+  readonly trustedOfficialHosts: readonly TrustedOfficialHost[];
+  readonly authorizedAt: string;
+  readonly scope: "local_test_only";
+  readonly authorizesPersistence: false;
+  readonly authorizesPrivateSources: false;
+}
+
+export interface AdmittedResearchPolicyReceipt {
+  readonly policyId: string;
+  readonly accountId: string;
+  readonly policySha256: string;
+  readonly authorizedAt: string;
+  readonly scope: "local_test_only";
+  readonly authorizesPersistence: false;
+  readonly authorizesPrivateSources: false;
+}
+
 export type AccountSourceClass = "official_primary" | "reputable_secondary";
 
 export interface RetrievedSourceInput {
@@ -108,6 +129,10 @@ export interface RetrievedSourceInput {
   readonly retrievedText: string;
   readonly candidateExcerpts: readonly string[];
   readonly taxonomyCoverage: readonly AccountResearchTaxonomy[];
+  readonly taxonomyEvidence: readonly {
+    readonly taxonomy: AccountResearchTaxonomy;
+    readonly candidateExcerptIndexes: readonly number[];
+  }[];
   readonly declaredConflictIds: readonly string[];
 }
 
@@ -139,6 +164,10 @@ export interface AdmittedAccountSource {
   readonly retrievedByteSize: number;
   readonly untrustedInstructionsDetected: boolean;
   readonly taxonomyCoverage: readonly AccountResearchTaxonomy[];
+  readonly taxonomyEvidenceBindings: readonly {
+    readonly taxonomy: AccountResearchTaxonomy;
+    readonly evidenceIds: readonly string[];
+  }[];
   readonly declaredConflictIds: readonly string[];
   readonly discoveredByQueryIds: readonly string[];
   readonly excerpts: readonly AdmittedEvidenceExcerpt[];
@@ -146,6 +175,7 @@ export interface AdmittedAccountSource {
 
 export type IntelligenceStatementState =
   | "source-backed fact"
+  | "evidence-linked proposed claim"
   | "evidence-informed interpretation"
   | "unresolved question"
   | "recommendation";
@@ -230,6 +260,7 @@ export interface ValidatedAccountIntelligence {
   readonly plan: AccountResearchPlan;
   readonly discoveries: readonly SearchDiscoveryRecord[];
   readonly admittedSources: readonly AdmittedAccountSource[];
+  readonly researchPolicyReceipt: AdmittedResearchPolicyReceipt;
   readonly proposal: AccountIntelligenceProposal;
   readonly effectReceipt: AccountIntelligenceEffectReceipt;
 }

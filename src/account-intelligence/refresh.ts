@@ -8,9 +8,11 @@ import type {
 } from "./contracts.ts";
 import { AccountIntelligenceProviderBoundary } from "./provider.ts";
 import { createAccountResearchPlan, snapshotAccountResearchRequest } from "./research-plan.ts";
+import { snapshotAdmittedResearchPolicy } from "./research-policy.ts";
 
 export interface AccountIntelligenceRefreshInput {
   readonly request: unknown;
+  readonly researchPolicy: unknown;
   readonly discoveries: readonly SearchDiscoveryRecord[];
   readonly retrievedSources: readonly RetrievedSourceInput[];
   readonly providerBoundary: AccountIntelligenceProviderBoundary;
@@ -26,8 +28,9 @@ export async function executeAccountIntelligenceRefresh(
 ): Promise<Readonly<ValidatedAccountIntelligence>> {
   const request = snapshotAccountResearchRequest(input.request);
   const plan = createAccountResearchPlan(request);
-  const admitted = admitAccountResearch(request, plan, input.discoveries, input.retrievedSources);
-  const exactSearchQueries = [...new Set(admitted.discoveries.map((item) => item.exactQuery))];
+  const researchPolicy = snapshotAdmittedResearchPolicy(input.researchPolicy);
+  const admitted = admitAccountResearch(request, plan, researchPolicy, input.discoveries, input.retrievedSources);
+  const exactSearchQueries = [...new Set(admitted.discoveries.filter((item) => item.queryKind !== "owner_authorized_exact_url").map((item) => item.exactQuery))];
   if (exactSearchQueries.length === 0 || exactSearchQueries.length > plan.queryLimit) {
     throw new Error("account research query budget refused");
   }
@@ -64,6 +67,7 @@ export async function executeAccountIntelligenceRefresh(
     plan,
     discoveries: admitted.discoveries,
     admittedSources: admitted.sources,
+    researchPolicyReceipt: admitted.policyReceipt,
     proposal: providerResult.proposal,
     effectReceipt: receipt,
   });

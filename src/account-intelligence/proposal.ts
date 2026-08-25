@@ -33,7 +33,7 @@ const LIMITS: StrictJsonLimits = Object.freeze({
 });
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/u;
 const STATES: readonly IntelligenceStatementState[] = ["source-backed fact", "evidence-informed interpretation",
-  "unresolved question", "recommendation"];
+  "evidence-linked proposed claim", "unresolved question", "recommendation"];
 const FLAGS: readonly IntelligenceRiskFlag[] = ["entity_boundary", "funding_status_ambiguity", "authoritative_conflict",
   "stale_evidence", "secondary_support", "unsupported_commercial_assumption", "insufficient_evidence"];
 const FORBIDDEN_COMMERCIAL = /\b(?:available budget|approved spend|funding secured|funded execution|remaining spend|active procurement|buying intent|sales opportunity|deal size|commercial urgency|vendor preference)\b/giu;
@@ -139,7 +139,7 @@ function evidenceIndex(sources: readonly AdmittedAccountSource[]): Map<string, E
 }
 
 function enforceQualifierRetention(statement: IntelligenceStatement, evidence: readonly EvidenceIndexEntry[]): void {
-  if (statement.state !== "source-backed fact") return;
+  if (statement.state !== "source-backed fact" && statement.state !== "evidence-linked proposed claim") return;
   const support = evidence.map((item) => item.excerpt.exactExcerpt).join(" ");
   if (!FUNDING_CONTEXT.test(`${support} ${statement.text}`)) return;
   let qualifiedFundingObserved = false;
@@ -188,6 +188,14 @@ function snapshotStatement(
     if (entry.source.untrustedInstructionsDetected) throw new Error(`${path} cites a source carrying hostile instructions`);
     return entry;
   });
+  if (statement.state === "source-backed fact") {
+    if (support.length !== 1) throw new Error(`${path} source-backed fact requires exactly one exact excerpt`);
+    const exact = support[0]!.excerpt.exactExcerpt;
+    const attributed = `${support[0]!.source.publisher}: “${exact}”`;
+    if (statement.text !== exact && statement.text !== attributed) {
+      throw new Error(`${path} model paraphrase must remain an evidence-linked proposed claim`);
+    }
+  }
   const supportEntities = new Set(support.map((item) => item.excerpt.entityId));
   if (supportEntities.size > 1 && !statement.riskFlags.includes("entity_boundary")) {
     throw new Error(`${path} must flag multi-entity support`);
@@ -215,7 +223,7 @@ function snapshotStatement(
 function snapshotStatementArray(
   value: StrictJsonValue | undefined,
   path: string,
-  state: IntelligenceStatementState,
+  state: IntelligenceStatementState | readonly IntelligenceStatementState[],
   evidence: Map<string, EvidenceIndexEntry>,
   entities: Set<string>,
 ): IntelligenceStatement[] {
@@ -234,8 +242,8 @@ function snapshotCoverage(value: StrictJsonValue | undefined, sources: readonly 
     const status = enumValue(root.status, ["covered", "partial", "gap"] as const, `${path}.status`);
     const gap = nullableString(root.gap, `${path}.gap`);
     if (ids.some((id) => !sourceIds.has(id))) throw new Error(`${path} cites unknown source`);
-    if (ids.some((id) => !sources.find((source) => source.sourceId === id)!.taxonomyCoverage.includes(taxonomy))) {
-      throw new Error(`${path} source does not cover the declared taxonomy`);
+    if (ids.some((id) => !sources.find((source) => source.sourceId === id)!.taxonomyEvidenceBindings.some((binding) => binding.taxonomy === taxonomy && binding.evidenceIds.length > 0))) {
+      throw new Error(`${path} source has no exact evidence binding for the declared taxonomy`);
     }
     if ((status === "covered" && ids.length === 0) || (status === "gap" && (ids.length !== 0 || gap === null)) ||
         (status !== "gap" && ids.length === 0)) throw new Error(`${path} status does not match its support`);
@@ -265,9 +273,9 @@ export function snapshotAccountIntelligenceProposal(
   const accountThesis = snapshotStatement(root.accountThesis, "proposal.accountThesis",
     ["source-backed fact", "evidence-informed interpretation"], evidence, entities);
   const establishedContext = snapshotStatementArray(root.establishedContext, "proposal.establishedContext",
-    "source-backed fact", evidence, entities);
+    ["source-backed fact", "evidence-linked proposed claim"], evidence, entities);
   const meaningfullyChanged = snapshotStatementArray(root.meaningfullyChanged, "proposal.meaningfullyChanged",
-    "source-backed fact", evidence, entities);
+    ["source-backed fact", "evidence-linked proposed claim"], evidence, entities);
   const whyChangeMayMatter = snapshotStatementArray(root.whyChangeMayMatter, "proposal.whyChangeMayMatter",
     "evidence-informed interpretation", evidence, entities);
   const stillOpenQuestions = snapshotStatementArray(root.stillOpenQuestions, "proposal.stillOpenQuestions",
@@ -396,6 +404,7 @@ export function createAccountIntelligencePrompt(
     retrievalContentKind: source.retrievalContentKind,
     untrustedInstructionsDetected: source.untrustedInstructionsDetected,
     taxonomyCoverage: source.taxonomyCoverage,
+    taxonomyEvidenceBindings: source.taxonomyEvidenceBindings,
     declaredConflictIds: source.declaredConflictIds,
     excerpts: source.excerpts.map((excerpt) => ({
       evidenceId: excerpt.evidenceId,
@@ -413,7 +422,7 @@ export function createAccountIntelligencePrompt(
       "Never assert that this proposal, any statement, or any source is approved, validated, ratified, persisted, durable, published, or authorized.",
     ],
     grammar: ["Established", "Meaningfully changed", "Still open", "Recommended next move"],
-    states: ["source-backed fact", "evidence-informed interpretation", "unresolved question", "recommendation"],
+    states: ["source-backed fact", "evidence-linked proposed claim", "evidence-informed interpretation", "unresolved question", "recommendation"],
     allowedRiskFlags: FLAGS,
     semanticSafety: [
       "Preserve qualifiers including redirected, proposed, planned, up to, multi-year, subject to approval, grant-funded, restricted, matching, contingent, and already encumbered.",
@@ -421,7 +430,7 @@ export function createAccountIntelligencePrompt(
       "Every qualified funding fact must carry funding_status_ambiguity even when the amount is exact or the source is authoritative.",
       "When qualified funding appears, Still open must explicitly ask about availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference.",
       "Keep related entities separate. Multi-entity support must carry entity_boundary.",
-      "Facts require exact admitted evidence. Interpretations must be labeled. Questions remain questions. The next move remains a recommendation.",
+      "Use source-backed fact only when text is one supplied exactExcerpt verbatim or Publisher: “exactExcerpt”. Use evidence-linked proposed claim for every model paraphrase or synthesized factual statement. Interpretations remain interpretations. Questions remain questions. The next move remains a recommendation.",
       "Use needs_review only for consequential conflict, entity, funding-status, unsupported-commercial, or stale-evidence exceptions.",
     ],
     exactOutputShape: {
@@ -429,8 +438,8 @@ export function createAccountIntelligencePrompt(
       schemaVersion: ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION,
       accountId: request.accountId,
       accountThesis: "Statement",
-      establishedContext: ["Statement(state=source-backed fact)"],
-      meaningfullyChanged: ["Statement(state=source-backed fact)"],
+      establishedContext: ["Statement(state=source-backed fact OR evidence-linked proposed claim)"],
+      meaningfullyChanged: ["Statement(state=source-backed fact OR evidence-linked proposed claim)"],
       whyChangeMayMatter: ["Statement(state=evidence-informed interpretation)"],
       stillOpenQuestions: ["Statement(state=unresolved question)"],
       recommendedNextMove: "Statement(state=recommendation)",

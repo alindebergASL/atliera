@@ -4,12 +4,13 @@ import test from "node:test";
 import { admitAccountResearch } from "../../src/account-intelligence/admission.ts";
 import { createAccountIntelligencePrompt, snapshotAccountIntelligenceProposal } from "../../src/account-intelligence/proposal.ts";
 import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
+import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
 import type { AccountIntelligenceProposal } from "../../src/account-intelligence/contracts.ts";
 import { makeC2FixtureInput, proposalFromModelPrompt } from "../fixtures/c2-account-intelligence.ts";
 
 function context(input = makeC2FixtureInput()) {
   const plan = createAccountResearchPlan(input.request);
-  const admitted = admitAccountResearch(input.request, plan, input.discoveries, input.retrievedSources);
+  const admitted = admitAccountResearch(input.request, plan, snapshotAdmittedResearchPolicy(input.researchPolicy), input.discoveries, input.retrievedSources);
   const prompt = createAccountIntelligencePrompt(input.request, plan, admitted.sources);
   return { input, plan, admitted, prompt };
 }
@@ -24,6 +25,22 @@ test("typed model proposal passes only after deterministic schema, evidence, ent
   assert.equal(proposal.meaningfullyChanged[0]!.state, "source-backed fact");
   assert.deepEqual(proposal.meaningfullyChanged[0]!.riskFlags, ["funding_status_ambiguity"]);
   assert.ok(Object.isFrozen(proposal));
+});
+
+test("source-backed fact requires exact wording while model paraphrase remains evidence-linked proposed", () => {
+  const c = context();
+  for (const text of [
+    "Harbor Transit acquired an unrelated pharmaceutical company in Europe.",
+    "Harbor Transit did not publish an official record.",
+  ]) {
+    const exact = mutableProposal(c.prompt);
+    ((exact.establishedContext[0] as unknown) as { text: string }).text = text;
+    assert.throws(() => snapshotAccountIntelligenceProposal(exact, c.input.request, c.admitted.sources), /model paraphrase must remain an evidence-linked proposed claim/u);
+    const proposed = mutableProposal(c.prompt);
+    ((proposed.establishedContext[0] as unknown) as { text: string; state: string }).text = text;
+    ((proposed.establishedContext[0] as unknown) as { state: string }).state = "evidence-linked proposed claim";
+    assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(proposed, c.input.request, c.admitted.sources));
+  }
 });
 
 test("funding qualifiers may not be silently upgraded or dropped", () => {
@@ -49,6 +66,7 @@ test("funding qualifiers may not be silently upgraded or dropped", () => {
     const input = makeC2FixtureInput({ retrievedText: `${established}\n${changed}`, candidateExcerpts: [established, changed] });
     const c = context(input);
     const proposal = mutableProposal(c.prompt);
+    ((proposal.meaningfullyChanged[0] as unknown) as { state: string }).state = "evidence-linked proposed claim";
     ((proposal.meaningfullyChanged[0] as unknown) as { text: string }).text = `Harbor Transit described ${unsafePhrase}`;
     assert.throws(() => snapshotAccountIntelligenceProposal(proposal, input.request, c.admitted.sources),
       new RegExp(`drops funding qualifier: ${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`, "u"));
@@ -59,6 +77,7 @@ test("qualified funding facts always require funding_status_ambiguity despite ex
   const c = context();
   for (const mode of ["exact amount", "authoritative source", "cautious prose", "general caveat elsewhere"] as const) {
     const proposal = mutableProposal(c.prompt);
+    ((proposal.meaningfullyChanged[0] as unknown) as { state: string }).state = "evidence-linked proposed claim";
     ((proposal.meaningfullyChanged[0] as unknown) as { riskFlags: string[] }).riskFlags = [];
     if (mode === "cautious prose") {
       ((proposal.meaningfullyChanged[0] as unknown) as { text: string }).text =
@@ -159,12 +178,16 @@ test("declared official-source amendment conflict must route to Needs review", (
   const retrieved = [...input.retrievedSources, {
     ...input.retrievedSources[0]!, retrievalId: "retrieval-amendment", canonicalUrl: secondUrl,
     title: "Harbor Transit official amendment", retrievedText: amendmentText,
-    candidateExcerpts: [amendmentText], declaredConflictIds: ["funding-frame-01"],
+    candidateExcerpts: [amendmentText],
+    taxonomyCoverage: ["recent_changes" as const],
+    taxonomyEvidence: [{ taxonomy: "recent_changes" as const, candidateExcerptIndexes: [0] }],
+    declaredConflictIds: ["funding-frame-01"],
   }];
-  const admitted = admitAccountResearch(input.request, plan, discoveries, retrieved);
+  const admitted = admitAccountResearch(input.request, plan, snapshotAdmittedResearchPolicy(input.researchPolicy), discoveries, retrieved);
   const prompt = createAccountIntelligencePrompt(input.request, plan, admitted.sources);
   const parsed = JSON.parse(prompt) as { sourceData: Array<{ excerpts: Array<{ evidenceId: string }> }> };
   const proposal = mutableProposal(prompt);
+  ((proposal.meaningfullyChanged[0] as unknown) as { state: string }).state = "evidence-linked proposed claim";
   ((proposal.meaningfullyChanged[0] as unknown) as { evidenceIds: string[] }).evidenceIds.push(parsed.sourceData[1]!.excerpts[0]!.evidenceId);
   assert.throws(() => snapshotAccountIntelligenceProposal(proposal, input.request, admitted.sources), /flag declared authoritative source conflict/u);
   ((proposal.meaningfullyChanged[0] as unknown) as { riskFlags: string[] }).riskFlags.push("authoritative_conflict");

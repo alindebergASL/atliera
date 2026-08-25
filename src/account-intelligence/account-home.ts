@@ -76,15 +76,20 @@ function evidenceLookup(data: Readonly<ValidatedAccountIntelligence>): Map<strin
   return map;
 }
 function stateLabel(statement: IntelligenceStatement): string {
-  if (statement.state === "source-backed fact") return "Source-backed fact";
+  if (statement.state === "source-backed fact") return "Exact source wording";
+  if (statement.state === "evidence-linked proposed claim") return "Evidence-linked · Proposed";
   if (statement.state === "evidence-informed interpretation") return "Evidence-informed interpretation";
   if (statement.state === "unresolved question") return "Unresolved question";
   return "Recommended action · proposed";
 }
 function supportBoundary(statement: IntelligenceStatement): { supports: string; doesNot: string } {
   if (statement.state === "source-backed fact") return {
-    supports: "The admitted exact excerpts support this attributed statement with the qualifiers shown.",
-    doesNot: "They do not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless those facts are stated explicitly.",
+    supports: "This statement preserves one admitted exact excerpt or deterministic source attribution.",
+    doesNot: "It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.",
+  };
+  if (statement.state === "evidence-linked proposed claim") return {
+    supports: "The cited admitted excerpts are linked context for this proposed claim.",
+    doesNot: "Deterministic validation does not prove that the model paraphrase is semantically entailed; it remains proposed until reviewed.",
   };
   if (statement.state === "evidence-informed interpretation") return {
     supports: "The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.",

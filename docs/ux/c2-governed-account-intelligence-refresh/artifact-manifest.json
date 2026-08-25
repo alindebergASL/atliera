@@ -179,8 +179,8 @@
     },
     {
       "path": "fixtures/account-intelligence/c2-01/retained-research-input.json",
-      "bytes": 55348,
-      "sha256": "816d58fc4948f9b66ec636e8897fcfe844b29b04a52d6dcbe41813cd0e73b8fe"
+      "bytes": 65940,
+      "sha256": "725021732193cc2fa77e33536f28bcd5d8b73ea9a4b758ed31460c7305e2af71"
     }
   ]
 }

@@ -8,12 +8,13 @@ import {
   snapshotAccountIntelligenceProposal,
 } from "../../src/account-intelligence/proposal.ts";
 import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
+import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
 import { makeC2FixtureInput, proposalFromModelPrompt } from "../fixtures/c2-account-intelligence.ts";
 
 function context() {
   const input = makeC2FixtureInput();
   const plan = createAccountResearchPlan(input.request);
-  const admitted = admitAccountResearch(input.request, plan, input.discoveries, input.retrievedSources);
+  const admitted = admitAccountResearch(input.request, plan, snapshotAdmittedResearchPolicy(input.researchPolicy), input.discoveries, input.retrievedSources);
   const prompt = createAccountIntelligencePrompt(input.request, plan, admitted.sources);
   const proposal = proposalFromModelPrompt(prompt);
   return { input, admitted, proposal };

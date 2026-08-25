@@ -19,39 +19,54 @@
           "geography": "Utah, United States",
           "notes": [
             "Owner lead is discovery context only and is not evidence."
-          ],
-          "primaryAccountEntityId": "acc_university_of_utah",
-          "trustedOfficialHosts": [
-            {
-              "hostname": "attheu.utah.edu",
-              "allowSubdomains": false,
-              "entityIds": [
-                "acc_university_of_utah"
-              ]
-            },
-            {
-              "hostname": "public.onboardmeetings.com",
-              "allowSubdomains": false,
-              "entityIds": [
-                "acc_university_of_utah",
-                "entity_university_of_utah_health",
-                "entity_utah_system_higher_education",
-                "entity_state_of_utah"
-              ]
-            },
-            {
-              "hostname": "ushe.edu",
-              "allowSubdomains": false,
-              "entityIds": [
-                "acc_university_of_utah",
-                "entity_university_of_utah_health",
-                "entity_utah_system_higher_education",
-                "entity_state_of_utah"
-              ]
-            }
           ]
         },
         "requestedAt": "2026-08-21T17:00:00.000Z"
+      },
+      "researchPolicy": {
+        "kind": "atliera.admitted-account-research-policy",
+        "schemaVersion": "1",
+        "policyId": "policy-utah-c2-broad",
+        "accountId": "acc_university_of_utah",
+        "primaryAccountEntity": {
+          "entityId": "acc_university_of_utah",
+          "name": "University of Utah",
+          "kind": "account",
+          "relationshipToAccount": "Primary account entity."
+        },
+        "trustedOfficialHosts": [
+          {
+            "hostname": "attheu.utah.edu",
+            "allowSubdomains": false,
+            "entityIds": [
+              "acc_university_of_utah"
+            ]
+          },
+          {
+            "hostname": "public.onboardmeetings.com",
+            "allowSubdomains": false,
+            "entityIds": [
+              "acc_university_of_utah",
+              "entity_university_of_utah_health",
+              "entity_utah_system_higher_education",
+              "entity_state_of_utah"
+            ]
+          },
+          {
+            "hostname": "ushe.edu",
+            "allowSubdomains": false,
+            "entityIds": [
+              "acc_university_of_utah",
+              "entity_university_of_utah_health",
+              "entity_utah_system_higher_education",
+              "entity_state_of_utah"
+            ]
+          }
+        ],
+        "authorizedAt": "2026-08-21T16:30:00.000Z",
+        "scope": "local_test_only",
+        "authorizesPersistence": false,
+        "authorizesPrivateSources": false
       },
       "discoveries": [
         {
@@ -320,6 +335,56 @@
             "recent_changes",
             "gaps_contradictions"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "identity_structure",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "strategic_direction",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "digital_modernization",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "gaps_contradictions",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            }
+          ],
           "declaredConflictIds": []
         },
         {
@@ -372,6 +437,63 @@
             "recent_changes",
             "gaps_contradictions"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "taxonomy": "digital_modernization",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "taxonomy": "constraints",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            },
+            {
+              "taxonomy": "gaps_contradictions",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ]
+            }
+          ],
           "declaredConflictIds": []
         },
         {
@@ -417,6 +539,29 @@
             "identity_structure",
             "leadership_governance",
             "recent_changes"
+          ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "identity_structure",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "taxonomy": "leadership_governance",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            }
           ],
           "declaredConflictIds": []
         },
@@ -468,6 +613,53 @@
             "recent_changes",
             "gaps_contradictions"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "taxonomy": "leadership_governance",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "taxonomy": "constraints",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "taxonomy": "gaps_contradictions",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3
+              ]
+            }
+          ],
           "declaredConflictIds": []
         },
         {
@@ -517,6 +709,38 @@
             "financial_context",
             "constraints"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "strategic_direction",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4
+              ]
+            },
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4
+              ]
+            },
+            {
+              "taxonomy": "constraints",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4
+              ]
+            }
+          ],
           "declaredConflictIds": []
         }
       ]
@@ -540,34 +764,49 @@
           "geography": "global; headquartered in Memphis, Tennessee",
           "notes": [
             "Repository-safe second account for the generic pipeline gate."
-          ],
-          "primaryAccountEntityId": "acc_fedex_corporation",
-          "trustedOfficialHosts": [
-            {
-              "hostname": "www.sec.gov",
-              "allowSubdomains": false,
-              "entityIds": [
-                "acc_fedex_corporation",
-                "entity_federal_express",
-                "entity_fedex_freight",
-                "entity_fedex_dataworks",
-                "entity_fedex_supply_chain"
-              ]
-            },
-            {
-              "hostname": "investors.fedex.com",
-              "allowSubdomains": false,
-              "entityIds": [
-                "acc_fedex_corporation",
-                "entity_federal_express",
-                "entity_fedex_freight",
-                "entity_fedex_dataworks",
-                "entity_fedex_supply_chain"
-              ]
-            }
           ]
         },
         "requestedAt": "2026-08-21T17:00:00.000Z"
+      },
+      "researchPolicy": {
+        "kind": "atliera.admitted-account-research-policy",
+        "schemaVersion": "1",
+        "policyId": "policy-fedex-c2-broad",
+        "accountId": "acc_fedex_corp",
+        "primaryAccountEntity": {
+          "entityId": "acc_fedex_corporation",
+          "name": "FedEx Corporation",
+          "kind": "account",
+          "relationshipToAccount": "Primary account entity."
+        },
+        "trustedOfficialHosts": [
+          {
+            "hostname": "www.sec.gov",
+            "allowSubdomains": false,
+            "entityIds": [
+              "acc_fedex_corporation",
+              "entity_federal_express",
+              "entity_fedex_freight",
+              "entity_fedex_dataworks",
+              "entity_fedex_supply_chain"
+            ]
+          },
+          {
+            "hostname": "investors.fedex.com",
+            "allowSubdomains": false,
+            "entityIds": [
+              "acc_fedex_corporation",
+              "entity_federal_express",
+              "entity_fedex_freight",
+              "entity_fedex_dataworks",
+              "entity_fedex_supply_chain"
+            ]
+          }
+        ],
+        "authorizedAt": "2026-08-21T16:30:00.000Z",
+        "scope": "local_test_only",
+        "authorizesPersistence": false,
+        "authorizesPrivateSources": false
       },
       "discoveries": [
         {
@@ -788,6 +1027,144 @@
             "constraints",
             "recent_changes"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "identity_structure",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "strategic_direction",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "digital_modernization",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "leadership_governance",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "procurement",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "partnerships_technology",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "constraints",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            }
+          ],
           "declaredConflictIds": []
         },
         {
@@ -835,6 +1212,32 @@
             "leadership_governance",
             "recent_changes"
           ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "identity_structure",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "leadership_governance",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            }
+          ],
           "declaredConflictIds": []
         },
         {
@@ -874,6 +1277,29 @@
             "identity_structure",
             "financial_context",
             "recent_changes"
+          ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "identity_structure",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1
+              ]
+            }
           ],
           "declaredConflictIds": []
         },
@@ -921,6 +1347,32 @@
             "strategic_direction",
             "digital_modernization",
             "recent_changes"
+          ],
+          "taxonomyEvidence": [
+            {
+              "taxonomy": "strategic_direction",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "digital_modernization",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            },
+            {
+              "taxonomy": "recent_changes",
+              "candidateExcerptIndexes": [
+                0,
+                1,
+                2
+              ]
+            }
           ],
           "declaredConflictIds": []
         }

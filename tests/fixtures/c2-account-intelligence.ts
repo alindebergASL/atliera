@@ -10,6 +10,7 @@ import { createAccountResearchPlan } from "../../src/account-intelligence/resear
 
 export interface C2FixtureInput {
   readonly request: AccountResearchRequest;
+  readonly researchPolicy: unknown;
   readonly discoveries: SearchDiscoveryRecord[];
   readonly retrievedSources: RetrievedSourceInput[];
 }
@@ -38,8 +39,6 @@ export function makeC2FixtureInput(options: {
       sector: "transportation",
       geography: "North America",
       notes: [],
-      primaryAccountEntityId: accountId,
-      trustedOfficialHosts: [{ hostname: domain, allowSubdomains: false, entityIds: [accountId] }],
     },
     requestedAt: "2026-08-21T12:00:00.000Z",
   };
@@ -51,6 +50,14 @@ export function makeC2FixtureInput(options: {
   const canonicalUrl = `https://${domain}/official-record`;
   return {
     request,
+    researchPolicy: {
+      kind: "atliera.admitted-account-research-policy", schemaVersion: "1",
+      policyId: `policy-${accountId}`, accountId,
+      primaryAccountEntity: { entityId: accountId, name: accountName, kind: "account", relationshipToAccount: "The account itself." },
+      trustedOfficialHosts: [{ hostname: domain, allowSubdomains: false, entityIds: [accountId] }],
+      authorizedAt: "2026-08-21T11:59:00.000Z", scope: "local_test_only",
+      authorizesPersistence: false, authorizesPrivateSources: false,
+    },
     discoveries: [{
       queryId: plan.queries[0]!.queryId,
       queryKind: "generated_taxonomy",
@@ -79,6 +86,7 @@ export function makeC2FixtureInput(options: {
       retrievedText,
       candidateExcerpts,
       taxonomyCoverage: ACCOUNT_RESEARCH_TAXONOMY,
+      taxonomyEvidence: ACCOUNT_RESEARCH_TAXONOMY.map((taxonomy) => ({ taxonomy, candidateExcerptIndexes: [0, 1] })),
       declaredConflictIds: options.declaredConflictIds ?? [],
     }],
   };

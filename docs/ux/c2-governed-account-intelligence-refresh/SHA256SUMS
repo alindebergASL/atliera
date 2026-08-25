@@ -1,4 +1,4 @@
-47ba122a318b33df441371a14ed59280a923ad9e90572a57dd1e63765464e19d  docs/ux/c2-governed-account-intelligence-refresh/README.md
+06fd928a01d6f718b26918673707dd98e220ebe37e2b7f682424172989168f0f  docs/ux/c2-governed-account-intelligence-refresh/README.md
 867f2b88d19b17878a7a4cbbc91fbf5f1f2a0e4bbf9820e91770cb3e998b3468  docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md
 0d04278b1168815beb1281bc228ab7d4b689f45a28918c9c63b8e0589f40bd3b  docs/ux/c2-governed-account-intelligence-refresh/browser-interaction-proof.json
 2909f48c56875ad3fcc2faf2b9828a41f76fd429d260b74127e5977364e56757  docs/ux/c2-governed-account-intelligence-refresh/data/fedex-admitted-sources.json
@@ -24,5 +24,8 @@ a516b6f4fc44157698a04d13833accc604938f7c2c9ec4f973f7f8815bd1f1a3  docs/ux/c2-gov
 c5b4dc2f18d083dd3bfe0f11cd99848b041cbccecd5610ec27040ad6889c7da3  docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-needs-review.png
 05e4e4a05bdec38ad40589022b25943c02cd0ebb94c45841d7b73ec3dc3d505e  docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-partial-coverage.png
 44f1db95b8950d418faeae9eb3dcd0621f07ec3383042f8270976e0da70a3aad  docs/ux/c2-governed-account-intelligence-refresh/university-of-utah.html
-8f222e23175d5d7667cbd8f0d89ef6ca99c910fd5227b4e0ec51984ef3d1e5f9  docs/ux/c2-governed-account-intelligence-refresh/visual-artifact-manifest.json
-725021732193cc2fa77e33536f28bcd5d8b73ea9a4b758ed31460c7305e2af71  fixtures/account-intelligence/c2-01/retained-research-input.json
+95daf82bca67afea8c2631f558f2b7b37bd5bbd3b94b3e82e4e74fbdd70e655b  docs/ux/c2-governed-account-intelligence-refresh/visual-artifact-manifest.json
+b84b30603b3e04769eacc1c1c8557397f92238c93df18b083769e379912ab88c  fixtures/account-intelligence/c2-01/retained-research-input.json
+6737707a2171a74924007629533c96571ec45fb19961477d4d487f1c3277bd05  docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json
+f0150d059da16abf30ddcf93be0afefa17bfa66ef53ac4bdf74ef1087b7d6c31  fixtures/account-intelligence/c2-01/broad-account-research-input.json
+47f7e35be948de67d3e0ab53b7d5d113f79b1fefe53d319ca068070143a4c991  docs/ux/c2-governed-account-intelligence-refresh/BROAD_ACCOUNT_REPRODUCTION.md

@@ -4,7 +4,7 @@ import test from "node:test";
 import { admitAccountResearch } from "../../src/account-intelligence/admission.ts";
 import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
 import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
-import { makeC2FixtureInput } from "../fixtures/c2-account-intelligence.ts";
+import { makeC2FixtureInput, makeResearchPolicyForFixture } from "../fixtures/c2-account-intelligence.ts";
 
 function admitFixture(input = makeC2FixtureInput()) {
   return admitAccountResearch(input.request, createAccountResearchPlan(input.request),
@@ -22,8 +22,11 @@ test("search discovery is lineage only and snippets can never become evidence", 
 
 test("retrieval must descend from search and use a public canonical HTTPS URL", () => {
   const input = makeC2FixtureInput();
-  assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request), snapshotAdmittedResearchPolicy(input.researchPolicy), input.discoveries,
-    [{ ...input.retrievedSources[0]!, canonicalUrl: "https://other.example.org/record", sourceClass: "reputable_secondary" }]), /descend from its recorded search/u);
+  const otherSource = { ...input.retrievedSources[0]!,
+    canonicalUrl: "https://other.example.org/record", sourceClass: "reputable_secondary" as const };
+  assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request),
+    snapshotAdmittedResearchPolicy(makeResearchPolicyForFixture(input.request, [otherSource])), input.discoveries,
+    [otherSource]), /descend from its recorded search/u);
   for (const url of ["http://example.org/a", "https://localhost/a", "https://127.0.0.1/a",
     "https://user@example.org/a", "javascript:alert(1)", "data:text/html,<script>x</script>"]) {
     assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request),
@@ -69,12 +72,13 @@ test("official primary admission requires an exact trusted host/entity policy wi
   const base = makeC2FixtureInput();
   const withUrl = (url: string, allowSubdomains: boolean, entityIds = [base.request.accountId]) => {
     const request = base.request;
-    const researchPolicy = { ...(base.researchPolicy as Record<string, unknown>),
-      trustedOfficialHosts: [{ hostname: base.request.canonicalPublicDomains[0]!, allowSubdomains, entityIds }] };
     const plan = createAccountResearchPlan(request);
+    const sources = [{ ...base.retrievedSources[0]!, canonicalUrl: url, discoveredByQueryIds: [plan.queries[0]!.queryId] }];
+    const researchPolicy = { ...makeResearchPolicyForFixture(request, sources),
+      trustedOfficialHosts: [{ hostname: base.request.canonicalPublicDomains[0]!, allowSubdomains, entityIds }] };
     return { request, researchPolicy, plan,
       discoveries: [{ ...base.discoveries[0]!, queryId: plan.queries[0]!.queryId, exactQuery: plan.queries[0]!.query, resultUrl: url }],
-      sources: [{ ...base.retrievedSources[0]!, canonicalUrl: url, discoveredByQueryIds: [plan.queries[0]!.queryId] }] };
+      sources };
   };
   const exact = withUrl(base.retrievedSources[0]!.canonicalUrl, false);
   assert.equal(admitAccountResearch(exact.request, exact.plan, snapshotAdmittedResearchPolicy(exact.researchPolicy), exact.discoveries, exact.sources).sources.length, 1);
@@ -89,7 +93,50 @@ test("official primary admission requires an exact trusted host/entity policy wi
   }
   const wrongEntity = withUrl(base.retrievedSources[0]!.canonicalUrl, false, ["entity-other"]);
   assert.throws(() => admitAccountResearch(wrongEntity.request, wrongEntity.plan, snapshotAdmittedResearchPolicy(wrongEntity.researchPolicy), wrongEntity.discoveries,
-    [{ ...wrongEntity.sources[0]!, entity: { ...wrongEntity.sources[0]!.entity, entityId: "entity-other" } }]), /primary account entity identity mismatch|not admitted/u);
+    [{ ...wrongEntity.sources[0]!, entity: { ...wrongEntity.sources[0]!.entity, entityId: "entity-other" } }]), /catalog|policy/u);
+});
+
+test("candidate taxonomy labels cannot authorize generic excerpts for unrelated categories", () => {
+  const input = makeC2FixtureInput();
+  const source = { ...input.retrievedSources[0]!,
+    taxonomyCoverage: ["procurement", "gaps_contradictions"] as const,
+    taxonomyEvidence: [
+      { taxonomy: "procurement" as const, candidateExcerptIndexes: [0] },
+      { taxonomy: "gaps_contradictions" as const, candidateExcerptIndexes: [1] },
+    ] };
+  assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request),
+    snapshotAdmittedResearchPolicy(input.researchPolicy), input.discoveries, [source]),
+  /taxonomy bindings do not exactly match controller authorization/u);
+});
+
+test("allowed official URL cannot admit substituted title or content bytes", () => {
+  const input = makeC2FixtureInput();
+  const source = { ...input.retrievedSources[0]!,
+    title: "Fabricated official title",
+    retrievedText: "Fabricated bytes behind an allowed official URL.",
+    candidateExcerpts: ["Fabricated bytes behind an allowed official URL."],
+    taxonomyCoverage: ["identity_structure"] as const,
+    taxonomyEvidence: [{ taxonomy: "identity_structure" as const, candidateExcerptIndexes: [0] }] };
+  assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request),
+    snapshotAdmittedResearchPolicy(input.researchPolicy), input.discoveries, [source]),
+  /source custody/u);
+});
+
+test("authorized entity id cannot redefine a related entity name, kind, or relationship", () => {
+  const input = makeC2FixtureInput();
+  const canonicalRelated = {
+    entityId: "entity-related-unit",
+    name: "Harbor Transit Research Unit",
+    kind: "research_unit" as const,
+    relationshipToAccount: "A separately cataloged research unit.",
+  };
+  const authorizedSource = { ...input.retrievedSources[0]!, relatedEntities: [canonicalRelated] };
+  const policy = makeResearchPolicyForFixture(input.request, [authorizedSource]);
+  const redefinedSource = { ...authorizedSource, relatedEntities: [{ ...canonicalRelated,
+    name: "Invented Subsidiary", kind: "subsidiary" as const, relationshipToAccount: "Invented relationship." }] };
+  assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request),
+    snapshotAdmittedResearchPolicy(policy), input.discoveries, [redefinedSource]),
+  /controller-owned entity catalog/u);
 });
 
 test("retrieval lineage is bound to the exact query result or explicit result-derived URL", () => {

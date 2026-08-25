@@ -1,6 +1,6 @@
 {
   "kind": "atliera.c2-01-retained-research-input",
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "accounts": [
     {
       "request": {
@@ -25,15 +25,41 @@
       },
       "researchPolicy": {
         "kind": "atliera.admitted-account-research-policy",
-        "schemaVersion": "1",
+        "schemaVersion": "2",
         "policyId": "policy-utah-c2-broad",
         "accountId": "acc_university_of_utah",
         "primaryAccountEntity": {
           "entityId": "acc_university_of_utah",
           "name": "University of Utah",
           "kind": "account",
-          "relationshipToAccount": "Primary account entity."
+          "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
         },
+        "admittedEntities": [
+          {
+            "entityId": "acc_university_of_utah",
+            "name": "University of Utah",
+            "kind": "account",
+            "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+          },
+          {
+            "entityId": "entity_state_of_utah",
+            "name": "State of Utah",
+            "kind": "government",
+            "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+          },
+          {
+            "entityId": "entity_university_of_utah_health",
+            "name": "University of Utah Health",
+            "kind": "hospital",
+            "relationshipToAccount": "A related academic health enterprise; not merged into University account funding or procurement claims."
+          },
+          {
+            "entityId": "entity_utah_system_higher_education",
+            "name": "Utah System of Higher Education",
+            "kind": "governing_body",
+            "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+          }
+        ],
         "trustedOfficialHosts": [
           {
             "hostname": "attheu.utah.edu",
@@ -61,6 +87,714 @@
               "entity_utah_system_higher_education",
               "entity_state_of_utah"
             ]
+          }
+        ],
+        "sourceCustody": [
+          {
+            "custodyId": "custody-retrieval-ut-s1",
+            "accountId": "acc_university_of_utah",
+            "retainedCorpusId": "retained-research-input-acc_university_of_utah",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "sourceClass": "official_primary",
+            "title": "University of Utah continues reinvestment in AI, behavioral health, nursing",
+            "publisher": "University of Utah Communications / @theU",
+            "primaryEntityId": "acc_university_of_utah",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-ut-s2",
+            "accountId": "acc_university_of_utah",
+            "retainedCorpusId": "retained-research-input-acc_university_of_utah",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "sourceClass": "official_primary",
+            "title": "University of Utah Strategic Reinvestment Presentation — Year Two Progress Report",
+            "publisher": "University of Utah; submitted to Utah Board of Higher Education",
+            "primaryEntityId": "acc_university_of_utah",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-ut-s3",
+            "accountId": "acc_university_of_utah",
+            "retainedCorpusId": "retained-research-input-acc_university_of_utah",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf",
+            "retrievedContentSha256": "a6970491cad067333a884c452e01bcdf7783b6344805ab710db1744ceeb9a038",
+            "sourceClass": "official_primary",
+            "title": "Utah Board of Higher Education Committee of the Whole Minutes",
+            "publisher": "Utah Board of Higher Education / Utah System of Higher Education",
+            "primaryEntityId": "entity_utah_system_higher_education",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-ut-s4",
+            "accountId": "acc_university_of_utah",
+            "retainedCorpusId": "retained-research-input-acc_university_of_utah",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "sourceClass": "official_primary",
+            "title": "USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two",
+            "publisher": "Utah System of Higher Education, Office of the Commissioner",
+            "primaryEntityId": "entity_utah_system_higher_education",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-ut-s5",
+            "accountId": "acc_university_of_utah",
+            "retainedCorpusId": "retained-research-input-acc_university_of_utah",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "sourceClass": "official_primary",
+            "title": "Impact 2030 Strategic Reinvestment Plan",
+            "publisher": "University of Utah Office of the President; hosted in USHE board materials",
+            "primaryEntityId": "acc_university_of_utah",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          }
+        ],
+        "taxonomyAuthorities": [
+          {
+            "authorizationId": "tax-00-00-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "d217a8019d525ea9d8f3833ca055ac45c5a91371ed4747fef2575e461b9d1b9a",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "7aebf69630bc2246a0f3e51d519e1dbaf55be7b5ce83830ad4c7d7978bc06d21",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "d217a8019d525ea9d8f3833ca055ac45c5a91371ed4747fef2575e461b9d1b9a",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "7aebf69630bc2246a0f3e51d519e1dbaf55be7b5ce83830ad4c7d7978bc06d21",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-02-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "d217a8019d525ea9d8f3833ca055ac45c5a91371ed4747fef2575e461b9d1b9a",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-02-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "7aebf69630bc2246a0f3e51d519e1dbaf55be7b5ce83830ad4c7d7978bc06d21",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "d217a8019d525ea9d8f3833ca055ac45c5a91371ed4747fef2575e461b9d1b9a",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "7aebf69630bc2246a0f3e51d519e1dbaf55be7b5ce83830ad4c7d7978bc06d21",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-05-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s1",
+            "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+            "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+            "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+            "taxonomy": "gaps_contradictions",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "d7330ac11cb8ad22877676e9f6975bd3c5508aa1f3317e5a5c0933a65cf2f732",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "a6b4c514c5d71d4e793036db855d96004b2f163502bc21f20f5bca2710f4f05b",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "57c0292348529fed35df1ff844b0a5a42ea7d5a6b251b6a3306f862c56b4be60",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-03",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "43d60e45a6b5c523287f3911e39930fb9835c28e90318ad1fd9b3e801ca4bf78",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "a6b4c514c5d71d4e793036db855d96004b2f163502bc21f20f5bca2710f4f05b",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "d2c9ccaf356977b3af8cdb98b6886f4742d35c6fc19ba173a834db2dc4a1ff87",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "2ced625091d8bb75aa1b22813bc5ba2b61450f1f86798347d88b4068667889a7",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-02-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "2ced625091d8bb75aa1b22813bc5ba2b61450f1f86798347d88b4068667889a7",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-02-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "43d60e45a6b5c523287f3911e39930fb9835c28e90318ad1fd9b3e801ca4bf78",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-03-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "d7330ac11cb8ad22877676e9f6975bd3c5508aa1f3317e5a5c0933a65cf2f732",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-03-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "a6b4c514c5d71d4e793036db855d96004b2f163502bc21f20f5bca2710f4f05b",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-03-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "57c0292348529fed35df1ff844b0a5a42ea7d5a6b251b6a3306f862c56b4be60",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-03-03",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "2ced625091d8bb75aa1b22813bc5ba2b61450f1f86798347d88b4068667889a7",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-03-04",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "43d60e45a6b5c523287f3911e39930fb9835c28e90318ad1fd9b3e801ca4bf78",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-04-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s2",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+            "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+            "exactExcerptSha256": "2ced625091d8bb75aa1b22813bc5ba2b61450f1f86798347d88b4068667889a7",
+            "taxonomy": "gaps_contradictions",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-00-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s3",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf",
+            "retrievedContentSha256": "a6970491cad067333a884c452e01bcdf7783b6344805ab710db1744ceeb9a038",
+            "exactExcerptSha256": "b4ca472cc108a72c9ae5bc78713c400787bd9df023d30c7ef782f09041d010a0",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-00-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s3",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf",
+            "retrievedContentSha256": "a6970491cad067333a884c452e01bcdf7783b6344805ab710db1744ceeb9a038",
+            "exactExcerptSha256": "bcc4f6179bb7727dd37696b45e034f6260eff7625a1d4c975ba8f75441f0d8a9",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-01-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s3",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf",
+            "retrievedContentSha256": "a6970491cad067333a884c452e01bcdf7783b6344805ab710db1744ceeb9a038",
+            "exactExcerptSha256": "bcc4f6179bb7727dd37696b45e034f6260eff7625a1d4c975ba8f75441f0d8a9",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "2e6be7d6fb18739f0de354109b7c29f297f960897432fdefbd68c6d029f2d118",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "cc537d3c35a59327cc80e2c86ff333e577df9b5bb1567651ac8cd9e27fef6183",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "2ca0fd7fcafaab1ee00867ca7b2425684a1fae69417d7e59c05d24c41557ee71",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-01-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "2e6be7d6fb18739f0de354109b7c29f297f960897432fdefbd68c6d029f2d118",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-01-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "0875453ede346bc4e4834eda41caec5b8561b1c5985b5f42c18fd00e9d8bcbb8",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-02-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "2e6be7d6fb18739f0de354109b7c29f297f960897432fdefbd68c6d029f2d118",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-02-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "cc537d3c35a59327cc80e2c86ff333e577df9b5bb1567651ac8cd9e27fef6183",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-03-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "2ca0fd7fcafaab1ee00867ca7b2425684a1fae69417d7e59c05d24c41557ee71",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-03-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s4",
+            "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+            "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+            "exactExcerptSha256": "0875453ede346bc4e4834eda41caec5b8561b1c5985b5f42c18fd00e9d8bcbb8",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-00-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "1e148080aebceddb0df38e4230e48a0cf4400ddb4b255fffd35be89c3dce002a",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-00-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "26cb749bcccd70a9e4ae84848808114448bc25f4cc08376d6b06da09249d0dfc",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-01-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "1e148080aebceddb0df38e4230e48a0cf4400ddb4b255fffd35be89c3dce002a",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-01-01",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "66d9400f0e6a1d7fa992352993034b9717b612f061fa841afbeec155aaccda75",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-01-02",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "cac99ca965df1ab2c543aac53c1b8e52c8d63047470a1673256486ef4e27d6fa",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-01-03",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "6eb0d6840dd87582306171a5b3620aba541a5a9300d7c6476b17e6384d5176e4",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-02-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "26cb749bcccd70a9e4ae84848808114448bc25f4cc08376d6b06da09249d0dfc",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-04-03-00",
+            "accountId": "acc_university_of_utah",
+            "custodyId": "custody-retrieval-ut-s5",
+            "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+            "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+            "exactExcerptSha256": "1e148080aebceddb0df38e4230e48a0cf4400ddb4b255fffd35be89c3dce002a",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
           }
         ],
         "authorizedAt": "2026-08-21T16:30:00.000Z",
@@ -328,22 +1062,14 @@
             "A competitive AI talent market refined the Responsible AI hiring plan"
           ],
           "taxonomyCoverage": [
-            "identity_structure",
             "strategic_direction",
             "financial_context",
             "digital_modernization",
+            "constraints",
             "recent_changes",
             "gaps_contradictions"
           ],
           "taxonomyEvidence": [
-            {
-              "taxonomy": "identity_structure",
-              "candidateExcerptIndexes": [
-                0,
-                1,
-                2
-              ]
-            },
             {
               "taxonomy": "strategic_direction",
               "candidateExcerptIndexes": [
@@ -356,14 +1082,19 @@
               "taxonomy": "financial_context",
               "candidateExcerptIndexes": [
                 0,
-                1,
-                2
+                1
               ]
             },
             {
               "taxonomy": "digital_modernization",
               "candidateExcerptIndexes": [
                 0,
+                2
+              ]
+            },
+            {
+              "taxonomy": "constraints",
+              "candidateExcerptIndexes": [
                 1,
                 2
               ]
@@ -379,8 +1110,6 @@
             {
               "taxonomy": "gaps_contradictions",
               "candidateExcerptIndexes": [
-                0,
-                1,
                 2
               ]
             }
@@ -444,29 +1173,20 @@
                 0,
                 1,
                 2,
-                3,
-                4,
                 5
               ]
             },
             {
               "taxonomy": "digital_modernization",
               "candidateExcerptIndexes": [
-                0,
                 1,
-                2,
                 3,
-                4,
-                5
+                4
               ]
             },
             {
               "taxonomy": "constraints",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
                 4,
                 5
               ]
@@ -477,7 +1197,6 @@
                 0,
                 1,
                 2,
-                3,
                 4,
                 5
               ]
@@ -485,12 +1204,7 @@
             {
               "taxonomy": "gaps_contradictions",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5
+                4
               ]
             }
           ],
@@ -536,18 +1250,10 @@
             "Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed."
           ],
           "taxonomyCoverage": [
-            "identity_structure",
             "leadership_governance",
             "recent_changes"
           ],
           "taxonomyEvidence": [
-            {
-              "taxonomy": "identity_structure",
-              "candidateExcerptIndexes": [
-                0,
-                1
-              ]
-            },
             {
               "taxonomy": "leadership_governance",
               "candidateExcerptIndexes": [
@@ -558,7 +1264,6 @@
             {
               "taxonomy": "recent_changes",
               "candidateExcerptIndexes": [
-                0,
                 1
               ]
             }
@@ -610,8 +1315,7 @@
             "financial_context",
             "leadership_governance",
             "constraints",
-            "recent_changes",
-            "gaps_contradictions"
+            "recent_changes"
           ],
           "taxonomyEvidence": [
             {
@@ -619,16 +1323,13 @@
               "candidateExcerptIndexes": [
                 0,
                 1,
-                2,
-                3
+                2
               ]
             },
             {
               "taxonomy": "leadership_governance",
               "candidateExcerptIndexes": [
                 0,
-                1,
-                2,
                 3
               ]
             },
@@ -636,25 +1337,12 @@
               "taxonomy": "constraints",
               "candidateExcerptIndexes": [
                 0,
-                1,
-                2,
-                3
+                1
               ]
             },
             {
               "taxonomy": "recent_changes",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3
-              ]
-            },
-            {
-              "taxonomy": "gaps_contradictions",
-              "candidateExcerptIndexes": [
-                0,
-                1,
                 2,
                 3
               ]
@@ -707,6 +1395,7 @@
           "taxonomyCoverage": [
             "strategic_direction",
             "financial_context",
+            "digital_modernization",
             "constraints"
           ],
           "taxonomyEvidence": [
@@ -714,9 +1403,6 @@
               "taxonomy": "strategic_direction",
               "candidateExcerptIndexes": [
                 0,
-                1,
-                2,
-                3,
                 4
               ]
             },
@@ -726,18 +1412,19 @@
                 0,
                 1,
                 2,
-                3,
+                3
+              ]
+            },
+            {
+              "taxonomy": "digital_modernization",
+              "candidateExcerptIndexes": [
                 4
               ]
             },
             {
               "taxonomy": "constraints",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
-                4
+                0
               ]
             }
           ],
@@ -770,15 +1457,47 @@
       },
       "researchPolicy": {
         "kind": "atliera.admitted-account-research-policy",
-        "schemaVersion": "1",
+        "schemaVersion": "2",
         "policyId": "policy-fedex-c2-broad",
         "accountId": "acc_fedex_corp",
         "primaryAccountEntity": {
           "entityId": "acc_fedex_corporation",
           "name": "FedEx Corporation",
           "kind": "account",
-          "relationshipToAccount": "Primary account entity."
+          "relationshipToAccount": "The parent holding company and account under research."
         },
+        "admittedEntities": [
+          {
+            "entityId": "acc_fedex_corporation",
+            "name": "FedEx Corporation",
+            "kind": "account",
+            "relationshipToAccount": "The parent holding company and account under research."
+          },
+          {
+            "entityId": "entity_federal_express",
+            "name": "Federal Express Corporation",
+            "kind": "subsidiary",
+            "relationshipToAccount": "The integrated air-ground operating subsidiary; distinct from the parent."
+          },
+          {
+            "entityId": "entity_fedex_dataworks",
+            "name": "FedEx Dataworks",
+            "kind": "business_unit",
+            "relationshipToAccount": "Named digital unit with a distinct operating role."
+          },
+          {
+            "entityId": "entity_fedex_freight",
+            "name": "FedEx Freight Holding Company, Inc.",
+            "kind": "other_related_entity",
+            "relationshipToAccount": "Separated public company after June 1, 2026; no longer consolidated as a FedEx segment."
+          },
+          {
+            "entityId": "entity_fedex_supply_chain",
+            "name": "FedEx Supply Chain",
+            "kind": "business_unit",
+            "relationshipToAccount": "Portfolio business whose announced sale was not established as closed in admitted evidence."
+          }
+        ],
         "trustedOfficialHosts": [
           {
             "hostname": "www.sec.gov",
@@ -801,6 +1520,763 @@
               "entity_fedex_dataworks",
               "entity_fedex_supply_chain"
             ]
+          }
+        ],
+        "sourceCustody": [
+          {
+            "custodyId": "custody-retrieval-fd-r10",
+            "accountId": "acc_fedex_corp",
+            "retainedCorpusId": "retained-research-input-acc_fedex_corp",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "sourceClass": "official_primary",
+            "title": "FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026",
+            "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+            "primaryEntityId": "acc_fedex_corporation",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-fd-r06",
+            "accountId": "acc_fedex_corp",
+            "retainedCorpusId": "retained-research-input-acc_fedex_corp",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "sourceClass": "official_primary",
+            "title": "FedEx Corporation Form 8-K",
+            "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+            "primaryEntityId": "acc_fedex_corporation",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-fd-r05",
+            "accountId": "acc_fedex_corp",
+            "retainedCorpusId": "retained-research-input-acc_fedex_corp",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+            "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+            "sourceClass": "official_primary",
+            "title": "FedEx Corporation Current Report on Form 8-K",
+            "publisher": "FedEx Corporation, filed with the U.S. Securities and Exchange Commission",
+            "primaryEntityId": "acc_fedex_corporation",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "custodyId": "custody-retrieval-fd-r02",
+            "accountId": "acc_fedex_corp",
+            "retainedCorpusId": "retained-research-input-acc_fedex_corp",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "sourceClass": "official_primary",
+            "title": "FY25 Chairman’s Letter",
+            "publisher": "FedEx Corporation Investor Relations",
+            "primaryEntityId": "acc_fedex_corporation",
+            "retrievedAt": "2026-08-21T16:39:40.000Z",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          }
+        ],
+        "taxonomyAuthorities": [
+          {
+            "authorizationId": "tax-00-00-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "41d02252e0589cd311ce5e91c39eda1434a5e0276263025afcd6cc995594b75b",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f1517f75a6fdc089c27b13f2929735f9c4d3bdb11d387d8d5fbf1587d135dd45",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "40f721fe4f7dadb16009039c51fedb3b3b71329794f96409252c2190b4ea432e",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-03",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "9ced15973d44f1711572779dd9904ca19d951d476710d81865f1c176bff567b3",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-04",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f9d0ce13b772cad300ead23ffb530ac7641faf0191a19f87461ca7007c1c45ab",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-05",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "a7ff74237de7338862221fd19fa0b4c856f91550c7829734ec719c97dceaa760",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-00-06",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "41d02252e0589cd311ce5e91c39eda1434a5e0276263025afcd6cc995594b75b",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f1517f75a6fdc089c27b13f2929735f9c4d3bdb11d387d8d5fbf1587d135dd45",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "29742e7ce01cc0ea1830c78d3e302bed8fa558e03a8662790ad54cfbda146639",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-01-03",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-02-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "45def8df1b9607e2a6efa4f85891d66c7d3ea8367c4e220700aa43b8a5bf1d30",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-02-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "29742e7ce01cc0ea1830c78d3e302bed8fa558e03a8662790ad54cfbda146639",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "5aee653ec0c3fd5652df723d5ac26b9ca2b960126b0d043fcc33ea4cb9da3736",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "40f721fe4f7dadb16009039c51fedb3b3b71329794f96409252c2190b4ea432e",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-03-03",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "e63be97dbc5a0028ce7ad6854d495dbbd2dfa27984314a4fd96469cc97f1fa9e",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "40f721fe4f7dadb16009039c51fedb3b3b71329794f96409252c2190b4ea432e",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "9ced15973d44f1711572779dd9904ca19d951d476710d81865f1c176bff567b3",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-04-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f9d0ce13b772cad300ead23ffb530ac7641faf0191a19f87461ca7007c1c45ab",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-05-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "da1ab6f1ca45f79ac9b7f9d3fa330a11abe14749b570edef108ae639cbad6711",
+            "taxonomy": "procurement",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-06-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "5aee653ec0c3fd5652df723d5ac26b9ca2b960126b0d043fcc33ea4cb9da3736",
+            "taxonomy": "partnerships_technology",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-06-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "da1ab6f1ca45f79ac9b7f9d3fa330a11abe14749b570edef108ae639cbad6711",
+            "taxonomy": "partnerships_technology",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-06-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "e63be97dbc5a0028ce7ad6854d495dbbd2dfa27984314a4fd96469cc97f1fa9e",
+            "taxonomy": "partnerships_technology",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-07-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "a7ff74237de7338862221fd19fa0b4c856f91550c7829734ec719c97dceaa760",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-07-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "45def8df1b9607e2a6efa4f85891d66c7d3ea8367c4e220700aa43b8a5bf1d30",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-07-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "e63be97dbc5a0028ce7ad6854d495dbbd2dfa27984314a4fd96469cc97f1fa9e",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-07-03",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+            "taxonomy": "constraints",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f1517f75a6fdc089c27b13f2929735f9c4d3bdb11d387d8d5fbf1587d135dd45",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "5aee653ec0c3fd5652df723d5ac26b9ca2b960126b0d043fcc33ea4cb9da3736",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "40f721fe4f7dadb16009039c51fedb3b3b71329794f96409252c2190b4ea432e",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-03",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "9ced15973d44f1711572779dd9904ca19d951d476710d81865f1c176bff567b3",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-04",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "f9d0ce13b772cad300ead23ffb530ac7641faf0191a19f87461ca7007c1c45ab",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-00-08-05",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r10",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm",
+            "retrievedContentSha256": "d58c06677e80a7533bdbc011908eb20b7f0ca8e049412a2dae9fad04aa2a3cd0",
+            "exactExcerptSha256": "6df3980ef5a09735acbbe68ccfae8e35735f34af93b909cd85173346d7f0d99b",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "8f81041bd7bae1118de97a8337705c5fb6e747b05f9ec052ccac6ef3f8db94b8",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "f1810f6b960121ce1527c324813cd9eb6ae815f996207d86d21c18df80291ef1",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-00-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "39b864f337615a96a526abd32826425cae282932640c6bb2eceee4eeb9b62483",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "8f81041bd7bae1118de97a8337705c5fb6e747b05f9ec052ccac6ef3f8db94b8",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "f1810f6b960121ce1527c324813cd9eb6ae815f996207d86d21c18df80291ef1",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-01-01-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r06",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000104891126000108/fdx-20260721.htm",
+            "retrievedContentSha256": "c6ab2c5392af481b7e3c83150940c33810a17bc5a322199c5b43c7e46f8db2ca",
+            "exactExcerptSha256": "39b864f337615a96a526abd32826425cae282932640c6bb2eceee4eeb9b62483",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-00-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r05",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+            "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+            "exactExcerptSha256": "8e1784bfce83c3a8b4424c46665a104edce5321926838351eed71057ab072831",
+            "taxonomy": "identity_structure",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-01-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r05",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+            "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+            "exactExcerptSha256": "361aabe8e88b2df6031011f98a992b71c30670920cf5906cce15e4cfa1d67ccc",
+            "taxonomy": "financial_context",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-02-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r05",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+            "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+            "exactExcerptSha256": "8e1784bfce83c3a8b4424c46665a104edce5321926838351eed71057ab072831",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-02-02-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r05",
+            "canonicalUrl": "https://www.sec.gov/Archives/edgar/data/1048911/000110465926068519/tm2616055d1_8k.htm",
+            "retrievedContentSha256": "5303802cbcefb1000a600c2fc321fb8231943133ad7dfad1370090991806fbee",
+            "exactExcerptSha256": "361aabe8e88b2df6031011f98a992b71c30670920cf5906cce15e4cfa1d67ccc",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "81a2915c7efe86e250edc80897b343ed8d11ae9d9d14acaffd60ed3cfc7f1a5a",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "0cb4c75c58e666245691f7595cf11297fe015712969cd3f28fb49d964ca87fef",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-00-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "09dc523db2fc3d8aa73c643ad0600c2a0fb644e8b4c7e74f3a1f41137268ba21",
+            "taxonomy": "strategic_direction",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-01-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "81a2915c7efe86e250edc80897b343ed8d11ae9d9d14acaffd60ed3cfc7f1a5a",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-01-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "0cb4c75c58e666245691f7595cf11297fe015712969cd3f28fb49d964ca87fef",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-01-02",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "09dc523db2fc3d8aa73c643ad0600c2a0fb644e8b4c7e74f3a1f41137268ba21",
+            "taxonomy": "digital_modernization",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-02-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "09dc523db2fc3d8aa73c643ad0600c2a0fb644e8b4c7e74f3a1f41137268ba21",
+            "taxonomy": "leadership_governance",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-03-00",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "0cb4c75c58e666245691f7595cf11297fe015712969cd3f28fb49d964ca87fef",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
+          },
+          {
+            "authorizationId": "tax-03-03-01",
+            "accountId": "acc_fedex_corp",
+            "custodyId": "custody-retrieval-fd-r02",
+            "canonicalUrl": "https://investors.fedex.com/financial-information/---FY25-Letter-from-our-CEO/",
+            "retrievedContentSha256": "0104e14813594981ca0b45329576af6b18915d07d53f2cb4df5d973b20f65ad8",
+            "exactExcerptSha256": "09dc523db2fc3d8aa73c643ad0600c2a0fb644e8b4c7e74f3a1f41137268ba21",
+            "taxonomy": "recent_changes",
+            "authorizedBy": "owner-c2-foundation-correction",
+            "authorizedAt": "2026-08-21T16:30:00.000Z",
+            "scope": "local_test_only",
+            "authorizesPersistence": false
           }
         ],
         "authorizedAt": "2026-08-21T16:30:00.000Z",
@@ -1020,6 +2496,7 @@
           "taxonomyCoverage": [
             "identity_structure",
             "strategic_direction",
+            "financial_context",
             "digital_modernization",
             "leadership_governance",
             "procurement",
@@ -1033,15 +2510,10 @@
               "candidateExcerptIndexes": [
                 0,
                 1,
-                2,
-                3,
                 4,
                 5,
                 6,
-                7,
                 8,
-                9,
-                10,
                 11
               ]
             },
@@ -1051,96 +2523,50 @@
                 0,
                 1,
                 2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
+                11
+              ]
+            },
+            {
+              "taxonomy": "financial_context",
+              "candidateExcerptIndexes": [
                 9,
-                10,
                 11
               ]
             },
             {
               "taxonomy": "digital_modernization",
               "candidateExcerptIndexes": [
-                0,
-                1,
                 2,
                 3,
                 4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11
+                10
               ]
             },
             {
               "taxonomy": "leadership_governance",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
                 4,
                 5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11
+                6
               ]
             },
             {
               "taxonomy": "procurement",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11
+                7
               ]
             },
             {
               "taxonomy": "partnerships_technology",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
                 3,
-                4,
-                5,
-                6,
                 7,
-                8,
-                9,
-                10,
-                11
+                10
               ]
             },
             {
               "taxonomy": "constraints",
               "candidateExcerptIndexes": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
                 8,
                 9,
                 10,
@@ -1150,17 +2576,11 @@
             {
               "taxonomy": "recent_changes",
               "candidateExcerptIndexes": [
-                0,
                 1,
-                2,
                 3,
                 4,
                 5,
                 6,
-                7,
-                8,
-                9,
-                10,
                 11
               ]
             }
@@ -1209,20 +2629,11 @@
           ],
           "taxonomyCoverage": [
             "identity_structure",
-            "leadership_governance",
             "recent_changes"
           ],
           "taxonomyEvidence": [
             {
               "taxonomy": "identity_structure",
-              "candidateExcerptIndexes": [
-                0,
-                1,
-                2
-              ]
-            },
-            {
-              "taxonomy": "leadership_governance",
               "candidateExcerptIndexes": [
                 0,
                 1,
@@ -1282,14 +2693,12 @@
             {
               "taxonomy": "identity_structure",
               "candidateExcerptIndexes": [
-                0,
-                1
+                0
               ]
             },
             {
               "taxonomy": "financial_context",
               "candidateExcerptIndexes": [
-                0,
                 1
               ]
             },
@@ -1346,6 +2755,7 @@
           "taxonomyCoverage": [
             "strategic_direction",
             "digital_modernization",
+            "leadership_governance",
             "recent_changes"
           ],
           "taxonomyEvidence": [
@@ -1366,9 +2776,14 @@
               ]
             },
             {
+              "taxonomy": "leadership_governance",
+              "candidateExcerptIndexes": [
+                2
+              ]
+            },
+            {
               "taxonomy": "recent_changes",
               "candidateExcerptIndexes": [
-                0,
                 1,
                 2
               ]

@@ -15,24 +15,31 @@ async function runFixture(options: Parameters<typeof makeC2FixtureInput>[0] = {}
     outOfRepoCorpusRef: `external-corpus/c2/${input.request.accountId}`,
     maxOutputTokens: 4_000,
     maxCostUsd: 1,
-    providerStorage: false,
   });
   const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
   return { input, provider, boundary, result };
 }
 
-test("refresh produces one validated proposal and truthful zero-side-effect receipt", async () => {
+test("refresh distinguishes retained records from external execution and reports local zero-write effects", async () => {
   const { provider, result } = await runFixture();
   assert.equal(provider.calls, 1);
-  assert.equal(result.effectReceipt.searchQueriesExecuted, 1);
-  assert.equal(result.effectReceipt.retrievalsExecuted, 1);
+  assert.equal(result.effectReceipt.recordedQueryTexts.length, 1);
+  assert.equal(result.effectReceipt.recordedDiscoveryRecords, 1);
+  assert.equal(result.effectReceipt.retainedSourceCandidates, 1);
   assert.equal(result.effectReceipt.admittedSources, 1);
-  assert.equal(result.effectReceipt.providerCallsExecuted, 1);
+  assert.equal(result.effectReceipt.excludedSourceCandidates, 0);
+  assert.equal(result.effectReceipt.providerCallsAttempted, 1);
+  assert.equal(result.effectReceipt.providerCallsSucceeded, 1);
   assert.equal(result.effectReceipt.inputTokens, 500);
   assert.equal(result.effectReceipt.outputTokens, 300);
   assert.match(result.effectReceipt.promptSha256, /^[a-f0-9]{64}$/u);
+  assert.match(result.effectReceipt.boundaryConfigurationSha256, /^[a-f0-9]{64}$/u);
   assert.equal(result.effectReceipt.estimatedCostUsd, 0);
-  for (const key of ["privateNetworkEffects", "databaseWrites", "graphWrites", "persistenceWrites",
+  assert.equal(result.effectReceipt.providerBehavior, "external_variable_response_validated");
+  assert.equal(result.effectReceipt.providerStorage, "unestablished");
+  assert.equal(result.effectReceipt.providerToolCalls, "unestablished");
+  assert.equal(result.effectReceipt.providerNetworkEffects, "unestablished");
+  for (const key of ["databaseWrites", "graphWrites", "persistenceWrites",
     "deployments", "publications", "customerActions"] as const) assert.equal(result.effectReceipt[key], 0);
   assert.ok(result.proposal.establishedContext[0]!.evidenceIds.every((id) =>
     result.admittedSources.some((source) => source.excerpts.some((excerpt) => excerpt.evidenceId === id))));
@@ -83,33 +90,43 @@ test("malicious HTML from admitted source is inert escaped text in the renderer"
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
 });
 
-test("provider dependency snapshot resists post-validation mutation and rejects accessors", async () => {
+test("provider behavior remains external and mutable this-state is detected through response validation", async () => {
   const input = makeC2FixtureInput();
-  const provider = new FixtureAccountIntelligenceProvider();
+  const delegate = new FixtureAccountIntelligenceProvider({ name: "mutable-provider" });
+  const provider = {
+    name: "mutable-provider",
+    mode: "stable",
+    async generate(request: Parameters<typeof delegate.generate>[0]) {
+      const response = await delegate.generate(request);
+      return { ...response, provider: this.mode === "stable" ? this.name : "mutated-provider" };
+    },
+  };
   const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
-    outOfRepoCorpusRef: "external-corpus/c2/provider-snapshot", maxOutputTokens: 4_000, maxCostUsd: 1, providerStorage: false });
-  (provider as unknown as { generate: () => never }).generate = () => { throw new Error("mutated generate invoked"); };
-  const result = await executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary });
-  assert.equal(result.effectReceipt.provider, "fixture-account-intelligence-provider");
+    outOfRepoCorpusRef: "external-corpus/c2/provider-snapshot", maxOutputTokens: 4_000, maxCostUsd: 1 });
+  provider.mode = "mutated";
+  await assert.rejects(() => executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary }),
+    /provider receipt refused/u);
   const accessorProvider = Object.defineProperties({}, {
     name: { enumerable: true, get: () => "getter-provider" },
     generate: { enumerable: true, get: () => async () => undefined },
   });
   assert.throws(() => new AccountIntelligenceProviderBoundary({ provider: accessorProvider as never,
     model: "fixture-model", outOfRepoCorpusRef: "external-corpus/c2/accessor", maxOutputTokens: 4_000,
-    maxCostUsd: 1, providerStorage: false }), /dependency shape refused/u);
+    maxCostUsd: 1 }), /dependency shape refused/u);
 });
 
 test("provider output above requested maximum fails closed with a truthful refusal receipt", async () => {
   const input = makeC2FixtureInput();
   const provider = new FixtureAccountIntelligenceProvider({ outputTokens: 301 });
   const boundary = new AccountIntelligenceProviderBoundary({ provider, model: "fixture-model",
-    outOfRepoCorpusRef: "external-corpus/c2/output-cap", maxOutputTokens: 300, maxCostUsd: 1, providerStorage: false });
+    outOfRepoCorpusRef: "external-corpus/c2/output-cap", maxOutputTokens: 300, maxCostUsd: 1 });
   await assert.rejects(() => executeAccountIntelligenceRefresh({ ...input, providerBoundary: boundary }), (error: unknown) => {
     assert.ok(error instanceof AccountIntelligenceProviderRefusal);
     assert.deepEqual(error.receipt, {
       code: "output_token_limit_exceeded", provider: "fixture-account-intelligence-provider", model: "fixture-model",
-      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0, storage: false,
+      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0,
+      providerBehavior: "external_variable_response_validated", storage: "unestablished", tools: "unestablished",
+      networkEffects: "unestablished",
     });
     return true;
   });

@@ -64,7 +64,7 @@ A later repair section names the actual head `88ddcebea64b88e0858c92da52ed3eda8c
 
 All six findings are correct. The correction must not claim deterministic semantic entailment for model paraphrases; request-supplied candidate domains must be separated from an independently admitted local/test research policy; broadening requires new bounded public evidence rather than UI-only expansion.
 
-## Foundation stabilization checkpoint
+## Historical foundation stabilization checkpoint (superseded)
 
 The preserved broad fixture was admitted locally without retrieval, provider execution, persistence, or other effects. Four retained records were excluded rather than granted false authority: one University-hosted URL bound to the separate USHE entity, plus three title/content records that duplicated unrelated canonical URLs.
 
@@ -84,4 +84,26 @@ The admitted Utah corpus is broader than H.B. 265. It retains:
 
 Procurement is **not** currently supported at excerpt level after the URL/content-mismatched records were excluded, so it remains a recorded gap. No replacement research or URL retrieval was performed in this checkpoint. FedEx likewise retains an explicit `gaps_contradictions` gap rather than receiving unsupported coverage.
 
-This remains an intermediate C2 foundation checkpoint. Broad model proposals, the final broad Account Home renderer, visual proof, user readiness, and meeting preparation remain incomplete.
+That checkpoint was reviewed at head `0eafe55bc00753d6dc4dbb913103a9fa112d3941` and received `CHANGES_REQUESTED`; it is not the current corrected foundation claim.
+
+## Foundation correction pass
+
+The correction keeps the same retained source text and introduces a separately snapshotted local/test-only controller policy containing:
+
+- a canonical admitted-entity catalog;
+- exact host-to-catalog-entity rules;
+- source custody bound to account, URL, content SHA-256, source class, publisher/title, primary entity, retrieval timestamp, and retained-corpus identity;
+- exact excerpt-SHA-to-taxonomy authorizations with controller identity and timestamp.
+
+Candidate taxonomy labels are now proposals only and must exactly match controller authorization. Current coverage is derived from admitted controller bindings and is conservatively represented as `partial` when exact excerpt support exists and `gap` when it does not; the model cannot upgrade either state.
+
+Corrected broad corpus admission remains:
+
+| Account | Sources | Exact excerpts | Excerpt-supported categories | Explicit gap |
+| --- | ---: | ---: | ---: | --- |
+| University of Utah | 10 | 33 | 9/10 | `procurement` |
+| FedEx Corporation | 9 | 30 | 9/10 | `gaps_contradictions` |
+
+The historical schema-v1 proposals, effect receipts, HTML, screenshots, execution ledgers, and model lineage are preserved but marked superseded/non-current in `README.md`, `FOUNDATION_STATUS.json`, and both manifests. Current proposal schema v2 refuses their silent grandfathering.
+
+No research, URL retrieval, model/provider execution, proposal regeneration, visual regeneration, Product/UX review, persistence, deployment, customer action, or merge occurred in this correction pass. Fresh broad proposals and the final broad Account Home remain incomplete and unauthorized.

@@ -180,7 +180,7 @@ function buildViewModel(data: Readonly<ValidatedAccountIntelligence>): Readonly<
     freshnessCue,
     reviewCue: p.reviewStatus === "needs_review" ? "Needs review" : "Proposed · Not reviewed",
     evidenceSourceCount: data.admittedSources.length,
-    coverageGapCount: p.researchCoverage.filter((item) => item.status !== "covered").length,
+    coverageGapCount: p.researchCoverage.filter((item) => item.status === "gap").length,
   });
 }
 
@@ -218,7 +218,7 @@ export function renderC2AccountHome(data: Readonly<ValidatedAccountIntelligence>
       <article class="stage next"><span class="stage-num" aria-hidden="true">04</span><p class="stage-kicker">Recommended next move</p><h2>Recommended next move</h2><p class="stage-copy">${escapeHtml(view.nextMove.text)}</p><div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.nextMove))}</span></div><button class="primary-action" type="button" data-dialog="evidence-next">Review the support</button></article>
     </div>
   </section>
-  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><ul class="coverage-list">${coverage}</ul></section><section><h3>Entity boundaries</h3><ul>${boundaries}</ul><h3>Material gaps</h3><ul>${gaps}</ul><p class="boundary-footer">Model proposal: ${escapeHtml(data.effectReceipt.provider)} / ${escapeHtml(data.effectReceipt.model)} · ${String(data.effectReceipt.providerCallsExecuted)} bounded call · ${String(data.effectReceipt.searchQueriesExecuted)} searches · ${String(data.effectReceipt.retrievalsExecuted)} public retrievals. No Graph, database, publication, customer, or deployment effects.</p></section></div></details>
+  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><ul class="coverage-list">${coverage}</ul></section><section><h3>Entity boundaries</h3><ul>${boundaries}</ul><h3>Material gaps</h3><ul>${gaps}</ul><p class="boundary-footer">Model proposal: ${escapeHtml(data.effectReceipt.provider)} / ${escapeHtml(data.effectReceipt.model)} · ${String(data.effectReceipt.providerCallsAttempted)} call attempted · ${String(data.effectReceipt.providerCallsSucceeded)} response admitted. Retained records: ${String(data.effectReceipt.recordedDiscoveryRecords)} discoveries · ${String(data.effectReceipt.retainedSourceCandidates)} source candidates · ${String(data.effectReceipt.admittedSources)} admitted · ${String(data.effectReceipt.excludedSourceCandidates)} excluded. These records do not prove external searches or retrievals executed. Provider storage, tools, and network effects remain unestablished. No Graph, database, publication, customer, or deployment effects were created by this local path.</p></section></div></details>
   <p class="boundary-footer">Proposed account intelligence for local review only. Nothing here is approved, saved to durable account truth, sent, shared, deployed, or used to prepare a meeting.</p>
 </main>${dialogs}<script>${C2_ACCOUNT_HOME_SCRIPT}</script></div></body></html>`;
   return Object.freeze({ kind: "c2-governed-account-intelligence-home", schemaVersion: "1", viewModel: view,

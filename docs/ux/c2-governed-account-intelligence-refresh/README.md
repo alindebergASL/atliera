@@ -1,65 +1,52 @@
 # C2-01 — Governed Account Intelligence Refresh
 
-Status: **proposed/unreviewed review slice; non-durable; not deployed**
+Status: **foundation correction only; historical proposal/render evidence superseded; draft; non-durable; not deployed**
 
-This packet proves one bounded vertical slice: ordinary account input → generic research plan → retrieved public-source lineage → deterministic admission → model-generated proposal → deterministic evidence/entity/semantic validation → Editorial Evidence Synthesis rendering.
+This directory preserves the historical C2-01 vertical-slice artifacts and the corrected deterministic foundation inputs. It does **not** prove a current exact-head model-to-render vertical slice.
 
-## Product sequence
+## Current foundation
 
-1. Gather and validate account intelligence.
-2. Understand established context and meaningful changes.
-3. Propose what the change may mean and what remains unknown.
-4. Recommend one safe next move.
+The current foundation establishes:
 
-Meeting preparation is not implemented. `Account | Workshop` compatibility is retained as static visual grammar only; there is no Workshop behavior.
+1. ordinary account requests are snapshotted as untrusted data and cannot authorize trusted hosts or entities;
+2. a separate local/test-only research policy snapshots the canonical entity catalog, trusted-host rules, retained source custody, and exact excerpt-level taxonomy authorizations;
+3. admission requires exact account, entity-definition, canonical-URL, content-hash, publisher/title, retrieval-time, source-class, and taxonomy/excerpt matches;
+4. system-owned coverage is derived only from controller-authorized admitted excerpt bindings;
+5. model proposals remain untrusted schema-v2 data and cannot upgrade coverage or material gaps;
+6. provider boundary configuration is snapshotted, while provider behavior and storage/tool/network effects remain external and unestablished unless separately receipted;
+7. retained query/source records are not represented as executed external acquisition effects.
 
-## Accounts
+The current broad retained corpus admits:
 
-- University of Utah: five admitted official sources, twenty exact excerpts, validated proposal state `needs_review` because qualified redirected/multi-year funding and entity boundaries remain unresolved.
-- FedEx Corporation: four admitted official sources, twenty exact excerpts, validated proposal state `needs_review` because current ownership, post-spin entity boundaries, procurement/funding unknowns, and source recency exceptions require future human review.
+- University of Utah: 10 sources, 33 exact excerpts, 9/10 excerpt-supported taxonomy categories; `procurement` remains a gap.
+- FedEx Corporation: 9 sources, 30 exact excerpts, 9/10 excerpt-supported taxonomy categories; `gaps_contradictions` remains a gap.
 
-The accounts use the same request, planner, admission, model-output schema, validators, and renderer. Account-specific content exists only in the clearly named golden fixture and review artifacts; generic production paths contain no Utah/FedEx branching.
+## Superseded historical artifacts
 
-## Interaction law
+The five-source Utah and four-source FedEx proposals, admitted-source snapshots, effect receipts, HTML, screenshots, execution ledgers, and model-artifact lineage are preserved byte-for-byte as historical review evidence. They use proposal schema v1 and predate the corrected controller policy, custody, taxonomy, provider, and effect boundaries.
 
-**Answers first. Evidence on demand. Machinery by invitation.**
+They are therefore:
 
-- Account thesis and four-state grammar lead.
-- Every displayed support path opens statement-local exact excerpts in one interaction.
-- Full research coverage, entities, dates, and provider execution remain behind the Research disclosure.
-- One strong dark decision plane contains `Still open` and `Recommended next move`.
-- Rendering causes no provider call, network request, storage mutation, form submission, navigation, or production write.
+- **superseded and non-current**;
+- not proof of the corrected exact-head vertical slice;
+- not eligible for silent grandfathering through proposal schema v2;
+- not evidence that fresh model execution or final rendering is authorized.
 
-## Reviewer repair gates
+See `FOUNDATION_STATUS.json` for the machine-readable boundary. The manifests carry the same superseded/non-current status.
 
-- `official_primary` admission requires an exact or explicitly subdomain-enabled trusted host policy bound to the source entity.
-- Every retrieval URL must descend from its own recorded query result or explicit result-derived URL.
-- Primary and related entities are bound to validated account context.
-- Provider identity/callable/storage/limits are snapshotted; over-limit output fails closed with a refusal receipt.
-- Mixed freshness renders a date span/recheck cue rather than a misleading newest-only date.
-- Statement-local evidence controls measure at least 44px; contrast measures 4.94:1 (inactive text) and 9.02:1 (dark-plane focus).
-- Dialog close is a non-submit button; focus returns to the trigger and observed submit count is zero.
-- `model-artifact-lineage.json` links each selected attempt to prompt/raw/usage/proposal SHA-256 values without committing private prompts or responses.
+## What remains incomplete
 
-## Evidence and effects
+No fresh model proposal has been generated through this corrected foundation. Broad proposals, the final broad Account Home renderer, regenerated visual proof, Product/UX review, user readiness, meeting preparation, merge readiness, deployment, publication, and customer action remain incomplete and unauthorized.
 
-- Search queries: 30 (closed)
-- URL retrieval attempts: 30 (closed)
-- Unique URLs: 24
-- Additional research after corpus freeze: 0
-- Provider/model calls: 8 total, now frozen
-- Graph/database/durable product writes: 0
-- Identity/customer routes: 0
-- Deployment/publication/outbound actions: 0
+## Reviewer navigation
 
-See:
-
-- `execution-ledger.json` — exact queries, retrievals, model receipts, historical token overrun, revised authorization, and forbidden effects
-- `model-artifact-lineage.json` — selected attempt IDs and verified prompt/raw/usage/proposal hashes
-- `browser-interaction-proof.json` — viewport geometry and interaction effects
-- `visual-artifact-manifest.json` and `SHA256SUMS` — review artifact hashes
-- `data/` — admitted sources, plans, validated non-durable proposals, and per-account effect receipts
+- `fixtures/account-intelligence/c2-01/retained-research-input.json` — corrected five/four-source retained inputs with policy v2.
+- `fixtures/account-intelligence/c2-01/broad-account-research-input.json` — corrected broad retained inputs and truthful recorded-effect labels.
+- `src/account-intelligence/` — request, policy, custody, admission, proposal, provider, effect, and view boundaries.
+- `tests/account-intelligence/` — focused deterministic and adversarial coverage.
+- `FOUNDATION_STATUS.json` — current-versus-historical artifact boundary.
+- `artifact-manifest.json`, `visual-artifact-manifest.json`, and `SHA256SUMS` — integrity records; historical artifact hashes are preserved.
 
 ## Explicit boundary
 
-The model output is untrusted input until deterministic validation passes. Validated proposals remain proposed/unreviewed intelligence, not approved truth, ratification, publication, customer-ready capability, or durable state. C2 does not authorize C3, C4, C9, Workshop behavior, persistence, identity, customer routes, monitoring, deployment, sharing, or sending.
+This correction does not authorize research, URL retrieval, model/provider execution, proposal regeneration, rendering or visual regeneration, Product/UX review, Graph/database/persistence writes, deployment, publication, customer effects, or merge.

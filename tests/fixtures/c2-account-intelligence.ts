@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import type { ModelProvider, ModelProviderRequest, ModelProviderResponse } from "../../src/model/provider.ts";
 import {
-  ACCOUNT_RESEARCH_TAXONOMY,
+  type AccountEntityBoundary,
   type AccountIntelligenceProposal,
   type AccountResearchRequest,
   type RetrievedSourceInput,
@@ -15,6 +16,93 @@ export interface C2FixtureInput {
   readonly retrievedSources: RetrievedSourceInput[];
 }
 
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+function exactEntity(value: AccountEntityBoundary): string {
+  return JSON.stringify([value.entityId, value.name, value.kind, value.relationshipToAccount]);
+}
+
+export function makeResearchPolicyForFixture(
+  request: AccountResearchRequest,
+  sources: readonly RetrievedSourceInput[],
+): Record<string, unknown> {
+  const primary: AccountEntityBoundary = {
+    entityId: request.accountId,
+    name: request.accountName,
+    kind: "account",
+    relationshipToAccount: "The account itself.",
+  };
+  const entities = new Map<string, AccountEntityBoundary>([[primary.entityId, primary]]);
+  for (const source of sources) {
+    for (const candidate of [source.entity, ...source.relatedEntities]) {
+      const prior = entities.get(candidate.entityId);
+      if (prior !== undefined && exactEntity(prior) !== exactEntity(candidate)) throw new Error("fixture entity conflict");
+      entities.set(candidate.entityId, candidate);
+    }
+  }
+  const hostRules = new Map<string, Set<string>>();
+  for (const source of sources.filter((item) => item.sourceClass === "official_primary")) {
+    const host = new URL(source.canonicalUrl).hostname;
+    const ids = hostRules.get(host) ?? new Set<string>();
+    ids.add(source.entity.entityId);
+    hostRules.set(host, ids);
+  }
+  const retainedCorpusId = `retained-corpus-${request.accountId}`;
+  const authorizedAt = "2026-08-21T11:59:00.000Z";
+  const sourceCustody = sources.map((source) => ({
+    custodyId: `custody-${source.retrievalId}`,
+    accountId: request.accountId,
+    retainedCorpusId,
+    canonicalUrl: source.canonicalUrl,
+    retrievedContentSha256: sha256(source.retrievedText),
+    sourceClass: source.sourceClass,
+    title: source.title,
+    publisher: source.publisher,
+    primaryEntityId: source.entity.entityId,
+    retrievedAt: source.retrievedAt,
+    authorizedBy: "fixture-controller",
+    authorizedAt,
+    scope: "local_test_only",
+    authorizesPersistence: false,
+  }));
+  const taxonomyAuthorities = sources.flatMap((source, sourceIndex) => {
+    const custody = sourceCustody[sourceIndex]!;
+    return source.taxonomyEvidence.flatMap((row, rowIndex) => row.candidateExcerptIndexes.map((excerptIndex) => ({
+      authorizationId: `taxonomy-${String(sourceIndex)}-${String(rowIndex)}-${String(excerptIndex)}`,
+      accountId: request.accountId,
+      custodyId: custody.custodyId,
+      canonicalUrl: source.canonicalUrl,
+      retrievedContentSha256: custody.retrievedContentSha256,
+      exactExcerptSha256: sha256(source.candidateExcerpts[excerptIndex]!),
+      taxonomy: row.taxonomy,
+      authorizedBy: "fixture-controller",
+      authorizedAt,
+      scope: "local_test_only",
+      authorizesPersistence: false,
+    })));
+  });
+  return {
+    kind: "atliera.admitted-account-research-policy",
+    schemaVersion: "2",
+    policyId: `policy-${request.accountId}`,
+    accountId: request.accountId,
+    primaryAccountEntity: primary,
+    admittedEntities: [...entities.values()],
+    trustedOfficialHosts: [...hostRules].map(([hostname, entityIds]) => ({
+      hostname,
+      allowSubdomains: false,
+      entityIds: [...entityIds],
+    })),
+    sourceCustody,
+    taxonomyAuthorities,
+    authorizedAt,
+    scope: "local_test_only",
+    authorizesPersistence: false,
+    authorizesPrivateSources: false,
+  };
+}
+
 export function makeC2FixtureInput(options: {
   accountId?: string;
   accountName?: string;
@@ -24,6 +112,7 @@ export function makeC2FixtureInput(options: {
   candidateExcerpts?: string[];
   evidenceCurrentThrough?: string | null;
   declaredConflictIds?: string[];
+  requestNotes?: string[];
 } = {}): C2FixtureInput {
   const accountId = options.accountId ?? "acct-harbor-transit";
   const accountName = options.accountName ?? "Harbor Transit";
@@ -38,7 +127,7 @@ export function makeC2FixtureInput(options: {
     admittedContext: {
       sector: "transportation",
       geography: "North America",
-      notes: [],
+      notes: options.requestNotes ?? [],
     },
     requestedAt: "2026-08-21T12:00:00.000Z",
   };
@@ -48,16 +137,36 @@ export function makeC2FixtureInput(options: {
   const retrievedText = options.retrievedText ?? `${established}\n\n${changed}`;
   const candidateExcerpts = options.candidateExcerpts ?? [established, changed];
   const canonicalUrl = `https://${domain}/official-record`;
+  const taxonomyEvidence: RetrievedSourceInput["taxonomyEvidence"] = [
+    { taxonomy: "identity_structure", candidateExcerptIndexes: [0] },
+    ...(candidateExcerpts.length > 1 ? [
+      { taxonomy: "financial_context" as const, candidateExcerptIndexes: [1] },
+      { taxonomy: "recent_changes" as const, candidateExcerptIndexes: [1] },
+    ] : []),
+  ];
+  const source: RetrievedSourceInput = {
+    retrievalId: `retrieval-${accountId}`,
+    discoveredByQueryIds: [plan.queries[0]!.queryId],
+    entity: { entityId: accountId, name: accountName, kind: "account", relationshipToAccount: "The account itself." },
+    relatedEntities: [],
+    canonicalUrl,
+    title: `${accountName} official record`,
+    publisher: accountName,
+    sourceClass: options.sourceClass ?? "official_primary",
+    publicationDate: "2026-07-01",
+    eventDate: "2026-07-01",
+    retrievedAt: "2026-08-21T12:02:00.000Z",
+    evidenceCurrentThrough: options.evidenceCurrentThrough === undefined ? "2026-08-20" : options.evidenceCurrentThrough,
+    retrievalContentKind: "bounded_clean_text_projection",
+    retrievedText,
+    candidateExcerpts,
+    taxonomyCoverage: taxonomyEvidence.map((row) => row.taxonomy),
+    taxonomyEvidence,
+    declaredConflictIds: options.declaredConflictIds ?? [],
+  };
   return {
     request,
-    researchPolicy: {
-      kind: "atliera.admitted-account-research-policy", schemaVersion: "1",
-      policyId: `policy-${accountId}`, accountId,
-      primaryAccountEntity: { entityId: accountId, name: accountName, kind: "account", relationshipToAccount: "The account itself." },
-      trustedOfficialHosts: [{ hostname: domain, allowSubdomains: false, entityIds: [accountId] }],
-      authorizedAt: "2026-08-21T11:59:00.000Z", scope: "local_test_only",
-      authorizesPersistence: false, authorizesPrivateSources: false,
-    },
+    researchPolicy: makeResearchPolicyForFixture(request, [source]),
     discoveries: [{
       queryId: plan.queries[0]!.queryId,
       queryKind: "generated_taxonomy",
@@ -69,49 +178,39 @@ export function makeC2FixtureInput(options: {
       discoveredAt: "2026-08-21T12:01:00.000Z",
       snippetUsedAsEvidence: false,
     }],
-    retrievedSources: [{
-      retrievalId: `retrieval-${accountId}`,
-      discoveredByQueryIds: [plan.queries[0]!.queryId],
-      entity: { entityId: accountId, name: accountName, kind: "account", relationshipToAccount: "The account itself." },
-      relatedEntities: [],
-      canonicalUrl,
-      title: `${accountName} official record`,
-      publisher: accountName,
-      sourceClass: options.sourceClass ?? "official_primary",
-      publicationDate: "2026-07-01",
-      eventDate: "2026-07-01",
-      retrievedAt: "2026-08-21T12:02:00.000Z",
-      evidenceCurrentThrough: options.evidenceCurrentThrough === undefined ? "2026-08-20" : options.evidenceCurrentThrough,
-      retrievalContentKind: "bounded_clean_text_projection",
-      retrievedText,
-      candidateExcerpts,
-      taxonomyCoverage: ACCOUNT_RESEARCH_TAXONOMY,
-      taxonomyEvidence: ACCOUNT_RESEARCH_TAXONOMY.map((taxonomy) => ({ taxonomy, candidateExcerptIndexes: [0, 1] })),
-      declaredConflictIds: options.declaredConflictIds ?? [],
-    }],
+    retrievedSources: [source],
   };
 }
 
 export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: AccountIntelligenceProposal) => void): AccountIntelligenceProposal {
   const parsed = JSON.parse(prompt) as {
-    request: AccountResearchRequest;
-    sourceData: Array<{
-      sourceId: string;
-      entity: { entityId: string; name: string };
-      excerpts: Array<{ evidenceId: string; exactExcerpt: string }>;
-    }>;
+    instructions: { exactOutputShape: {
+      kind: AccountIntelligenceProposal["kind"];
+      schemaVersion: AccountIntelligenceProposal["schemaVersion"];
+      researchCoverage: AccountIntelligenceProposal["researchCoverage"];
+      materialGaps: AccountIntelligenceProposal["materialGaps"];
+    } };
+    untrustedData: {
+      request: AccountResearchRequest;
+      sourceData: Array<{
+        sourceId: string;
+        entity: { entityId: string; name: string };
+        excerpts: Array<{ evidenceId: string; exactExcerpt: string }>;
+      }>;
+    };
   };
-  const source = parsed.sourceData[0]!;
+  const request = parsed.untrustedData.request;
+  const source = parsed.untrustedData.sourceData[0]!;
   const establishedEvidence = source.excerpts[0]!;
   const changedEvidence = source.excerpts[1] ?? establishedEvidence;
   const proposal: AccountIntelligenceProposal = {
-    kind: "atliera.account-intelligence-proposal",
-    schemaVersion: "1",
-    accountId: parsed.request.accountId,
+    kind: parsed.instructions.exactOutputShape.kind,
+    schemaVersion: parsed.instructions.exactOutputShape.schemaVersion,
+    accountId: request.accountId,
     accountThesis: {
       statementId: "thesis-01",
       state: "evidence-informed interpretation",
-      text: `${parsed.request.accountName} has an established operating context and a qualified change worth understanding before any solution positioning.`,
+      text: `${request.accountName} has an established operating context and a qualified change worth understanding before any solution positioning.`,
       evidenceIds: [establishedEvidence.evidenceId, changedEvidence.evidenceId],
       entityIds: [source.entity.entityId],
       riskFlags: [],
@@ -163,8 +262,8 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       needsReview: true,
       reason: "The source describes proposed, bounded, multi-year, restricted, matching funding subject to approval; availability and execution are not established.",
     }],
-    researchCoverage: ACCOUNT_RESEARCH_TAXONOMY.map((taxonomy) => ({ taxonomy, sourceIds: [source.sourceId], status: "partial" as const, gap: "Only one official record was admitted in this focused fixture." })),
-    materialGaps: ["Approval, execution, procurement, and decision-owner status remain unestablished."],
+    researchCoverage: parsed.instructions.exactOutputShape.researchCoverage,
+    materialGaps: parsed.instructions.exactOutputShape.materialGaps,
     reviewStatus: "needs_review",
   };
   mutate?.(proposal);

@@ -1,11 +1,11 @@
 {
   "kind": "atliera.c2-01-artifact-manifest",
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "artifacts": [
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/README.md",
-      "bytes": 4199,
-      "sha256": "47ba122a318b33df441371a14ed59280a923ad9e90572a57dd1e63765464e19d"
+      "bytes": 3753,
+      "sha256": "06fd928a01d6f718b26918673707dd98e220ebe37e2b7f682424172989168f0f"
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md",
@@ -174,13 +174,31 @@
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/visual-artifact-manifest.json",
-      "bytes": 1712,
-      "sha256": "8f222e23175d5d7667cbd8f0d89ef6ca99c910fd5227b4e0ec51984ef3d1e5f9"
+      "bytes": 1931,
+      "sha256": "95daf82bca67afea8c2631f558f2b7b37bd5bbd3b94b3e82e4e74fbdd70e655b"
     },
     {
       "path": "fixtures/account-intelligence/c2-01/retained-research-input.json",
-      "bytes": 65940,
-      "sha256": "725021732193cc2fa77e33536f28bcd5d8b73ea9a4b758ed31460c7305e2af71"
+      "bytes": 154803,
+      "sha256": "b84b30603b3e04769eacc1c1c8557397f92238c93df18b083769e379912ab88c"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json",
+      "bytes": 1661,
+      "sha256": "6737707a2171a74924007629533c96571ec45fb19961477d4d487f1c3277bd05"
+    },
+    {
+      "path": "fixtures/account-intelligence/c2-01/broad-account-research-input.json",
+      "bytes": 274432,
+      "sha256": "f0150d059da16abf30ddcf93be0afefa17bfa66ef53ac4bdf74ef1087b7d6c31"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/BROAD_ACCOUNT_REPRODUCTION.md",
+      "bytes": 6211,
+      "sha256": "47f7e35be948de67d3e0ab53b7d5d113f79b1fefe53d319ca068070143a4c991"
     }
-  ]
+  ],
+  "status": "superseded_historical_artifacts_plus_current_foundation_inputs",
+  "historicalProposalAndRenderArtifactsAreCurrentFoundationProof": false,
+  "historicalArtifactsMayBeGrandfathered": false
 }

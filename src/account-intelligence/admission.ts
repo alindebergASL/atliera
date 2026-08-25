@@ -167,6 +167,7 @@ function snapshotTaxonomy(value: StrictJsonValue | undefined, path: string): Acc
   if (items.some((item) => !ACCOUNT_RESEARCH_TAXONOMY.includes(item as AccountResearchTaxonomy))) {
     throw new Error(`${path} contains unknown taxonomy`);
   }
+  if (new Set(items).size !== items.length) throw new Error(`${path} must be unique`);
   return items as AccountResearchTaxonomy[];
 }
 
@@ -265,19 +266,26 @@ export function admitAccountResearch(
   if (new Set(retrieved.map((item) => item.retrievalId)).size !== retrieved.length) {
     throw new Error("retrieval ids must be unique");
   }
-  const trustedEntityIds = new Set<string>([policy.primaryAccountEntity.entityId, ...policy.trustedOfficialHosts.flatMap((rule) => rule.entityIds)]);
-  const entityDefinitions = new Map<string, string>();
+  const entityCatalog = new Map(policy.admittedEntities.map((entity) => [entity.entityId,
+    JSON.stringify([entity.entityId, entity.name, entity.kind, entity.relationshipToAccount])]));
+  const custodyByUrl = new Map(policy.sourceCustody.map((custody) => [custody.canonicalUrl, custody]));
   for (const source of retrieved) {
     for (const entity of [source.entity, ...source.relatedEntities]) {
-      if (!trustedEntityIds.has(entity.entityId)) throw new Error("source entity is not admitted by trusted account context");
-      if (entity.kind === "account" &&
-          (entity.entityId !== policy.primaryAccountEntity.entityId || entity.name !== request.accountName)) {
-        throw new Error("primary account entity identity mismatch");
+      const definition = JSON.stringify([entity.entityId, entity.name, entity.kind, entity.relationshipToAccount]);
+      if (entityCatalog.get(entity.entityId) !== definition) {
+        throw new Error("source entity must exactly match the controller-owned entity catalog");
       }
-      const definition = JSON.stringify([entity.name, entity.kind, entity.relationshipToAccount]);
-      const prior = entityDefinitions.get(entity.entityId);
-      if (prior !== undefined && prior !== definition) throw new Error("entity definition conflict refused");
-      entityDefinitions.set(entity.entityId, definition);
+    }
+    if (source.entity.entityId !== policy.primaryAccountEntity.entityId && source.entity.kind === "account") {
+      throw new Error("primary account entity identity mismatch");
+    }
+    const contentHash = sha256(source.retrievedText);
+    const custody = custodyByUrl.get(source.canonicalUrl);
+    if (custody === undefined || custody.accountId !== request.accountId ||
+        custody.retrievedContentSha256 !== contentHash || custody.sourceClass !== source.sourceClass ||
+        custody.title !== source.title || custody.publisher !== source.publisher ||
+        custody.primaryEntityId !== source.entity.entityId || custody.retrievedAt !== source.retrievedAt) {
+      throw new Error("retained source candidate does not exactly match controller-owned source custody");
     }
     if (source.sourceClass === "official_primary") {
       const hostname = new URL(source.canonicalUrl).hostname.toLowerCase();
@@ -312,9 +320,32 @@ export function admitAccountResearch(
         sourceCharEnd: start + excerpt.length,
       };
     });
+    const custody = custodyByUrl.get(source.canonicalUrl)!;
+    const authorities = policy.taxonomyAuthorities.filter((authority) => authority.custodyId === custody.custodyId);
+    const proposedTuples = source.taxonomyEvidence.flatMap((row) => row.candidateExcerptIndexes.map((index) =>
+      `${row.taxonomy}\n${excerpts[index]!.exactExcerptSha256}`));
+    const authorizedTuples = authorities.map((authority) => `${authority.taxonomy}\n${authority.exactExcerptSha256}`);
+    if (proposedTuples.length !== authorizedTuples.length ||
+        new Set(proposedTuples).size !== proposedTuples.length ||
+        proposedTuples.some((tuple) => !authorizedTuples.includes(tuple)) ||
+        authorizedTuples.some((tuple) => !proposedTuples.includes(tuple))) {
+      throw new Error("candidate taxonomy bindings do not exactly match controller authorization");
+    }
+    const taxonomyEvidenceBindings = ACCOUNT_RESEARCH_TAXONOMY.flatMap((taxonomy) => {
+      const matching = authorities.filter((authority) => authority.taxonomy === taxonomy);
+      if (matching.length === 0) return [];
+      return [{ taxonomy, evidenceIds: matching.map((authority) => {
+        const excerpt = excerpts.find((item) => item.exactExcerptSha256 === authority.exactExcerptSha256);
+        if (excerpt === undefined) throw new Error("taxonomy authorization cites an unavailable exact excerpt");
+        return excerpt.evidenceId;
+      }) }];
+    });
     return {
       sourceId,
       retrievalId: source.retrievalId,
+      custodyId: custody.custodyId,
+      researchPolicySha256: policySnapshot.receipt.policySha256,
+      taxonomyAuthorizationIds: authorities.map((authority) => authority.authorizationId),
       entity: source.entity,
       relatedEntities: source.relatedEntities,
       canonicalUrl: source.canonicalUrl,
@@ -329,11 +360,8 @@ export function admitAccountResearch(
       retrievedContentSha256: contentHash,
       retrievedByteSize: Buffer.byteLength(source.retrievedText, "utf8"),
       untrustedInstructionsDetected: INSTRUCTION_PATTERN.test(source.retrievedText),
-      taxonomyCoverage: source.taxonomyCoverage,
-      taxonomyEvidenceBindings: source.taxonomyEvidence.map((row) => ({
-        taxonomy: row.taxonomy,
-        evidenceIds: row.candidateExcerptIndexes.map((index) => excerpts[index]!.evidenceId),
-      })),
+      taxonomyCoverage: taxonomyEvidenceBindings.map((binding) => binding.taxonomy),
+      taxonomyEvidenceBindings,
       declaredConflictIds: source.declaredConflictIds,
       discoveredByQueryIds: source.discoveredByQueryIds,
       excerpts,

@@ -1,0 +1,49 @@
+{
+  "kind": "atliera.c2-foundation-artifact-status",
+  "schemaVersion": "1",
+  "status": "foundation_correction_checkpoint_unreviewed",
+  "currentProposalSchemaVersion": "2",
+  "historicalProposalSchemaVersion": "1",
+  "historicalArtifactsAreCurrentFoundationProof": false,
+  "historicalArtifactsMayBeGrandfathered": false,
+  "historicalArtifacts": {
+    "proposals": [
+      "data/university-of-utah-validated-proposal.json",
+      "data/fedex-validated-proposal.json"
+    ],
+    "admittedSources": [
+      "data/university-of-utah-admitted-sources.json",
+      "data/fedex-admitted-sources.json"
+    ],
+    "effectReceipts": [
+      "data/university-of-utah-effect-receipt.json",
+      "data/fedex-effect-receipt.json"
+    ],
+    "renders": [
+      "university-of-utah.html",
+      "fedex.html",
+      "screenshots/"
+    ],
+    "lineage": [
+      "execution-ledger.json",
+      "execution-ledger.pre-model.json",
+      "model-artifact-lineage.json"
+    ]
+  },
+  "reason": "These bytes predate controller-owned taxonomy authorization, canonical entity catalog binding, retained source custody, proposal schema v2, and corrected provider/effect accounting.",
+  "currentFoundationEvidence": [
+    "fixtures/account-intelligence/c2-01/retained-research-input.json",
+    "fixtures/account-intelligence/c2-01/broad-account-research-input.json",
+    "src/account-intelligence/",
+    "tests/account-intelligence/",
+    "tests/safety/c2-account-intelligence-hardcoding.test.ts"
+  ],
+  "incomplete": [
+    "fresh model execution",
+    "broad proposals",
+    "final broad Account Home rendering",
+    "visual proof",
+    "Product/UX review",
+    "merge readiness"
+  ]
+}

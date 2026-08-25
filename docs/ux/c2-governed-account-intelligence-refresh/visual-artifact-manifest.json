@@ -50,5 +50,10 @@
       "sha256": "05e4e4a05bdec38ad40589022b25943c02cd0ebb94c45841d7b73ec3dc3d505e",
       "bytes": 313790
     }
-  ]
+  ],
+  "kind": "atliera.c2-01-visual-artifact-manifest",
+  "schemaVersion": "2",
+  "status": "superseded_non_current_review_evidence",
+  "currentFoundationProof": false,
+  "visualsRegeneratedForFoundationCorrection": false
 }

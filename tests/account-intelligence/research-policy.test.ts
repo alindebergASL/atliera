@@ -23,8 +23,17 @@ test("authorized research policy is snapshotted once and emits an inspectable no
   const mutable = structuredClone(input.researchPolicy) as any;
   const snapshot = snapshotAdmittedResearchPolicy(mutable);
   mutable.trustedOfficialHosts[0].hostname = "attacker.example.net";
+  mutable.admittedEntities[0].name = "Mutated entity";
+  mutable.sourceCustody[0].title = "Mutated title";
+  mutable.taxonomyAuthorities[0].taxonomy = "procurement";
   assert.equal(snapshot.policy.trustedOfficialHosts[0]!.hostname, input.request.canonicalPublicDomains[0]);
+  assert.notEqual(snapshot.policy.admittedEntities[0]!.name, "Mutated entity");
+  assert.notEqual(snapshot.policy.sourceCustody[0]!.title, "Mutated title");
+  assert.notEqual(snapshot.policy.taxonomyAuthorities[0]!.taxonomy, "procurement");
   assert.match(snapshot.receipt.policySha256, /^[a-f0-9]{64}$/u);
+  assert.match(snapshot.receipt.entityCatalogSha256, /^[a-f0-9]{64}$/u);
+  assert.match(snapshot.receipt.sourceCustodySha256, /^[a-f0-9]{64}$/u);
+  assert.match(snapshot.receipt.taxonomyAuthoritiesSha256, /^[a-f0-9]{64}$/u);
   assert.equal(snapshot.receipt.scope, "local_test_only");
   assert.equal(snapshot.receipt.authorizesPersistence, false);
   assert.equal(snapshot.receipt.authorizesPrivateSources, false);
@@ -35,7 +44,20 @@ test("admission rejects a separately authorized policy for another account", () 
   const input = makeC2FixtureInput();
   const wrong = structuredClone(input.researchPolicy) as any;
   wrong.accountId = "acct-other";
+  wrong.primaryAccountEntity.entityId = "acct-other";
+  wrong.admittedEntities[0].entityId = "acct-other";
+  wrong.trustedOfficialHosts[0].entityIds = ["acct-other"];
+  wrong.sourceCustody[0].accountId = "acct-other";
+  wrong.sourceCustody[0].primaryEntityId = "acct-other";
+  for (const authority of wrong.taxonomyAuthorities) authority.accountId = "acct-other";
   const policy = snapshotAdmittedResearchPolicy(wrong);
   assert.throws(() => admitAccountResearch(input.request, createAccountResearchPlan(input.request), policy,
     input.discoveries, input.retrievedSources), /policy account identity mismatch/u);
+});
+
+test("trusted host rules may reference only controller-cataloged entity ids", () => {
+  const input = makeC2FixtureInput();
+  const wrong = structuredClone(input.researchPolicy) as any;
+  wrong.trustedOfficialHosts[0].entityIds = ["entity-invented"];
+  assert.throws(() => snapshotAdmittedResearchPolicy(wrong), /cataloged entities/u);
 });

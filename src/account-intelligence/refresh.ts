@@ -19,9 +19,10 @@ export interface AccountIntelligenceRefreshInput {
 }
 
 /**
- * Bounded orchestration over explicit injected inputs. Search and retrieval are
- * performed by an authorized outer adapter; this function creates no network,
- * database, Graph, persistence, deployment, publication, or customer effects.
+ * Bounded orchestration over explicit retained inputs. Discovery and source
+ * records do not prove that external searches or retrievals executed. This
+ * function creates no database, Graph, persistence, deployment, publication,
+ * or customer effects. Provider behavior remains an external variable effect.
  */
 export async function executeAccountIntelligenceRefresh(
   input: AccountIntelligenceRefreshInput,
@@ -30,9 +31,11 @@ export async function executeAccountIntelligenceRefresh(
   const plan = createAccountResearchPlan(request);
   const researchPolicy = snapshotAdmittedResearchPolicy(input.researchPolicy);
   const admitted = admitAccountResearch(request, plan, researchPolicy, input.discoveries, input.retrievedSources);
-  const exactSearchQueries = [...new Set(admitted.discoveries.filter((item) => item.queryKind !== "owner_authorized_exact_url").map((item) => item.exactQuery))];
-  if (exactSearchQueries.length === 0 || exactSearchQueries.length > plan.queryLimit) {
-    throw new Error("account research query budget refused");
+  const recordedQueryTexts = [...new Set(admitted.discoveries
+    .filter((item) => item.queryKind !== "owner_authorized_exact_url")
+    .map((item) => item.exactQuery))];
+  if (recordedQueryTexts.length === 0 || recordedQueryTexts.length > plan.queryLimit) {
+    throw new Error("account research query-record budget refused");
   }
   if (admitted.sources.length === 0 || admitted.sources.length > plan.admittedSourceLimit) {
     throw new Error("account research source budget refused");
@@ -40,21 +43,27 @@ export async function executeAccountIntelligenceRefresh(
   const providerResult = await input.providerBoundary.propose(request, plan, admitted.sources);
   const receipt: AccountIntelligenceEffectReceipt = {
     kind: "atliera.account-intelligence-effect-receipt",
-    schemaVersion: "1",
+    schemaVersion: "2",
     accountId: request.accountId,
-    exactSearchQueries,
-    retrievedUrls: admitted.sources.map((source) => source.canonicalUrl),
-    searchQueriesExecuted: exactSearchQueries.length,
-    retrievalsExecuted: admitted.sources.length,
+    recordedQueryTexts,
+    retainedCanonicalUrls: admitted.sources.map((source) => source.canonicalUrl),
+    recordedDiscoveryRecords: admitted.discoveries.length,
+    retainedSourceCandidates: input.retrievedSources.length,
     admittedSources: admitted.sources.length,
-    providerCallsExecuted: providerResult.receipt.callsSucceeded,
+    excludedSourceCandidates: input.retrievedSources.length - admitted.sources.length,
+    providerCallsAttempted: providerResult.receipt.callsAttempted,
+    providerCallsSucceeded: providerResult.receipt.callsSucceeded,
     provider: providerResult.receipt.provider,
     model: providerResult.receipt.model,
     promptSha256: providerResult.receipt.promptSha256,
+    boundaryConfigurationSha256: providerResult.receipt.boundaryConfigurationSha256,
     inputTokens: providerResult.receipt.inputTokens,
     outputTokens: providerResult.receipt.outputTokens,
     estimatedCostUsd: providerResult.receipt.costUsd,
-    privateNetworkEffects: 0,
+    providerBehavior: providerResult.receipt.providerBehavior,
+    providerStorage: providerResult.receipt.storage,
+    providerToolCalls: providerResult.receipt.tools,
+    providerNetworkEffects: providerResult.receipt.networkEffects,
     databaseWrites: 0,
     graphWrites: 0,
     persistenceWrites: 0,

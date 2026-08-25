@@ -1,7 +1,7 @@
 export const ACCOUNT_INTELLIGENCE_REQUEST_KIND = "atliera.account-intelligence-refresh-request" as const;
 export const ACCOUNT_INTELLIGENCE_REQUEST_VERSION = "1" as const;
 export const ACCOUNT_INTELLIGENCE_PROPOSAL_KIND = "atliera.account-intelligence-proposal" as const;
-export const ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION = "1" as const;
+export const ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION = "2" as const;
 
 export const ACCOUNT_RESEARCH_TAXONOMY = Object.freeze([
   "identity_structure",
@@ -87,13 +87,49 @@ export interface AccountEntityBoundary {
   readonly relationshipToAccount: string;
 }
 
+export type AccountSourceClass = "official_primary" | "reputable_secondary";
+
+export interface RetainedSourceCustody {
+  readonly custodyId: string;
+  readonly accountId: string;
+  readonly retainedCorpusId: string;
+  readonly canonicalUrl: string;
+  readonly retrievedContentSha256: string;
+  readonly sourceClass: AccountSourceClass;
+  readonly title: string;
+  readonly publisher: string;
+  readonly primaryEntityId: string;
+  readonly retrievedAt: string;
+  readonly authorizedBy: string;
+  readonly authorizedAt: string;
+  readonly scope: "local_test_only";
+  readonly authorizesPersistence: false;
+}
+
+export interface TaxonomyAdmissionAuthority {
+  readonly authorizationId: string;
+  readonly accountId: string;
+  readonly custodyId: string;
+  readonly canonicalUrl: string;
+  readonly retrievedContentSha256: string;
+  readonly exactExcerptSha256: string;
+  readonly taxonomy: AccountResearchTaxonomy;
+  readonly authorizedBy: string;
+  readonly authorizedAt: string;
+  readonly scope: "local_test_only";
+  readonly authorizesPersistence: false;
+}
+
 export interface AdmittedResearchPolicy {
   readonly kind: "atliera.admitted-account-research-policy";
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly policyId: string;
   readonly accountId: string;
   readonly primaryAccountEntity: AccountEntityBoundary;
+  readonly admittedEntities: readonly AccountEntityBoundary[];
   readonly trustedOfficialHosts: readonly TrustedOfficialHost[];
+  readonly sourceCustody: readonly RetainedSourceCustody[];
+  readonly taxonomyAuthorities: readonly TaxonomyAdmissionAuthority[];
   readonly authorizedAt: string;
   readonly scope: "local_test_only";
   readonly authorizesPersistence: false;
@@ -104,13 +140,14 @@ export interface AdmittedResearchPolicyReceipt {
   readonly policyId: string;
   readonly accountId: string;
   readonly policySha256: string;
+  readonly entityCatalogSha256: string;
+  readonly sourceCustodySha256: string;
+  readonly taxonomyAuthoritiesSha256: string;
   readonly authorizedAt: string;
   readonly scope: "local_test_only";
   readonly authorizesPersistence: false;
   readonly authorizesPrivateSources: false;
 }
-
-export type AccountSourceClass = "official_primary" | "reputable_secondary";
 
 export interface RetrievedSourceInput {
   readonly retrievalId: string;
@@ -149,6 +186,9 @@ export interface AdmittedEvidenceExcerpt {
 export interface AdmittedAccountSource {
   readonly sourceId: string;
   readonly retrievalId: string;
+  readonly custodyId: string;
+  readonly researchPolicySha256: string;
+  readonly taxonomyAuthorizationIds: readonly string[];
   readonly entity: AccountEntityBoundary;
   readonly relatedEntities: readonly AccountEntityBoundary[];
   readonly canonicalUrl: string;
@@ -201,8 +241,8 @@ export interface IntelligenceStatement {
 export interface ResearchCoverageItem {
   readonly taxonomy: AccountResearchTaxonomy;
   readonly sourceIds: readonly string[];
-  readonly status: "covered" | "partial" | "gap";
-  readonly gap: string | null;
+  readonly status: "partial" | "gap";
+  readonly gap: string;
 }
 
 export interface AccountIntelligenceProposal {
@@ -232,21 +272,27 @@ export interface AccountIntelligenceProposal {
 
 export interface AccountIntelligenceEffectReceipt {
   readonly kind: "atliera.account-intelligence-effect-receipt";
-  readonly schemaVersion: "1";
+  readonly schemaVersion: "2";
   readonly accountId: string;
-  readonly exactSearchQueries: readonly string[];
-  readonly retrievedUrls: readonly string[];
-  readonly searchQueriesExecuted: number;
-  readonly retrievalsExecuted: number;
+  readonly recordedQueryTexts: readonly string[];
+  readonly retainedCanonicalUrls: readonly string[];
+  readonly recordedDiscoveryRecords: number;
+  readonly retainedSourceCandidates: number;
   readonly admittedSources: number;
-  readonly providerCallsExecuted: number;
+  readonly excludedSourceCandidates: number;
+  readonly providerCallsAttempted: number;
+  readonly providerCallsSucceeded: number;
   readonly provider: string;
   readonly model: string;
   readonly promptSha256: string;
+  readonly boundaryConfigurationSha256: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;
-  readonly privateNetworkEffects: 0;
+  readonly providerBehavior: "external_variable_response_validated";
+  readonly providerStorage: "unestablished";
+  readonly providerToolCalls: "unestablished";
+  readonly providerNetworkEffects: "unestablished";
   readonly databaseWrites: 0;
   readonly graphWrites: 0;
   readonly persistenceWrites: 0;

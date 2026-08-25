@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION } from "../../src/account-intelligence/contracts.ts";
+import { snapshotAccountIntelligenceProposal } from "../../src/account-intelligence/proposal.ts";
+import { snapshotAccountResearchRequest } from "../../src/account-intelligence/research-plan.ts";
 
 const REPO = process.cwd();
 const ROOT = join(REPO, "docs/ux/c2-governed-account-intelligence-refresh");
@@ -30,7 +33,10 @@ function pngDimensions(buffer: Buffer): [number, number] {
 test("C2-01 manifest and SHA256SUMS verify every review artifact", async () => {
   const manifest = await readJson(join(ROOT, "artifact-manifest.json"));
   assert.equal(manifest.kind, "atliera.c2-01-artifact-manifest");
-  assert.equal(manifest.artifacts.length, 28);
+  assert.equal(manifest.artifacts.length, 31);
+  assert.equal(manifest.status, "superseded_historical_artifacts_plus_current_foundation_inputs");
+  assert.equal(manifest.historicalProposalAndRenderArtifactsAreCurrentFoundationProof, false);
+  assert.equal(manifest.historicalArtifactsMayBeGrandfathered, false);
   const sums = await readFile(join(ROOT, "SHA256SUMS"), "utf8");
   for (const item of manifest.artifacts) {
     const bytes = await readFile(join(REPO, item.path));
@@ -70,9 +76,24 @@ test("browser proof locks editorial geometry and zero-effect evidence disclosure
   assert.deepEqual(proof.interaction.storageAfter, { local: 0, session: 0 });
 });
 
-test("real Utah and FedEx proposals are distinct, validated, non-durable, and safe", async () => {
+test("historical Utah and FedEx proposal bytes are distinct, superseded, and refused by current validation", async () => {
   const utah = await readJson(join(ROOT, "data/university-of-utah-validated-proposal.json"));
   const fedex = await readJson(join(ROOT, "data/fedex-validated-proposal.json"));
+  const status = await readJson(join(ROOT, "FOUNDATION_STATUS.json"));
+  const retained = await readJson(join(REPO, "fixtures/account-intelligence/c2-01/retained-research-input.json"));
+  const historicalSources = [
+    await readJson(join(ROOT, "data/university-of-utah-admitted-sources.json")),
+    await readJson(join(ROOT, "data/fedex-admitted-sources.json")),
+  ];
+  assert.equal(status.historicalArtifactsAreCurrentFoundationProof, false);
+  assert.equal(status.historicalArtifactsMayBeGrandfathered, false);
+  assert.equal(status.currentProposalSchemaVersion, ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION);
+  for (const [index, proposal] of [utah, fedex].entries()) {
+    assert.notEqual(proposal.schemaVersion, ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION);
+    const request = snapshotAccountResearchRequest(retained.accounts[index].request);
+    assert.throws(() => snapshotAccountIntelligenceProposal(proposal, request, historicalSources[index]),
+      /proposal identity refused|version refused|corrected foundation authority/u);
+  }
   const utahText = JSON.stringify(utah);
   const fedexText = JSON.stringify(fedex);
   assert.equal(utah.reviewStatus, "needs_review");
@@ -103,7 +124,7 @@ test("real Utah and FedEx proposals are distinct, validated, non-durable, and sa
   assert.deepEqual(Object.values(ledger.forbiddenEffects), Array(10).fill(0));
 });
 
-test("model artifact lineage links selected attempts and detects prompt/attempt tampering", async () => {
+test("historical model artifact lineage remains hash-verifiable without becoming current foundation proof", async () => {
   const lineage: any = JSON.parse(await readFile(join(ROOT, "model-artifact-lineage.json"), "utf8"));
   const ledger: any = JSON.parse(await readFile(join(ROOT, "execution-ledger.json"), "utf8"));
   assert.equal(lineage.entries.length, 2);
@@ -128,7 +149,11 @@ test("model artifact lineage links selected attempts and detects prompt/attempt 
   }
 });
 
-test("rendered pages inherit Editorial Evidence Synthesis without dashboard regressions", async () => {
+test("superseded rendered pages preserve their historical bytes without becoming current foundation proof", async () => {
+  const visualManifest = await readJson(join(ROOT, "visual-artifact-manifest.json"));
+  assert.equal(visualManifest.status, "superseded_non_current_review_evidence");
+  assert.equal(visualManifest.currentFoundationProof, false);
+  assert.equal(visualManifest.visualsRegeneratedForFoundationCorrection, false);
   for (const file of ["university-of-utah.html", "fedex.html"]) {
     const html = await readFile(join(ROOT, file), "utf8");
     for (const required of ["Established", "Meaningfully changed", "Still open", "Recommended next move", "Answers first", "Evidence", "Research coverage and boundaries"]) {

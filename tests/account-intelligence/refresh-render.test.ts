@@ -31,6 +31,12 @@ test("refresh distinguishes retained records from external execution and reports
   assert.equal(result.effectReceipt.providerCallsAttempted, 1);
   assert.equal(result.effectReceipt.providerCallsSucceeded, 1);
   assert.equal(result.effectReceipt.inputTokens, 500);
+  assert.equal(result.effectReceipt.requestedMaxOutputTokens, 4_000);
+  assert.equal(result.effectReceipt.requestedLocalOutputTokenCeiling, 4_000);
+  assert.equal(result.effectReceipt.transmittedProviderOutputTokenCeiling, null);
+  assert.equal(result.effectReceipt.observedOutputTokens, 300);
+  assert.equal(result.effectReceipt.externalOutputTokenEnforcement, "unestablished");
+  assert.equal(result.effectReceipt.structuredOutputEnforcement, "local_deterministic_validation_only");
   assert.equal(result.effectReceipt.outputTokens, 300);
   assert.match(result.effectReceipt.promptSha256, /^[a-f0-9]{64}$/u);
   assert.match(result.effectReceipt.boundaryConfigurationSha256, /^[a-f0-9]{64}$/u);
@@ -125,6 +131,8 @@ test("provider output above requested maximum fails closed with a truthful refus
     assert.deepEqual(error.receipt, {
       code: "output_token_limit_exceeded", provider: "fixture-account-intelligence-provider", model: "fixture-model",
       reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0,
+      requestedLocalOutputTokenCeiling: 300, transmittedProviderOutputTokenCeiling: null,
+      observedOutputTokens: 301, externalOutputTokenEnforcement: "unestablished",
       providerBehavior: "external_variable_response_validated", storage: "unestablished", tools: "unestablished",
       networkEffects: "unestablished",
     });

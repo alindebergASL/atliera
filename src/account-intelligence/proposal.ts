@@ -32,14 +32,64 @@ const LIMITS: StrictJsonLimits = Object.freeze({
   max_total_string_utf8_bytes: 512_000,
 });
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/u;
-const STATES: readonly IntelligenceStatementState[] = ["source-backed fact", "evidence-informed interpretation",
-  "evidence-linked proposed claim", "unresolved question", "recommendation"];
-const FLAGS: readonly IntelligenceRiskFlag[] = ["entity_boundary", "funding_status_ambiguity", "authoritative_conflict",
-  "stale_evidence", "secondary_support", "unsupported_commercial_assumption", "insufficient_evidence"];
-const FORBIDDEN_COMMERCIAL = /\b(?:available budget|approved spend|funding secured|funded execution|remaining spend|active procurement|buying intent|sales opportunity|deal size|commercial urgency|vendor preference)\b/giu;
+const PROPOSAL_STATES = Object.freeze(["source-backed fact", "evidence-informed interpretation",
+  "evidence-linked proposed claim", "unresolved question", "recommendation"] as const satisfies readonly IntelligenceStatementState[]);
+const PROPOSAL_RISK_FLAGS = Object.freeze(["entity_boundary", "funding_status_ambiguity", "authoritative_conflict",
+  "stale_evidence", "secondary_support", "unsupported_commercial_assumption", "insufficient_evidence"] as const satisfies readonly IntelligenceRiskFlag[]);
+const CONSEQUENTIAL_RISK_FLAGS = Object.freeze(["entity_boundary", "funding_status_ambiguity",
+  "authoritative_conflict", "stale_evidence", "unsupported_commercial_assumption"] as const satisfies readonly IntelligenceRiskFlag[]);
+export const ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS = Object.freeze({
+  states: PROPOSAL_STATES,
+  riskFlags: PROPOSAL_RISK_FLAGS,
+  consequentialRiskFlags: CONSEQUENTIAL_RISK_FLAGS,
+  text: Object.freeze({
+    statementIdMaxCharacters: 128,
+    statementTextValidatorMaxCharacters: 2_000,
+    statementTextTargetMaxCharacters: 1_200,
+    suppliedEvidenceIdMaxCharacters: 4_000,
+    suppliedEntityIdMaxCharacters: 4_000,
+    boundaryEntityIdMaxCharacters: 128,
+    boundaryTextValidatorMaxCharacters: 1_000,
+    boundaryTextTargetMaxCharacters: 800,
+    riskStatementIdMaxCharacters: 4_000,
+    riskReasonValidatorMaxCharacters: 1_000,
+    riskReasonTargetMaxCharacters: 800,
+    coverageSourceIdMaxCharacters: 4_000,
+    coverageGapValidatorMaxCharacters: 1_000,
+    immutableMaterialGapMaxCharacters: 4_000,
+  }),
+  arrays: Object.freeze({
+    eachStatementSectionMaxItems: 20,
+    statementEvidenceIdsMaxItems: 20,
+    statementEntityIdsMaxItems: 20,
+    statementRiskFlagsMaxItems: PROPOSAL_RISK_FLAGS.length,
+    sourceAndEntityBoundariesMaxItems: 30,
+    riskConflictFlagsMaxItems: 50,
+    riskStatementIdsMaxItems: 30,
+    coverageSourceIdsMaxItems: 15,
+    materialGapsMaxItems: 30,
+  }),
+  freshness: Object.freeze({
+    evidenceMaxAgeYears: 1,
+    currentStateTerms: Object.freeze([
+      "current", "currently", "today", "now", "ongoing", "active", "presently",
+      "is operational", "is operating", "remains", "continues",
+    ] as const),
+    staleEvidenceRiskFlag: "stale_evidence" as const,
+    evidenceDateUtcTime: ["00", "00", "00.000Z"].join(":"),
+  }),
+});
+const STATES = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.states;
+const FLAGS = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.riskFlags;
+const CURRENT_STATE_CLAIM = new RegExp(
+  `\\b(?:${ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.currentStateTerms.join("|")})\\b`,
+  "iu",
+);
+const FORBIDDEN_COMMERCIAL = /\b(?:available(?:\s+purchasing)?\s+budget|approved spend|funding secured|funded execution|remaining spend|active procurement|buying intent|sales opportunity|deal size|commercial urgency|vendor preference)\b/giu;
 const UNSAFE_MARKUP = /<\/?(?:script|iframe|object|embed|style|link|meta)\b|javascript:|data:text\/html/iu;
-const CONSEQUENTIAL_FLAGS = new Set<IntelligenceRiskFlag>(["entity_boundary", "funding_status_ambiguity",
-  "authoritative_conflict", "stale_evidence", "unsupported_commercial_assumption"]);
+const CONSEQUENTIAL_FLAGS = new Set<IntelligenceRiskFlag>(
+  ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.consequentialRiskFlags,
+);
 const FUNDING_QUALIFIER_RULES: readonly [RegExp, RegExp, string][] = [
   [/\b(?:redirected|redirecting|reallocated|reallocating)\b/iu, /\b(?:redirect|reallocat)\w*\b/iu, "redirected/reallocated"],
   [/\b(?:proposed|planned)\b/iu, /\b(?:propos|plan)\w*\b/iu, "proposed/planned"],
@@ -91,19 +141,38 @@ function object(value: StrictJsonValue | undefined, path: string): Record<string
 function array(value: StrictJsonValue | undefined, path: string, max: number, nonEmpty = false): StrictJsonValue[] {
   return strictJsonArray(value, path, max, nonEmpty);
 }
-function string(value: StrictJsonValue | undefined, path: string, max = 4_000): string {
+function string(
+  value: StrictJsonValue | undefined,
+  path: string,
+  max: number = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.immutableMaterialGapMaxCharacters,
+): string {
   if (typeof value !== "string" || value.trim() !== value || value.length === 0 || value.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(value)) {
-    throw new Error(`${path} must be bounded safe text`);
+    throw new AccountIntelligenceValidationIssueError(
+      "bounded_safe_text",
+      path,
+      `${path} must be bounded safe text`,
+    );
   }
   return value;
 }
-function safeId(value: StrictJsonValue | undefined, path: string): string {
-  const text = string(value, path, 128);
+function safeId(
+  value: StrictJsonValue | undefined,
+  path: string,
+  maxCharacters: number = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementIdMaxCharacters,
+): string {
+  const text = string(value, path, maxCharacters);
   if (!SAFE_ID.test(text)) throw new Error(`${path} must be a safe id`);
   return text;
 }
-function strings(value: StrictJsonValue | undefined, path: string, max: number, nonEmpty = false): string[] {
-  const items = array(value, path, max, nonEmpty).map((item, index) => string(item, `${path}[${String(index)}]`));
+function strings(
+  value: StrictJsonValue | undefined,
+  path: string,
+  maxItems: number,
+  nonEmpty = false,
+  itemMaxCharacters: number = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.immutableMaterialGapMaxCharacters,
+): string[] {
+  const items = array(value, path, maxItems, nonEmpty)
+    .map((item, index) => string(item, `${path}[${String(index)}]`, itemMaxCharacters));
   if (new Set(items).size !== items.length) throw new Error(`${path} must be unique`);
   return items;
 }
@@ -120,6 +189,85 @@ function nullableString(value: StrictJsonValue | undefined, path: string): strin
 }
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+export type AccountIntelligenceValidationIssueCode =
+  | "bounded_safe_text"
+  | "stale_current_state"
+  | "consequential_review_required";
+
+export interface AccountIntelligenceValidatorIssueSeed {
+  readonly code: AccountIntelligenceValidationIssueCode;
+  readonly path: string;
+}
+
+class AccountIntelligenceValidationIssueError extends Error {
+  readonly code: AccountIntelligenceValidationIssueCode;
+  readonly path: string;
+
+  constructor(code: AccountIntelligenceValidationIssueCode, path: string, message: string) {
+    super(message);
+    this.name = "AccountIntelligenceValidationIssueError";
+    this.code = code;
+    this.path = path;
+  }
+}
+
+export function accountIntelligenceValidatorIssueFromError(
+  error: unknown,
+): Readonly<AccountIntelligenceValidatorIssueSeed> | null {
+  if (!(error instanceof AccountIntelligenceValidationIssueError)) return null;
+  return Object.freeze({ code: error.code, path: error.path });
+}
+
+export function accountIntelligenceFreshnessCutoffTimestamp(requestedAt: string): string {
+  const cutoff = new Date(requestedAt);
+  if (!Number.isFinite(cutoff.getTime())) throw new Error("freshness requestedAt refused");
+  cutoff.setUTCFullYear(
+    cutoff.getUTCFullYear() - ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.evidenceMaxAgeYears,
+  );
+  return cutoff.toISOString();
+}
+
+function evidenceCurrentThroughTimestamp(value: string): string {
+  return `${value}T${ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.evidenceDateUtcTime}`;
+}
+
+export function accountIntelligenceRejectedProposalSha256(value: unknown): string {
+  const snapshot = snapshotStrictJson(value, "rejectedProposal", LIMITS);
+  return sha256(JSON.stringify(snapshot));
+}
+
+function correctiveTextCeiling(path: string): number {
+  const text = ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text;
+  if (/\.statementId$/u.test(path)) return text.statementIdMaxCharacters;
+  if (/\.text$/u.test(path)) return text.statementTextValidatorMaxCharacters;
+  if (/\.evidenceIds\[\d+\]$/u.test(path)) return text.suppliedEvidenceIdMaxCharacters;
+  if (/\.entityIds\[\d+\]$/u.test(path)) return text.suppliedEntityIdMaxCharacters;
+  if (/\.sourceAndEntityBoundaries\[\d+\]\.entityId$/u.test(path)) return text.boundaryEntityIdMaxCharacters;
+  if (/\.sourceAndEntityBoundaries\[\d+\]\.boundary$/u.test(path)) return text.boundaryTextValidatorMaxCharacters;
+  if (/\.riskConflictFlags\[\d+\]\.statementIds\[\d+\]$/u.test(path)) return text.riskStatementIdMaxCharacters;
+  if (/\.riskConflictFlags\[\d+\]\.reason$/u.test(path)) return text.riskReasonValidatorMaxCharacters;
+  if (/\.researchCoverage\[\d+\]\.sourceIds\[\d+\]$/u.test(path)) return text.coverageSourceIdMaxCharacters;
+  if (/\.researchCoverage\[\d+\]\.gap$/u.test(path)) return text.coverageGapValidatorMaxCharacters;
+  if (/\.materialGaps\[\d+\]$/u.test(path)) return text.immutableMaterialGapMaxCharacters;
+  throw new Error("bounded validator issue path refused");
+}
+
+export function renderAccountIntelligenceCorrectiveText(
+  issue: Readonly<AccountIntelligenceValidatorIssueSeed>,
+): string {
+  if (issue.code === "bounded_safe_text") {
+    const ceiling = correctiveTextCeiling(issue.path);
+    return `${issue.path} must be trimmed, non-empty, control-character-free, and at most ${String(ceiling)} characters. Regenerate the complete proposal; do not truncate or splice prior prose.`;
+  }
+  if (issue.code === "stale_current_state") {
+    return `${issue.path} uses listed current-state language with missing or stale evidence. Use historical or time-bounded wording, or add stale_evidence with the required consequential review treatment.`;
+  }
+  if (issue.code === "consequential_review_required") {
+    return "proposal.reviewStatus and proposal.riskConflictFlags must route every material consequential uncertainty to needs_review; every consequentially flagged statement must have its corresponding flag and statementId entry marked needsReview true.";
+  }
+  throw new Error("unknown validator-owned issue code refused");
 }
 
 interface EvidenceIndexEntry {
@@ -169,10 +317,14 @@ function snapshotStatement(
   const statement: IntelligenceStatement = {
     statementId: safeId(root.statementId, `${path}.statementId`),
     state,
-    text: string(root.text, `${path}.text`, 2_000),
-    evidenceIds: strings(root.evidenceIds, `${path}.evidenceIds`, 20, state !== "unresolved question"),
-    entityIds: strings(root.entityIds, `${path}.entityIds`, 20, state !== "unresolved question"),
-    riskFlags: array(root.riskFlags, `${path}.riskFlags`, FLAGS.length)
+    text: string(root.text, `${path}.text`, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextValidatorMaxCharacters),
+    evidenceIds: strings(root.evidenceIds, `${path}.evidenceIds`,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.statementEvidenceIdsMaxItems, state !== "unresolved question",
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.suppliedEvidenceIdMaxCharacters),
+    entityIds: strings(root.entityIds, `${path}.entityIds`,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.statementEntityIdsMaxItems, state !== "unresolved question",
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.suppliedEntityIdMaxCharacters),
+    riskFlags: array(root.riskFlags, `${path}.riskFlags`, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.statementRiskFlagsMaxItems)
       .map((flag, index) => enumValue(flag, FLAGS, `${path}.riskFlags[${String(index)}]`)),
   };
   if (new Set(statement.riskFlags).size !== statement.riskFlags.length) throw new Error(`${path}.riskFlags must be unique`);
@@ -227,7 +379,7 @@ function snapshotStatementArray(
   evidence: Map<string, EvidenceIndexEntry>,
   entities: Set<string>,
 ): IntelligenceStatement[] {
-  return array(value, path, 20, true).map((item, index) =>
+  return array(value, path, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.eachStatementSectionMaxItems, true).map((item, index) =>
     snapshotStatement(item, `${path}[${String(index)}]`, state, evidence, entities));
 }
 
@@ -264,9 +416,11 @@ function snapshotCoverage(value: StrictJsonValue | undefined, sources: readonly 
     const root = object(item, path);
     assertExactKeys(root, ["taxonomy", "sourceIds", "status", "gap"], path);
     const taxonomy = enumValue(root.taxonomy, ACCOUNT_RESEARCH_TAXONOMY, `${path}.taxonomy`);
-    const ids = strings(root.sourceIds, `${path}.sourceIds`, 15);
+    const ids = strings(root.sourceIds, `${path}.sourceIds`,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.coverageSourceIdsMaxItems, false,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.coverageSourceIdMaxCharacters);
     const status = enumValue(root.status, ["partial", "gap"] as const, `${path}.status`);
-    const gap = string(root.gap, `${path}.gap`, 1_000);
+    const gap = string(root.gap, `${path}.gap`, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.coverageGapValidatorMaxCharacters);
     if (ids.some((id) => !sourceIds.has(id))) throw new Error(`${path} cites unknown source`);
     return { taxonomy, sourceIds: ids, status, gap };
   });
@@ -303,8 +457,23 @@ export function snapshotAccountIntelligenceProposal(
     "unresolved question", evidence, entities);
   const recommendedNextMove = snapshotStatement(root.recommendedNextMove, "proposal.recommendedNextMove",
     "recommendation", evidence, entities);
-  const statements = [accountThesis, ...establishedContext, ...meaningfullyChanged, ...whyChangeMayMatter,
-    ...stillOpenQuestions, recommendedNextMove];
+  const statementEntries = [
+    { path: "proposal.accountThesis", statement: accountThesis },
+    ...establishedContext.map((statement, index) => ({
+      path: `proposal.establishedContext[${String(index)}]`, statement,
+    })),
+    ...meaningfullyChanged.map((statement, index) => ({
+      path: `proposal.meaningfullyChanged[${String(index)}]`, statement,
+    })),
+    ...whyChangeMayMatter.map((statement, index) => ({
+      path: `proposal.whyChangeMayMatter[${String(index)}]`, statement,
+    })),
+    ...stillOpenQuestions.map((statement, index) => ({
+      path: `proposal.stillOpenQuestions[${String(index)}]`, statement,
+    })),
+    { path: "proposal.recommendedNextMove", statement: recommendedNextMove },
+  ];
+  const statements = statementEntries.map((entry) => entry.statement);
   if (new Set(statements.map((item) => item.statementId)).size !== statements.length) {
     throw new Error("proposal statement ids must be unique");
   }
@@ -322,40 +491,48 @@ export function snapshotAccountIntelligenceProposal(
       throw new Error(`qualified funding requires explicit still-open questions for: ${missing.join(", ")}`);
     }
   }
-  const freshnessCutoff = new Date(request.requestedAt);
-  freshnessCutoff.setUTCFullYear(freshnessCutoff.getUTCFullYear() - 1);
-  const currentClaim = /\b(?:current|currently|today|now|ongoing|active)\b/iu;
-  for (const statement of statements) {
-    if (statement.state === "unresolved question" || !currentClaim.test(statement.text) || statement.evidenceIds.length === 0) continue;
+  const freshnessCutoffTimestamp = accountIntelligenceFreshnessCutoffTimestamp(request.requestedAt);
+  for (const { path, statement } of statementEntries) {
+    if (statement.state === "unresolved question" || !CURRENT_STATE_CLAIM.test(statement.text) || statement.evidenceIds.length === 0) continue;
     const currentnessUnestablished = statement.evidenceIds.some((id) => {
       const source = evidence.get(id)!.source;
       return source.evidenceCurrentThrough === null ||
-        new Date(`${source.evidenceCurrentThrough}T00:00:00.000Z`) < freshnessCutoff;
+        evidenceCurrentThroughTimestamp(source.evidenceCurrentThrough) < freshnessCutoffTimestamp;
     });
-    if (currentnessUnestablished && !statement.riskFlags.includes("stale_evidence")) {
-      throw new Error(`${statement.statementId} makes an unqualified current-state claim from missing or stale evidence`);
+    if (currentnessUnestablished && !statement.riskFlags.includes(ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.staleEvidenceRiskFlag)) {
+      throw new AccountIntelligenceValidationIssueError(
+        "stale_current_state",
+        `${path}.text`,
+        `${statement.statementId} makes an unqualified current-state claim from missing or stale evidence`,
+      );
     }
   }
 
-  const boundaries = array(root.sourceAndEntityBoundaries, "proposal.sourceAndEntityBoundaries", 30, true)
+  const boundaries = array(root.sourceAndEntityBoundaries, "proposal.sourceAndEntityBoundaries",
+    ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.sourceAndEntityBoundariesMaxItems, true)
     .map((item, index) => {
       const path = `proposal.sourceAndEntityBoundaries[${String(index)}]`;
       const boundary = object(item, path);
       assertExactKeys(boundary, ["entityId", "boundary"], path);
-      const entityId = safeId(boundary.entityId, `${path}.entityId`);
+      const entityId = safeId(boundary.entityId, `${path}.entityId`,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.boundaryEntityIdMaxCharacters);
       if (!entities.has(entityId)) throw new Error(`${path} cites unknown entity`);
-      return { entityId, boundary: string(boundary.boundary, `${path}.boundary`, 1_000) };
+      return { entityId, boundary: string(boundary.boundary, `${path}.boundary`,
+        ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.boundaryTextValidatorMaxCharacters) };
     });
   if (entities.size !== new Set(boundaries.map((item) => item.entityId)).size ||
       [...entities].some((entityId) => !boundaries.some((item) => item.entityId === entityId))) {
     throw new Error("proposal must preserve every admitted entity boundary exactly once");
   }
 
-  const riskConflictFlags = array(root.riskConflictFlags, "proposal.riskConflictFlags", 50).map((item, index) => {
+  const riskConflictFlags = array(root.riskConflictFlags, "proposal.riskConflictFlags",
+    ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.riskConflictFlagsMaxItems).map((item, index) => {
     const path = `proposal.riskConflictFlags[${String(index)}]`;
     const risk = object(item, path);
     assertExactKeys(risk, ["flag", "statementIds", "needsReview", "reason"], path);
-    const statementIds = strings(risk.statementIds, `${path}.statementIds`, 30, true);
+    const statementIds = strings(risk.statementIds, `${path}.statementIds`,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.riskStatementIdsMaxItems, true,
+      ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.riskStatementIdMaxCharacters);
     if (statementIds.some((id) => !statements.some((statement) => statement.statementId === id))) {
       throw new Error(`${path} cites unknown statement`);
     }
@@ -363,28 +540,36 @@ export function snapshotAccountIntelligenceProposal(
       flag: enumValue(risk.flag, FLAGS, `${path}.flag`),
       statementIds,
       needsReview: boolean(risk.needsReview, `${path}.needsReview`),
-      reason: string(risk.reason, `${path}.reason`, 1_000),
+      reason: string(risk.reason, `${path}.reason`, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.riskReasonValidatorMaxCharacters),
     };
   });
   for (const statement of statements) {
     for (const flag of statement.riskFlags) {
       if (!riskConflictFlags.some((item) => item.flag === flag && item.statementIds.includes(statement.statementId))) {
-        throw new Error(`proposal risk register omits ${statement.statementId}:${flag}`);
+        throw new Error(`${statement.statementId} risk flag ${flag} is omitted from the risk register`);
       }
     }
   }
   const consequential = statements.some((statement) => statement.riskFlags.some((flag) => CONSEQUENTIAL_FLAGS.has(flag)));
+  const unreviewedConsequential = statementEntries.some(({ statement }) => statement.riskFlags.some((flag) =>
+    CONSEQUENTIAL_FLAGS.has(flag) && !riskConflictFlags.some((item) =>
+      item.flag === flag && item.statementIds.includes(statement.statementId) && item.needsReview)));
   const reviewStatus = enumValue(root.reviewStatus, ["proposed_unreviewed", "needs_review"] as const, "proposal.reviewStatus");
-  if (consequential && (reviewStatus !== "needs_review" ||
-      !riskConflictFlags.some((item) => item.needsReview && CONSEQUENTIAL_FLAGS.has(item.flag)))) {
-    throw new Error("consequential exceptions must route to needs review");
+  if (consequential && (reviewStatus !== "needs_review" || unreviewedConsequential)) {
+    throw new AccountIntelligenceValidationIssueError(
+      "consequential_review_required",
+      "proposal.reviewStatus",
+      "consequential exceptions must route to needs review",
+    );
   }
   if (!consequential && reviewStatus !== "proposed_unreviewed") {
     throw new Error("routine supported synthesis must remain proposed and unreviewed");
   }
 
   const researchCoverage = snapshotCoverage(root.researchCoverage, sources);
-  const materialGaps = strings(root.materialGaps, "proposal.materialGaps", 30);
+  const materialGaps = strings(root.materialGaps, "proposal.materialGaps",
+    ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.materialGapsMaxItems, false,
+    ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.immutableMaterialGapMaxCharacters);
   const expectedMaterialGaps = systemOwnedMaterialGaps(sources);
   if (materialGaps.length !== expectedMaterialGaps.length ||
       materialGaps.some((gap, index) => gap !== expectedMaterialGaps[index])) {
@@ -440,6 +625,7 @@ export function createAccountIntelligencePrompt(
       exactExcerpt: excerpt.exactExcerpt,
     })),
   }));
+  const freshnessCutoffTimestamp = accountIntelligenceFreshnessCutoffTimestamp(request.requestedAt);
   const instructions = {
     role: "Generate one proposed, unreviewed account-intelligence synthesis from admitted evidence only.",
     security: [
@@ -449,11 +635,57 @@ export function createAccountIntelligencePrompt(
       "Search snippets are absent by design and must never be treated as evidence.",
       "Return strict JSON only, with exactly the requested fields and no markdown.",
       "Never assert that this proposal, any statement, or any source is approved, validated, ratified, persisted, durable, published, or authorized.",
-      "Research coverage and material gaps are system-owned. Copy the supplied values exactly; never upgrade partial or gap to covered.",
+      "Research coverage and material gaps are system-owned. Copy every supplied value byte-for-byte in the supplied order; never edit wording, reorder entries, or upgrade partial or gap to covered.",
     ],
     grammar: ["Established", "Meaningfully changed", "Still open", "Recommended next move"],
-    states: ["source-backed fact", "evidence-linked proposed claim", "evidence-informed interpretation", "unresolved question", "recommendation"],
+    states: STATES,
     allowedRiskFlags: FLAGS,
+    validationContract: {
+      safeText: "Every generated text value must be trimmed, non-empty, and free of control characters U+0000-U+0008, U+000B, U+000C, and U+000E-U+001F.",
+      text: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text,
+      arrays: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays,
+      targetBehavior: [
+        "Keep statement text at or below the 1,200-character safe target; the deterministic validator still rejects text above its 2,000-character ceiling.",
+        "Keep generated boundaries, reasons, gaps, and supporting explanations at or below the 800-character safe target; the deterministic validator still rejects generated boundary/reason text above its 1,000-character ceiling.",
+        "Never truncate, abbreviate, splice, or rewrite supplied evidence, identifiers, system-owned coverage, or system-owned material gaps to meet a target.",
+      ],
+    },
+    sectionStateRules: {
+      accountThesis: ["source-backed fact", "evidence-informed interpretation"],
+      establishedContext: ["source-backed fact", "evidence-linked proposed claim"],
+      meaningfullyChanged: ["source-backed fact", "evidence-linked proposed claim"],
+      whyChangeMayMatter: ["evidence-informed interpretation"],
+      stillOpenQuestions: ["unresolved question"],
+      recommendedNextMove: ["recommendation"],
+    },
+    evidenceAndEntityRules: [
+      "Every non-question statement must cite at least one exact supplied evidenceId and at least one exact supplied entityId; unresolved questions may have no evidenceIds but every cited id must still be supplied.",
+      "Every cited evidenceId must exist in sourceData, and the statement entityIds must include the exact entityId attached to every cited excerpt.",
+      "Use only exact supplied evidenceIds, entityIds, and sourceIds. Do not invent, normalize, shorten, or rewrite identifiers.",
+      "A source-backed fact must cite exactly one supplied exactExcerpt and its text must be either that exactExcerpt verbatim or Publisher: “exactExcerpt” using the supplied publisher and excerpt byte-for-byte.",
+      "Provide exactly one sourceAndEntityBoundaries entry for every admitted entity and no others.",
+      "Every statement risk flag must have a matching riskConflictFlags entry that cites that statementId.",
+    ],
+    freshness: {
+      evidenceMaxAgeYears: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.evidenceMaxAgeYears,
+      currentStateTerms: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.currentStateTerms,
+      staleEvidenceRiskFlag: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.staleEvidenceRiskFlag,
+      requestedAt: request.requestedAt,
+      cutoffTimestamp: freshnessCutoffTimestamp,
+      behavior: [
+        `evidenceCurrentThrough is interpreted at ${ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.evidenceDateUtcTime}. For a non-question statement using any listed current-state term, every cited source timestamp must be on or after cutoffTimestamp.`,
+        "Missing evidenceCurrentThrough or a midnight timestamp before cutoffTimestamp cannot support an unqualified present-tense/current-state assertion that uses a listed current-state term. Adding optimistic words such as likely, expected, or emerging around a listed term does not qualify it.",
+        "Instead use properly historical or explicitly time-bounded wording that does not assert current state; or, when a current-state exception is necessary, add stale_evidence to that statement, add the matching stale_evidence riskConflictFlags entry for its statementId with needsReview true, and set reviewStatus to needs_review.",
+      ],
+    },
+    consequentialRisk: {
+      flags: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.consequentialRiskFlags,
+      behavior: [
+        "Material uncertainty about entity boundaries, funding status, authoritative conflict, evidence freshness, or unsupported commercial assumptions must use the corresponding consequential statement risk flag.",
+        "If any statement carries a consequential risk flag, reviewStatus must be needs_review and every consequentially flagged statement must have a matching riskConflictFlags entry for that flag and statementId with needsReview set to true.",
+        "Redirected, proposed, planned, restricted, contingent, encumbered, grant-funded, or multi-year investment must never be represented as presently available purchasing budget, approved spend, procurement, urgency, buying intent, or commercial availability without qualifying evidence; the commercial upgrades remain prohibited even when a risk flag is present.",
+      ],
+    },
     semanticSafety: [
       "Preserve qualifiers including redirected, proposed, planned, up to, multi-year, subject to approval, grant-funded, restricted, matching, contingent, and already encumbered.",
       "Do not claim available budget, approved spend, funding secured, funded execution, remaining spend, active procurement, buying intent, sales opportunity, deal size, commercial urgency, or vendor preference.",
@@ -461,7 +693,7 @@ export function createAccountIntelligencePrompt(
       "When qualified funding appears, Still open must explicitly ask about availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference.",
       "Keep related entities separate. Multi-entity support must carry entity_boundary.",
       "Use source-backed fact only when text is one supplied exactExcerpt verbatim or Publisher: “exactExcerpt”. Use evidence-linked proposed claim for every model paraphrase or synthesized factual statement. Interpretations remain interpretations. Questions remain questions. The next move remains a recommendation.",
-      "Use needs_review only for consequential conflict, entity, funding-status, unsupported-commercial, or stale-evidence exceptions.",
+      "Use needs_review for every material consequential conflict, entity, funding-status, unsupported-commercial, or stale-evidence exception; routine supported synthesis without any consequential flag must remain proposed_unreviewed.",
     ],
     exactOutputShape: {
       kind: ACCOUNT_INTELLIGENCE_PROPOSAL_KIND,

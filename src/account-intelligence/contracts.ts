@@ -287,6 +287,12 @@ export interface AccountIntelligenceEffectReceipt {
   readonly promptSha256: string;
   readonly boundaryConfigurationSha256: string;
   readonly inputTokens: number;
+  readonly requestedMaxOutputTokens: number;
+  readonly requestedLocalOutputTokenCeiling: number;
+  readonly transmittedProviderOutputTokenCeiling: null;
+  readonly observedOutputTokens: number;
+  readonly externalOutputTokenEnforcement: "unestablished";
+  readonly structuredOutputEnforcement: "local_deterministic_validation_only";
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;
   readonly providerBehavior: "external_variable_response_validated";

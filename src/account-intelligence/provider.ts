@@ -59,12 +59,12 @@ export interface AccountIntelligenceValidationIssue {
 
 const INTERNAL_VALIDATION_REFUSAL = Symbol("account-intelligence-validation-refusal");
 const INTERNAL_CORRECTION_ISSUE = Symbol("account-intelligence-correction-issue");
+const CONTROLLER_OWNED_VALIDATION_REFUSALS = new WeakSet<object>();
 
 export class AccountIntelligenceProposalValidationRefusal extends Error {
   override readonly name = "AccountIntelligenceProposalValidationRefusal";
   readonly issue: Readonly<AccountIntelligenceValidationIssue>;
   readonly receipt: Readonly<AccountIntelligenceProviderReceipt>;
-  readonly #controllerOwned = true;
 
   constructor(
     token: symbol,
@@ -83,12 +83,7 @@ export class AccountIntelligenceProposalValidationRefusal extends Error {
     this.issue = Object.freeze({ ...issue });
     this.receipt = Object.freeze({ ...receipt });
     Object.freeze(this);
-  }
-
-  assertControllerOwned(token: symbol): void {
-    if (token !== INTERNAL_VALIDATION_REFUSAL || !this.#controllerOwned) {
-      throw new Error("validator-owned refusal required");
-    }
+    CONTROLLER_OWNED_VALIDATION_REFUSALS.add(this);
   }
 }
 
@@ -216,9 +211,7 @@ export function createAccountIntelligenceCorrectionBoundary(
   if (!(priorFailure instanceof AccountIntelligenceProposalValidationRefusal)) {
     throw new Error("typed deterministic validation refusal required");
   }
-  try {
-    priorFailure.assertControllerOwned(INTERNAL_VALIDATION_REFUSAL);
-  } catch {
+  if (!CONTROLLER_OWNED_VALIDATION_REFUSALS.has(priorFailure)) {
     throw new Error("validator-owned deterministic validation refusal required");
   }
   const issue = priorFailure.issue;

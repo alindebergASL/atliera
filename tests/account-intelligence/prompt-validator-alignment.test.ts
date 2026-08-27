@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { admitAccountResearch } from "../../src/account-intelligence/admission.ts";
@@ -6,6 +7,7 @@ import {
   ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS,
   accountIntelligenceFreshnessCutoffTimestamp,
   accountIntelligenceRejectedProposalSha256,
+  accountIntelligenceValidatorIssueFromError,
   createAccountIntelligencePrompt,
   renderAccountIntelligenceCorrectiveText,
   snapshotAccountIntelligenceProposal,
@@ -103,6 +105,31 @@ async function createRealValidationRefusal() {
       proposal.accountThesis.text = "A".repeat(
         ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextValidatorMaxCharacters + 1,
       );
+    },
+  });
+  let refusal: AccountIntelligenceProposalValidationRefusal | undefined;
+  await assert.rejects(
+    () => boundary(provider).propose(c.input.request, c.plan, c.admitted.sources),
+    (error: unknown) => {
+      assert.ok(error instanceof AccountIntelligenceProposalValidationRefusal);
+      refusal = error;
+      return true;
+    },
+  );
+  assert.ok(refusal !== undefined);
+  return { c, refusal };
+}
+
+const COMMERCIAL_CORRECTIVE_TEXT =
+  "Qualified, redirected, proposed, restricted, contingent, encumbered, or multi-year investment may not become presently available purchasing budget, procurement, buying intent, deal value, urgency, funded execution, sales opportunity, or vendor preference. Preserve all evidence qualifiers. Regenerate the complete proposal; do not truncate, splice, or manually repair prior prose.";
+
+async function createCommercialSafetyRefusal() {
+  const c = context();
+  const provider = modelProvider({
+    name: "alignment-commercial-safety-rejecting-provider",
+    mutate(proposal) {
+      proposal.accountThesis.text =
+        "SentinelAlpha describes redirected multi-year investment as presently available purchasing budget and a sales opportunity.";
     },
   });
   let refusal: AccountIntelligenceProposalValidationRefusal | undefined;
@@ -288,16 +315,136 @@ test("an unrelated reviewed risk cannot satisfy another consequentially flagged 
   assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(proposal, c.input.request, c.admitted.sources));
 });
 
-test("redirected investment cannot become approximately $4.94M of presently available purchasing budget", () => {
+test("qualified redirected investment cannot become presently available purchasing budget", () => {
   const c = context();
   const proposal = mutable(c.proposal);
   proposal.meaningfullyChanged[0]!.text =
-    "Approximately $4.94M in redirected Responsible AI investment is presently available purchasing budget.";
+    "A qualified redirected multi-year investment is presently available purchasing budget.";
   proposal.meaningfullyChanged[0]!.riskFlags.push("unsupported_commercial_assumption");
   assert.throws(
     () => snapshotAccountIntelligenceProposal(proposal, c.input.request, c.admitted.sources),
-    /forbidden commercial upgrade language/u,
+    (error: unknown) => {
+      assert.match(String(error), /forbidden commercial upgrade language/u);
+      assert.deepEqual(accountIntelligenceValidatorIssueFromError(error), {
+        code: "forbidden_commercial_upgrade",
+        path: "proposal.meaningfullyChanged[0].text",
+      });
+      return true;
+    },
   );
+});
+
+test("commercial-safety refusal is typed, exact-path, canonical, hash-bound, and independently revalidated", async () => {
+  const { c, refusal } = await createCommercialSafetyRefusal();
+  assert.deepEqual(
+    {
+      code: refusal.issue.code,
+      path: refusal.issue.path,
+      accountId: refusal.issue.accountId,
+    },
+    {
+      code: "forbidden_commercial_upgrade",
+      path: "proposal.accountThesis.text",
+      accountId: c.input.request.accountId,
+    },
+  );
+  assert.equal(refusal.issue.correctiveText, COMMERCIAL_CORRECTIVE_TEXT);
+  assert.doesNotMatch(refusal.issue.correctiveText, /SentinelAlpha/u);
+  assert.match(refusal.issue.originalPromptSha256, /^[a-f0-9]{64}$/u);
+  assert.match(refusal.issue.rejectedProposalSha256, /^[a-f0-9]{64}$/u);
+  assertDeeplyFrozen(refusal);
+
+  const correctionOptions = {
+    provider: modelProvider({ name: "alignment-commercial-safety-correcting-provider" }),
+    model: "alignment-model",
+    outOfRepoCorpusRef: "external-corpus/c2/alignment-fixture",
+    maxOutputTokens: 4_096,
+    maxCostUsd: 1,
+  };
+  assert.throws(() => createAccountIntelligenceCorrectionBoundary(
+    correctionOptions,
+    refusal,
+    "0".repeat(64),
+  ), /rejected proposal hash mismatch/u);
+
+  const wrongAccount = context({
+    accountId: "acct-river-transit",
+    accountName: "River Transit",
+    domain: "river-transit.example.org",
+  });
+  await assert.rejects(
+    () => createAccountIntelligenceCorrectionBoundary(
+      correctionOptions,
+      refusal,
+      refusal.issue.rejectedProposalSha256,
+    ).propose(wrongAccount.input.request, wrongAccount.plan, wrongAccount.admitted.sources),
+    /corrective issue does not match governed account input/u,
+  );
+  const changedPrompt = context({ requestNotes: ["Changed controller-owned input."] });
+  await assert.rejects(
+    () => createAccountIntelligenceCorrectionBoundary(
+      correctionOptions,
+      refusal,
+      refusal.issue.rejectedProposalSha256,
+    ).propose(changedPrompt.input.request, changedPrompt.plan, changedPrompt.admitted.sources),
+    /corrective issue does not match governed account input/u,
+  );
+
+  const correction = createAccountIntelligenceCorrectionBoundary(
+    correctionOptions,
+    refusal,
+    refusal.issue.rejectedProposalSha256,
+  );
+  const corrected = await correction.propose(c.input.request, c.plan, c.admitted.sources);
+  assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(
+    corrected.proposal,
+    c.input.request,
+    c.admitted.sources,
+  ));
+  await assert.rejects(
+    () => correction.propose(c.input.request, c.plan, c.admitted.sources),
+    /already consumed/u,
+  );
+});
+
+test("generic validator errors do not mint corrective capabilities", async () => {
+  const c = context();
+  const provider = modelProvider({
+    name: "alignment-generic-error-provider",
+    mutate(proposal) {
+      proposal.accountThesis.statementId = "caller authored unsafe id";
+    },
+  });
+  let genericFailure: unknown;
+  await assert.rejects(
+    () => boundary(provider).propose(c.input.request, c.plan, c.admitted.sources),
+    (error: unknown) => {
+      genericFailure = error;
+      assert.equal(error instanceof AccountIntelligenceProposalValidationRefusal, false);
+      assert.equal(accountIntelligenceValidatorIssueFromError(error), null);
+      return true;
+    },
+  );
+  assert.throws(() => createAccountIntelligenceCorrectionBoundary(
+    {
+      provider: modelProvider({ name: "alignment-generic-error-correction-provider" }),
+      model: "alignment-model",
+      outOfRepoCorpusRef: "external-corpus/c2/alignment-fixture",
+      maxOutputTokens: 4_096,
+      maxCostUsd: 1,
+    },
+    genericFailure,
+    "0".repeat(64),
+  ), /typed deterministic validation refusal required/u);
+});
+
+test("commercial-safety correction remains production-generic without account or amount branches", async () => {
+  const production = await Promise.all([
+    readFile(new URL("../../src/account-intelligence/proposal.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../src/account-intelligence/provider.ts", import.meta.url), "utf8"),
+  ]);
+  const source = production.join("\n");
+  assert.doesNotMatch(source, /University of Utah|FedEx|acc_university|acc_fedex|\$\d/u);
 });
 
 test("oversized prose is rejected and target overflow is never truncated", () => {
@@ -381,6 +528,10 @@ test("corrective text uses exact canonical field ceilings and proposal titles re
     code: "bounded_safe_text",
     path: "proposal.forgedField",
   }), /bounded validator issue path refused/u);
+  assert.throws(() => renderAccountIntelligenceCorrectiveText({
+    code: "forbidden_commercial_upgrade",
+    path: "proposal.stillOpenQuestions[0].text",
+  }), /commercial-safety validator issue path refused/u);
 
   const c = context();
   assert.throws(() => snapshotAccountIntelligenceProposal(
@@ -473,6 +624,18 @@ test("forged issue codes, prototype forgeries, mutation, and rejected-output has
   assert.throws(() => createAccountIntelligenceCorrectionBoundary(
     options,
     { issue: { ...refusal.issue, code: "invent_support" } },
+    refusal.issue.rejectedProposalSha256,
+  ), /typed deterministic validation refusal required/u);
+  assert.throws(() => createAccountIntelligenceCorrectionBoundary(
+    options,
+    {
+      issue: {
+        ...refusal.issue,
+        code: "forbidden_commercial_upgrade",
+        path: "proposal.accountThesis.text",
+        correctiveText: COMMERCIAL_CORRECTIVE_TEXT,
+      },
+    },
     refusal.issue.rejectedProposalSha256,
   ), /typed deterministic validation refusal required/u);
   const prototypeForgery = Object.create(AccountIntelligenceProposalValidationRefusal.prototype) as {

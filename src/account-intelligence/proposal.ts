@@ -193,6 +193,7 @@ function sha256(value: string): string {
 
 export type AccountIntelligenceValidationIssueCode =
   | "bounded_safe_text"
+  | "forbidden_commercial_upgrade"
   | "stale_current_state"
   | "consequential_review_required";
 
@@ -260,6 +261,12 @@ export function renderAccountIntelligenceCorrectiveText(
   if (issue.code === "bounded_safe_text") {
     const ceiling = correctiveTextCeiling(issue.path);
     return `${issue.path} must be trimmed, non-empty, control-character-free, and at most ${String(ceiling)} characters. Regenerate the complete proposal; do not truncate or splice prior prose.`;
+  }
+  if (issue.code === "forbidden_commercial_upgrade") {
+    if (!/^proposal\.(?:(?:accountThesis|recommendedNextMove)\.text|(?:establishedContext|meaningfullyChanged|whyChangeMayMatter)\[\d+\]\.text)$/u.test(issue.path)) {
+      throw new Error("commercial-safety validator issue path refused");
+    }
+    return "Qualified, redirected, proposed, restricted, contingent, encumbered, or multi-year investment may not become presently available purchasing budget, procurement, buying intent, deal value, urgency, funded execution, sales opportunity, or vendor preference. Preserve all evidence qualifiers. Regenerate the complete proposal; do not truncate, splice, or manually repair prior prose.";
   }
   if (issue.code === "stale_current_state") {
     return `${issue.path} uses listed current-state language with missing or stale evidence. Use historical or time-bounded wording, or add stale_evidence with the required consequential review treatment.`;
@@ -329,7 +336,11 @@ function snapshotStatement(
   };
   if (new Set(statement.riskFlags).size !== statement.riskFlags.length) throw new Error(`${path}.riskFlags must be unique`);
   if (statement.state !== "unresolved question" && containsForbiddenCommercialUpgrade(statement.text)) {
-    throw new Error(`${path} contains forbidden commercial upgrade language`);
+    throw new AccountIntelligenceValidationIssueError(
+      "forbidden_commercial_upgrade",
+      `${path}.text`,
+      `${path}.text contains forbidden commercial upgrade language`,
+    );
   }
   if (UNSAFE_MARKUP.test(statement.text)) throw new Error(`${path} contains unsafe active markup`);
   for (const entityId of statement.entityIds) if (!entities.has(entityId)) throw new Error(`${path} cites unknown entity`);

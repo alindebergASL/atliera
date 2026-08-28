@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { admitAccountResearch } from "../../src/account-intelligence/admission.ts";
+import { createC2DraftPrompt } from "../../src/account-intelligence/c2-draft.ts";
 import {
   ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS,
   accountIntelligenceFreshnessCutoffTimestamp,
@@ -22,7 +23,7 @@ import {
 import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
 import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
 import type { ModelProvider, ModelProviderRequest } from "../../src/model/provider.ts";
-import { makeC2FixtureInput, proposalFromModelPrompt } from "../fixtures/c2-account-intelligence.ts";
+import { draftFromModelPrompt, makeC2FixtureInput, proposalFromModelPrompt } from "../fixtures/c2-account-intelligence.ts";
 
 function context(options: Parameters<typeof makeC2FixtureInput>[0] = {}) {
   const input = makeC2FixtureInput(options);
@@ -67,19 +68,19 @@ function currentThesis(c: ReturnType<typeof context>, term = "active") {
 function modelProvider(input: {
   readonly name: string;
   readonly capture?: (request: ModelProviderRequest) => void;
-  readonly mutate?: (proposal: DeepMutable<ReturnType<typeof context>["proposal"]>) => void;
+  readonly mutate?: (draft: DeepMutable<ReturnType<typeof draftFromModelPrompt>>) => void;
 }): ModelProvider {
   return {
     name: input.name,
     async generate(request) {
       input.capture?.(request);
-      const proposal = mutable(proposalFromModelPrompt(request.prompt));
-      input.mutate?.(proposal);
+      const draft = mutable(draftFromModelPrompt(request.prompt));
+      input.mutate?.(draft);
       return {
         provider: input.name,
         model: request.model,
         idempotencyKey: request.idempotencyKey,
-        output: { excerpts: [], claims: [], account_objects: [proposal] as never[] },
+        output: { excerpts: [], claims: [], account_objects: [draft] as never[] },
         usage: { inputTokens: 500, outputTokens: 300, totalTokens: 800 },
         cost: { currency: "USD", amount: 0 },
       };
@@ -101,8 +102,8 @@ async function createRealValidationRefusal() {
   const c = context();
   const provider = modelProvider({
     name: "alignment-rejecting-provider",
-    mutate(proposal) {
-      proposal.accountThesis.text = "A".repeat(
+    mutate(draft) {
+      draft.claims[0]!.text = "A".repeat(
         ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextValidatorMaxCharacters + 1,
       );
     },
@@ -127,8 +128,8 @@ async function createCommercialSafetyRefusal() {
   const c = context();
   const provider = modelProvider({
     name: "alignment-commercial-safety-rejecting-provider",
-    mutate(proposal) {
-      proposal.accountThesis.text =
+    mutate(draft) {
+      draft.claims[0]!.text =
         "SentinelAlpha describes redirected multi-year investment as presently available purchasing budget and a sales opportunity.";
     },
   });
@@ -411,8 +412,8 @@ test("generic validator errors do not mint corrective capabilities", async () =>
   const c = context();
   const provider = modelProvider({
     name: "alignment-generic-error-provider",
-    mutate(proposal) {
-      proposal.accountThesis.statementId = "caller authored unsafe id";
+    mutate(draft) {
+      draft.factSelections[0]!.evidenceId = "caller-authored-unknown-evidence";
     },
   });
   let genericFailure: unknown;
@@ -462,7 +463,9 @@ test("oversized prose is rejected and target overflow is never truncated", () =>
     ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextValidatorMaxCharacters + 1,
   );
   const aboveTarget = mutable(c.proposal);
-  const exact = "A".repeat(ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextTargetMaxCharacters + 1);
+  const exact = `funding ${"A".repeat(
+    ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextTargetMaxCharacters - "funding ".length + 1,
+  )}`;
   aboveTarget.whyChangeMayMatter[0]!.text = exact;
   const snapshot = snapshotAccountIntelligenceProposal(aboveTarget, c.input.request, c.admitted.sources);
   assert.equal(snapshot.whyChangeMayMatter[0]!.text, exact);
@@ -588,7 +591,7 @@ test("typed corrective issue is validator-owned, hash-bound, and rendered withou
     issue: refusal.issue,
   });
   delete corrected.correction;
-  assert.deepEqual(corrected, JSON.parse(c.prompt));
+  assert.deepEqual(corrected, JSON.parse(createC2DraftPrompt(c.input.request, c.admitted.sources)));
   assert.equal(result.receipt.requestedLocalOutputTokenCeiling, 4_096);
   assert.equal(result.receipt.transmittedProviderOutputTokenCeiling, null);
   assert.equal(result.receipt.observedOutputTokens, 300);
@@ -746,7 +749,7 @@ test("provider response usage and proposal are snapshotted once before validatio
         provider: this.name,
         model: request.model,
         idempotencyKey: request.idempotencyKey,
-        output: { excerpts: [], claims: [], account_objects: [proposalFromModelPrompt(request.prompt)] },
+        output: { excerpts: [], claims: [], account_objects: [draftFromModelPrompt(request.prompt)] },
         usage,
         cost: { currency: "USD", amount: 0 },
       } as never;
@@ -767,7 +770,7 @@ test("provider response usage and proposal are snapshotted once before validatio
         enumerable: true,
         get() {
           proposalGetterReads += 1;
-          return proposalFromModelPrompt(request.prompt);
+          return draftFromModelPrompt(request.prompt);
         },
       });
       return {
@@ -793,7 +796,7 @@ test("provider response snapshot rejects symbol keys, Proxies, and unexpected ne
     provider: "alignment-descriptor-provider",
     model: request.model,
     idempotencyKey: request.idempotencyKey,
-    output: { excerpts: [], claims: [], account_objects: [proposalFromModelPrompt(request.prompt)] },
+    output: { excerpts: [], claims: [], account_objects: [draftFromModelPrompt(request.prompt)] },
     usage: { inputTokens: 500, outputTokens: 300, totalTokens: 800 },
     cost: { currency: "USD", amount: 0 },
   });
@@ -830,7 +833,7 @@ test("trusted provider snapshot is isolated from later shallow and nested mutati
   const c = context();
   let emitted: {
     usage: { inputTokens: number; outputTokens: number; totalTokens: number };
-    output: { account_objects: DeepMutable<ReturnType<typeof context>["proposal"]>[] };
+    output: { account_objects: DeepMutable<ReturnType<typeof draftFromModelPrompt>>[] };
   } | undefined;
   const provider: ModelProvider = {
     name: "alignment-mutation-provider",
@@ -842,7 +845,7 @@ test("trusted provider snapshot is isolated from later shallow and nested mutati
         output: {
           excerpts: [],
           claims: [],
-          account_objects: [mutable(proposalFromModelPrompt(request.prompt))],
+          account_objects: [mutable(draftFromModelPrompt(request.prompt))],
         },
         usage: { inputTokens: 500, outputTokens: 300, totalTokens: 800 },
         cost: { currency: "USD", amount: 0 },
@@ -855,7 +858,7 @@ test("trusted provider snapshot is isolated from later shallow and nested mutati
   assert.ok(emitted !== undefined);
   const acceptedText = result.proposal.accountThesis.text;
   emitted.usage.outputTokens = 30_000;
-  emitted.output.account_objects[0]!.accountThesis.text = "Mutated after snapshot.";
+  emitted.output.account_objects[0]!.claims[0]!.text = "Mutated after snapshot.";
   assert.equal(result.receipt.outputTokens, 300);
   assert.equal(result.proposal.accountThesis.text, acceptedText);
   assertDeeplyFrozen(result.proposal);
@@ -864,12 +867,12 @@ test("trusted provider snapshot is isolated from later shallow and nested mutati
 
 test("rejected-proposal hash binds the exact trusted validation snapshot", async () => {
   const c = context();
-  let emittedProposal: DeepMutable<ReturnType<typeof context>["proposal"]> | undefined;
+  let emittedProposal: DeepMutable<ReturnType<typeof draftFromModelPrompt>> | undefined;
   const provider: ModelProvider = {
     name: "alignment-rejected-hash-provider",
     async generate(request) {
-      emittedProposal = mutable(proposalFromModelPrompt(request.prompt));
-      emittedProposal.accountThesis.text = "A".repeat(
+      emittedProposal = mutable(draftFromModelPrompt(request.prompt));
+      emittedProposal.claims[0]!.text = "A".repeat(
         ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.statementTextValidatorMaxCharacters + 1,
       );
       return {
@@ -894,7 +897,7 @@ test("rejected-proposal hash binds the exact trusted validation snapshot", async
   assert.ok(emittedProposal !== undefined && refusal !== undefined);
   const rejectedSnapshotHash = accountIntelligenceRejectedProposalSha256(emittedProposal);
   assert.equal(refusal.issue.rejectedProposalSha256, rejectedSnapshotHash);
-  emittedProposal.accountThesis.text = "Changed after rejection.";
+  emittedProposal.claims[0]!.text = "Changed after rejection.";
   assert.equal(refusal.issue.rejectedProposalSha256, rejectedSnapshotHash);
   assert.notEqual(accountIntelligenceRejectedProposalSha256(emittedProposal), rejectedSnapshotHash);
 });

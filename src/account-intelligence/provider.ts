@@ -14,13 +14,12 @@ import type {
   AccountResearchRequest,
   AdmittedAccountSource,
 } from "./contracts.ts";
+import { createC2DraftPrompt, materializeC2DraftProposal } from "./c2-draft.ts";
 import {
   accountIntelligencePromptSha256,
   accountIntelligenceRejectedProposalSha256,
   accountIntelligenceValidatorIssueFromError,
-  createAccountIntelligencePrompt,
   renderAccountIntelligenceCorrectiveText,
-  snapshotAccountIntelligenceProposal,
   type AccountIntelligenceValidationIssueCode,
 } from "./proposal.ts";
 
@@ -301,7 +300,10 @@ export class AccountIntelligenceProviderBoundary {
   ): Promise<AccountIntelligenceProviderResult> {
     if (this.#consumed) throw new Error("account intelligence provider boundary already consumed");
     this.#consumed = true;
-    const originalPrompt = createAccountIntelligencePrompt(request, plan, sources);
+    if (plan.accountId !== request.accountId || sources.length === 0 || sources.length > plan.admittedSourceLimit) {
+      throw new Error("model prompt inputs refused");
+    }
+    const originalPrompt = createC2DraftPrompt(request, sources);
     const originalPromptSha256 = accountIntelligencePromptSha256(originalPrompt);
     if (this.#correctionIssue !== null &&
         (this.#correctionIssue.accountId !== request.accountId ||
@@ -389,7 +391,7 @@ export class AccountIntelligenceProviderBoundary {
       networkEffects: "unestablished",
     });
     try {
-      const proposal = snapshotAccountIntelligenceProposal(rejectedOrValidatedProposal, request, sources);
+      const proposal = materializeC2DraftProposal(rejectedOrValidatedProposal, request, sources);
       return Object.freeze({ proposal, receipt });
     } catch (error) {
       const seed = accountIntelligenceValidatorIssueFromError(error);

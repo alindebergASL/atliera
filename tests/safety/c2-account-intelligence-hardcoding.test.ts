@@ -36,3 +36,14 @@ test("generic C2 core has no direct network, credentials, persistence, customer 
     assert.doesNotMatch(text, /from\s+["'](?:openai|@anthropic-ai|openrouter|@google\/generative-ai)/iu, name);
   }
 });
+
+test("C2 production logic has no account/company/dollar-specific conditional branch", async () => {
+  for (const file of await files(ROOT)) {
+    const text = await readFile(file, "utf8");
+    const name = relative(process.cwd(), file);
+    assert.doesNotMatch(text,
+      /(?:if|switch)\s*\([^)]*(?:accountId|accountName|company|publisher)[^)]*(?:===|!==|case)\s*["'][^"']+["']/iu,
+      name);
+    assert.doesNotMatch(text, /(?:if|switch)\s*\([^)]*(?:\$\s*\d|\d[\d,]*(?:\.\d+)?\s*(?:million|billion))/iu, name);
+  }
+});

@@ -23,6 +23,9 @@ async function runFixture(options: Parameters<typeof makeC2FixtureInput>[0] = {}
 test("refresh distinguishes retained records from external execution and reports local zero-write effects", async () => {
   const { provider, result } = await runFixture();
   assert.equal(provider.calls, 1);
+  assert.deepEqual(Object.keys(provider.lastDraft!).sort(), ["claims", "factSelections", "schemaVersion"]);
+  assert.equal((provider.lastDraft as unknown as Record<string, unknown>).accountId, undefined);
+  assert.equal(result.proposal.kind, "atliera.account-intelligence-proposal");
   assert.equal(result.effectReceipt.recordedQueryTexts.length, 1);
   assert.equal(result.effectReceipt.recordedDiscoveryRecords, 1);
   assert.equal(result.effectReceipt.retainedSourceCandidates, 1);

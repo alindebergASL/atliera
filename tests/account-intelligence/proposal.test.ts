@@ -27,7 +27,7 @@ test("typed model proposal passes only after deterministic schema, evidence, ent
   assert.ok(Object.isFrozen(proposal));
 });
 
-test("source-backed fact requires exact wording while model paraphrase remains evidence-linked proposed", () => {
+test("source-backed fact requires exact wording and unrelated factual prose cannot borrow valid evidence IDs", () => {
   const c = context();
   for (const text of [
     "Harbor Transit acquired an unrelated pharmaceutical company in Europe.",
@@ -39,8 +39,14 @@ test("source-backed fact requires exact wording while model paraphrase remains e
     const proposed = mutableProposal(c.prompt);
     ((proposed.establishedContext[0] as unknown) as { text: string; state: string }).text = text;
     ((proposed.establishedContext[0] as unknown) as { state: string }).state = "evidence-linked proposed claim";
-    assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(proposed, c.input.request, c.admitted.sources));
+    assert.throws(() => snapshotAccountIntelligenceProposal(proposed, c.input.request, c.admitted.sources),
+      /semantic anchor|unsupported factual event|unsupported contradiction/u);
   }
+  const interpretation = mutableProposal(c.prompt);
+  ((interpretation.accountThesis as unknown) as { text: string }).text =
+    "Harbor Transit acquired an unrelated pharmaceutical company in Europe.";
+  assert.throws(() => snapshotAccountIntelligenceProposal(interpretation, c.input.request, c.admitted.sources),
+    /semantic anchor|unsupported factual event/u);
 });
 
 test("model cannot upgrade system-owned partial or gap coverage to covered", () => {

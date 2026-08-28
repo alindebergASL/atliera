@@ -117,7 +117,22 @@ const FUNDING_OPEN_QUESTION_REQUIREMENTS: readonly [RegExp, string][] = [
   [/\b(?:decision (?:authority|owner)|controlling entit(?:y|ies)|who controls?|entit(?:y|ies) control(?:s)? decisions?)\b/iu, "decision authority"],
   [/\b(?:vendor|supplier)\s+(?:intent|preference|selection)\b/iu, "vendor intent"],
 ];
+export const ACCOUNT_INTELLIGENCE_FUNDING_OPEN_QUESTION_TOPICS = Object.freeze(
+  FUNDING_OPEN_QUESTION_REQUIREMENTS.map(([, label]) => label),
+);
 const FUNDING_CONTEXT = /\b(?:fund(?:ing|s|ed)?|budget|appropriat\w*|spend(?:ing)?|investment|reinvestment|reallocat\w*|redirect\w*|grant(?:s)?|dollars?|million|billion)\b|\$/iu;
+export function accountIntelligenceQualifiedFundingObserved(value: string): boolean {
+  return FUNDING_CONTEXT.test(value) && FUNDING_QUALIFIER_RULES.some(([pattern]) => pattern.test(value));
+}
+const FACTUAL_QUANTITY = /(?:\$\s*)?\d[\d,.]*(?:\s*(?:million|billion|percent|%))?/iu;
+const FACTUAL_EVENT = /\b(?:acquir(?:e[ds]?|ed|ing|er|ers|es|isition|isitions)|merg(?:e[ds]?|ed|ing|er)|announc(?:e[ds]?|ed|ing|ement)|launch(?:e[ds]?|ed|ing)|sign(?:ed|ing|s)?|contract(?:ed|ing|s)?|appoint(?:ed|ing|s)?|own(?:ed|ing|s)?|rais(?:ed|ing|es)|increas(?:ed|ing|es)|decreas(?:ed|ing|es))\b/giu;
+const SEMANTIC_WORD = /[\p{L}\p{N}]+/gu;
+const SEMANTIC_STOP_WORDS = new Set([
+  "about", "after", "again", "against", "also", "because", "before", "being", "between", "could",
+  "does", "evidence", "from", "have", "into", "itself", "more", "only", "other", "should", "than",
+  "that", "their", "there", "these", "they", "this", "those", "through", "under", "until", "very",
+  "what", "when", "where", "which", "while", "with", "would",
+]);
 
 function containsForbiddenCommercialUpgrade(text: string): boolean {
   FORBIDDEN_COMMERCIAL.lastIndex = 0;
@@ -133,6 +148,41 @@ function containsForbiddenCommercialUpgrade(text: string): boolean {
     if (!negatedBefore && !unestablishedAfter) return true;
   }
   return false;
+}
+
+function semanticTokens(value: string, excluded: ReadonlySet<string>): Set<string> {
+  return new Set((value.toLocaleLowerCase("en-US").match(SEMANTIC_WORD) ?? [])
+    .filter((token) => token.length >= 4 && !SEMANTIC_STOP_WORDS.has(token) && !excluded.has(token)));
+}
+
+function enforceGeneratedClaimSemanticSupport(statement: IntelligenceStatement, support: readonly EvidenceIndexEntry[]): void {
+  if (statement.state === "source-backed fact" || statement.state === "unresolved question") return;
+  const excluded = semanticTokens(support.flatMap((item) => [item.source.entity.name,
+    ...item.source.relatedEntities.map((entity) => entity.name)]).join(" "), new Set());
+  const claimTokens = semanticTokens(statement.text, excluded);
+  const sourceText = support.map((item) => item.excerpt.exactExcerpt).join(" ");
+  const supportTokens = semanticTokens(sourceText, excluded);
+  const conservativeNegation = /\b(?:not|never|no|without|does not|do not|did not|cannot|could not|has not|have not|had not)\b/iu
+    .test(statement.text);
+  if ((statement.state === "evidence-linked proposed claim" || statement.state === "evidence-informed interpretation") &&
+      !conservativeNegation && ![...claimTokens].some((token) => supportTokens.has(token))) {
+    throw new Error(`${statement.statementId} proposed factual prose has no semantic anchor in cited evidence`);
+  }
+  const normalizedSupport = sourceText.toLocaleLowerCase("en-US");
+  for (const match of statement.text.matchAll(FACTUAL_EVENT)) {
+    if (!normalizedSupport.includes(match[0]!.toLocaleLowerCase("en-US"))) {
+      throw new Error(`${statement.statementId} introduces an unsupported factual event`);
+    }
+  }
+  for (const match of statement.text.matchAll(new RegExp(FACTUAL_QUANTITY.source, "giu"))) {
+    if (!normalizedSupport.replace(/\s+/gu, " ").includes(match[0]!.toLocaleLowerCase("en-US").replace(/\s+/gu, " "))) {
+      throw new Error(`${statement.statementId} introduces an unsupported factual quantity`);
+    }
+  }
+  if (statement.state === "evidence-linked proposed claim" &&
+      /\b(?:not|never|no)\b/iu.test(statement.text) && !/\b(?:not|never|no)\b/iu.test(sourceText)) {
+    throw new Error(`${statement.statementId} introduces an unsupported contradiction`);
+  }
 }
 
 function object(value: StrictJsonValue | undefined, path: string): Record<string, StrictJsonValue> {
@@ -294,8 +344,10 @@ function evidenceIndex(sources: readonly AdmittedAccountSource[]): Map<string, E
 }
 
 function enforceQualifierRetention(statement: IntelligenceStatement, evidence: readonly EvidenceIndexEntry[]): void {
-  if (statement.state !== "source-backed fact" && statement.state !== "evidence-linked proposed claim") return;
   const support = evidence.map((item) => item.excerpt.exactExcerpt).join(" ");
+  const factualFundingStatement = statement.state === "source-backed fact" ||
+    statement.state === "evidence-linked proposed claim" || FACTUAL_QUANTITY.test(statement.text);
+  if (!factualFundingStatement) return;
   if (!FUNDING_CONTEXT.test(`${support} ${statement.text}`)) return;
   let qualifiedFundingObserved = false;
   for (const [sourcePattern, statementPattern, label] of FUNDING_QUALIFIER_RULES) {
@@ -359,6 +411,8 @@ function snapshotStatement(
       throw new Error(`${path} model paraphrase must remain an evidence-linked proposed claim`);
     }
   }
+  enforceQualifierRetention(statement, support);
+  enforceGeneratedClaimSemanticSupport(statement, support);
   const supportEntities = new Set(support.map((item) => item.excerpt.entityId));
   if (supportEntities.size > 1 && !statement.riskFlags.includes("entity_boundary")) {
     throw new Error(`${path} must flag multi-entity support`);
@@ -379,7 +433,6 @@ function snapshotStatement(
       !statement.riskFlags.includes("authoritative_conflict")) {
     throw new Error(`${path} must flag declared authoritative source conflict`);
   }
-  enforceQualifierRetention(statement, support);
   return statement;
 }
 
@@ -490,8 +543,7 @@ export function snapshotAccountIntelligenceProposal(
   }
   const qualifiedFundingFacts = [...establishedContext, ...meaningfullyChanged].filter((statement) => {
     const support = statement.evidenceIds.map((id) => evidence.get(id)!.excerpt.exactExcerpt).join(" ");
-    const text = `${support} ${statement.text}`;
-    return FUNDING_CONTEXT.test(text) && FUNDING_QUALIFIER_RULES.some(([pattern]) => pattern.test(text));
+    return accountIntelligenceQualifiedFundingObserved(`${support} ${statement.text}`);
   });
   if (qualifiedFundingFacts.length > 0) {
     const questions = stillOpenQuestions.map((item) => item.text).join(" ");
@@ -672,6 +724,7 @@ export function createAccountIntelligencePrompt(
     evidenceAndEntityRules: [
       "Every non-question statement must cite at least one exact supplied evidenceId and at least one exact supplied entityId; unresolved questions may have no evidenceIds but every cited id must still be supplied.",
       "Every cited evidenceId must exist in sourceData, and the statement entityIds must include the exact entityId attached to every cited excerpt.",
+      "Valid IDs alone never support generated factual prose. Every proposed claim, interpretation, and recommendation must be semantically anchored in its cited exactExcerpt; never introduce an event, quantity, entity, or contradiction absent from atomic support.",
       "Use only exact supplied evidenceIds, entityIds, and sourceIds. Do not invent, normalize, shorten, or rewrite identifiers.",
       "A source-backed fact must cite exactly one supplied exactExcerpt and its text must be either that exactExcerpt verbatim or Publisher: “exactExcerpt” using the supplied publisher and excerpt byte-for-byte.",
       "Provide exactly one sourceAndEntityBoundaries entry for every admitted entity and no others.",

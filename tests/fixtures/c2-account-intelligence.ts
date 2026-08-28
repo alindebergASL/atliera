@@ -8,6 +8,7 @@ import {
   type SearchDiscoveryRecord,
 } from "../../src/account-intelligence/contracts.ts";
 import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
+import { C2_DRAFT_SCHEMA_VERSION, type C2Draft } from "../../src/account-intelligence/c2-draft.ts";
 
 export interface C2FixtureInput {
   readonly request: AccountResearchRequest;
@@ -210,7 +211,7 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
     accountThesis: {
       statementId: "thesis-01",
       state: "evidence-informed interpretation",
-      text: `${request.accountName} has an established operating context and a qualified change worth understanding before any solution positioning.`,
+      text: `${request.accountName}'s official record may be worth clarifying before further interpretation.`,
       evidenceIds: [establishedEvidence.evidenceId, changedEvidence.evidenceId],
       entityIds: [source.entity.entityId],
       riskFlags: [],
@@ -270,13 +271,55 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
   return proposal;
 }
 
+export function draftFromModelPrompt(prompt: string, mutate?: (draft: C2Draft) => void): C2Draft {
+  const parsed = JSON.parse(prompt) as {
+    untrustedData: { accountName: string; evidence: Array<{ evidenceId: string; exactExcerpt: string }> };
+  };
+  const identity = parsed.untrustedData.evidence[0]!;
+  const funding = parsed.untrustedData.evidence[1] ?? identity;
+  const draft: C2Draft = {
+    schemaVersion: C2_DRAFT_SCHEMA_VERSION,
+    factSelections: [
+      { section: "established_context", evidenceId: identity.evidenceId },
+      { section: "meaningfully_changed", evidenceId: funding.evidenceId },
+    ],
+    claims: [
+      {
+        section: "account_thesis",
+        text: `${parsed.untrustedData.accountName}'s official record may be worth clarifying before further interpretation.`,
+        evidenceIds: [identity.evidenceId],
+      },
+      {
+        section: "why_change_may_matter",
+        text: funding.exactExcerpt.includes("$2 million")
+          ? "The proposed restricted matching funding, capped at up to $2 million over three years and subject to approval, may shape future decisions; commercial availability remains unknown."
+          : "The proposed funding may shape future decisions; commercial availability remains unknown.",
+        evidenceIds: [funding.evidenceId],
+      },
+      {
+        section: "still_open_questions",
+        text: "What funding is available, what remaining amount is unspent, what procurement status and eligible uses apply, which entity controls decision authority, and is vendor intent established?",
+        evidenceIds: [],
+      },
+      {
+        section: "recommended_next_move",
+        text: "Verify the proposed restricted funding qualifiers and decision authority before commercial framing.",
+        evidenceIds: [funding.evidenceId],
+      },
+    ],
+  };
+  mutate?.(draft);
+  return draft;
+}
+
 export class FixtureAccountIntelligenceProvider implements ModelProvider {
   readonly name: string;
-  readonly #mutate: ((proposal: AccountIntelligenceProposal) => void) | undefined;
+  readonly #mutate: ((draft: C2Draft) => void) | undefined;
   readonly #outputTokens: number;
   calls = 0;
+  lastDraft: C2Draft | null = null;
 
-  constructor(options: { name?: string; mutate?: (proposal: AccountIntelligenceProposal) => void; outputTokens?: number } = {}) {
+  constructor(options: { name?: string; mutate?: (draft: C2Draft) => void; outputTokens?: number } = {}) {
     this.name = options.name ?? "fixture-account-intelligence-provider";
     this.#mutate = options.mutate;
     this.#outputTokens = options.outputTokens ?? 300;
@@ -284,12 +327,13 @@ export class FixtureAccountIntelligenceProvider implements ModelProvider {
 
   async generate(request: ModelProviderRequest): Promise<ModelProviderResponse> {
     this.calls += 1;
-    const proposal = proposalFromModelPrompt(request.prompt, this.#mutate);
+    const draft = draftFromModelPrompt(request.prompt, this.#mutate);
+    this.lastDraft = draft;
     return {
       provider: this.name,
       model: request.model,
       idempotencyKey: request.idempotencyKey,
-      output: { excerpts: [], claims: [], account_objects: [proposal] as never[] },
+      output: { excerpts: [], claims: [], account_objects: [draft] as never[] },
       usage: { inputTokens: 500, outputTokens: this.#outputTokens, totalTokens: 500 + this.#outputTokens },
       cost: { currency: "USD", amount: 0 },
     };

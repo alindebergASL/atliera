@@ -214,7 +214,7 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       text: `${request.accountName}'s official record may be worth clarifying before further interpretation.`,
       evidenceIds: [establishedEvidence.evidenceId, changedEvidence.evidenceId],
       entityIds: [source.entity.entityId],
-      riskFlags: [],
+      riskFlags: ["insufficient_evidence"],
     },
     establishedContext: [{
       statementId: "established-01",
@@ -238,7 +238,7 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       text: "The qualified funding language may signal an emerging decision frame, but it does not establish execution or purchasing intent.",
       evidenceIds: [changedEvidence.evidenceId],
       entityIds: [source.entity.entityId],
-      riskFlags: [],
+      riskFlags: ["insufficient_evidence"],
     }],
     stillOpenQuestions: [{
       statementId: "open-01",
@@ -246,7 +246,7 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       text: "What is the funding availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference?",
       evidenceIds: [],
       entityIds: [source.entity.entityId],
-      riskFlags: [],
+      riskFlags: ["insufficient_evidence"],
     }],
     recommendedNextMove: {
       statementId: "next-01",
@@ -254,7 +254,7 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       text: "Verify the decision frame and broader operating priorities before positioning any solution.",
       evidenceIds: [changedEvidence.evidenceId],
       entityIds: [source.entity.entityId],
-      riskFlags: [],
+      riskFlags: ["insufficient_evidence"],
     },
     sourceAndEntityBoundaries: [{ entityId: source.entity.entityId, boundary: `${source.entity.name} is treated as the account entity represented by this source.` }],
     riskConflictFlags: [{
@@ -262,6 +262,11 @@ export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: Acco
       statementIds: ["changed-01"],
       needsReview: true,
       reason: "The source describes proposed, bounded, multi-year, restricted, matching funding subject to approval; availability and execution are not established.",
+    }, {
+      flag: "insufficient_evidence",
+      statementIds: ["thesis-01", "meaning-01", "open-01", "next-01"],
+      needsReview: true,
+      reason: "Model-authored semantic prose requires human judgment; exact evidence linkage does not establish semantic support or truth, and no absence of evidence is claimed.",
     }],
     researchCoverage: parsed.instructions.exactOutputShape.researchCoverage,
     materialGaps: parsed.instructions.exactOutputShape.materialGaps,

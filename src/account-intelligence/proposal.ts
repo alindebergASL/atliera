@@ -37,7 +37,10 @@ const PROPOSAL_STATES = Object.freeze(["source-backed fact", "evidence-informed 
 const PROPOSAL_RISK_FLAGS = Object.freeze(["entity_boundary", "funding_status_ambiguity", "authoritative_conflict",
   "stale_evidence", "secondary_support", "unsupported_commercial_assumption", "insufficient_evidence"] as const satisfies readonly IntelligenceRiskFlag[]);
 const CONSEQUENTIAL_RISK_FLAGS = Object.freeze(["entity_boundary", "funding_status_ambiguity",
-  "authoritative_conflict", "stale_evidence", "unsupported_commercial_assumption"] as const satisfies readonly IntelligenceRiskFlag[]);
+  "authoritative_conflict", "stale_evidence", "unsupported_commercial_assumption",
+  "insufficient_evidence"] as const satisfies readonly IntelligenceRiskFlag[]);
+export const ACCOUNT_INTELLIGENCE_MODEL_PROSE_JUDGMENT_NOTICE =
+  "Model-authored semantic prose requires human judgment: exact evidence linkage does not establish semantic support or truth. This flag is not a claim that no evidence exists.";
 export const ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS = Object.freeze({
   states: PROPOSAL_STATES,
   riskFlags: PROPOSAL_RISK_FLAGS,
@@ -126,13 +129,6 @@ export function accountIntelligenceQualifiedFundingObserved(value: string): bool
 }
 const FACTUAL_QUANTITY = /(?:\$\s*)?\d[\d,.]*(?:\s*(?:million|billion|percent|%))?/iu;
 const FACTUAL_EVENT = /\b(?:acquir(?:e[ds]?|ed|ing|er|ers|es|isition|isitions)|merg(?:e[ds]?|ed|ing|er)|announc(?:e[ds]?|ed|ing|ement)|launch(?:e[ds]?|ed|ing)|sign(?:ed|ing|s)?|contract(?:ed|ing|s)?|appoint(?:ed|ing|s)?|own(?:ed|ing|s)?|rais(?:ed|ing|es)|increas(?:ed|ing|es)|decreas(?:ed|ing|es))\b/giu;
-const SEMANTIC_WORD = /[\p{L}\p{N}]+/gu;
-const SEMANTIC_STOP_WORDS = new Set([
-  "about", "after", "again", "against", "also", "because", "before", "being", "between", "could",
-  "does", "evidence", "from", "have", "into", "itself", "more", "only", "other", "should", "than",
-  "that", "their", "there", "these", "they", "this", "those", "through", "under", "until", "very",
-  "what", "when", "where", "which", "while", "with", "would",
-]);
 
 function containsForbiddenCommercialUpgrade(text: string): boolean {
   FORBIDDEN_COMMERCIAL.lastIndex = 0;
@@ -150,24 +146,17 @@ function containsForbiddenCommercialUpgrade(text: string): boolean {
   return false;
 }
 
-function semanticTokens(value: string, excluded: ReadonlySet<string>): Set<string> {
-  return new Set((value.toLocaleLowerCase("en-US").match(SEMANTIC_WORD) ?? [])
-    .filter((token) => token.length >= 4 && !SEMANTIC_STOP_WORDS.has(token) && !excluded.has(token)));
-}
-
-function enforceGeneratedClaimSemanticSupport(statement: IntelligenceStatement, support: readonly EvidenceIndexEntry[]): void {
+/**
+ * Deterministic lexical tripwires only. These refuse a narrow class of
+ * fabrications where the statement introduces an exact event or quantity
+ * token, or a negation, absent from every cited excerpt. Passing them
+ * establishes nothing about semantic support or truth of model prose; that
+ * judgment is routed to human review through the mandatory
+ * insufficient_evidence flag on every non-source-backed statement.
+ */
+function enforceLexicalFabricationTripwires(statement: IntelligenceStatement, support: readonly EvidenceIndexEntry[]): void {
   if (statement.state === "source-backed fact" || statement.state === "unresolved question") return;
-  const excluded = semanticTokens(support.flatMap((item) => [item.source.entity.name,
-    ...item.source.relatedEntities.map((entity) => entity.name)]).join(" "), new Set());
-  const claimTokens = semanticTokens(statement.text, excluded);
   const sourceText = support.map((item) => item.excerpt.exactExcerpt).join(" ");
-  const supportTokens = semanticTokens(sourceText, excluded);
-  const conservativeNegation = /\b(?:not|never|no|without|does not|do not|did not|cannot|could not|has not|have not|had not)\b/iu
-    .test(statement.text);
-  if ((statement.state === "evidence-linked proposed claim" || statement.state === "evidence-informed interpretation") &&
-      !conservativeNegation && ![...claimTokens].some((token) => supportTokens.has(token))) {
-    throw new Error(`${statement.statementId} proposed factual prose has no semantic anchor in cited evidence`);
-  }
   const normalizedSupport = sourceText.toLocaleLowerCase("en-US");
   for (const match of statement.text.matchAll(FACTUAL_EVENT)) {
     if (!normalizedSupport.includes(match[0]!.toLocaleLowerCase("en-US"))) {
@@ -412,7 +401,7 @@ function snapshotStatement(
     }
   }
   enforceQualifierRetention(statement, support);
-  enforceGeneratedClaimSemanticSupport(statement, support);
+  enforceLexicalFabricationTripwires(statement, support);
   const supportEntities = new Set(support.map((item) => item.excerpt.entityId));
   if (supportEntities.size > 1 && !statement.riskFlags.includes("entity_boundary")) {
     throw new Error(`${path} must flag multi-entity support`);
@@ -570,6 +559,12 @@ export function snapshotAccountIntelligenceProposal(
       );
     }
   }
+  for (const { statement } of statementEntries) {
+    if (statement.state !== "source-backed fact" && !statement.riskFlags.includes("insufficient_evidence")) {
+      throw new Error(`${statement.statementId} model-authored semantic prose must carry insufficient_evidence: ` +
+        "exact evidence linkage does not establish semantic support or truth, and the flag is not a claim that no evidence exists");
+    }
+  }
 
   const boundaries = array(root.sourceAndEntityBoundaries, "proposal.sourceAndEntityBoundaries",
     ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.arrays.sourceAndEntityBoundariesMaxItems, true)
@@ -606,6 +601,12 @@ export function snapshotAccountIntelligenceProposal(
       reason: string(risk.reason, `${path}.reason`, ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.text.riskReasonValidatorMaxCharacters),
     };
   });
+  const duplicateRiskFlag = riskConflictFlags.find((item, index) =>
+    riskConflictFlags.findIndex((other) => other.flag === item.flag) !== index);
+  if (duplicateRiskFlag) {
+    throw new Error(`proposal.riskConflictFlags repeats flag ${duplicateRiskFlag.flag}: ` +
+      "review routing requires exactly one unambiguous entry per risk flag");
+  }
   for (const statement of statements) {
     for (const flag of statement.riskFlags) {
       if (!riskConflictFlags.some((item) => item.flag === flag && item.statementIds.includes(statement.statementId))) {
@@ -724,11 +725,11 @@ export function createAccountIntelligencePrompt(
     evidenceAndEntityRules: [
       "Every non-question statement must cite at least one exact supplied evidenceId and at least one exact supplied entityId; unresolved questions may have no evidenceIds but every cited id must still be supplied.",
       "Every cited evidenceId must exist in sourceData, and the statement entityIds must include the exact entityId attached to every cited excerpt.",
-      "Valid IDs alone never support generated factual prose. Every proposed claim, interpretation, and recommendation must be semantically anchored in its cited exactExcerpt; never introduce an event, quantity, entity, or contradiction absent from atomic support.",
+      "Valid IDs alone never support generated factual prose, and this system performs no local semantic-entailment verification. Every statement whose state is not source-backed fact must carry the insufficient_evidence risk flag with a matching riskConflictFlags entry marked needsReview true; the flag records that exact evidence linkage does not establish semantic support or truth, not that evidence is absent. Never introduce an event, quantity, entity, or contradiction absent from atomic support.",
       "Use only exact supplied evidenceIds, entityIds, and sourceIds. Do not invent, normalize, shorten, or rewrite identifiers.",
       "A source-backed fact must cite exactly one supplied exactExcerpt and its text must be either that exactExcerpt verbatim or Publisher: “exactExcerpt” using the supplied publisher and excerpt byte-for-byte.",
       "Provide exactly one sourceAndEntityBoundaries entry for every admitted entity and no others.",
-      "Every statement risk flag must have a matching riskConflictFlags entry that cites that statementId.",
+      "Every statement risk flag must have a matching riskConflictFlags entry that cites that statementId. Provide exactly one riskConflictFlags entry per flag, listing every affected statementId in that single entry; repeated flag entries are rejected.",
     ],
     freshness: {
       evidenceMaxAgeYears: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.freshness.evidenceMaxAgeYears,
@@ -746,6 +747,7 @@ export function createAccountIntelligencePrompt(
       flags: ACCOUNT_INTELLIGENCE_PROPOSAL_CONSTRAINTS.consequentialRiskFlags,
       behavior: [
         "Material uncertainty about entity boundaries, funding status, authoritative conflict, evidence freshness, or unsupported commercial assumptions must use the corresponding consequential statement risk flag.",
+        "Every statement whose state is not source-backed fact must carry insufficient_evidence: it marks model-authored semantic prose requiring human judgment because exact evidence linkage does not establish semantic support or truth; it is not a claim that no evidence exists.",
         "If any statement carries a consequential risk flag, reviewStatus must be needs_review and every consequentially flagged statement must have a matching riskConflictFlags entry for that flag and statementId with needsReview set to true.",
         "Redirected, proposed, planned, restricted, contingent, encumbered, grant-funded, or multi-year investment must never be represented as presently available purchasing budget, approved spend, procurement, urgency, buying intent, or commercial availability without qualifying evidence; the commercial upgrades remain prohibited even when a risk flag is present.",
       ],
@@ -757,7 +759,7 @@ export function createAccountIntelligencePrompt(
       "When qualified funding appears, Still open must explicitly ask about availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference.",
       "Keep related entities separate. Multi-entity support must carry entity_boundary.",
       "Use source-backed fact only when text is one supplied exactExcerpt verbatim or Publisher: “exactExcerpt”. Use evidence-linked proposed claim for every model paraphrase or synthesized factual statement. Interpretations remain interpretations. Questions remain questions. The next move remains a recommendation.",
-      "Use needs_review for every material consequential conflict, entity, funding-status, unsupported-commercial, or stale-evidence exception; routine supported synthesis without any consequential flag must remain proposed_unreviewed.",
+      "Use needs_review for every material consequential conflict, entity, funding-status, unsupported-commercial, or stale-evidence exception. Every model-authored semantic-prose statement (every state except source-backed fact) is consequential by construction: it must carry insufficient_evidence and route to needs_review, and it never becomes routine supported synthesis or proposed_unreviewed merely because lexical checks pass.",
     ],
     exactOutputShape: {
       kind: ACCOUNT_INTELLIGENCE_PROPOSAL_KIND,

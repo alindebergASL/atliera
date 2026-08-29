@@ -16,7 +16,7 @@ The accepted `HermesGpt55ModelOnlyProviderPayload` exposes only:
 
 It does not expose `response_format`, `text.format`, `json_schema`, or another reviewed strict Structured Outputs projection. Provider-side JSON Schema enforcement is therefore **unestablished** for this adapter and is not claimed.
 
-Proposal shape and semantics remain enforced locally by strict JSON parsing and deterministic proposal validation. The local validator retains exact-key checks, enums, structural bounds, evidence/entity lineage, qualifier retention, commercial-safety rules, freshness rules, consequential review routing, and immutable controller-owned coverage/gaps.
+Proposal shape remains enforced locally by strict JSON parsing and deterministic structural validation. The local validator retains exact-key checks, enums, structural bounds, evidence/entity lineage, qualifier retention, commercial-safety rules, freshness rules, consequential review routing, and immutable controller-owned coverage/gaps. Semantic support of model-authored prose is **not** established locally: lexical checks cannot entail arbitrary model prose, so every statement that is not an exact source-backed excerpt carries the `insufficient_evidence` risk flag, a needs-review risk-register entry, and `reviewStatus: needs_review`. That flag records that exact evidence linkage does not establish semantic support or truth; it is not a claim that no evidence exists.
 
 ## Output ceiling
 

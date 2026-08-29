@@ -255,7 +255,7 @@ test("mixed fresh and stale support remains stale and requires exact stale revie
     () => snapshotAccountIntelligenceProposal(proposal, c.input.request, sources),
     /unqualified current-state claim/u,
   );
-  proposal.accountThesis.riskFlags = ["stale_evidence"];
+  proposal.accountThesis.riskFlags.push("stale_evidence");
   proposal.riskConflictFlags.push({
     flag: "stale_evidence",
     statementIds: [proposal.accountThesis.statementId],
@@ -276,7 +276,7 @@ test("historical wording remains valid while stale current-state exceptions rout
   assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(historical, c.input.request, c.admitted.sources));
 
   const treated = currentThesis(c);
-  treated.accountThesis.riskFlags = ["stale_evidence"];
+  treated.accountThesis.riskFlags.push("stale_evidence");
   treated.riskConflictFlags.push({
     flag: "stale_evidence",
     statementIds: [treated.accountThesis.statementId],

@@ -98,7 +98,7 @@ export class AccountIntelligenceProviderRefusal extends Error {
     observedOutputTokens: number;
     externalOutputTokenEnforcement: "unestablished";
     callsAttempted: 1;
-    callsSucceeded: 0;
+    callsSucceeded: 1;
     providerBehavior: "external_variable_response_validated";
     storage: "unestablished";
     tools: "unestablished";
@@ -229,8 +229,10 @@ export function createAccountIntelligenceCorrectionBoundary(
  * Explicit one-call review boundary. Only local configuration is snapshotted.
  * The injected provider remains an external mutable dependency: its behavior,
  * storage, tools, network effects, structured-output support, and server-side
- * output ceiling are not established here. Deterministic semantic validation
- * and the requested output-token boundary remain local and fail closed.
+ * output ceiling are not established here. Deterministic structural, lineage,
+ * and lexical validation and the requested output-token boundary remain local
+ * and fail closed; semantic support of model-authored prose is not locally
+ * established and is routed to human review via insufficient_evidence.
  */
 export class AccountIntelligenceProviderBoundary {
   readonly #provider: ModelProvider;
@@ -356,7 +358,9 @@ export class AccountIntelligenceProviderBoundary {
         observedOutputTokens: trustedResponse.outputTokens,
         externalOutputTokenEnforcement: "unestablished",
         callsAttempted: 1,
-        callsSucceeded: 0,
+        // The provider call itself succeeded; the response was rejected by
+        // the local output-token boundary after the fact.
+        callsSucceeded: 1,
         providerBehavior: "external_variable_response_validated",
         storage: "unestablished",
         tools: "unestablished",

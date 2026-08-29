@@ -200,8 +200,10 @@ test("current-state language from missing or stale evidence requires a stale-evi
     text: "Which activities are current, and which remain planned?",
     evidenceIds: [...question.meaningfullyChanged[0]!.evidenceIds],
     entityIds: [...question.meaningfullyChanged[0]!.entityIds],
-    riskFlags: [],
+    riskFlags: ["insufficient_evidence"],
   });
+  ((question.riskConflictFlags as unknown) as Array<{ flag: string; statementIds: string[] }>)
+    .find((risk) => risk.flag === "insufficient_evidence")!.statementIds.push("open-current-02");
   assert.doesNotThrow(() => snapshotAccountIntelligenceProposal(question, input.request, c.admitted.sources));
 });
 
@@ -232,12 +234,34 @@ test("declared official-source amendment conflict must route to Needs review", (
   ((proposal.meaningfullyChanged[0] as unknown) as { evidenceIds: string[] }).evidenceIds
     .push(parsed.untrustedData.sourceData[1]!.excerpts[0]!.evidenceId);
   assert.throws(() => snapshotAccountIntelligenceProposal(proposal, input.request, admitted.sources), /flag declared authoritative source conflict/u);
-  ((proposal.meaningfullyChanged[0] as unknown) as { riskFlags: string[] }).riskFlags.push("authoritative_conflict");
+  ((proposal.meaningfullyChanged[0] as unknown) as { riskFlags: string[] }).riskFlags
+    .push("authoritative_conflict", "insufficient_evidence");
   ((proposal.riskConflictFlags as unknown) as Array<Record<string, unknown>>).push({
     flag: "authoritative_conflict", statementIds: ["changed-01"], needsReview: true,
     reason: "Two admitted official records declare different funding states.",
   });
+  ((proposal.riskConflictFlags as unknown) as Array<{ flag: string; statementIds: string[] }>)
+    .find((risk) => risk.flag === "insufficient_evidence")!.statementIds.push("changed-01");
   assert.equal(snapshotAccountIntelligenceProposal(proposal, input.request, admitted.sources).reviewStatus, "needs_review");
+});
+
+test("duplicate risk flag entries are refused before review routing, including a contradictory needsReview duplicate", () => {
+  const c = context();
+  const duplicated = mutableProposal(c.prompt);
+  const risks = (duplicated.riskConflictFlags as unknown) as Array<Record<string, unknown>>;
+  const original = risks.find((risk) => risk.flag === "insufficient_evidence")!;
+  risks.push({ ...original, statementIds: [...(original.statementIds as string[])] });
+  assert.throws(() => snapshotAccountIntelligenceProposal(duplicated, c.input.request, c.admitted.sources),
+    /riskConflictFlags repeats flag insufficient_evidence/u);
+  const contradictory = mutableProposal(c.prompt);
+  const contradictoryRisks = (contradictory.riskConflictFlags as unknown) as Array<Record<string, unknown>>;
+  const reviewed = contradictoryRisks.find((risk) => risk.flag === "insufficient_evidence")!;
+  contradictoryRisks.push({
+    ...reviewed, statementIds: [...(reviewed.statementIds as string[])], needsReview: false,
+    reason: "Contradictory duplicate asserting no review is needed.",
+  });
+  assert.throws(() => snapshotAccountIntelligenceProposal(contradictory, c.input.request, c.admitted.sources),
+    /riskConflictFlags repeats flag insufficient_evidence/u);
 });
 
 test("unsafe active markup in model prose is rejected", () => {

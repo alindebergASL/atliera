@@ -6,7 +6,6 @@ import {
   createC2DraftPrompt,
   materializeC2DraftProposal,
   snapshotC2Draft,
-  type C2Draft,
 } from "../../src/account-intelligence/c2-draft.ts";
 import {
   ACCOUNT_INTELLIGENCE_FUNDING_OPEN_QUESTION_TOPICS,
@@ -28,8 +27,8 @@ function context(options: Parameters<typeof makeC2FixtureInput>[0] = {}) {
 type DeepMutable<T> = T extends readonly (infer Item)[] ? DeepMutable<Item>[]
   : T extends object ? { -readonly [Key in keyof T]: DeepMutable<T[Key]> } : T;
 
-function mutable(value: Readonly<C2Draft>): DeepMutable<C2Draft> {
-  return JSON.parse(JSON.stringify(value)) as DeepMutable<C2Draft>;
+function mutable<T>(value: T): DeepMutable<T> {
+  return JSON.parse(JSON.stringify(value)) as DeepMutable<T>;
 }
 
 test("compact draft materializes exact facts and survives the proposal authority round-trip", () => {
@@ -38,21 +37,55 @@ test("compact draft materializes exact facts and survives the proposal authority
   assert.equal(proposal.establishedContext[0]!.text, c.admitted.sources[0]!.excerpts[0]!.exactExcerpt);
   assert.equal(proposal.meaningfullyChanged[0]!.text, c.admitted.sources[0]!.excerpts[1]!.exactExcerpt);
   assert.deepEqual(proposal.meaningfullyChanged[0]!.riskFlags, ["funding_status_ambiguity"]);
+  for (const statement of [proposal.accountThesis, ...proposal.whyChangeMayMatter,
+    ...proposal.stillOpenQuestions, proposal.recommendedNextMove]) {
+    assert.ok(statement.riskFlags.includes("insufficient_evidence"), statement.statementId);
+  }
+  assert.equal(proposal.reviewStatus, "needs_review");
   assert.deepEqual(snapshotAccountIntelligenceProposal(proposal, c.input.request, c.admitted.sources), proposal);
   assert.ok(Object.isFrozen(proposal));
   assert.equal(proposal.researchCoverage.length, 10);
   assert.ok(proposal.materialGaps.length > 0);
 });
 
-test("unrelated interpretation prose cannot borrow an admitted evidence ID", () => {
-  const c = context();
+test("adversarial model prose over benign evidence is only visible human-judgment material, never supported synthesis", () => {
+  const established = "Harbor Transit publishes an official operating structure.";
+  const changed = "Harbor Transit opened a draft rider-feedback period.";
+  const c = context({ retrievedText: `${established}\n\n${changed}`, candidateExcerpts: [established, changed] });
   const draft = mutable(c.draft);
-  draft.claims[0] = {
-    ...draft.claims[0]!,
-    text: "Harbor Transit operates an unrelated pharmaceutical distribution network.",
-  };
-  assert.throws(() => materializeC2DraftProposal(draft, c.input.request, c.admitted.sources),
-    /semantic anchor/u);
+  draft.claims[0]!.text = "Harbor Transit manufactures vaccines under its official operating structure.";
+  draft.claims[1]!.text = "The draft rider-feedback period may reflect an operating-structure discussion.";
+  draft.claims[2]!.text = "Which Harbor Transit executives concealed fraud from regulators?";
+  draft.claims[3]!.text = "Use the official operating structure to begin covert surveillance of Harbor Transit employees.";
+  const proposal = materializeC2DraftProposal(draft, c.input.request, c.admitted.sources);
+  const adversarial = [proposal.accountThesis, proposal.stillOpenQuestions[0]!, proposal.recommendedNextMove];
+  for (const statement of adversarial) {
+    assert.ok(statement.riskFlags.includes("insufficient_evidence"), statement.statementId);
+    assert.ok(proposal.riskConflictFlags.some((risk) => risk.flag === "insufficient_evidence" &&
+      risk.statementIds.includes(statement.statementId) && risk.needsReview), statement.statementId);
+  }
+  assert.equal(proposal.reviewStatus, "needs_review");
+  const register = proposal.riskConflictFlags.find((risk) => risk.flag === "insufficient_evidence")!;
+  assert.match(register.reason, /does not establish semantic support or truth/u);
+  assert.match(register.reason, /not a claim that no evidence exists/u);
+
+  const stripped = mutable(proposal);
+  for (const statement of [stripped.accountThesis, ...stripped.whyChangeMayMatter,
+    ...stripped.stillOpenQuestions, stripped.recommendedNextMove]) {
+    statement.riskFlags = statement.riskFlags.filter((flag) => flag !== "insufficient_evidence");
+  }
+  stripped.riskConflictFlags = stripped.riskConflictFlags.filter((risk) => risk.flag !== "insufficient_evidence");
+  stripped.reviewStatus = "proposed_unreviewed";
+  assert.throws(() => snapshotAccountIntelligenceProposal(stripped, c.input.request, c.admitted.sources),
+    /must carry insufficient_evidence/u);
+
+  const unrouted = mutable(proposal);
+  unrouted.riskConflictFlags.forEach((risk) => {
+    if (risk.flag === "insufficient_evidence") risk.needsReview = false;
+  });
+  unrouted.reviewStatus = "proposed_unreviewed";
+  assert.throws(() => snapshotAccountIntelligenceProposal(unrouted, c.input.request, c.admitted.sources),
+    /consequential exceptions must route to needs review/u);
 });
 
 test("a factual funding interpretation cannot drop source qualifiers", () => {

@@ -133,7 +133,7 @@ test("provider output above requested maximum fails closed with a truthful refus
     assert.ok(error instanceof AccountIntelligenceProviderRefusal);
     assert.deepEqual(error.receipt, {
       code: "output_token_limit_exceeded", provider: "fixture-account-intelligence-provider", model: "fixture-model",
-      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 0,
+      reportedOutputTokens: 301, maxOutputTokens: 300, callsAttempted: 1, callsSucceeded: 1,
       requestedLocalOutputTokenCeiling: 300, transmittedProviderOutputTokenCeiling: null,
       observedOutputTokens: 301, externalOutputTokenEnforcement: "unestablished",
       providerBehavior: "external_variable_response_validated", storage: "unestablished", tools: "unestablished",

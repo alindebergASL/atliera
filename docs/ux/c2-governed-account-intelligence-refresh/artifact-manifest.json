@@ -4,8 +4,8 @@
   "artifacts": [
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/README.md",
-      "bytes": 3753,
-      "sha256": "06fd928a01d6f718b26918673707dd98e220ebe37e2b7f682424172989168f0f"
+      "bytes": 5806,
+      "sha256": "12d454f401d40bfd50f5fd804f67bc0a10d7a909c6f3330be316860f40a40e05"
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md",
@@ -184,8 +184,8 @@
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json",
-      "bytes": 1661,
-      "sha256": "6737707a2171a74924007629533c96571ec45fb19961477d4d487f1c3277bd05"
+      "bytes": 2367,
+      "sha256": "ec5a71604a863da8d18550ebfb5469b4d5cf7fa0ad2924ac3cc37db7adbae472"
     },
     {
       "path": "fixtures/account-intelligence/c2-01/broad-account-research-input.json",
@@ -196,9 +196,19 @@
       "path": "docs/ux/c2-governed-account-intelligence-refresh/BROAD_ACCOUNT_REPRODUCTION.md",
       "bytes": 6211,
       "sha256": "47f7e35be948de67d3e0ab53b7d5d113f79b1fefe53d319ca068070143a4c991"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/fresh-execution-authorization.json",
+      "bytes": 3595,
+      "sha256": "4bb35bfdad5fe1b0e1f17efed31bfa573129d7d3af9b24f5e51f45cb54fdd362"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/FRESH_EXECUTION_AUTHORIZATION.md",
+      "bytes": 5305,
+      "sha256": "25dad7a01735ce5900633e51a931fcb8d5886186c13f5224e09e3caebbcbeb49"
     }
   ],
-  "status": "superseded_historical_artifacts_plus_current_foundation_inputs",
+  "status": "superseded_historical_artifacts_plus_current_foundation_inputs_and_execution_authorization",
   "historicalProposalAndRenderArtifactsAreCurrentFoundationProof": false,
   "historicalArtifactsMayBeGrandfathered": false
 }

@@ -33,8 +33,8 @@ function pngDimensions(buffer: Buffer): [number, number] {
 test("C2-01 manifest and SHA256SUMS verify every review artifact", async () => {
   const manifest = await readJson(join(ROOT, "artifact-manifest.json"));
   assert.equal(manifest.kind, "atliera.c2-01-artifact-manifest");
-  assert.equal(manifest.artifacts.length, 31);
-  assert.equal(manifest.status, "superseded_historical_artifacts_plus_current_foundation_inputs");
+  assert.equal(manifest.artifacts.length, 33);
+  assert.equal(manifest.status, "superseded_historical_artifacts_plus_current_foundation_inputs_and_execution_authorization");
   assert.equal(manifest.historicalProposalAndRenderArtifactsAreCurrentFoundationProof, false);
   assert.equal(manifest.historicalArtifactsMayBeGrandfathered, false);
   const sums = await readFile(join(ROOT, "SHA256SUMS"), "utf8");
@@ -43,6 +43,17 @@ test("C2-01 manifest and SHA256SUMS verify every review artifact", async () => {
     assert.equal(bytes.byteLength, item.bytes, item.path);
     assert.equal(sha256(bytes), item.sha256, item.path);
     assert.match(sums, new RegExp(`${item.sha256}  ${item.path.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+  }
+  // The current execution-authorization artifacts must be hash-bound by both
+  // the manifest and SHA256SUMS with exact byte counts and hashes.
+  for (const relPath of ["fresh-execution-authorization.json", "FRESH_EXECUTION_AUTHORIZATION.md"]) {
+    const path = `docs/ux/c2-governed-account-intelligence-refresh/${relPath}`;
+    const entry = manifest.artifacts.find((item: any) => item.path === path);
+    assert.ok(entry, `manifest must include ${relPath}`);
+    const bytes = await readFile(join(ROOT, relPath));
+    assert.equal(entry.bytes, bytes.byteLength, `${relPath} byte count`);
+    assert.equal(entry.sha256, sha256(bytes), `${relPath} sha256`);
+    assert.match(sums, new RegExp(`${sha256(bytes)}  ${path.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`), `SHA256SUMS must bind ${relPath}`);
   }
   for (const [name, expected] of requiredScreenshots) {
     const bytes = await readFile(join(ROOT, "screenshots", name));
@@ -164,4 +175,179 @@ test("superseded rendered pages preserve their historical bytes without becoming
     assert.doesNotMatch(html, /Package Inspector|confidence gauge|activity feed|AI status|source count|customer-facing source ID/iu);
     assert.match(html, /connect-src (?:'|&#39;)none(?:'|&#39;)/u);
   }
+});
+
+// --- Fresh retained two-account execution authorization packet (PR #315) ---
+//
+// A separate, docs-only approval packet that authorizes ONLY the exact
+// pending execution slice. The foundation correction alone did not
+// authorize execution; this packet does, within hard caps, and this
+// checkpoint precedes any execution. Secret-leak and overclaim patterns
+// target affirmative dangerous values, so the marker-style negations in
+// the artifacts (e.g. `rawResponseCommitted: false`) do not trip them.
+
+const AUTH_JSON = join(ROOT, "fresh-execution-authorization.json");
+const AUTH_PACKET = join(ROOT, "FRESH_EXECUTION_AUTHORIZATION.md");
+const AUTH_SLUG = "c2-fresh-retained-two-account-20260829";
+
+const SECRET_LEAK_PATTERNS = [
+  /\/home\/[a-z]/iu,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
+  /\bsk-[A-Za-z0-9]{16,}\b/u,
+  /api[_ -]?key\s*[:=]\s*["']?[A-Za-z0-9]/iu,
+  /authorization:\s*bearer\s+\S/iu,
+  /\b(?:\d{1,3}\.){3}\d{1,3}\b/u,
+  /"(?:requestId|sessionId|responseId)"\s*:\s*"[^"]+"/u,
+  /atliera-private-provider-evidence/u,
+];
+
+const OVERCLAIM_PATTERNS = [
+  /no fresh (?:model )?execution is authorized/iu,
+  /billing (?:is )?enforced/iu,
+  /billing enforcement (?:is )?(?:guaranteed|established|proven)/iu,
+  /provider-side output[- ]token enforcement (?:is )?(?:established|proven|guaranteed)/iu,
+  /output tokens? (?:are )?enforced by the provider/iu,
+  /merge (?:is )?authorized by this packet/iu,
+  /production[- ]ready\b/iu,
+  /launch[- ]ready\b/iu,
+  /"authorizedByThisPacket"\s*:\s*true/u,
+  /"executedInThisCheckpoint"\s*:\s*true/u,
+  /"provider_calls_executed"\s*:\s*[1-9]/u,
+];
+
+test("fresh-execution authorization artifact locks the exact pending slice bounds", async () => {
+  const auth = await readJson(AUTH_JSON);
+  assert.equal(auth.kind, "atliera.c2-fresh-execution-authorization");
+  assert.equal(auth.authorizationSlug, AUTH_SLUG);
+  assert.equal(auth.checkpointPrecedesExecution, true);
+  assert.equal(auth.executedInThisCheckpoint, false);
+  assert.equal(auth.foundationCorrectionAloneAuthorizedExecution, false);
+  assert.equal(auth.authorizesOnlyExactPendingSlice, true);
+  assert.equal(auth.pr, 315);
+
+  assert.deepEqual(auth.accounts, ["acc_university_of_utah", "acc_fedex_corp"]);
+  assert.equal(auth.fixtureCorpus, "fixtures/account-intelligence/c2-01/broad-account-research-input.json");
+  assert.equal(auth.publicUrlRetrievalInInitialRun, false);
+  assert.equal(auth.provider, "openai-codex");
+  assert.equal(auth.model, "gpt-5.5");
+  assert.equal(auth.operation, "graph.propose");
+
+  assert.equal(auth.calls.maxCumulative, 4);
+  assert.equal(auth.calls.maxPerAccount, 2);
+  assert.equal(auth.calls.initialPerAccount, 1);
+  assert.equal(auth.calls.correctiveCallRequires.boundary, "createAccountIntelligenceCorrectionBoundary");
+  assert.equal(auth.calls.correctiveCallRequires.afterTypedRefusal, "AccountIntelligenceProposalValidationRefusal");
+  assert.equal(auth.calls.correctiveCallRequires.rejectedProposalShaCustodyCheck, true);
+  assert.equal(auth.calls.consumedAttemptsNeverReset, true);
+  assert.equal(auth.calls.stopBeforeCaps, true);
+
+  assert.equal(auth.perCallLimits.maxOutputTokens, 4096);
+  assert.equal(auth.perCallLimits.maxCostUsd, 0.1);
+  assert.equal(auth.perCallLimits.temperature, 0);
+  assert.equal(auth.perCallLimits.store, false);
+
+  assert.equal(auth.cost.cumulativeApprovedMaxUsd, 0.4);
+  assert.equal(auth.cost.expectedObservedSubscriptionCostUsd, 0);
+  assert.equal(auth.cost.billingEnforcementClaimed, false);
+
+  assert.equal(auth.tokens.localStreamCaptureMaxBytesUtf8, 512000);
+  assert.equal(auth.tokens.transmittedProviderOutputTokenCeiling, null);
+  assert.equal(auth.tokens.providerSideOutputTokenEnforcement, "unestablished_explicitly_accepted");
+  assert.equal(auth.tokens.combinedInputTokenCeiling, 120000);
+  assert.equal(auth.tokens.actualPreflightInputTokens, null);
+  assert.equal(auth.tokens.preflightRecordedBeforeExecution, false);
+  assert.equal(auth.tokens.failClosedIfInputCeilingExceeded, true);
+
+  for (const value of Object.values(auth.providerCapabilities)) assert.equal(value, false);
+  for (const value of Object.values(auth.effects)) assert.equal(value, false);
+  assert.equal(auth.providerBehaviorStorageToolNetworkEffects, "unestablished_unless_separately_receipted");
+
+  assert.equal(auth.evidenceSanitization.privateEvidenceOutsideRepo, true);
+  assert.equal(auth.evidenceSanitization.rawPromptCommitted, false);
+  assert.equal(auth.evidenceSanitization.rawResponseCommitted, false);
+  assert.equal(auth.evidenceSanitization.rawPayloadCommitted, false);
+  assert.equal(auth.evidenceSanitization.requestIdsCommitted, false);
+  assert.equal(auth.evidenceSanitization.sessionIdsCommitted, false);
+  assert.equal(auth.evidenceSanitization.credentialsCommitted, false);
+  assert.equal(auth.evidenceSanitization.privatePathsCommitted, false);
+
+  assert.equal(auth.downstream.proposalRenderRegenerationAuthorizedAfterValidatedOutputs, true);
+  assert.equal(auth.downstream.productUxBrowserReviewAuthorizedAfterValidatedOutputs, true);
+  assert.equal(auth.downstream.freshPublicResearchActivated, false);
+  assert.equal(auth.downstream.freshPublicResearchRequiresAddendumIfCorpusInsufficient, true);
+
+  assert.equal(auth.mergeGating.authorizedByThisPacket, false);
+  assert.equal(auth.mergeGating.requiresExactFinalPrSha, true);
+  assert.equal(auth.mergeGating.requiresExactHeadCi, true);
+  assert.equal(auth.mergeGating.requiresExactHeadIndependentReviews, true);
+  assert.equal(auth.mergeGating.requiresOwnerConfirmation, true);
+  assert.equal(auth.mergeGating.generalAuthorizationIsNotUnknownFutureShaMergeWaiver, true);
+
+  assert.deepEqual([...auth.stopConditions].sort(), ["authority mismatch", "budget mismatch", "identity mismatch", "schema mismatch"]);
+});
+
+test("fresh-execution approval packet is docs-only, decision-tree bounded, and leak-free", async () => {
+  const doc = await readFile(AUTH_PACKET, "utf8");
+  for (const required of [
+    /Status:\s*\*{0,2}docs-only fresh retained two-account execution authorization/iu,
+    new RegExp(`authorization slug\\s*:\\s*\`${AUTH_SLUG}\``, "iu"),
+    /This checkpoint precedes execution/iu,
+    /does not execute the live slice/iu,
+    /foundation correction alone did not authorize/iu,
+    /acc_university_of_utah/u,
+    /acc_fedex_corp/u,
+    /openai-codex/u,
+    /gpt-5\.5/u,
+    /graph\.propose/u,
+    /at most 4 (?:provider )?calls/iu,
+    /at most 2 (?:calls )?per account/iu,
+    /createAccountIntelligenceCorrectionBoundary/u,
+    /AccountIntelligenceProposalValidationRefusal/u,
+    /maxOutputTokens[^\n]*4096/iu,
+    /maxCostUsd[^\n]*0\.10/iu,
+    /cumulative[^\n]*\$0\.40/iu,
+    /512000/u,
+    /combined input-token ceiling[^\n]*120000/iu,
+    /fail closed/iu,
+    /provider-side (?:output[- ]token\s+)?enforcement\s+(?:remains|is)\s+unestablished/iu,
+    /Decision tree/iu,
+    /Cumulative effect accounting/iu,
+    /consumed attempts are\s+never reset/iu,
+    /Stop on any authority\/identity\/budget\/schema mismatch/iu,
+    /private (?:prompts|evidence)[\s\S]{0,140}?outside the repository/iu,
+    /merge[\s\S]{0,80}?exact final\s+PR SHA/iu,
+  ]) {
+    assert.match(doc, required, `packet must contain: ${required}`);
+  }
+  for (const pattern of [...SECRET_LEAK_PATTERNS, ...OVERCLAIM_PATTERNS]) {
+    assert.doesNotMatch(doc, pattern, `packet must not contain: ${pattern}`);
+  }
+  const authRaw = await readFile(AUTH_JSON, "utf8");
+  for (const pattern of [...SECRET_LEAK_PATTERNS, ...OVERCLAIM_PATTERNS]) {
+    assert.doesNotMatch(authRaw, pattern, `authorization JSON must not contain: ${pattern}`);
+  }
+});
+
+test("status files now record fresh-execution authorization while preserving superseded history", async () => {
+  const status = await readJson(join(ROOT, "FOUNDATION_STATUS.json"));
+  // Preserved invariants.
+  assert.equal(status.historicalArtifactsAreCurrentFoundationProof, false);
+  assert.equal(status.historicalArtifactsMayBeGrandfathered, false);
+  assert.equal(status.currentProposalSchemaVersion, ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION);
+  // New authorization block.
+  assert.equal(status.freshExecutionAuthorization.authorized, true);
+  assert.equal(status.freshExecutionAuthorization.authorizationSlug, AUTH_SLUG);
+  assert.equal(status.freshExecutionAuthorization.executedInThisCheckpoint, false);
+  assert.equal(status.freshExecutionAuthorization.foundationCorrectionAloneAuthorizedExecution, false);
+  assert.equal(status.freshExecutionAuthorization.mergeAuthorizedByThisPacket, false);
+  assert.equal(status.freshExecutionAuthorization.authorizationArtifact, "fresh-execution-authorization.json");
+
+  const readme = await readFile(join(ROOT, "README.md"), "utf8");
+  assert.match(readme, /Fresh retained two-account execution/iu);
+  assert.match(readme, new RegExp(AUTH_SLUG, "u"));
+  assert.match(readme, /authorizes only the exact pending slice/iu);
+  assert.match(readme, /superseded/iu);
+  // The README must no longer flatly deny that fresh execution is authorized.
+  assert.doesNotMatch(readme, /No fresh model proposal has been generated/u);
+  for (const pattern of OVERCLAIM_PATTERNS) assert.doesNotMatch(readme, pattern, `README must not contain: ${pattern}`);
 });

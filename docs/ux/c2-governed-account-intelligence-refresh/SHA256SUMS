@@ -1,4 +1,4 @@
-06fd928a01d6f718b26918673707dd98e220ebe37e2b7f682424172989168f0f  docs/ux/c2-governed-account-intelligence-refresh/README.md
+12d454f401d40bfd50f5fd804f67bc0a10d7a909c6f3330be316860f40a40e05  docs/ux/c2-governed-account-intelligence-refresh/README.md
 867f2b88d19b17878a7a4cbbc91fbf5f1f2a0e4bbf9820e91770cb3e998b3468  docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md
 0d04278b1168815beb1281bc228ab7d4b689f45a28918c9c63b8e0589f40bd3b  docs/ux/c2-governed-account-intelligence-refresh/browser-interaction-proof.json
 2909f48c56875ad3fcc2faf2b9828a41f76fd429d260b74127e5977364e56757  docs/ux/c2-governed-account-intelligence-refresh/data/fedex-admitted-sources.json
@@ -26,6 +26,8 @@ c5b4dc2f18d083dd3bfe0f11cd99848b041cbccecd5610ec27040ad6889c7da3  docs/ux/c2-gov
 44f1db95b8950d418faeae9eb3dcd0621f07ec3383042f8270976e0da70a3aad  docs/ux/c2-governed-account-intelligence-refresh/university-of-utah.html
 95daf82bca67afea8c2631f558f2b7b37bd5bbd3b94b3e82e4e74fbdd70e655b  docs/ux/c2-governed-account-intelligence-refresh/visual-artifact-manifest.json
 b84b30603b3e04769eacc1c1c8557397f92238c93df18b083769e379912ab88c  fixtures/account-intelligence/c2-01/retained-research-input.json
-6737707a2171a74924007629533c96571ec45fb19961477d4d487f1c3277bd05  docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json
+ec5a71604a863da8d18550ebfb5469b4d5cf7fa0ad2924ac3cc37db7adbae472  docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json
 f0150d059da16abf30ddcf93be0afefa17bfa66ef53ac4bdf74ef1087b7d6c31  fixtures/account-intelligence/c2-01/broad-account-research-input.json
 47f7e35be948de67d3e0ab53b7d5d113f79b1fefe53d319ca068070143a4c991  docs/ux/c2-governed-account-intelligence-refresh/BROAD_ACCOUNT_REPRODUCTION.md
+4bb35bfdad5fe1b0e1f17efed31bfa573129d7d3af9b24f5e51f45cb54fdd362  docs/ux/c2-governed-account-intelligence-refresh/fresh-execution-authorization.json
+25dad7a01735ce5900633e51a931fcb8d5886186c13f5224e09e3caebbcbeb49  docs/ux/c2-governed-account-intelligence-refresh/FRESH_EXECUTION_AUTHORIZATION.md

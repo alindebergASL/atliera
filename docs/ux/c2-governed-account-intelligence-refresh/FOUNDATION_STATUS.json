@@ -1,7 +1,18 @@
 {
   "kind": "atliera.c2-foundation-artifact-status",
   "schemaVersion": "1",
-  "status": "foundation_correction_checkpoint_unreviewed",
+  "status": "fresh_retained_two_account_execution_authorized_not_yet_executed",
+  "freshExecutionAuthorization": {
+    "authorized": true,
+    "authorizationSlug": "c2-fresh-retained-two-account-20260829",
+    "authorizationArtifact": "fresh-execution-authorization.json",
+    "authorizationPacket": "FRESH_EXECUTION_AUTHORIZATION.md",
+    "scope": "exact pending slice only: acc_university_of_utah and acc_fedex_corp, retained fixture corpus, provider openai-codex, model gpt-5.5, graph.propose, at most 4 cumulative calls",
+    "executedInThisCheckpoint": false,
+    "checkpointPrecedesExecution": true,
+    "foundationCorrectionAloneAuthorizedExecution": false,
+    "mergeAuthorizedByThisPacket": false
+  },
   "currentProposalSchemaVersion": "2",
   "historicalProposalSchemaVersion": "1",
   "historicalArtifactsAreCurrentFoundationProof": false,
@@ -39,7 +50,7 @@
     "tests/safety/c2-account-intelligence-hardcoding.test.ts"
   ],
   "incomplete": [
-    "fresh model execution",
+    "fresh model execution (authorized by the separate packet, not yet executed)",
     "broad proposals",
     "final broad Account Home rendering",
     "visual proof",

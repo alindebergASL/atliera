@@ -1,0 +1,432 @@
+{
+  "kind": "atliera.account-intelligence-proposal",
+  "schemaVersion": "2",
+  "accountId": "acc_fedex_corp",
+  "accountThesis": {
+    "statementId": "c2-account-thesis-1-0bce7b43d9ec",
+    "state": "evidence-informed interpretation",
+    "text": "FedEx is presenting a broad operating and technology transformation: it is moving toward an integrated, flexible, efficient, intelligent network, while its digital transformation emphasizes AI-enabled orchestration, standardized workflows, and lower cost to serve.",
+    "evidenceIds": [
+      "evidence_16ccb0f3a7984c6d1dfb",
+      "evidence_e6b06390315d2c346286"
+    ],
+    "entityIds": [
+      "acc_fedex_corporation"
+    ],
+    "riskFlags": [
+      "insufficient_evidence"
+    ]
+  },
+  "establishedContext": [
+    {
+      "statementId": "c2-established-context-1-3093771e7658",
+      "state": "source-backed fact",
+      "text": "We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.",
+      "evidenceIds": [
+        "evidence_16ccb0f3a7984c6d1dfb"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-established-context-2-8b10b111ef88",
+      "state": "source-backed fact",
+      "text": "Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.",
+      "evidenceIds": [
+        "evidence_e6b06390315d2c346286"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-established-context-3-3967164098f0",
+      "state": "source-backed fact",
+      "text": "- Review major cyber and technology-related projects and technology architecture decisions; - Assess whether the Company's cyber and technology programs effectively support the Company's business objectives and strategies; - Assist Board oversight of cyber and technology-related risks and management efforts to monitor and mitigate those risks; - Advise the Company's senior Data and Technology management team; and - Advise the Board of Directors on cyber and technology-related matters.",
+      "evidenceIds": [
+        "evidence_60cc5b560442a1ef23ae"
+      ],
+      "entityIds": [
+        "entity_fedex_board"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-established-context-4-248a981db71c",
+      "state": "source-backed fact",
+      "text": "FedEx employees utilize the FedEx Supplier Registration Portal to identify potential suppliers. If FedEx determines your capabilities can potentially meet our needs, someone may contact you. Please note that many of our contracts are multi-year and therefore, it may be some time before we go out for bid. You may periodically be prompted to update your information or to inform you about changes to the FedEx Supplier Registration Portal.",
+      "evidenceIds": [
+        "evidence_d26851c457436b1b318e"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    }
+  ],
+  "meaningfullyChanged": [
+    {
+      "statementId": "c2-meaningfully-changed-5-e7e2f5ea0e7a",
+      "state": "source-backed fact",
+      "text": "Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.",
+      "evidenceIds": [
+        "evidence_49cdd6f0f4b6dd5f3ef3"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-6-5809bbca231d",
+      "state": "source-backed fact",
+      "text": "In May 2026, we introduced an AI-driven assistant within the FedEx Developer Portal to help developers more efficiently access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.",
+      "evidenceIds": [
+        "evidence_45b2bd6a55736d897000"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-7-f8b95cbdf990",
+      "state": "source-backed fact",
+      "text": "Vishal Talwar Executive Vice President, Chief Digital and Information Officer (CDIO) of FedEx, and President of FedEx Dataworks … since August 2025.",
+      "evidenceIds": [
+        "evidence_18c2565f78ccb4bd74d4"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-8-6a55a5aa0df6",
+      "state": "source-backed fact",
+      "text": "Kawal Preet Executive Vice President, Planning, Engineering, and Transformation … since October 2025.",
+      "evidenceIds": [
+        "evidence_4c8fa42648327c1c5d7e"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-9-0fc19c47b8cb",
+      "state": "source-backed fact",
+      "text": "On June 1, 2026, FedEx Corporation (“FedEx”) completed the previously announced separation of FedEx Freight Holding Company, Inc. (“FedEx Freight”) through a distribution of 80.1% of the outstanding shares of FedEx Freight common stock to FedEx stockholders.",
+      "evidenceIds": [
+        "evidence_67c1c585e23b6fa4679e"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-10-d227a1cd63d1",
+      "state": "source-backed fact",
+      "text": "Following the Spin-Off and beginning the first quarter of the Transition Period, FedEx realigned its internal reporting and management structure, resulting in the identification of two new reportable segments: Express U.S. Domestic and Express International.",
+      "evidenceIds": [
+        "evidence_28652f6d60f6c24b1830"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": []
+    }
+  ],
+  "whyChangeMayMatter": [
+    {
+      "statementId": "c2-why-change-may-matter-2-f75dbf99b111",
+      "state": "evidence-informed interpretation",
+      "text": "The Network 2.0 program may create operational and technology-adjacent change surfaces because FedEx says it is modernizing and consolidating sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing enterprise linehaul, with Canada fully implemented and U.S. completion expected by the end of calendar year 2027.",
+      "evidenceIds": [
+        "evidence_49cdd6f0f4b6dd5f3ef3"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "c2-why-change-may-matter-3-1a2acd815116",
+      "state": "evidence-informed interpretation",
+      "text": "The May 2026 AI-driven assistant in the FedEx Developer Portal indicates a recent, specific digital-service integration enablement step, bounded to helping developers access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.",
+      "evidenceIds": [
+        "evidence_45b2bd6a55736d897000"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "c2-why-change-may-matter-4-c67c9552ffcf",
+      "state": "evidence-informed interpretation",
+      "text": "Leadership and governance context may matter for routing because FedEx identifies a Chief Digital and Information Officer and a Planning, Engineering, and Transformation executive, while the board Cyber and Technology Oversight Committee reviews major cyber and technology-related projects and technology architecture decisions and advises senior Data and Technology management.",
+      "evidenceIds": [
+        "evidence_18c2565f78ccb4bd74d4",
+        "evidence_4c8fa42648327c1c5d7e",
+        "evidence_60cc5b560442a1ef23ae"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_board"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "c2-why-change-may-matter-5-aee30bd83678",
+      "state": "evidence-informed interpretation",
+      "text": "The completed FedEx Freight separation and subsequent internal reporting realignment into Express U.S. Domestic and Express International may change how transformation needs are framed internally, without establishing any procurement status, budget availability, or vendor preference.",
+      "evidenceIds": [
+        "evidence_67c1c585e23b6fa4679e",
+        "evidence_28652f6d60f6c24b1830"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation"
+      ],
+      "riskFlags": [
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "stillOpenQuestions": [
+    {
+      "statementId": "c2-still-open-questions-6-7ce57a09836e",
+      "state": "unresolved question",
+      "text": "Open questions: which transformation needs are currently active; whether any budget is available or remaining; whether any relevant procurement is planned, underway, or closed; which uses are eligible within network, AI, developer, cyber, or integration work; who has decision authority across digital, transformation, finance, procurement, and board oversight; and whether FedEx has any vendor intent beyond its general supplier-registration process and multi-year contract caveat.",
+      "evidenceIds": [
+        "evidence_16ccb0f3a7984c6d1dfb",
+        "evidence_e6b06390315d2c346286",
+        "evidence_d26851c457436b1b318e",
+        "evidence_60cc5b560442a1ef23ae"
+      ],
+      "entityIds": [
+        "acc_fedex_corporation",
+        "entity_fedex_board"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "funding_status_ambiguity",
+        "stale_evidence",
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "recommendedNextMove": {
+    "statementId": "c2-recommended-next-move-7-bff6c3f6c147",
+    "state": "recommendation",
+    "text": "Use a bounded discovery motion: register or update supplier information if relevant, then route outreach around FedEx’s stated network transformation, digital and AI workflow agenda, developer-portal integration enablement, and cyber/technology governance, while explicitly asking about timing, ownership, eligible scope, procurement path, and whether any opportunity exists.",
+    "evidenceIds": [
+      "evidence_49cdd6f0f4b6dd5f3ef3",
+      "evidence_e6b06390315d2c346286",
+      "evidence_45b2bd6a55736d897000",
+      "evidence_d26851c457436b1b318e",
+      "evidence_60cc5b560442a1ef23ae"
+    ],
+    "entityIds": [
+      "acc_fedex_corporation",
+      "entity_fedex_board"
+    ],
+    "riskFlags": [
+      "entity_boundary",
+      "insufficient_evidence"
+    ]
+  },
+  "sourceAndEntityBoundaries": [
+    {
+      "entityId": "acc_fedex_corporation",
+      "boundary": "FedEx Corporation is admitted as account; relationship to the account: The parent holding company and account under research."
+    },
+    {
+      "entityId": "entity_federal_express",
+      "boundary": "Federal Express Corporation is admitted as subsidiary; relationship to the account: The integrated air-ground operating subsidiary; distinct from the parent."
+    },
+    {
+      "entityId": "entity_fedex_freight",
+      "boundary": "FedEx Freight Holding Company, Inc. is admitted as other_related_entity; relationship to the account: Separated public company after June 1, 2026; no longer consolidated as a FedEx segment."
+    },
+    {
+      "entityId": "entity_fedex_dataworks",
+      "boundary": "FedEx Dataworks is admitted as business_unit; relationship to the account: Named digital unit with a distinct operating role."
+    },
+    {
+      "entityId": "entity_fedex_supply_chain",
+      "boundary": "FedEx Supply Chain is admitted as business_unit; relationship to the account: Portfolio business whose announced sale was not established as closed in admitted evidence."
+    },
+    {
+      "entityId": "entity_fedex_board",
+      "boundary": "FedEx Corporation Board of Directors is admitted as governing_body; relationship to the account: Corporate governing body."
+    },
+    {
+      "entityId": "entity_routesmart",
+      "boundary": "RouteSmart Technologies is admitted as subsidiary; relationship to the account: Acquired route-optimization technology business kept distinct."
+    }
+  ],
+  "riskConflictFlags": [
+    {
+      "flag": "insufficient_evidence",
+      "statementIds": [
+        "c2-account-thesis-1-0bce7b43d9ec",
+        "c2-why-change-may-matter-2-f75dbf99b111",
+        "c2-why-change-may-matter-3-1a2acd815116",
+        "c2-why-change-may-matter-4-c67c9552ffcf",
+        "c2-why-change-may-matter-5-aee30bd83678",
+        "c2-still-open-questions-6-7ce57a09836e",
+        "c2-recommended-next-move-7-bff6c3f6c147"
+      ],
+      "needsReview": true,
+      "reason": "Model-authored semantic prose requires human judgment: exact evidence linkage does not establish semantic support or truth. This flag is not a claim that no evidence exists."
+    },
+    {
+      "flag": "entity_boundary",
+      "statementIds": [
+        "c2-why-change-may-matter-4-c67c9552ffcf",
+        "c2-still-open-questions-6-7ce57a09836e",
+        "c2-recommended-next-move-7-bff6c3f6c147"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived entity_boundary from admitted evidence and proposal safety rules."
+    },
+    {
+      "flag": "funding_status_ambiguity",
+      "statementIds": [
+        "c2-still-open-questions-6-7ce57a09836e"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived funding_status_ambiguity from admitted evidence and proposal safety rules."
+    },
+    {
+      "flag": "stale_evidence",
+      "statementIds": [
+        "c2-still-open-questions-6-7ce57a09836e"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived stale_evidence from admitted evidence and proposal safety rules."
+    }
+  ],
+  "researchCoverage": [
+    {
+      "taxonomy": "identity_structure",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_a77158808bdbab2eb341",
+        "source_3df5e62d8edd76c614ca",
+        "source_e66de6ecc2ddd04f8583",
+        "source_10a629c9e77ec13829a2"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "strategic_direction",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_eb7937a06de6828cbf49",
+        "source_dc8d534e43222438f9b9",
+        "source_10a629c9e77ec13829a2"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "financial_context",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_3df5e62d8edd76c614ca",
+        "source_dc8d534e43222438f9b9"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "digital_modernization",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_eb7937a06de6828cbf49",
+        "source_dc8d534e43222438f9b9",
+        "source_a7744348d3de73b5efcf",
+        "source_10a629c9e77ec13829a2"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "leadership_governance",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_eb7937a06de6828cbf49",
+        "source_e66de6ecc2ddd04f8583",
+        "source_a7744348d3de73b5efcf"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "procurement",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_e7a21a642896598e01ba"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "partnerships_technology",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_e7a21a642896598e01ba",
+        "source_10a629c9e77ec13829a2"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "constraints",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_e7a21a642896598e01ba",
+        "source_a7744348d3de73b5efcf"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "recent_changes",
+      "sourceIds": [
+        "source_d977c3229551121ddf90",
+        "source_a77158808bdbab2eb341",
+        "source_3df5e62d8edd76c614ca",
+        "source_eb7937a06de6828cbf49",
+        "source_dc8d534e43222438f9b9",
+        "source_10a629c9e77ec13829a2"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "gaps_contradictions",
+      "sourceIds": [],
+      "status": "gap",
+      "gap": "No controller-authorized excerpt support was admitted."
+    }
+  ],
+  "materialGaps": [
+    "No controller-authorized excerpt-level support for taxonomy:gaps_contradictions."
+  ],
+  "reviewStatus": "needs_review"
+}

@@ -1,0 +1,511 @@
+{
+  "kind": "atliera.account-intelligence-proposal",
+  "schemaVersion": "2",
+  "accountId": "acc_university_of_utah",
+  "accountThesis": {
+    "statementId": "c2-account-thesis-1-d30cc2e0ce25",
+    "state": "evidence-informed interpretation",
+    "text": "University of Utah has a legislatively driven, three-year strategic reinvestment context with explicit Responsible AI funding and workforce-training rationale, now paired with approved Year Two planning and separate AI infrastructure and health-AI investments.",
+    "evidenceIds": [
+      "evidence_57ea55e4883fc4627b20",
+      "evidence_2a5c964c8ef6d7f7cc6b",
+      "evidence_1022aa3b977809d3004e",
+      "evidence_43d51bf7e6205c754bd5",
+      "evidence_aa06c442d08aad5c8cb8",
+      "evidence_8b368890779e935f142d",
+      "evidence_8598ede0df66bb13f65d",
+      "evidence_91e8773cb89195d27431",
+      "evidence_bf6c043eac847f7183e3",
+      "evidence_580385fbb8754676fa3d",
+      "evidence_5c9bdebcc492d29c0154"
+    ],
+    "entityIds": [
+      "acc_university_of_utah",
+      "entity_utah_system_higher_education"
+    ],
+    "riskFlags": [
+      "entity_boundary",
+      "funding_status_ambiguity",
+      "stale_evidence",
+      "insufficient_evidence"
+    ]
+  },
+  "establishedContext": [
+    {
+      "statementId": "c2-established-context-1-39fbd3f5c0cd",
+      "state": "source-backed fact",
+      "text": "During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.",
+      "evidenceIds": [
+        "evidence_57ea55e4883fc4627b20"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-established-context-2-825b50883f12",
+      "state": "source-backed fact",
+      "text": "The bill established a three-year strategic reinvestment requirement for Utah System of Higher Education degree-granting institutions and was coupled with base budget set-asides in the amount of 10% of state tax dollars within institutional instruction budgets.",
+      "evidenceIds": [
+        "evidence_2a5c964c8ef6d7f7cc6b"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-established-context-3-ed748edbd949",
+      "state": "source-backed fact",
+      "text": "In order to recover set-aside funds, degree granting institutions must reallocate at least 30% of the equivalent funding amounts in FY 2026, 70% in FY 2027, and 100% in FY 2028.",
+      "evidenceIds": [
+        "evidence_1022aa3b977809d3004e"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-established-context-4-9833f914069b",
+      "state": "source-backed fact",
+      "text": "A three-year framework to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.",
+      "evidenceIds": [
+        "evidence_43d51bf7e6205c754bd5"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-established-context-5-0e953393ef25",
+      "state": "source-backed fact",
+      "text": "This reinvestment plan includes a three-year reallocation and reinvestment framework with designations, targets and rationale to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.",
+      "evidenceIds": [
+        "evidence_91fb1b3bf691b0defdf4"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-established-context-6-2fcc9027fb69",
+      "state": "source-backed fact",
+      "text": "Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems",
+      "evidenceIds": [
+        "evidence_aa06c442d08aad5c8cb8"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    }
+  ],
+  "meaningfullyChanged": [
+    {
+      "statementId": "c2-meaningfully-changed-7-89db8909f7d5",
+      "state": "source-backed fact",
+      "text": "The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.",
+      "evidenceIds": [
+        "evidence_a9d8e80afbb470e3a5a3"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-meaningfully-changed-8-d4016d956754",
+      "state": "source-backed fact",
+      "text": "Responsible AI $4,939,436 $4,939,435 —",
+      "evidenceIds": [
+        "evidence_8b368890779e935f142d"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-9-62fe72604d14",
+      "state": "source-backed fact",
+      "text": "Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”",
+      "evidenceIds": [
+        "evidence_2e20762caf4b11701059"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-10-3bde8b8082ee",
+      "state": "source-backed fact",
+      "text": "Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.",
+      "evidenceIds": [
+        "evidence_8598ede0df66bb13f65d"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-11-b012110a439b",
+      "state": "source-backed fact",
+      "text": "The University of Utah is proposing to increase its net reinvestment in instruction from the originally approved amount of $5,595,600 to $5,931,393 upon full plan implementation.",
+      "evidenceIds": [
+        "evidence_108ab18a22da1f9e08e8"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-12-bd82568261aa",
+      "state": "source-backed fact",
+      "text": "Redtail is the result of a $50 million public-private partnership among the U, the state of Utah and the Huntsman Family Foundation, with HPE supercomputing infrastructure and NVIDIA technologies. The collaboration expands Utahns’ access to advanced AI computing: the HPE Cray system in Redtail also powers leading supercomputers in the Top500 list. And with its list debut, Redtail joins the country’s most capable academic AI systems.",
+      "evidenceIds": [
+        "evidence_91e8773cb89195d27431"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-13-f3d358e733fb",
+      "state": "source-backed fact",
+      "text": "The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.",
+      "evidenceIds": [
+        "evidence_bf6c043eac847f7183e3"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-meaningfully-changed-14-df35570a851e",
+      "state": "source-backed fact",
+      "text": "Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).",
+      "evidenceIds": [
+        "evidence_580385fbb8754676fa3d"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": []
+    },
+    {
+      "statementId": "c2-meaningfully-changed-15-5d72385d4171",
+      "state": "source-backed fact",
+      "text": "Another $15 million will support a new data center and broader AI ecosystem. Together, the state investment adds up to more than $33 million, positioning Utah to lead the nation in AI-enabled health innovation.",
+      "evidenceIds": [
+        "evidence_5c9bdebcc492d29c0154"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    },
+    {
+      "statementId": "c2-meaningfully-changed-16-48da8243ceeb",
+      "state": "source-backed fact",
+      "text": "###### For the fiscal year ending June 30, 2025, the University of Utah received $781.9 million in new award funding for sponsored activities. This represents a 13% increase over last year and shatters the previous record for sponsored projects.",
+      "evidenceIds": [
+        "evidence_dfb5413c39af688b6fbf"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity"
+      ]
+    }
+  ],
+  "whyChangeMayMatter": [
+    {
+      "statementId": "c2-why-change-may-matter-2-bf41b3980c10",
+      "state": "evidence-informed interpretation",
+      "text": "The approved Year Two plan and stated Responsible AI allocation may make AI teaching, productivity, talent, and interdisciplinary training a timely discovery area, but the evidence does not establish any vendor preference or procurement activity.",
+      "evidenceIds": [
+        "evidence_8598ede0df66bb13f65d",
+        "evidence_8b368890779e935f142d",
+        "evidence_2e20762caf4b11701059",
+        "evidence_aa06c442d08aad5c8cb8"
+      ],
+      "entityIds": [
+        "entity_utah_system_higher_education",
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "entity_boundary",
+        "insufficient_evidence"
+      ]
+    },
+    {
+      "statementId": "c2-why-change-may-matter-3-658764f7c3ed",
+      "state": "evidence-informed interpretation",
+      "text": "Redtail and Utah Health AI Vault indicate broader AI compute and health-data infrastructure activity around the university, including public-private and state investments, which may affect stakeholders, use cases, and governance needs without proving new budget availability for a specific solution.",
+      "evidenceIds": [
+        "evidence_91e8773cb89195d27431",
+        "evidence_bf6c043eac847f7183e3",
+        "evidence_580385fbb8754676fa3d",
+        "evidence_5c9bdebcc492d29c0154"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity",
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "stillOpenQuestions": [
+    {
+      "statementId": "c2-still-open-questions-4-aa5d53bffc74",
+      "state": "unresolved question",
+      "text": "Clarify funding availability, remaining amount, procurement status, eligible uses, decision authority, and vendor intent for the Responsible AI reinvestment, Redtail-related activity, and Utah Health AI Vault or related AI ecosystem investments.",
+      "evidenceIds": [
+        "evidence_8b368890779e935f142d",
+        "evidence_91e8773cb89195d27431",
+        "evidence_bf6c043eac847f7183e3",
+        "evidence_580385fbb8754676fa3d",
+        "evidence_5c9bdebcc492d29c0154"
+      ],
+      "entityIds": [
+        "acc_university_of_utah"
+      ],
+      "riskFlags": [
+        "funding_status_ambiguity",
+        "insufficient_evidence"
+      ]
+    }
+  ],
+  "recommendedNextMove": {
+    "statementId": "c2-recommended-next-move-5-05817db82eb9",
+    "state": "recommendation",
+    "text": "Run a discovery conversation focused on mapping the approved reinvestment and AI-infrastructure initiatives to actual owners, timelines, allowable uses, and any formal procurement path before positioning any solution.",
+    "evidenceIds": [
+      "evidence_8598ede0df66bb13f65d",
+      "evidence_108ab18a22da1f9e08e8",
+      "evidence_8b368890779e935f142d",
+      "evidence_2e20762caf4b11701059",
+      "evidence_bf6c043eac847f7183e3",
+      "evidence_580385fbb8754676fa3d"
+    ],
+    "entityIds": [
+      "entity_utah_system_higher_education",
+      "acc_university_of_utah"
+    ],
+    "riskFlags": [
+      "entity_boundary",
+      "funding_status_ambiguity",
+      "insufficient_evidence"
+    ]
+  },
+  "sourceAndEntityBoundaries": [
+    {
+      "entityId": "acc_university_of_utah",
+      "boundary": "University of Utah is admitted as account; relationship to the account: The account itself; University of Utah Health and external governing bodies remain separate entities."
+    },
+    {
+      "entityId": "entity_university_of_utah_health",
+      "boundary": "University of Utah Health is admitted as hospital; relationship to the account: A related academic health enterprise; not merged into University account funding or procurement claims."
+    },
+    {
+      "entityId": "entity_utah_system_higher_education",
+      "boundary": "Utah System of Higher Education is admitted as governing_body; relationship to the account: The public higher-education system and Board context; not the account itself."
+    },
+    {
+      "entityId": "entity_state_of_utah",
+      "boundary": "State of Utah is admitted as government; relationship to the account: The state policy and appropriations context; not the account or a University budget owner."
+    }
+  ],
+  "riskConflictFlags": [
+    {
+      "flag": "funding_status_ambiguity",
+      "statementIds": [
+        "c2-established-context-1-39fbd3f5c0cd",
+        "c2-established-context-2-825b50883f12",
+        "c2-established-context-4-9833f914069b",
+        "c2-established-context-5-0e953393ef25",
+        "c2-meaningfully-changed-7-89db8909f7d5",
+        "c2-meaningfully-changed-13-f3d358e733fb",
+        "c2-meaningfully-changed-15-5d72385d4171",
+        "c2-meaningfully-changed-16-48da8243ceeb",
+        "c2-account-thesis-1-d30cc2e0ce25",
+        "c2-why-change-may-matter-3-658764f7c3ed",
+        "c2-still-open-questions-4-aa5d53bffc74",
+        "c2-recommended-next-move-5-05817db82eb9"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived funding_status_ambiguity from admitted evidence and proposal safety rules."
+    },
+    {
+      "flag": "entity_boundary",
+      "statementIds": [
+        "c2-account-thesis-1-d30cc2e0ce25",
+        "c2-why-change-may-matter-2-bf41b3980c10",
+        "c2-recommended-next-move-5-05817db82eb9"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived entity_boundary from admitted evidence and proposal safety rules."
+    },
+    {
+      "flag": "stale_evidence",
+      "statementIds": [
+        "c2-account-thesis-1-d30cc2e0ce25"
+      ],
+      "needsReview": true,
+      "reason": "Controller derived stale_evidence from admitted evidence and proposal safety rules."
+    },
+    {
+      "flag": "insufficient_evidence",
+      "statementIds": [
+        "c2-account-thesis-1-d30cc2e0ce25",
+        "c2-why-change-may-matter-2-bf41b3980c10",
+        "c2-why-change-may-matter-3-658764f7c3ed",
+        "c2-still-open-questions-4-aa5d53bffc74",
+        "c2-recommended-next-move-5-05817db82eb9"
+      ],
+      "needsReview": true,
+      "reason": "Model-authored semantic prose requires human judgment: exact evidence linkage does not establish semantic support or truth. This flag is not a claim that no evidence exists."
+    }
+  ],
+  "researchCoverage": [
+    {
+      "taxonomy": "identity_structure",
+      "sourceIds": [
+        "source_1c8754cb775149b20f88",
+        "source_82dd9b672fb1d3a2ecc8",
+        "source_8a9b2d098eeea06afc70"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "strategic_direction",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_e281dcc35f7b276a0a73",
+        "source_82dd9b672fb1d3a2ecc8"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "financial_context",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_8d72bf5b9a36503b4f27",
+        "source_e281dcc35f7b276a0a73",
+        "source_1c8754cb775149b20f88",
+        "source_235a14e49099bd063e74",
+        "source_82dd9b672fb1d3a2ecc8",
+        "source_8a9b2d098eeea06afc70",
+        "source_3b51d17e9c8bb326653b"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "digital_modernization",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_e281dcc35f7b276a0a73",
+        "source_235a14e49099bd063e74",
+        "source_82dd9b672fb1d3a2ecc8",
+        "source_8a9b2d098eeea06afc70"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "leadership_governance",
+      "sourceIds": [
+        "source_a6cef8e35398e29ddc6f",
+        "source_8d72bf5b9a36503b4f27"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "procurement",
+      "sourceIds": [],
+      "status": "gap",
+      "gap": "No controller-authorized excerpt support was admitted."
+    },
+    {
+      "taxonomy": "partnerships_technology",
+      "sourceIds": [
+        "source_235a14e49099bd063e74",
+        "source_82dd9b672fb1d3a2ecc8",
+        "source_8a9b2d098eeea06afc70"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "constraints",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_8d72bf5b9a36503b4f27",
+        "source_e281dcc35f7b276a0a73",
+        "source_1c8754cb775149b20f88"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "recent_changes",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28",
+        "source_a6cef8e35398e29ddc6f",
+        "source_8d72bf5b9a36503b4f27",
+        "source_235a14e49099bd063e74",
+        "source_8a9b2d098eeea06afc70",
+        "source_3b51d17e9c8bb326653b"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    },
+    {
+      "taxonomy": "gaps_contradictions",
+      "sourceIds": [
+        "source_c5bf164d467dbef38b37",
+        "source_bb85b3bc37d724c7bf28"
+      ],
+      "status": "partial",
+      "gap": "Controller-authorized excerpt support is admitted; completeness is not established."
+    }
+  ],
+  "materialGaps": [
+    "No controller-authorized excerpt-level support for taxonomy:procurement."
+  ],
+  "reviewStatus": "needs_review"
+}

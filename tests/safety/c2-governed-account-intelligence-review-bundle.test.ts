@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION } from "../../src/account-intelligence/contracts.ts";
+import { admitAccountResearch } from "../../src/account-intelligence/admission.ts";
 import { snapshotAccountIntelligenceProposal } from "../../src/account-intelligence/proposal.ts";
-import { snapshotAccountResearchRequest } from "../../src/account-intelligence/research-plan.ts";
+import { createAccountResearchPlan, snapshotAccountResearchRequest } from "../../src/account-intelligence/research-plan.ts";
+import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
 
 const REPO = process.cwd();
 const ROOT = join(REPO, "docs/ux/c2-governed-account-intelligence-refresh");
@@ -58,6 +60,61 @@ test("C2-01 manifest and SHA256SUMS verify every review artifact", async () => {
   for (const [name, expected] of requiredScreenshots) {
     const bytes = await readFile(join(ROOT, "screenshots", name));
     assert.deepEqual(pngDimensions(bytes), expected, name);
+  }
+});
+
+test("fresh artifact manifest and FRESH_SHA256SUMS verify every sanitized current artifact", async () => {
+  const manifest = await readJson(join(ROOT, "fresh-artifact-manifest.json"));
+  assert.equal(manifest.kind, "atliera.c2-fresh-retained-two-account.artifact-manifest");
+  assert.equal(manifest.schemaVersion, "1");
+  assert.equal(manifest.status, "validated_outputs_ready_for_human_review");
+  assert.equal(manifest.validationAndRenderHead, "2b8a2962976d03ebc5b96756f76b30aadd22ba5d");
+  assert.equal(manifest.exactSingleHeadProviderToRenderProof, false);
+  assert.equal(manifest.artifacts.length, 16);
+  const sums = await readFile(join(ROOT, "FRESH_SHA256SUMS"), "utf8");
+  const paths = new Set<string>();
+  for (const item of manifest.artifacts) {
+    assert.equal(paths.has(item.path), false, `duplicate fresh artifact: ${item.path}`);
+    paths.add(item.path);
+    const bytes = await readFile(join(ROOT, item.path));
+    assert.equal(bytes.byteLength, item.bytes, item.path);
+    assert.equal(sha256(bytes), item.sha256, item.path);
+    assert.match(sums, new RegExp(`${item.sha256}  ${item.path.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+  }
+  for (const required of [
+    "data/fresh/university-of-utah-validated-proposal.json",
+    "data/fresh/fedex-validated-proposal.json",
+    "fresh-university-of-utah.html",
+    "fresh-fedex.html",
+    "screenshots/fresh/utah-1440x1100.png",
+    "screenshots/fresh/utah-390x844.png",
+    "screenshots/fresh/utah-evidence-open-1440x1100.png",
+    "screenshots/fresh/fedex-1440x1100.png",
+    "screenshots/fresh/fedex-390x844.png",
+  ]) assert.equal(paths.has(required), true, required);
+});
+
+test("fresh schema-v2 proposals revalidate against the retained corpus and receipts preserve zero effects", async () => {
+  const bundle = await readJson(join(REPO, "fixtures/account-intelligence/c2-01/broad-account-research-input.json"));
+  for (const entry of bundle.accounts) {
+    const request = snapshotAccountResearchRequest(entry.request);
+    const plan = createAccountResearchPlan(request);
+    const policy = snapshotAdmittedResearchPolicy(entry.researchPolicy);
+    const admitted = admitAccountResearch(request, plan, policy, entry.discoveries, entry.retrievedSources);
+    const slug = request.accountId === "acc_university_of_utah" ? "university-of-utah" : "fedex";
+    const proposal = await readJson(join(ROOT, `data/fresh/${slug}-validated-proposal.json`));
+    const validated = snapshotAccountIntelligenceProposal(proposal, request, admitted.sources);
+    assert.equal(validated.schemaVersion, ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION, request.accountId);
+    assert.equal(validated.accountId, request.accountId);
+    assert.equal(validated.reviewStatus, "needs_review");
+
+    const receipt = await readJson(join(ROOT, `data/fresh/${slug}-effect-receipt.json`));
+    assert.equal(receipt.accountId, request.accountId);
+    assert.equal(receipt.providerCallsAttempted, 1);
+    assert.equal(receipt.providerCallsSucceeded, 1);
+    for (const key of ["databaseWrites", "graphWrites", "persistenceWrites", "deployments", "publications", "customerActions"]) {
+      assert.equal(receipt[key], 0, `${request.accountId}.${key}`);
+    }
   }
 });
 
@@ -328,26 +385,40 @@ test("fresh-execution approval packet is docs-only, decision-tree bounded, and l
   }
 });
 
-test("status files now record fresh-execution authorization while preserving superseded history", async () => {
+test("status files record completed fresh execution while preserving superseded history", async () => {
   const status = await readJson(join(ROOT, "FOUNDATION_STATUS.json"));
   // Preserved invariants.
   assert.equal(status.historicalArtifactsAreCurrentFoundationProof, false);
   assert.equal(status.historicalArtifactsMayBeGrandfathered, false);
   assert.equal(status.currentProposalSchemaVersion, ACCOUNT_INTELLIGENCE_PROPOSAL_VERSION);
-  // New authorization block.
+  // Completed bounded execution block.
   assert.equal(status.freshExecutionAuthorization.authorized, true);
   assert.equal(status.freshExecutionAuthorization.authorizationSlug, AUTH_SLUG);
-  assert.equal(status.freshExecutionAuthorization.executedInThisCheckpoint, false);
-  assert.equal(status.freshExecutionAuthorization.foundationCorrectionAloneAuthorizedExecution, false);
+  assert.equal(status.freshExecutionAuthorization.executed, true);
+  assert.equal(status.freshExecutionAuthorization.providerCallAuthorizationBudgetConsumed, 4);
+  assert.equal(status.freshExecutionAuthorization.providerCallAuthorizationBudgetCap, 4);
+  assert.equal(status.freshExecutionAuthorization.actualProviderCallsExecuted, 3);
+  assert.equal(status.freshExecutionAuthorization.validatedOutputCalls, 2);
+  assert.equal(status.freshExecutionAuthorization.correctionCallsExecuted, 0);
   assert.equal(status.freshExecutionAuthorization.mergeAuthorizedByThisPacket, false);
   assert.equal(status.freshExecutionAuthorization.authorizationArtifact, "fresh-execution-authorization.json");
+  assert.equal(status.exactSingleHeadProviderToRenderProof, false);
+  assert.deepEqual(status.currentEffectBoundary, {
+    databaseWrites: 0,
+    graphWrites: 0,
+    persistenceWrites: 0,
+    deployments: 0,
+    publications: 0,
+    customerActions: 0,
+  });
 
   const readme = await readFile(join(ROOT, "README.md"), "utf8");
   assert.match(readme, /Fresh retained two-account execution/iu);
   assert.match(readme, new RegExp(AUTH_SLUG, "u"));
-  assert.match(readme, /authorizes only the exact pending slice/iu);
+  assert.match(readme, /4 \/ 4 consumed/iu);
+  assert.match(readme, /mixed provider-execution heads/iu);
   assert.match(readme, /superseded/iu);
-  // The README must no longer flatly deny that fresh execution is authorized.
   assert.doesNotMatch(readme, /No fresh model proposal has been generated/u);
+  assert.doesNotMatch(readme, /The authorized slice has not yet been executed/u);
   for (const pattern of OVERCLAIM_PATTERNS) assert.doesNotMatch(readme, pattern, `README must not contain: ${pattern}`);
 });

@@ -4,8 +4,8 @@
   "artifacts": [
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/README.md",
-      "bytes": 5806,
-      "sha256": "12d454f401d40bfd50f5fd804f67bc0a10d7a909c6f3330be316860f40a40e05"
+      "bytes": 6601,
+      "sha256": "b838f9a5c2b1417f5c9af348d402be61c6f7861e40c2f095085abcca0d6b6751"
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md",
@@ -184,8 +184,8 @@
     },
     {
       "path": "docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json",
-      "bytes": 2367,
-      "sha256": "ec5a71604a863da8d18550ebfb5469b4d5cf7fa0ad2924ac3cc37db7adbae472"
+      "bytes": 2916,
+      "sha256": "86aabe34a867582c658a6bd939d36f8de177225599dd2e9fd49cafa7a7a3fd87"
     },
     {
       "path": "fixtures/account-intelligence/c2-01/broad-account-research-input.json",

@@ -1,8 +1,8 @@
 # C2-01 — Governed Account Intelligence Refresh
 
-Status: **foundation correction plus a separate fresh-execution authorization for the exact pending slice; not yet executed; historical proposal/render evidence superseded; draft; non-durable; not deployed**
+Status: **validated schema-v2 outputs and regenerated local review surfaces complete; historical proposal/render evidence superseded; needs human review; mixed provider-execution heads; draft; non-durable; not merged or deployed**
 
-This directory preserves the historical C2-01 vertical-slice artifacts and the corrected deterministic foundation inputs. It does **not** prove a current exact-head model-to-render vertical slice; that slice is now authorized (see below) but not yet executed.
+This directory preserves the historical C2-01 artifacts, the corrected deterministic foundation, and the completed fresh retained two-account result. Both selected proposals validate and render at current head `2b8a2962976d03ebc5b96756f76b30aadd22ba5d`; the lineage truthfully records that FedEx provider execution occurred at the immediately preceding reviewed head, so this is not a single-head two-account provider-to-render proof.
 
 ## Current foundation
 
@@ -34,32 +34,23 @@ They are therefore:
 
 See `FOUNDATION_STATUS.json` for the machine-readable boundary. The manifests carry the same superseded/non-current status.
 
-## Fresh retained two-account execution (separate packet)
+## Fresh retained two-account execution
 
-A separate, docs-only approval packet now authorizes only the exact pending
-execution slice. The foundation correction alone did not authorize execution;
-this packet does, within hard caps, and this checkpoint precedes any execution.
+The separate packet authorized the bounded retained-corpus execution. The durable provider-call authorization budget is now closed at **4 / 4 consumed**; three provider/model calls actually executed, two selected outputs validated, and no correction call executed.
 
 - Authorization slug: `c2-fresh-retained-two-account-20260829`.
-- Packet: [`FRESH_EXECUTION_AUTHORIZATION.md`](FRESH_EXECUTION_AUTHORIZATION.md);
-  machine-readable form: [`fresh-execution-authorization.json`](fresh-execution-authorization.json).
-- It authorizes only the exact pending slice: accounts `acc_university_of_utah`
-  and `acc_fedex_corp`, the retained `broad-account-research-input.json` corpus,
-  provider `openai-codex`, model `gpt-5.5`, operation `graph.propose`, at most 4
-  cumulative provider calls (at most 2 per account, the second only after a typed
-  validation refusal), `maxOutputTokens` 4096 and `maxCostUsd` 0.10 per call, and
-  $0.40 cumulative approved cost — with no tools, fallback, comparison, retrieval,
-  or research.
-- It does not activate fresh public research, and it does not authorize merge.
-  See the packet for the full decision tree and cumulative accounting.
+- Result: [`FRESH_EXECUTION_RESULT.md`](FRESH_EXECUTION_RESULT.md); machine-readable form: [`fresh-execution-result.json`](fresh-execution-result.json).
+- Current schema-v2 proposals and effect receipts: `data/fresh/`.
+- Current renders: `fresh-university-of-utah.html` and `fresh-fedex.html`.
+- Visual review: [`FRESH_VISUAL_REVIEW.md`](FRESH_VISUAL_REVIEW.md); interaction proof: [`fresh-browser-interaction-proof.json`](fresh-browser-interaction-proof.json).
+- Current validation/render head: `2b8a2962976d03ebc5b96756f76b30aadd22ba5d`.
+- University of Utah provider execution is at the current head. FedEx provider execution is at preceding reviewed head `b44471e16894cfe3223dfec6963a808ff991b064` and was revalidated byte-for-byte at the current head.
+- Database, Graph, persistence, deployment, publication, and customer effects remain zero.
+- Fresh public research was not activated, and merge remains separately gated.
 
 ## What remains incomplete
 
-The authorized slice has not yet been executed. Broad proposals, the final broad
-Account Home renderer, regenerated visual proof, Product/UX review, user
-readiness, meeting preparation, merge readiness, deployment, publication, and
-customer action remain incomplete. Everything beyond the exact pending slice
-above remains unauthorized.
+Both retained-account schema-v2 proposals and their local Account Home review surfaces now exist and have passed deterministic validation plus desktop/mobile browser review. They remain `needs_review`; FedEx provider execution is from the immediately preceding reviewed head, so exact single-head two-account provider-to-render proof is still false. Human ratification, meeting preparation, merge readiness, deployment, publication, and customer action remain incomplete and separately gated.
 
 ## Reviewer navigation
 
@@ -67,9 +58,12 @@ above remains unauthorized.
 - `fixtures/account-intelligence/c2-01/broad-account-research-input.json` — corrected broad retained inputs and truthful recorded-effect labels.
 - `src/account-intelligence/` — request, policy, custody, admission, proposal, provider, effect, and view boundaries.
 - `tests/account-intelligence/` — focused deterministic and adversarial coverage.
-- `FOUNDATION_STATUS.json` — current-versus-historical artifact boundary and the fresh-execution authorization block.
-- `FRESH_EXECUTION_AUTHORIZATION.md` and `fresh-execution-authorization.json` — the separate docs-only packet authorizing the exact pending slice.
-- `artifact-manifest.json`, `visual-artifact-manifest.json`, and `SHA256SUMS` — integrity records; historical artifact hashes are preserved.
+- `FOUNDATION_STATUS.json` — current machine-readable foundation/result boundary.
+- `FRESH_EXECUTION_RESULT.md`, `fresh-execution-result.json`, and `fresh-model-artifact-lineage.json` — completed bounded execution result and mixed-head lineage.
+- `FRESH_VISUAL_REVIEW.md`, `fresh-browser-interaction-proof.json`, and `screenshots/fresh/` — current desktop/mobile review evidence.
+- `fresh-artifact-manifest.json` and `FRESH_SHA256SUMS` — integrity records for the fresh sanitized package.
+- `FRESH_EXECUTION_AUTHORIZATION.md` and `fresh-execution-authorization.json` — preserved pre-execution authorization checkpoint.
+- `artifact-manifest.json`, `visual-artifact-manifest.json`, and `SHA256SUMS` — superseded historical integrity records.
 
 ## Explicit boundary
 

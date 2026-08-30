@@ -1,0 +1,62 @@
+{
+  "kind": "atliera.c2-fresh-retained-two-account.browser-interaction-proof",
+  "schemaVersion": "1",
+  "validationAndRenderHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+  "pages": [
+    {
+      "accountId": "acc_university_of_utah",
+      "desktop": {
+        "viewport": [1440, 1100],
+        "documentWidth": 1425,
+        "horizontalOverflowPixels": 0,
+        "decisionPlanes": 1,
+        "primaryActions": ["Review the support"],
+        "evidenceTargetHeightPixels": 44
+      },
+      "mobile": {
+        "viewport": [390, 844],
+        "documentWidth": 390,
+        "horizontalOverflowPixels": 0,
+        "decisionPlanes": 1,
+        "primaryActions": ["Review the support"],
+        "evidenceTargetHeightPixels": 44
+      },
+      "interaction": {
+        "evidenceDialogOpened": true,
+        "exactSupportVisible": true,
+        "sourceBoundaryVisible": true,
+        "closeTargetHeightPixels": 44,
+        "dialogClosed": true,
+        "focusReturnedToEvidenceTrigger": true
+      }
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "desktop": {
+        "viewport": [1440, 1100],
+        "documentWidth": 1425,
+        "horizontalOverflowPixels": 0,
+        "decisionPlanes": 1,
+        "primaryActions": ["Review the support"],
+        "evidenceTargetHeightPixels": 44
+      },
+      "mobile": {
+        "viewport": [390, 844],
+        "documentWidth": 390,
+        "horizontalOverflowPixels": 0,
+        "decisionPlanes": 1,
+        "primaryActions": ["Review the support"],
+        "evidenceTargetHeightPixels": 44
+      }
+    }
+  ],
+  "sideEffects": {
+    "externalNetworkRequests": 0,
+    "localStorageEntries": 0,
+    "sessionStorageEntries": 0,
+    "databaseWrites": 0,
+    "graphWrites": 0,
+    "persistenceWrites": 0
+  },
+  "status": "pass"
+}

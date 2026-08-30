@@ -53,14 +53,13 @@ This is not a single-head two-account provider-to-render proof. Utah's selected 
 
 ## Owner content-review guide
 
-Review both visible artifacts and answer for each account:
+Review both visible artifacts and answer exactly five bounded prompts for each account:
 
-1. Is the thesis materially useful and free of unsupported certainty?
-2. Is the most meaningful change the right one, and is “why it matters” commercially useful?
-3. Are important facts, stakeholders, contradictions, or unknowns missing?
-4. Are fact, interpretation, unresolved question, and recommendation states unmistakable?
-5. Is the proposed next move safe and useful enough to continue into C3?
-6. Choose one disposition: **continue to C3**, **revise before C3**, or **reject**.
+1. **Useful** — Are the thesis and most meaningful change commercially useful?
+2. **Grounded** — Are consequential claims supported, with uncertainty explicit and no unsupported certainty?
+3. **Honest** — Are facts, interpretations, unresolved questions, recommendations, omissions, and contradictions represented truthfully?
+4. **Navigable** — Can you find the answer, its exact support, and the evidence boundary without getting lost?
+5. **Worth continuing** — Is the proposed next move safe and useful enough to choose **continue to C3**, **revise before C3**, or **reject**?
 
 A negative finding is a product result, not authority for another provider call or framework expansion.
 

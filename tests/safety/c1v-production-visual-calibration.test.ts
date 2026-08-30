@@ -16,7 +16,10 @@ const SEPARATE_C2_SCOPES = [
   "tests/fixtures/c2-account-intelligence.ts",
   "tests/safety/c2-account-intelligence-hardcoding.test.ts",
   "tests/safety/c2-governed-account-intelligence-review-bundle.test.ts",
+  "tests/safety/c2-closeout-status.test.ts",
   "docs/architecture/agentic-ai-usage-baseline.md",
+  "docs/reviews/c2-governed-account-intelligence-closeout-retro.md",
+  "docs/strategy/roadmap.md",
   "tests/safety/agentic-ai-usage-baseline-contract.test.ts",
 ] as const;
 const DIRECTIONS = ["direction-a", "direction-b"] as const;

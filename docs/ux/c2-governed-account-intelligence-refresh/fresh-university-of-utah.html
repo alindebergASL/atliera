@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;sha256-FVhs3iVrF6P+Aj6U0YI2nm4MaNPYT3+7RD0egMVL+eU=&#39;; script-src &#39;sha256-hcGuEITB0s+N3ccVZE0B4zGfm56YINzixl0PqKXFe+o=&#39;; img-src data:; connect-src &#39;none&#39;; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;; frame-ancestors &#39;none&#39;"><title>Atliera account intelligence — University of Utah</title><style>
+:root {
+  --paper: #f7f1e5;
+  --paper-strong: #fffaf0;
+  --ink: #24201d;
+  --muted: #6f675f;
+  --rule: rgba(36,32,29,.24);
+  --plum: #49253d;
+  --cobalt: #1647b9;
+  --blue-wash: #e7ebf9;
+  --warm-wash: #efe4d5;
+  --review: #8c3d2f;
+  --focus: #0b63f6;
+  --serif: Iowan Old Style, Baskerville, Georgia, serif;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); color: var(--ink); scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); font: 16px/1.5 var(--sans); overflow-wrap: anywhere; }
+button, summary { font: inherit; touch-action: manipulation; }
+button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.site-frame { min-height: 100vh; border-top: 4px solid var(--ink); }
+.product-header {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 20px;
+  width: min(100% - 48px, 1320px); margin: 0 auto; padding: 14px 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand { margin: 0; font: 700 17px/1 var(--serif); letter-spacing: .01em; }
+.mode-line { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 12px; }
+.mode-active { color: var(--ink); font-weight: 800; }
+.mode-future { color: var(--muted); opacity: 1; }
+main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
+.intro-line { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
+.eyebrow, .stage-kicker, .section-label, .source-kicker {
+  margin: 0; color: var(--cobalt); font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase;
+}
+.freshness { margin: 0; color: var(--muted); font-size: 12px; }
+.review-cue { color: var(--review); font-weight: 800; }
+.account-hero { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(230px, .35fr); gap: 54px; padding-left: clamp(0px, 4vw, 58px); }
+.account-hero h1 { margin: 4px 0 6px; font: 500 clamp(40px, 5.3vw, 78px)/.94 var(--serif); letter-spacing: -.052em; }
+.account-thesis { max-width: 900px; margin: 0; font: 500 clamp(19px, 1.8vw, 27px)/1.23 var(--serif); letter-spacing: -.02em; text-wrap: balance; }
+.hero-aside { align-self: end; padding-top: 12px; border-top: 1px solid var(--ink); color: var(--muted); font-size: 13px; }
+.hero-aside p { margin: 0; }
+.grammar {
+  display: grid; grid-template-columns: minmax(0, .88fr) minmax(480px, 1.12fr); gap: clamp(30px, 4vw, 60px);
+  margin: 20px 0 0 clamp(0px, 4vw, 58px); align-items: stretch;
+}
+.context-plane { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.stage { position: relative; padding: 16px 0 14px 58px; }
+.stage + .stage { border-top: 1px solid var(--rule); }
+.stage-num { position: absolute; left: 0; top: 17px; color: var(--plum); font: 800 11px/1 var(--sans); letter-spacing: .12em; }
+.stage h2 { margin: 4px 0 5px; font: 500 clamp(25px, 2.4vw, 38px)/1.02 var(--serif); letter-spacing: -.03em; }
+.stage-copy { margin: 0; font-size: clamp(14px, 1.15vw, 17px); line-height: 1.34; }
+.analysis-line { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.statement-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
+.statement-state { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.evidence-trigger {
+  min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
+  font-weight: 800; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
+}
+.decision-plane { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; padding: 22px 28px; background: var(--plum); color: #fffaf3; }
+.decision-plane .stage { padding: 0; }
+.decision-plane .stage + .stage { border: 0; padding-left: 26px; border-left: 1px solid rgba(255,255,255,.26); }
+.decision-plane .stage-num { position: static; display: block; margin-bottom: 6px; color: #e2cfd8; }
+.decision-plane .stage h2 { margin-top: 0; font-size: clamp(25px, 2.25vw, 36px); color: #fffaf3; }
+.decision-plane .stage-copy { color: #f0e7eb; }
+.decision-plane .statement-state { color: #d8cbd1; }
+.decision-plane .evidence-trigger { color: #cdd9ff; }
+.decision-plane button:focus-visible { outline-color: #ffd166; }
+.primary-action {
+  min-height: 44px; margin-top: 9px; padding: 0 17px; border: 1px solid #fffaf3; border-radius: 0;
+  background: #fffaf3; color: var(--plum); font-weight: 850; cursor: pointer;
+}
+.research-disclosure { margin: 26px 0 0 clamp(0px, 10vw, 150px); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.research-disclosure summary { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; font-weight: 800; }
+.research-disclosure summary::-webkit-details-marker { display: none; }
+.research-disclosure summary::after { content: "+"; color: var(--cobalt); font-size: 22px; }
+.research-disclosure[open] summary::after { content: "−"; }
+.research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; padding: 18px 0 26px; }
+.research-grid h3 { margin: 0 0 10px; font: 500 24px/1.05 var(--serif); }
+.research-grid ul { margin: 0; padding-left: 18px; }
+.research-grid li + li { margin-top: 7px; }
+.coverage-list { list-style: none; padding: 0 !important; }
+.coverage-list li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); }
+.coverage-state { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.boundary-footer { margin: 22px 0 0; color: var(--muted); font-size: 12px; }
+.evidence-dialog {
+  width: min(760px, calc(100vw - 24px)); max-height: min(820px, calc(100vh - 24px)); padding: 0;
+  border: 0; background: var(--paper-strong); color: var(--ink); box-shadow: 0 24px 90px rgba(36,32,29,.34);
+}
+.evidence-dialog::backdrop { background: rgba(36,32,29,.58); }
+.dialog-frame { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: inherit; }
+.dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 22px 24px 16px; border-bottom: 1px solid var(--rule); }
+.dialog-header h2 { margin: 4px 0 0; font: 500 31px/1.04 var(--serif); }
+.icon-button { min-width: 70px; min-height: 44px; border: 1px solid var(--rule); background: var(--paper-strong); color: var(--ink); font-weight: 800; cursor: pointer; }
+.dialog-scroll { overflow: auto; padding: 24px; overscroll-behavior: contain; }
+.related-statement { padding: 18px; background: var(--blue-wash); }
+.related-statement p:last-child { margin: 7px 0 0; }
+.evidence-source { padding: 20px 0; border-bottom: 1px solid var(--rule); }
+.evidence-source h3 { margin: 5px 0 10px; font: 500 23px/1.1 var(--serif); }
+.evidence-source blockquote { margin: 0; padding: 15px 18px; border-left: 3px solid var(--cobalt); background: var(--paper); font: 500 17px/1.42 var(--serif); }
+.source-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 15px 0 0; }
+.source-meta dt { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.source-meta dd { margin: 2px 0 0; }
+.source-url { margin: 12px 0 0; color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.evidence-boundary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.evidence-boundary > div { padding: 16px; background: var(--warm-wash); }
+.evidence-boundary h3 { margin: 0 0 6px; }
+.evidence-boundary p { margin: 0; }
+@media (min-width: 901px) and (max-width: 1350px) {
+  .product-header { padding: 11px 0 9px; }
+  main { padding-top: 12px; }
+  .intro-line { margin-bottom: 9px; }
+  .account-hero { gap: 36px; }
+  .account-hero h1 { font-size: clamp(38px, 4.6vw, 62px); }
+  .account-thesis { font-size: clamp(18px, 1.55vw, 22px); }
+  .grammar { margin-top: 14px; gap: 28px; }
+  .stage { padding-top: 12px; padding-bottom: 10px; }
+  .stage-num { top: 13px; }
+  .stage h2 { font-size: clamp(24px, 2.1vw, 31px); }
+  .stage-copy { font-size: 14px; }
+  .analysis-line { margin-top: 4px; }
+  .statement-tools { margin-top: 4px; }
+  .decision-plane { padding: 18px 22px; }
+  .decision-plane .stage h2 { font-size: clamp(24px, 2vw, 29px); }
+}
+@media (max-width: 900px) {
+  .account-hero { grid-template-columns: 1fr; gap: 0; padding-left: 0; }
+  .hero-aside { display: none; }
+  .grammar { grid-template-columns: 1fr; margin-left: 0; gap: 18px; }
+  .decision-plane { grid-template-columns: 1fr 1fr; }
+  .research-disclosure { margin-left: 0; }
+}
+@media (max-width: 520px) {
+  .product-header, main { width: min(100% - 24px, 1320px); }
+  .product-header { padding: 10px 0 9px; }
+  .mode-line { font-size: 10px; gap: 6px; }
+  main { padding-top: 10px; }
+  .intro-line { margin-bottom: 8px; }
+  .freshness { font-size: 10px; }
+  .account-hero h1 { margin-top: 2px; font-size: 38px; }
+  .account-thesis { font-size: 16px; line-height: 1.3; }
+  .grammar { margin-top: 10px; gap: 0; }
+  .stage { padding: 8px 0 7px 38px; }
+  .stage-num { top: 12px; }
+  .stage h2 { margin-top: 1px; font-size: 23px; }
+  .stage-copy { font-size: 14px; line-height: 1.32; }
+  .analysis-line { display: none; }
+  .statement-tools { margin-top: 3px; }
+  .decision-plane { grid-template-columns: 1fr; gap: 13px; padding: 15px; }
+  .decision-plane .stage + .stage { padding: 13px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.26); }
+  .decision-plane .stage h2 { font-size: 23px; }
+  .primary-action { margin-top: 7px; }
+  .research-grid, .source-meta, .evidence-boundary { grid-template-columns: 1fr; }
+  .coverage-list li { grid-template-columns: 110px 1fr; }
+  .dialog-header, .dialog-scroll { padding-left: 17px; padding-right: 17px; }
+  .dialog-header h2 { font-size: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style></head>
+<body><div class="site-frame">
+<header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
+<main id="main-content">
+  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence freshness mixed · through Jul 9, 2026 where established · recheck</p></div>
+  <section class="account-hero" aria-labelledby="account-title"><div><h1 id="account-title">University of Utah</h1><p class="account-thesis">University of Utah has a legislatively driven, three-year strategic reinvestment context with explicit Responsible AI funding and workforce-training rationale, now paired with approved Year Two planning and separate AI infrastructure and health-AI investments.</p><div class="statement-tools"><span class="statement-state">Evidence-informed interpretation</span><button class="evidence-trigger" type="button" data-dialog="evidence-thesis">Evidence</button></div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
+  <section class="grammar" aria-label="Editorial Evidence Synthesis">
+    <div class="context-plane">
+      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2><p class="stage-copy">During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="evidence-established">Evidence</button></div></article>
+      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2><p class="stage-copy">The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</p><p class="analysis-line"><strong>Why it may matter:</strong> The approved Year Two plan and stated Responsible AI allocation may make AI teaching, productivity, talent, and interdisciplinary training a timely discovery area, but the evidence does not establish any vendor preference or procurement activity.</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="evidence-changed">Evidence</button><button class="evidence-trigger" type="button" data-dialog="evidence-meaning">Analysis boundary</button></div></article>
+    </div>
+    <div class="decision-plane">
+      <article class="stage open"><span class="stage-num" aria-hidden="true">03</span><p class="stage-kicker">Still open</p><h2>Still open</h2><p class="stage-copy">Clarify funding availability, remaining amount, procurement status, eligible uses, decision authority, and vendor intent for the Responsible AI reinvestment, Redtail-related activity, and Utah Health AI Vault or related AI ecosystem investments.</p><div class="statement-tools"><span class="statement-state">Unresolved question</span><button class="evidence-trigger" type="button" data-dialog="evidence-open">Why this is open</button></div></article>
+      <article class="stage next"><span class="stage-num" aria-hidden="true">04</span><p class="stage-kicker">Recommended next move</p><h2>Recommended next move</h2><p class="stage-copy">Run a discovery conversation focused on mapping the approved reinvestment and AI-infrastructure initiatives to actual owners, timelines, allowable uses, and any formal procurement path before positioning any solution.</p><div class="statement-tools"><span class="statement-state">Recommended action · proposed</span></div><button class="primary-action" type="button" data-dialog="evidence-next">Review the support</button></article>
+    </div>
+  </section>
+  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><ul class="coverage-list"><li>
+    <span>Identity structure</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Strategic direction</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Financial context</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Digital modernization</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Leadership governance</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Procurement</span>
+    <span class="coverage-state">gap · No controller-authorized excerpt support was admitted.</span>
+  </li><li>
+    <span>Partnerships technology</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Constraints</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Recent changes</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li><li>
+    <span>Gaps contradictions</span>
+    <span class="coverage-state">partial · Controller-authorized excerpt support is admitted; completeness is not established.</span>
+  </li></ul></section><section><h3>Entity boundaries</h3><ul><li><strong>University of Utah:</strong> University of Utah is admitted as account; relationship to the account: The account itself; University of Utah Health and external governing bodies remain separate entities.</li><li><strong>Related entity:</strong> University of Utah Health is admitted as hospital; relationship to the account: A related academic health enterprise; not merged into University account funding or procurement claims.</li><li><strong>Utah System of Higher Education:</strong> Utah System of Higher Education is admitted as governing_body; relationship to the account: The public higher-education system and Board context; not the account itself.</li><li><strong>Related entity:</strong> State of Utah is admitted as government; relationship to the account: The state policy and appropriations context; not the account or a University budget owner.</li></ul><h3>Material gaps</h3><ul><li>No controller-authorized excerpt-level support for taxonomy:procurement.</li></ul><p class="boundary-footer">Model proposal: openai-codex / gpt-5.5 · 1 call attempted · 1 response admitted. Retained records: 35 discoveries · 10 source candidates · 10 admitted · 0 excluded. These records do not prove external searches or retrievals executed. Provider storage, tools, and network effects remain unestablished. No Graph, database, publication, customer, or deployment effects were created by this local path.</p></section></div></details>
+  <p class="boundary-footer">Proposed account intelligence for local review only. Nothing here is approved, saved to durable account truth, sent, shared, deployed, or used to prepare a meeting.</p>
+</main><dialog class="evidence-dialog" id="evidence-thesis" aria-labelledby="evidence-thesis-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-thesis-title">Account thesis</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>University of Utah has a legislatively driven, three-year strategic reinvestment context with explicit Responsible AI funding and workforce-training rationale, now paired with approved Year Two planning and separate AI infrastructure and health-AI investments.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>The bill established a three-year strategic reinvestment requirement for Utah System of Higher Education degree-granting institutions and was coupled with base budget set-asides in the amount of 10% of state tax dollars within institutional instruction budgets.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>In order to recover set-aside funds, degree granting institutions must reallocate at least 30% of the equivalent funding amounts in FY 2026, 70% in FY 2027, and 100% in FY 2028.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>A three-year framework to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 5</p>
+      <h3>Impact 2030 Strategic Reinvestment Plan</h3>
+      <blockquote>Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Office of the President; hosted in USHE board materials</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 6</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 7</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 8</p>
+      <h3>Redtail AI supercomputer ranking and partnership</h3>
+      <blockquote>Redtail is the result of a $50 million public-private partnership among the U, the state of Utah and the Huntsman Family Foundation, with HPE supercomputing infrastructure and NVIDIA technologies. The collaboration expands Utahns’ access to advanced AI computing: the HPE Cray system in Redtail also powers leading supercomputers in the Top500 list. And with its list debut, Redtail joins the country’s most capable academic AI systems.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/facultystaff/utahs-redtail-ai-supercomputer-ranks-among-worlds-fastest-greenest/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 9</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 10</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 11</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Another $15 million will support a new data center and broader AI ecosystem. Together, the state investment adds up to more than $33 million, positioning Utah to lead the nation in AI-enabled health innovation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-established" aria-labelledby="evidence-established-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-established-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-changed" aria-labelledby="evidence-changed-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-changed-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-meaning" aria-labelledby="evidence-meaning-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-meaning-title">Evidence-informed interpretation</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>The approved Year Two plan and stated Responsible AI allocation may make AI teaching, productivity, talent, and interdisciplinary training a timely discovery area, but the evidence does not establish any vendor preference or procurement activity.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>Impact 2030 Strategic Reinvestment Plan</h3>
+      <blockquote>Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Office of the President; hosted in USHE board materials</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-open" aria-labelledby="evidence-open-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-open-title">Unresolved question</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Unresolved question</p><p>Clarify funding availability, remaining amount, procurement status, eligible uses, decision authority, and vendor intent for the Responsible AI reinvestment, Redtail-related activity, and Utah Health AI Vault or related AI ecosystem investments.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>Redtail AI supercomputer ranking and partnership</h3>
+      <blockquote>Redtail is the result of a $50 million public-private partnership among the U, the state of Utah and the Huntsman Family Foundation, with HPE supercomputing infrastructure and NVIDIA technologies. The collaboration expands Utahns’ access to advanced AI computing: the HPE Cray system in Redtail also powers leading supercomputers in the Top500 list. And with its list debut, Redtail joins the country’s most capable academic AI systems.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/facultystaff/utahs-redtail-ai-supercomputer-ranks-among-worlds-fastest-greenest/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 5</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Another $15 million will support a new data center and broader AI ecosystem. Together, the state investment adds up to more than $33 million, positioning Utah to lead the nation in AI-enabled health innovation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The research boundary shows why this question remains open.</p></div>
+          <div><h3>What remains outside it</h3><p>Atliera has not filled the gap with an assumption or converted the question into an account fact.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="evidence-next" aria-labelledby="evidence-next-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="evidence-next-title">Recommended action · proposed</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Recommended action · proposed</p><p>Run a discovery conversation focused on mapping the approved reinvestment and AI-infrastructure initiatives to actual owners, timelines, allowable uses, and any formal procurement path before positioning any solution.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 2</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>The University of Utah is proposing to increase its net reinvestment in instruction from the originally approved amount of $5,595,600 to $5,931,393 upon full plan implementation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 3</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 4</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 5</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Exact support 6</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for considering this one safe next move.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not request, approve, authorize, schedule, send, or commit this action.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><script>
+(() => {
+  let returnFocus = null;
+  document.querySelectorAll('[data-dialog]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-dialog');
+      const dialog = id ? document.getElementById(id) : null;
+      if (!(dialog instanceof HTMLDialogElement)) return;
+      returnFocus = button;
+      dialog.showModal();
+      const close = dialog.querySelector('[data-close-dialog]');
+      if (close instanceof HTMLElement) close.focus();
+    });
+  });
+  document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-close-dialog]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('close', () => {
+      const target = returnFocus;
+      returnFocus = null;
+      queueMicrotask(() => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
+      });
+    });
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+})();
+</script></div></body></html>

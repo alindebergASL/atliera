@@ -1,0 +1,214 @@
+{
+  "kind": "atliera.c2-01-artifact-manifest",
+  "schemaVersion": "2",
+  "artifacts": [
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/README.md",
+      "bytes": 6601,
+      "sha256": "b838f9a5c2b1417f5c9af348d402be61c6f7861e40c2f095085abcca0d6b6751"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/VISUAL_REVIEW.md",
+      "bytes": 2541,
+      "sha256": "867f2b88d19b17878a7a4cbbc91fbf5f1f2a0e4bbf9820e91770cb3e998b3468"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/browser-interaction-proof.json",
+      "bytes": 7740,
+      "sha256": "0d04278b1168815beb1281bc228ab7d4b689f45a28918c9c63b8e0589f40bd3b"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/fedex-admitted-sources.json",
+      "bytes": 18898,
+      "sha256": "2909f48c56875ad3fcc2faf2b9828a41f76fd429d260b74127e5977364e56757"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/fedex-effect-receipt.json",
+      "bytes": 3431,
+      "sha256": "03ab9cccee3bdba30d53bb3bd9b2e0e68e91052d950143716c683db5d8f8660f"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/fedex-research-plan.json",
+      "bytes": 4746,
+      "sha256": "9163424e5ba6a58eec1acd6c34c023883214c35906e11ce4341ada80d78dfa53"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/fedex-validated-proposal.json",
+      "bytes": 22642,
+      "sha256": "da64d305f3f07c5c6fbf4fad33c834621a306f4d28e42aa47e5a71a08dcea59c"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/university-of-utah-admitted-sources.json",
+      "bytes": 19952,
+      "sha256": "ce2fdeda575fe8f6f979a04ff565f4573fec807d12355567d8811c5d3f7d94c1"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/university-of-utah-effect-receipt.json",
+      "bytes": 3882,
+      "sha256": "94c6e970d5404f88e3ac1377eaae9ad8b31311e26b64104930181310eb1b15fe"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/university-of-utah-research-plan.json",
+      "bytes": 4014,
+      "sha256": "58b0d99c1b84759bff000048a4939bb349e5f2cb2ef75adce467191230324fbe"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/data/university-of-utah-validated-proposal.json",
+      "bytes": 22316,
+      "sha256": "8b04e33107657e780ff14e8e51d950884eef0a8ee9c05e0bfcd2a11afee1dd4c"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/execution-ledger.json",
+      "bytes": 24772,
+      "sha256": "7c54d1155ac7733af1f9cac5a2503d27b16719d52670227e0ad238ba90887135"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/execution-ledger.pre-model.json",
+      "bytes": 15831,
+      "sha256": "6d8be6238f6e657cd510d0ac2b69b4ad4ae60bbab68e92e2c96e04a1ed8eded5"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/fedex.html",
+      "bytes": 51135,
+      "sha256": "c16511c909f03936cfddea80779be3c36db39136c964bb8cb0c40e431982d417"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/model-artifact-lineage.json",
+      "bytes": 1592,
+      "sha256": "1a282a1759d10538bed37afe6577dce43dfdf815849331abb09bf2707790a38f"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/browser-interaction-proof.png",
+      "bytes": 271095,
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "dimensions": [
+        1440,
+        1100
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/fedex-1440x1100.png",
+      "bytes": 265664,
+      "sha256": "ae8be0af1687524eec3bb37a743c4e67ced76d49749fc769d17e8c2ac7239fe0",
+      "dimensions": [
+        1440,
+        1100
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/fedex-390x844.png",
+      "bytes": 95243,
+      "sha256": "db693a859abf47d208a6fef0aab1318fdfb3d7b403761143f02c3ae7bf70bc46",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-1280x900.png",
+      "bytes": 209118,
+      "sha256": "ff90e81a9c63a99b89bc30ac7c6bbd160cb403ff917bf5efcee95f36f3295383",
+      "dimensions": [
+        1280,
+        900
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-1440x1100.png",
+      "bytes": 271095,
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "dimensions": [
+        1440,
+        1100
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-390x844.png",
+      "bytes": 94994,
+      "sha256": "18a1942d092bf03cb6efed86ee15603a9588a66e782249cb510870d94fbb5c6b",
+      "dimensions": [
+        390,
+        844
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-768x900.png",
+      "bytes": 142697,
+      "sha256": "a516b6f4fc44157698a04d13833accc604938f7c2c9ec4f973f7f8815bd1f1a3",
+      "dimensions": [
+        768,
+        900
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-evidence-open.png",
+      "bytes": 290290,
+      "sha256": "2c9bfcdadcd6c5f5886e51bd8dccc7cf8d6cdf644f065840782be6c4bda71e84",
+      "dimensions": [
+        1440,
+        1100
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-needs-review.png",
+      "bytes": 271497,
+      "sha256": "c5b4dc2f18d083dd3bfe0f11cd99848b041cbccecd5610ec27040ad6889c7da3",
+      "dimensions": [
+        1440,
+        1138
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/screenshots/utah-partial-coverage.png",
+      "bytes": 313790,
+      "sha256": "05e4e4a05bdec38ad40589022b25943c02cd0ebb94c45841d7b73ec3dc3d505e",
+      "dimensions": [
+        1440,
+        1100
+      ]
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/university-of-utah.html",
+      "bytes": 45039,
+      "sha256": "44f1db95b8950d418faeae9eb3dcd0621f07ec3383042f8270976e0da70a3aad"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/visual-artifact-manifest.json",
+      "bytes": 1931,
+      "sha256": "95daf82bca67afea8c2631f558f2b7b37bd5bbd3b94b3e82e4e74fbdd70e655b"
+    },
+    {
+      "path": "fixtures/account-intelligence/c2-01/retained-research-input.json",
+      "bytes": 154803,
+      "sha256": "b84b30603b3e04769eacc1c1c8557397f92238c93df18b083769e379912ab88c"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/FOUNDATION_STATUS.json",
+      "bytes": 2916,
+      "sha256": "86aabe34a867582c658a6bd939d36f8de177225599dd2e9fd49cafa7a7a3fd87"
+    },
+    {
+      "path": "fixtures/account-intelligence/c2-01/broad-account-research-input.json",
+      "bytes": 274432,
+      "sha256": "f0150d059da16abf30ddcf93be0afefa17bfa66ef53ac4bdf74ef1087b7d6c31"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/BROAD_ACCOUNT_REPRODUCTION.md",
+      "bytes": 6211,
+      "sha256": "47f7e35be948de67d3e0ab53b7d5d113f79b1fefe53d319ca068070143a4c991"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/fresh-execution-authorization.json",
+      "bytes": 3595,
+      "sha256": "4bb35bfdad5fe1b0e1f17efed31bfa573129d7d3af9b24f5e51f45cb54fdd362"
+    },
+    {
+      "path": "docs/ux/c2-governed-account-intelligence-refresh/FRESH_EXECUTION_AUTHORIZATION.md",
+      "bytes": 5305,
+      "sha256": "25dad7a01735ce5900633e51a931fcb8d5886186c13f5224e09e3caebbcbeb49"
+    }
+  ],
+  "status": "superseded_historical_artifacts_plus_current_foundation_inputs_and_execution_authorization",
+  "historicalProposalAndRenderArtifactsAreCurrentFoundationProof": false,
+  "historicalArtifactsMayBeGrandfathered": false
+}

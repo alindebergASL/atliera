@@ -1,0 +1,50 @@
+{
+  "kind": "atliera.c2-fresh-retained-two-account.model-artifact-lineage",
+  "schemaVersion": "1",
+  "authorizationSlug": "c2-fresh-retained-two-account-20260829",
+  "currentValidationAndRenderHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+  "exactSingleHeadProviderToRenderProof": false,
+  "exactSingleHeadLimitation": "Utah provider execution is at the current validation/render head; FedEx provider execution is at the immediately preceding reviewed head. Both proposals were revalidated byte-for-byte at the current head.",
+  "entries": [
+    {
+      "accountId": "acc_university_of_utah",
+      "selectedAttempt": 5,
+      "providerExecutionHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+      "currentValidationAndRenderHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+      "providerExecutionAtCurrentHead": true,
+      "promptSha256": "f76d1e632e18bb87d3eb4d5b300ca5c2eec25d7808ee2c8d710d3154bdebc64c",
+      "rawResponseSha256": "472e4c9eab094716ae374341545be4805ee8309f007aca3f25d08a4fefd88ae9",
+      "usageReceiptSha256": "cd02116a8ade9fb36908c67868216d778ad92e0ee507ca6892109b9120d1caff",
+      "privateResultSha256": "46a1aad4d8a0926d1244766f33d0bc2b8ff54bb2f69dc3a7ed8edc34c94de2c5",
+      "sanitizedProposalSha256": "aed303db8104c1fe485be9746a4739ab325ec3466eae02c5754307d4ca7975af",
+      "sanitizedEffectReceiptSha256": "fb6af61b8f1921b6485ad7a7d0b6103daccb03db5d69c9be262febaf973147eb",
+      "privatePromptCommitted": false,
+      "privateRawResponseCommitted": false,
+      "requestIdsCommitted": false,
+      "sessionIdsCommitted": false,
+      "credentialsCommitted": false,
+      "privatePathsCommitted": false,
+      "currentHeadRevalidationPassed": true
+    },
+    {
+      "accountId": "acc_fedex_corp",
+      "selectedAttempt": 1,
+      "providerExecutionHead": "b44471e16894cfe3223dfec6963a808ff991b064",
+      "currentValidationAndRenderHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+      "providerExecutionAtCurrentHead": false,
+      "promptSha256": "4f6be2ad1f79772c8ec97ed5454038fb8e0e9a402b20f802989646ada20a318a",
+      "rawResponseSha256": "79a57f86209dd685c5326025d9ca4af1da8a233af3a59a4d305901093cc74995",
+      "usageReceiptSha256": "a817d921c9088d5379de9a6b59cadceb3bea1f98d135d7c926e94f3c181712a2",
+      "privateResultSha256": "263fce40463bf774e7d9bb21f60f5f47010b225366bc1b706880fa7417d9fd96",
+      "sanitizedProposalSha256": "d89bcb4230569dabd0722cd5481b3e411be1f5eab5823a9cbd9b18f8316926b7",
+      "sanitizedEffectReceiptSha256": "44a3e16eb885b510ea3b443f2e89b2351aca773d11bd44c4628b2f876c6df7a8",
+      "privatePromptCommitted": false,
+      "privateRawResponseCommitted": false,
+      "requestIdsCommitted": false,
+      "sessionIdsCommitted": false,
+      "credentialsCommitted": false,
+      "privatePathsCommitted": false,
+      "currentHeadRevalidationPassed": true
+    }
+  ]
+}

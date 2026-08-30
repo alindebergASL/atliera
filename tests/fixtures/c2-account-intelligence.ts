@@ -1,0 +1,346 @@
+import { createHash } from "node:crypto";
+import type { ModelProvider, ModelProviderRequest, ModelProviderResponse } from "../../src/model/provider.ts";
+import {
+  type AccountEntityBoundary,
+  type AccountIntelligenceProposal,
+  type AccountResearchRequest,
+  type RetrievedSourceInput,
+  type SearchDiscoveryRecord,
+} from "../../src/account-intelligence/contracts.ts";
+import { createAccountResearchPlan } from "../../src/account-intelligence/research-plan.ts";
+import { C2_DRAFT_SCHEMA_VERSION, type C2Draft } from "../../src/account-intelligence/c2-draft.ts";
+
+export interface C2FixtureInput {
+  readonly request: AccountResearchRequest;
+  readonly researchPolicy: unknown;
+  readonly discoveries: SearchDiscoveryRecord[];
+  readonly retrievedSources: RetrievedSourceInput[];
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+function exactEntity(value: AccountEntityBoundary): string {
+  return JSON.stringify([value.entityId, value.name, value.kind, value.relationshipToAccount]);
+}
+
+export function makeResearchPolicyForFixture(
+  request: AccountResearchRequest,
+  sources: readonly RetrievedSourceInput[],
+): Record<string, unknown> {
+  const primary: AccountEntityBoundary = {
+    entityId: request.accountId,
+    name: request.accountName,
+    kind: "account",
+    relationshipToAccount: "The account itself.",
+  };
+  const entities = new Map<string, AccountEntityBoundary>([[primary.entityId, primary]]);
+  for (const source of sources) {
+    for (const candidate of [source.entity, ...source.relatedEntities]) {
+      const prior = entities.get(candidate.entityId);
+      if (prior !== undefined && exactEntity(prior) !== exactEntity(candidate)) throw new Error("fixture entity conflict");
+      entities.set(candidate.entityId, candidate);
+    }
+  }
+  const hostRules = new Map<string, Set<string>>();
+  for (const source of sources.filter((item) => item.sourceClass === "official_primary")) {
+    const host = new URL(source.canonicalUrl).hostname;
+    const ids = hostRules.get(host) ?? new Set<string>();
+    ids.add(source.entity.entityId);
+    hostRules.set(host, ids);
+  }
+  const retainedCorpusId = `retained-corpus-${request.accountId}`;
+  const authorizedAt = "2026-08-21T11:59:00.000Z";
+  const sourceCustody = sources.map((source) => ({
+    custodyId: `custody-${source.retrievalId}`,
+    accountId: request.accountId,
+    retainedCorpusId,
+    canonicalUrl: source.canonicalUrl,
+    retrievedContentSha256: sha256(source.retrievedText),
+    sourceClass: source.sourceClass,
+    title: source.title,
+    publisher: source.publisher,
+    primaryEntityId: source.entity.entityId,
+    retrievedAt: source.retrievedAt,
+    authorizedBy: "fixture-controller",
+    authorizedAt,
+    scope: "local_test_only",
+    authorizesPersistence: false,
+  }));
+  const taxonomyAuthorities = sources.flatMap((source, sourceIndex) => {
+    const custody = sourceCustody[sourceIndex]!;
+    return source.taxonomyEvidence.flatMap((row, rowIndex) => row.candidateExcerptIndexes.map((excerptIndex) => ({
+      authorizationId: `taxonomy-${String(sourceIndex)}-${String(rowIndex)}-${String(excerptIndex)}`,
+      accountId: request.accountId,
+      custodyId: custody.custodyId,
+      canonicalUrl: source.canonicalUrl,
+      retrievedContentSha256: custody.retrievedContentSha256,
+      exactExcerptSha256: sha256(source.candidateExcerpts[excerptIndex]!),
+      taxonomy: row.taxonomy,
+      authorizedBy: "fixture-controller",
+      authorizedAt,
+      scope: "local_test_only",
+      authorizesPersistence: false,
+    })));
+  });
+  return {
+    kind: "atliera.admitted-account-research-policy",
+    schemaVersion: "2",
+    policyId: `policy-${request.accountId}`,
+    accountId: request.accountId,
+    primaryAccountEntity: primary,
+    admittedEntities: [...entities.values()],
+    trustedOfficialHosts: [...hostRules].map(([hostname, entityIds]) => ({
+      hostname,
+      allowSubdomains: false,
+      entityIds: [...entityIds],
+    })),
+    sourceCustody,
+    taxonomyAuthorities,
+    authorizedAt,
+    scope: "local_test_only",
+    authorizesPersistence: false,
+    authorizesPrivateSources: false,
+  };
+}
+
+export function makeC2FixtureInput(options: {
+  accountId?: string;
+  accountName?: string;
+  domain?: string;
+  sourceClass?: "official_primary" | "reputable_secondary";
+  retrievedText?: string;
+  candidateExcerpts?: string[];
+  evidenceCurrentThrough?: string | null;
+  declaredConflictIds?: string[];
+  requestNotes?: string[];
+} = {}): C2FixtureInput {
+  const accountId = options.accountId ?? "acct-harbor-transit";
+  const accountName = options.accountName ?? "Harbor Transit";
+  const domain = options.domain ?? "harbor-transit.example.org";
+  const request: AccountResearchRequest = {
+    kind: "atliera.account-intelligence-refresh-request",
+    schemaVersion: "1",
+    accountId,
+    accountName,
+    canonicalPublicDomains: [domain],
+    knownAliases: [],
+    admittedContext: {
+      sector: "transportation",
+      geography: "North America",
+      notes: options.requestNotes ?? [],
+    },
+    requestedAt: "2026-08-21T12:00:00.000Z",
+  };
+  const plan = createAccountResearchPlan(request);
+  const established = `${accountName} publishes its mission and operating structure in an official public record.`;
+  const changed = `${accountName} proposed up to $2 million of restricted matching funding over three years, subject to approval.`;
+  const retrievedText = options.retrievedText ?? `${established}\n\n${changed}`;
+  const candidateExcerpts = options.candidateExcerpts ?? [established, changed];
+  const canonicalUrl = `https://${domain}/official-record`;
+  const taxonomyEvidence: RetrievedSourceInput["taxonomyEvidence"] = [
+    { taxonomy: "identity_structure", candidateExcerptIndexes: [0] },
+    ...(candidateExcerpts.length > 1 ? [
+      { taxonomy: "financial_context" as const, candidateExcerptIndexes: [1] },
+      { taxonomy: "recent_changes" as const, candidateExcerptIndexes: [1] },
+    ] : []),
+  ];
+  const source: RetrievedSourceInput = {
+    retrievalId: `retrieval-${accountId}`,
+    discoveredByQueryIds: [plan.queries[0]!.queryId],
+    entity: { entityId: accountId, name: accountName, kind: "account", relationshipToAccount: "The account itself." },
+    relatedEntities: [],
+    canonicalUrl,
+    title: `${accountName} official record`,
+    publisher: accountName,
+    sourceClass: options.sourceClass ?? "official_primary",
+    publicationDate: "2026-07-01",
+    eventDate: "2026-07-01",
+    retrievedAt: "2026-08-21T12:02:00.000Z",
+    evidenceCurrentThrough: options.evidenceCurrentThrough === undefined ? "2026-08-20" : options.evidenceCurrentThrough,
+    retrievalContentKind: "bounded_clean_text_projection",
+    retrievedText,
+    candidateExcerpts,
+    taxonomyCoverage: taxonomyEvidence.map((row) => row.taxonomy),
+    taxonomyEvidence,
+    declaredConflictIds: options.declaredConflictIds ?? [],
+  };
+  return {
+    request,
+    researchPolicy: makeResearchPolicyForFixture(request, [source]),
+    discoveries: [{
+      queryId: plan.queries[0]!.queryId,
+      queryKind: "generated_taxonomy",
+      researchLeadReason: null,
+      exactQuery: plan.queries[0]!.query,
+      resultUrl: canonicalUrl,
+      resultTitle: `${accountName} official record`,
+      derivedRetrievalUrls: [],
+      discoveredAt: "2026-08-21T12:01:00.000Z",
+      snippetUsedAsEvidence: false,
+    }],
+    retrievedSources: [source],
+  };
+}
+
+export function proposalFromModelPrompt(prompt: string, mutate?: (proposal: AccountIntelligenceProposal) => void): AccountIntelligenceProposal {
+  const parsed = JSON.parse(prompt) as {
+    instructions: { exactOutputShape: {
+      kind: AccountIntelligenceProposal["kind"];
+      schemaVersion: AccountIntelligenceProposal["schemaVersion"];
+      researchCoverage: AccountIntelligenceProposal["researchCoverage"];
+      materialGaps: AccountIntelligenceProposal["materialGaps"];
+    } };
+    untrustedData: {
+      request: AccountResearchRequest;
+      sourceData: Array<{
+        sourceId: string;
+        entity: { entityId: string; name: string };
+        excerpts: Array<{ evidenceId: string; exactExcerpt: string }>;
+      }>;
+    };
+  };
+  const request = parsed.untrustedData.request;
+  const source = parsed.untrustedData.sourceData[0]!;
+  const establishedEvidence = source.excerpts[0]!;
+  const changedEvidence = source.excerpts[1] ?? establishedEvidence;
+  const proposal: AccountIntelligenceProposal = {
+    kind: parsed.instructions.exactOutputShape.kind,
+    schemaVersion: parsed.instructions.exactOutputShape.schemaVersion,
+    accountId: request.accountId,
+    accountThesis: {
+      statementId: "thesis-01",
+      state: "evidence-informed interpretation",
+      text: `${request.accountName}'s official record may be worth clarifying before further interpretation.`,
+      evidenceIds: [establishedEvidence.evidenceId, changedEvidence.evidenceId],
+      entityIds: [source.entity.entityId],
+      riskFlags: ["insufficient_evidence"],
+    },
+    establishedContext: [{
+      statementId: "established-01",
+      state: "source-backed fact",
+      text: establishedEvidence.exactExcerpt,
+      evidenceIds: [establishedEvidence.evidenceId],
+      entityIds: [source.entity.entityId],
+      riskFlags: [],
+    }],
+    meaningfullyChanged: [{
+      statementId: "changed-01",
+      state: "source-backed fact",
+      text: changedEvidence.exactExcerpt,
+      evidenceIds: [changedEvidence.evidenceId],
+      entityIds: [source.entity.entityId],
+      riskFlags: ["funding_status_ambiguity"],
+    }],
+    whyChangeMayMatter: [{
+      statementId: "meaning-01",
+      state: "evidence-informed interpretation",
+      text: "The qualified funding language may signal an emerging decision frame, but it does not establish execution or purchasing intent.",
+      evidenceIds: [changedEvidence.evidenceId],
+      entityIds: [source.entity.entityId],
+      riskFlags: ["insufficient_evidence"],
+    }],
+    stillOpenQuestions: [{
+      statementId: "open-01",
+      state: "unresolved question",
+      text: "What is the funding availability, remaining amount, procurement status, eligible uses, decision authority or controlling entity, and vendor intent or preference?",
+      evidenceIds: [],
+      entityIds: [source.entity.entityId],
+      riskFlags: ["insufficient_evidence"],
+    }],
+    recommendedNextMove: {
+      statementId: "next-01",
+      state: "recommendation",
+      text: "Verify the decision frame and broader operating priorities before positioning any solution.",
+      evidenceIds: [changedEvidence.evidenceId],
+      entityIds: [source.entity.entityId],
+      riskFlags: ["insufficient_evidence"],
+    },
+    sourceAndEntityBoundaries: [{ entityId: source.entity.entityId, boundary: `${source.entity.name} is treated as the account entity represented by this source.` }],
+    riskConflictFlags: [{
+      flag: "funding_status_ambiguity",
+      statementIds: ["changed-01"],
+      needsReview: true,
+      reason: "The source describes proposed, bounded, multi-year, restricted, matching funding subject to approval; availability and execution are not established.",
+    }, {
+      flag: "insufficient_evidence",
+      statementIds: ["thesis-01", "meaning-01", "open-01", "next-01"],
+      needsReview: true,
+      reason: "Model-authored semantic prose requires human judgment; exact evidence linkage does not establish semantic support or truth, and no absence of evidence is claimed.",
+    }],
+    researchCoverage: parsed.instructions.exactOutputShape.researchCoverage,
+    materialGaps: parsed.instructions.exactOutputShape.materialGaps,
+    reviewStatus: "needs_review",
+  };
+  mutate?.(proposal);
+  return proposal;
+}
+
+export function draftFromModelPrompt(prompt: string, mutate?: (draft: C2Draft) => void): C2Draft {
+  const parsed = JSON.parse(prompt) as {
+    untrustedData: { accountName: string; evidence: Array<{ evidenceId: string; exactExcerpt: string }> };
+  };
+  const identity = parsed.untrustedData.evidence[0]!;
+  const funding = parsed.untrustedData.evidence[1] ?? identity;
+  const draft: C2Draft = {
+    schemaVersion: C2_DRAFT_SCHEMA_VERSION,
+    factSelections: [
+      { section: "established_context", evidenceId: identity.evidenceId },
+      { section: "meaningfully_changed", evidenceId: funding.evidenceId },
+    ],
+    claims: [
+      {
+        section: "account_thesis",
+        text: `${parsed.untrustedData.accountName}'s official record may be worth clarifying before further interpretation.`,
+        evidenceIds: [identity.evidenceId],
+      },
+      {
+        section: "why_change_may_matter",
+        text: funding.exactExcerpt.includes("$2 million")
+          ? "The proposed restricted matching funding, capped at up to $2 million over three years and subject to approval, may shape future decisions; commercial availability remains unknown."
+          : "The proposed funding may shape future decisions; commercial availability remains unknown.",
+        evidenceIds: [funding.evidenceId],
+      },
+      {
+        section: "still_open_questions",
+        text: "What funding is available, what remaining amount is unspent, what procurement status and eligible uses apply, which entity controls decision authority, and is vendor intent established?",
+        evidenceIds: [],
+      },
+      {
+        section: "recommended_next_move",
+        text: "Verify the proposed restricted funding qualifiers and decision authority before commercial framing.",
+        evidenceIds: [funding.evidenceId],
+      },
+    ],
+  };
+  mutate?.(draft);
+  return draft;
+}
+
+export class FixtureAccountIntelligenceProvider implements ModelProvider {
+  readonly name: string;
+  readonly #mutate: ((draft: C2Draft) => void) | undefined;
+  readonly #outputTokens: number;
+  calls = 0;
+  lastDraft: C2Draft | null = null;
+
+  constructor(options: { name?: string; mutate?: (draft: C2Draft) => void; outputTokens?: number } = {}) {
+    this.name = options.name ?? "fixture-account-intelligence-provider";
+    this.#mutate = options.mutate;
+    this.#outputTokens = options.outputTokens ?? 300;
+  }
+
+  async generate(request: ModelProviderRequest): Promise<ModelProviderResponse> {
+    this.calls += 1;
+    const draft = draftFromModelPrompt(request.prompt, this.#mutate);
+    this.lastDraft = draft;
+    return {
+      provider: this.name,
+      model: request.model,
+      idempotencyKey: request.idempotencyKey,
+      output: { excerpts: [], claims: [], account_objects: [draft] as never[] },
+      usage: { inputTokens: 500, outputTokens: this.#outputTokens, totalTokens: 500 + this.#outputTokens },
+      cost: { currency: "USD", amount: 0 },
+    };
+  }
+}

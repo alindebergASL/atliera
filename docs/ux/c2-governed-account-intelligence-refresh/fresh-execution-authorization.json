@@ -1,0 +1,111 @@
+{
+  "kind": "atliera.c2-fresh-execution-authorization",
+  "schemaVersion": "1",
+  "authorizationSlug": "c2-fresh-retained-two-account-20260829",
+  "status": "authorized_pending_execution_docs_checkpoint",
+  "pr": 315,
+  "checkpointPrecedesExecution": true,
+  "executedInThisCheckpoint": false,
+  "foundationCorrectionAloneAuthorizedExecution": false,
+  "authorizesOnlyExactPendingSlice": true,
+  "accounts": ["acc_university_of_utah", "acc_fedex_corp"],
+  "fixtureCorpus": "fixtures/account-intelligence/c2-01/broad-account-research-input.json",
+  "publicUrlRetrievalInInitialRun": false,
+  "provider": "openai-codex",
+  "model": "gpt-5.5",
+  "operation": "graph.propose",
+  "providerBoundary": "C2 AccountIntelligenceProviderBoundary (injected) / private out-of-repo wrapper",
+  "calls": {
+    "maxCumulative": 4,
+    "maxPerAccount": 2,
+    "initialPerAccount": 1,
+    "correctiveCallRequires": {
+      "boundary": "createAccountIntelligenceCorrectionBoundary",
+      "afterTypedRefusal": "AccountIntelligenceProposalValidationRefusal",
+      "rejectedProposalShaCustodyCheck": true
+    },
+    "consumedAttemptsNeverReset": true,
+    "stopBeforeCaps": true
+  },
+  "perCallLimits": {
+    "maxOutputTokens": 4096,
+    "maxCostUsd": 0.1,
+    "temperature": 0,
+    "store": false
+  },
+  "cost": {
+    "cumulativeApprovedMaxUsd": 0.4,
+    "expectedObservedSubscriptionCostUsd": 0,
+    "billingEnforcementClaimed": false
+  },
+  "tokens": {
+    "localStreamCaptureMaxBytesUtf8": 512000,
+    "transmittedProviderOutputTokenCeiling": null,
+    "providerSideOutputTokenEnforcement": "unestablished_explicitly_accepted",
+    "combinedInputTokenCeiling": 120000,
+    "actualPreflightInputTokens": null,
+    "preflightRecordedBeforeExecution": false,
+    "failClosedIfInputCeilingExceeded": true
+  },
+  "providerCapabilities": {
+    "tools": false,
+    "plugins": false,
+    "search": false,
+    "retrieval": false,
+    "shell": false,
+    "fileActions": false,
+    "hiddenFallback": false,
+    "hiddenRetry": false,
+    "networkResearch": false,
+    "comparisonRun": false,
+    "autonomousLoop": false
+  },
+  "effects": {
+    "graphWrite": false,
+    "databaseWrite": false,
+    "persistenceWrite": false,
+    "runtimeIntegration": false,
+    "deployment": false,
+    "publication": false,
+    "customerAction": false,
+    "mergeInThisStep": false
+  },
+  "providerBehaviorStorageToolNetworkEffects": "unestablished_unless_separately_receipted",
+  "evidenceSanitization": {
+    "privateEvidenceOutsideRepo": true,
+    "rawPromptCommitted": false,
+    "rawResponseCommitted": false,
+    "rawPayloadCommitted": false,
+    "requestIdsCommitted": false,
+    "sessionIdsCommitted": false,
+    "credentialsCommitted": false,
+    "privatePathsCommitted": false,
+    "committedEvidence": [
+      "sanitized proposal",
+      "sanitized receipt",
+      "sanitized lineage",
+      "sanitized render",
+      "sanitized review"
+    ]
+  },
+  "downstream": {
+    "proposalRenderRegenerationAuthorizedAfterValidatedOutputs": true,
+    "productUxBrowserReviewAuthorizedAfterValidatedOutputs": true,
+    "freshPublicResearchActivated": false,
+    "freshPublicResearchRequiresAddendumIfCorpusInsufficient": true
+  },
+  "mergeGating": {
+    "authorizedByThisPacket": false,
+    "requiresExactFinalPrSha": true,
+    "requiresExactHeadCi": true,
+    "requiresExactHeadIndependentReviews": true,
+    "requiresOwnerConfirmation": true,
+    "generalAuthorizationIsNotUnknownFutureShaMergeWaiver": true
+  },
+  "stopConditions": [
+    "authority mismatch",
+    "identity mismatch",
+    "budget mismatch",
+    "schema mismatch"
+  ]
+}

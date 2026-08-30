@@ -1,0 +1,89 @@
+{
+  "kind": "atliera.c2-foundation-artifact-status",
+  "schemaVersion": "2",
+  "status": "fresh_validated_outputs_ready_for_human_review",
+  "freshExecutionAuthorization": {
+    "authorized": true,
+    "authorizationSlug": "c2-fresh-retained-two-account-20260829",
+    "authorizationArtifact": "fresh-execution-authorization.json",
+    "authorizationPacket": "FRESH_EXECUTION_AUTHORIZATION.md",
+    "executed": true,
+    "providerCallAuthorizationBudgetConsumed": 4,
+    "providerCallAuthorizationBudgetCap": 4,
+    "actualProviderCallsExecuted": 3,
+    "validatedOutputCalls": 2,
+    "correctionCallsExecuted": 0,
+    "mergeAuthorizedByThisPacket": false
+  },
+  "currentValidationAndRenderHead": "2b8a2962976d03ebc5b96756f76b30aadd22ba5d",
+  "exactSingleHeadProviderToRenderProof": false,
+  "exactSingleHeadLimitation": "Utah selected provider execution is at the current validation/render head; FedEx selected provider execution is at the immediately preceding reviewed head and was revalidated byte-for-byte at the current head.",
+  "currentProposalSchemaVersion": "2",
+  "historicalProposalSchemaVersion": "1",
+  "historicalArtifactsAreCurrentFoundationProof": false,
+  "historicalArtifactsMayBeGrandfathered": false,
+  "historicalArtifacts": {
+    "proposals": [
+      "data/university-of-utah-validated-proposal.json",
+      "data/fedex-validated-proposal.json"
+    ],
+    "admittedSources": [
+      "data/university-of-utah-admitted-sources.json",
+      "data/fedex-admitted-sources.json"
+    ],
+    "effectReceipts": [
+      "data/university-of-utah-effect-receipt.json",
+      "data/fedex-effect-receipt.json"
+    ],
+    "renders": [
+      "university-of-utah.html",
+      "fedex.html",
+      "screenshots/"
+    ],
+    "lineage": [
+      "execution-ledger.json",
+      "execution-ledger.pre-model.json",
+      "model-artifact-lineage.json"
+    ]
+  },
+  "currentFreshArtifacts": {
+    "result": [
+      "FRESH_EXECUTION_RESULT.md",
+      "fresh-execution-result.json"
+    ],
+    "proposals": [
+      "data/fresh/university-of-utah-validated-proposal.json",
+      "data/fresh/fedex-validated-proposal.json"
+    ],
+    "effectReceipts": [
+      "data/fresh/university-of-utah-effect-receipt.json",
+      "data/fresh/fedex-effect-receipt.json"
+    ],
+    "renders": [
+      "fresh-university-of-utah.html",
+      "fresh-fedex.html",
+      "screenshots/fresh/"
+    ],
+    "lineage": [
+      "fresh-model-artifact-lineage.json",
+      "fresh-browser-interaction-proof.json",
+      "FRESH_VISUAL_REVIEW.md"
+    ]
+  },
+  "currentEffectBoundary": {
+    "databaseWrites": 0,
+    "graphWrites": 0,
+    "persistenceWrites": 0,
+    "deployments": 0,
+    "publications": 0,
+    "customerActions": 0
+  },
+  "incomplete": [
+    "human approval of proposed account intelligence",
+    "single-head two-account provider-to-render proof",
+    "merge readiness",
+    "deployment",
+    "publication",
+    "customer action"
+  ]
+}

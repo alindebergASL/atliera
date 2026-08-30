@@ -1,0 +1,59 @@
+{
+  "artifacts": [
+    {
+      "path": "screenshots/browser-interaction-proof.png",
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "bytes": 271095
+    },
+    {
+      "path": "screenshots/fedex-1440x1100.png",
+      "sha256": "ae8be0af1687524eec3bb37a743c4e67ced76d49749fc769d17e8c2ac7239fe0",
+      "bytes": 265664
+    },
+    {
+      "path": "screenshots/fedex-390x844.png",
+      "sha256": "db693a859abf47d208a6fef0aab1318fdfb3d7b403761143f02c3ae7bf70bc46",
+      "bytes": 95243
+    },
+    {
+      "path": "screenshots/utah-1280x900.png",
+      "sha256": "ff90e81a9c63a99b89bc30ac7c6bbd160cb403ff917bf5efcee95f36f3295383",
+      "bytes": 209118
+    },
+    {
+      "path": "screenshots/utah-1440x1100.png",
+      "sha256": "04071fbb631a53490fd6298ca28108743108fb8022840e810158175ace9ab9ea",
+      "bytes": 271095
+    },
+    {
+      "path": "screenshots/utah-390x844.png",
+      "sha256": "18a1942d092bf03cb6efed86ee15603a9588a66e782249cb510870d94fbb5c6b",
+      "bytes": 94994
+    },
+    {
+      "path": "screenshots/utah-768x900.png",
+      "sha256": "a516b6f4fc44157698a04d13833accc604938f7c2c9ec4f973f7f8815bd1f1a3",
+      "bytes": 142697
+    },
+    {
+      "path": "screenshots/utah-evidence-open.png",
+      "sha256": "2c9bfcdadcd6c5f5886e51bd8dccc7cf8d6cdf644f065840782be6c4bda71e84",
+      "bytes": 290290
+    },
+    {
+      "path": "screenshots/utah-needs-review.png",
+      "sha256": "c5b4dc2f18d083dd3bfe0f11cd99848b041cbccecd5610ec27040ad6889c7da3",
+      "bytes": 271497
+    },
+    {
+      "path": "screenshots/utah-partial-coverage.png",
+      "sha256": "05e4e4a05bdec38ad40589022b25943c02cd0ebb94c45841d7b73ec3dc3d505e",
+      "bytes": 313790
+    }
+  ],
+  "kind": "atliera.c2-01-visual-artifact-manifest",
+  "schemaVersion": "2",
+  "status": "superseded_non_current_review_evidence",
+  "currentFoundationProof": false,
+  "visualsRegeneratedForFoundationCorrection": false
+}

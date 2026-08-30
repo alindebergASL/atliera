@@ -1,0 +1,431 @@
+[
+  {
+    "sourceId": "source_c5bf164d467dbef38b37",
+    "retrievalId": "retrieval-ut-s1",
+    "entity": {
+      "entityId": "acc_university_of_utah",
+      "name": "University of Utah",
+      "kind": "account",
+      "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_university_of_utah_health",
+        "name": "University of Utah Health",
+        "kind": "hospital",
+        "relationshipToAccount": "A related academic health enterprise; not merged into University account funding or procurement claims."
+      },
+      {
+        "entityId": "entity_utah_system_higher_education",
+        "name": "Utah System of Higher Education",
+        "kind": "governing_body",
+        "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+      },
+      {
+        "entityId": "entity_state_of_utah",
+        "name": "State of Utah",
+        "kind": "government",
+        "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+      }
+    ],
+    "canonicalUrl": "https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/",
+    "title": "University of Utah continues reinvestment in AI, behavioral health, nursing",
+    "publisher": "University of Utah Communications / @theU",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-06-19",
+    "eventDate": "2026-06-11",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-06-19",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "b2907aceae04c3195d65ca5a9fd23f4088ca809923a14c9c277e1196730642f8",
+    "retrievedByteSize": 579,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "identity_structure",
+      "strategic_direction",
+      "financial_context",
+      "digital_modernization",
+      "recent_changes",
+      "gaps_contradictions"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-01",
+      "lead-query-08"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_a9d8e80afbb470e3a5a3",
+        "sourceId": "source_c5bf164d467dbef38b37",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.",
+        "exactExcerptSha256": "d217a8019d525ea9d8f3833ca055ac45c5a91371ed4747fef2575e461b9d1b9a",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 324
+      },
+      {
+        "evidenceId": "evidence_57ea55e4883fc4627b20",
+        "sourceId": "source_c5bf164d467dbef38b37",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.",
+        "exactExcerptSha256": "7aebf69630bc2246a0f3e51d519e1dbaf55be7b5ce83830ad4c7d7978bc06d21",
+        "sourceCharStart": 326,
+        "sourceCharEnd": 508
+      },
+      {
+        "evidenceId": "evidence_84282999b5b6ee0d9e63",
+        "sourceId": "source_c5bf164d467dbef38b37",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "A competitive AI talent market refined the Responsible AI hiring plan",
+        "exactExcerptSha256": "a3a6aeedfd1bd50c968cde08e7b5f0059de4a6bc54fc6e5c4af495fdcffb348f",
+        "sourceCharStart": 510,
+        "sourceCharEnd": 579
+      }
+    ]
+  },
+  {
+    "sourceId": "source_bb85b3bc37d724c7bf28",
+    "retrievalId": "retrieval-ut-s2",
+    "entity": {
+      "entityId": "acc_university_of_utah",
+      "name": "University of Utah",
+      "kind": "account",
+      "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_utah_system_higher_education",
+        "name": "Utah System of Higher Education",
+        "kind": "governing_body",
+        "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+      },
+      {
+        "entityId": "entity_state_of_utah",
+        "name": "State of Utah",
+        "kind": "government",
+        "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+      }
+    ],
+    "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document",
+    "title": "University of Utah Strategic Reinvestment Presentation — Year Two Progress Report",
+    "publisher": "University of Utah; submitted to Utah Board of Higher Education",
+    "sourceClass": "official_primary",
+    "publicationDate": null,
+    "eventDate": "2026-06-11",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-06-11",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "0d2d9ec008d01c53ec0509561dddcd42c81eb941c0b56d9b0ef943a9ef374c1a",
+    "retrievedByteSize": 416,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "financial_context",
+      "digital_modernization",
+      "constraints",
+      "recent_changes",
+      "gaps_contradictions"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-06"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_175e89ab7dc438a1bd5d",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE",
+        "exactExcerptSha256": "d7330ac11cb8ad22877676e9f6975bd3c5508aa1f3317e5a5c0933a65cf2f732",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 55
+      },
+      {
+        "evidenceId": "evidence_8b368890779e935f142d",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "Responsible AI $4,939,436 $4,939,435 —",
+        "exactExcerptSha256": "a6b4c514c5d71d4e793036db855d96004b2f163502bc21f20f5bca2710f4f05b",
+        "sourceCharStart": 57,
+        "sourceCharEnd": 95
+      },
+      {
+        "evidenceId": "evidence_666b6f5a4766efdf1762",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "Total $19,589,662 $19,589,662 —",
+        "exactExcerptSha256": "57c0292348529fed35df1ff844b0a5a42ea7d5a6b251b6a3306f862c56b4be60",
+        "sourceCharStart": 97,
+        "sourceCharEnd": 128
+      },
+      {
+        "evidenceId": "evidence_c0bc6cf74d035bc8e08a",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "“RESPONSIBLE AI",
+        "exactExcerptSha256": "d2c9ccaf356977b3af8cdb98b6886f4742d35c6fc19ba173a834db2dc4a1ff87",
+        "sourceCharStart": 130,
+        "sourceCharEnd": 145
+      },
+      {
+        "evidenceId": "evidence_2e20762caf4b11701059",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”",
+        "exactExcerptSha256": "2ced625091d8bb75aa1b22813bc5ba2b61450f1f86798347d88b4068667889a7",
+        "sourceCharStart": 147,
+        "sourceCharEnd": 302
+      },
+      {
+        "evidenceId": "evidence_43d51bf7e6205c754bd5",
+        "sourceId": "source_bb85b3bc37d724c7bf28",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "A three-year framework to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.",
+        "exactExcerptSha256": "43d60e45a6b5c523287f3911e39930fb9835c28e90318ad1fd9b3e801ca4bf78",
+        "sourceCharStart": 304,
+        "sourceCharEnd": 406
+      }
+    ]
+  },
+  {
+    "sourceId": "source_a6cef8e35398e29ddc6f",
+    "retrievalId": "retrieval-ut-s3",
+    "entity": {
+      "entityId": "entity_utah_system_higher_education",
+      "name": "Utah System of Higher Education",
+      "kind": "governing_body",
+      "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "acc_university_of_utah",
+        "name": "University of Utah",
+        "kind": "account",
+        "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+      },
+      {
+        "entityId": "entity_state_of_utah",
+        "name": "State of Utah",
+        "kind": "government",
+        "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+      }
+    ],
+    "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf",
+    "title": "Utah Board of Higher Education Committee of the Whole Minutes",
+    "publisher": "Utah Board of Higher Education / Utah System of Higher Education",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-07-09",
+    "eventDate": "2026-06-11",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-07-09",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "a6970491cad067333a884c452e01bcdf7783b6344805ab710db1744ceeb9a038",
+    "retrievedByteSize": 351,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "identity_structure",
+      "leadership_governance",
+      "recent_changes"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-05"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_3f23e25a0705202a9dde",
+        "sourceId": "source_a6cef8e35398e29ddc6f",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "Tony Wagner presented the University of Utah’s plan and responded to questions from Board members, including several related to AI.",
+        "exactExcerptSha256": "b4ca472cc108a72c9ae5bc78713c400787bd9df023d30c7ef782f09041d010a0",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 131
+      },
+      {
+        "evidenceId": "evidence_8598ede0df66bb13f65d",
+        "sourceId": "source_a6cef8e35398e29ddc6f",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.",
+        "exactExcerptSha256": "bcc4f6179bb7727dd37696b45e034f6260eff7625a1d4c975ba8f75441f0d8a9",
+        "sourceCharStart": 133,
+        "sourceCharEnd": 347
+      }
+    ]
+  },
+  {
+    "sourceId": "source_8d72bf5b9a36503b4f27",
+    "retrievalId": "retrieval-ut-s4",
+    "entity": {
+      "entityId": "entity_utah_system_higher_education",
+      "name": "Utah System of Higher Education",
+      "kind": "governing_body",
+      "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "acc_university_of_utah",
+        "name": "University of Utah",
+        "kind": "account",
+        "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+      },
+      {
+        "entityId": "entity_state_of_utah",
+        "name": "State of Utah",
+        "kind": "government",
+        "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+      }
+    ],
+    "canonicalUrl": "https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document",
+    "title": "USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two",
+    "publisher": "Utah System of Higher Education, Office of the Commissioner",
+    "sourceClass": "official_primary",
+    "publicationDate": "2026-06-11",
+    "eventDate": "2026-06-11",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2026-06-11",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "55fda3736beb57a05cd9dc6b66f04edbbc14a1bc37ec8bfbcbe7ba93c8963b75",
+    "retrievedByteSize": 748,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "financial_context",
+      "leadership_governance",
+      "constraints",
+      "recent_changes",
+      "gaps_contradictions"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-05"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_2a5c964c8ef6d7f7cc6b",
+        "sourceId": "source_8d72bf5b9a36503b4f27",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "The bill established a three-year strategic reinvestment requirement for Utah System of Higher Education degree-granting institutions and was coupled with base budget set-asides in the amount of 10% of state tax dollars within institutional instruction budgets.",
+        "exactExcerptSha256": "2e6be7d6fb18739f0de354109b7c29f297f960897432fdefbd68c6d029f2d118",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 261
+      },
+      {
+        "evidenceId": "evidence_1022aa3b977809d3004e",
+        "sourceId": "source_8d72bf5b9a36503b4f27",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "In order to recover set-aside funds, degree granting institutions must reallocate at least 30% of the equivalent funding amounts in FY 2026, 70% in FY 2027, and 100% in FY 2028.",
+        "exactExcerptSha256": "cc537d3c35a59327cc80e2c86ff333e577df9b5bb1567651ac8cd9e27fef6183",
+        "sourceCharStart": 263,
+        "sourceCharEnd": 440
+      },
+      {
+        "evidenceId": "evidence_108ab18a22da1f9e08e8",
+        "sourceId": "source_8d72bf5b9a36503b4f27",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "The University of Utah is proposing to increase its net reinvestment in instruction from the originally approved amount of $5,595,600 to $5,931,393 upon full plan implementation.",
+        "exactExcerptSha256": "2ca0fd7fcafaab1ee00867ca7b2425684a1fae69417d7e59c05d24c41557ee71",
+        "sourceCharStart": 442,
+        "sourceCharEnd": 620
+      },
+      {
+        "evidenceId": "evidence_74bd423711ad16a600f4",
+        "sourceId": "source_8d72bf5b9a36503b4f27",
+        "entityId": "entity_utah_system_higher_education",
+        "exactExcerpt": "The Commissioner recommends that the Board review and approve the University of Utah’s Year Two Strategic Reinvestment Plan.",
+        "exactExcerptSha256": "0875453ede346bc4e4834eda41caec5b8561b1c5985b5f42c18fd00e9d8bcbb8",
+        "sourceCharStart": 622,
+        "sourceCharEnd": 746
+      }
+    ]
+  },
+  {
+    "sourceId": "source_e281dcc35f7b276a0a73",
+    "retrievalId": "retrieval-ut-s5",
+    "entity": {
+      "entityId": "acc_university_of_utah",
+      "name": "University of Utah",
+      "kind": "account",
+      "relationshipToAccount": "The account itself; University of Utah Health and external governing bodies remain separate entities."
+    },
+    "relatedEntities": [
+      {
+        "entityId": "entity_utah_system_higher_education",
+        "name": "Utah System of Higher Education",
+        "kind": "governing_body",
+        "relationshipToAccount": "The public higher-education system and Board context; not the account itself."
+      },
+      {
+        "entityId": "entity_state_of_utah",
+        "name": "State of Utah",
+        "kind": "government",
+        "relationshipToAccount": "The state policy and appropriations context; not the account or a University budget owner."
+      }
+    ],
+    "canonicalUrl": "https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf",
+    "title": "Impact 2030 Strategic Reinvestment Plan",
+    "publisher": "University of Utah Office of the President; hosted in USHE board materials",
+    "sourceClass": "official_primary",
+    "publicationDate": "2025-06-06",
+    "eventDate": "2025-06-06",
+    "retrievedAt": "2026-08-21T16:39:40.000Z",
+    "evidenceCurrentThrough": "2025-06-06",
+    "retrievalContentKind": "bounded_clean_text_projection",
+    "retrievedContentSha256": "0e1de5a40f28079759afc467b6d5e08874604dd4776b723c1c3c873cb5276616",
+    "retrievedByteSize": 642,
+    "untrustedInstructionsDetected": false,
+    "taxonomyCoverage": [
+      "strategic_direction",
+      "financial_context",
+      "constraints"
+    ],
+    "declaredConflictIds": [],
+    "discoveredByQueryIds": [
+      "lead-query-06"
+    ],
+    "excerpts": [
+      {
+        "evidenceId": "evidence_91fb1b3bf691b0defdf4",
+        "sourceId": "source_e281dcc35f7b276a0a73",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "This reinvestment plan includes a three-year reallocation and reinvestment framework with designations, targets and rationale to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.",
+        "exactExcerptSha256": "1e148080aebceddb0df38e4230e48a0cf4400ddb4b255fffd35be89c3dce002a",
+        "sourceCharStart": 0,
+        "sourceCharEnd": 205
+      },
+      {
+        "evidenceId": "evidence_6af9b3a4be2eda0ea004",
+        "sourceId": "source_e281dcc35f7b276a0a73",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "PHASE 1 FY2026 Total reallocation and reinvestment $7,483,189",
+        "exactExcerptSha256": "66d9400f0e6a1d7fa992352993034b9717b612f061fa841afbeec155aaccda75",
+        "sourceCharStart": 207,
+        "sourceCharEnd": 268
+      },
+      {
+        "evidenceId": "evidence_b05b32656b672b54eabe",
+        "sourceId": "source_e281dcc35f7b276a0a73",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "PHASE 2 FY2027 Total reallocation and reinvestment $6,226,451",
+        "exactExcerptSha256": "cac99ca965df1ab2c543aac53c1b8e52c8d63047470a1673256486ef4e27d6fa",
+        "sourceCharStart": 270,
+        "sourceCharEnd": 331
+      },
+      {
+        "evidenceId": "evidence_b5e6928ff905a89a19ed",
+        "sourceId": "source_e281dcc35f7b276a0a73",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "PHASE 3 FY2028 Total reallocation and reinvestment $5,875,560",
+        "exactExcerptSha256": "6eb0d6840dd87582306171a5b3620aba541a5a9300d7c6476b17e6384d5176e4",
+        "sourceCharStart": 333,
+        "sourceCharEnd": 394
+      },
+      {
+        "evidenceId": "evidence_aa06c442d08aad5c8cb8",
+        "sourceId": "source_e281dcc35f7b276a0a73",
+        "entityId": "acc_university_of_utah",
+        "exactExcerpt": "Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems",
+        "exactExcerptSha256": "26cb749bcccd70a9e4ae84848808114448bc25f4cc08376d6b06da09249d0dfc",
+        "sourceCharStart": 396,
+        "sourceCharEnd": 636
+      }
+    ]
+  }
+]

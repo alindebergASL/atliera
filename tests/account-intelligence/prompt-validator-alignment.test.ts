@@ -408,6 +408,34 @@ test("commercial-safety refusal is typed, exact-path, canonical, hash-bound, and
   );
 });
 
+test("dropped funding qualifiers produce a typed correction-capable refusal", async () => {
+  const c = context();
+  const provider = modelProvider({
+    name: "alignment-funding-qualifier-rejecting-provider",
+    mutate(draft) {
+      draft.claims[1] = {
+        ...draft.claims[1]!,
+        text: "$2 million in funding may shape future decisions.",
+      };
+    },
+  });
+  await assert.rejects(
+    () => boundary(provider).propose(c.input.request, c.plan, c.admitted.sources),
+    (error: unknown) => {
+      assert.ok(error instanceof AccountIntelligenceProposalValidationRefusal);
+      assert.deepEqual(
+        { code: error.issue.code, path: error.issue.path },
+        {
+          code: "forbidden_commercial_upgrade",
+          path: "proposal.whyChangeMayMatter[0].text",
+        },
+      );
+      assert.equal(error.issue.correctiveText, COMMERCIAL_CORRECTIVE_TEXT);
+      return true;
+    },
+  );
+});
+
 test("generic validator errors do not mint corrective capabilities", async () => {
   const c = context();
   const provider = modelProvider({

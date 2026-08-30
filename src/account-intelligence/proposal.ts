@@ -332,7 +332,11 @@ function evidenceIndex(sources: readonly AdmittedAccountSource[]): Map<string, E
   return index;
 }
 
-function enforceQualifierRetention(statement: IntelligenceStatement, evidence: readonly EvidenceIndexEntry[]): void {
+function enforceQualifierRetention(
+  statement: IntelligenceStatement,
+  evidence: readonly EvidenceIndexEntry[],
+  path: string,
+): void {
   const support = evidence.map((item) => item.excerpt.exactExcerpt).join(" ");
   const factualFundingStatement = statement.state === "source-backed fact" ||
     statement.state === "evidence-linked proposed claim" || FACTUAL_QUANTITY.test(statement.text);
@@ -341,7 +345,11 @@ function enforceQualifierRetention(statement: IntelligenceStatement, evidence: r
   let qualifiedFundingObserved = false;
   for (const [sourcePattern, statementPattern, label] of FUNDING_QUALIFIER_RULES) {
     if (sourcePattern.test(support) && !statementPattern.test(statement.text)) {
-      throw new Error(`${statement.statementId} drops funding qualifier: ${label}`);
+      throw new AccountIntelligenceValidationIssueError(
+        "forbidden_commercial_upgrade",
+        `${path}.text`,
+        `${statement.statementId} drops funding qualifier: ${label}`,
+      );
     }
     if (sourcePattern.test(support) || sourcePattern.test(statement.text)) qualifiedFundingObserved = true;
   }
@@ -400,7 +408,7 @@ function snapshotStatement(
       throw new Error(`${path} model paraphrase must remain an evidence-linked proposed claim`);
     }
   }
-  enforceQualifierRetention(statement, support);
+  enforceQualifierRetention(statement, support, path);
   enforceLexicalFabricationTripwires(statement, support);
   const supportEntities = new Set(support.map((item) => item.excerpt.entityId));
   if (supportEntities.size > 1 && !statement.riskFlags.includes("entity_boundary")) {

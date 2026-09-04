@@ -10,7 +10,7 @@ The owner-directed product authority is accepted and effective on merge through 
 
 > **Answers first. Evidence on demand. Machinery by invitation.**
 
-The calm Account Workspace is the Level 1 product direction. The current dense M5b renderer and generated meeting brief are retained as internal pre-ratification review/audit infrastructure. Historical Workshop, Signals/Maps/Plays, M5a, and M5b milestones remain accurate within their implemented and reviewed scope; they do not define everyday customer information architecture.
+The calm Account Workspace is the Level 1 product direction. C1's read-only Account Home is merged through PR #313, and C2's governed model-produced proposal slice is merged through PR #315; the C2 closeout and successor boundary are recorded in `../reviews/c2-governed-account-intelligence-closeout-retro.md`. The current dense M5b renderer and generated meeting brief are retained as internal pre-ratification review/audit infrastructure. Historical Workshop, Signals/Maps/Plays, M5a, and M5b milestones remain accurate within their implemented and reviewed scope; they do not define everyday customer information architecture.
 
 Boundary markers (this document records implementation authority state; it grants and executes neither implementation nor effects):
 
@@ -32,6 +32,10 @@ Boundary markers (this document records implementation authority state; it grant
 - launch_readiness_claim: false
 - current_authorized_future_private_reads: 0
 - product_provider_calls: 0
+- c2_provider_call_authorization_budget_consumed: 4
+- c2_actual_provider_calls_executed: 3
+- c2_validated_selected_outputs: 2
+- c2_additional_provider_calls_authorized: 0
 - current_authorized_future_acquisitions: 0
 - graph_durable_writes: 0
 - M5B_STATUS: IN_PROGRESS
@@ -52,18 +56,19 @@ Boundary markers (this document records implementation authority state; it grant
 - current_authorized_future_external_product_effects: 0
 - local_deterministic_gate_b_synthetic_outputs_written: 5
 
-Latest completed operator decision recorded for this milestone:
+Latest completed operator decision recorded for the calm product track:
 
-- decision_implementation_work_authorized: `M5b generic product-review evidence-quality v2 (implementation only; no real source execution, ratification, or effects)`
-- decision_implementation_start_condition: `canonical main commit 3b9326810840ac87980bbc247ab39f03ebc3cd94`
+- decision_implementation_work_authorized: `C2 governed account-intelligence refresh through exact-head owner merge gate`
+- decision_implementation_start_condition: `separate C2 authorization and exact retained-corpus custody packet`
 - decision_current_effective_authorization: `none`
-- server_selection: `minimal first-party MCP server; no third-party survey/fork`
-- demonstration_account: `FedEx`
-- live_acquisition_authorized: `false`
+- implementation_pull_request: `#315`
+- approved_implementation_head: `36afe9429fb5ccfca76157cf87f7e8285938bd43`
+- implementation_merge_commit: `a6e723485b7695c4e73c2cf11f1871bd9a8ea22b`
+- provider_call_budget: `4 / 4 consumed; 3 calls executed; 2 validated selected outputs; 0 additional calls authorized`
 - deployment_authorized: `false`
-- next_recommended_work: `consider one separately authorized projection-only calm read-only Account Home over existing admitted/validated data; use View meeting plan for an already-admitted plan; do not begin background AI, Prepare, or broader product implementation in that slice`
+- next_recommended_work: `owner content review of the two needs_review C2 proposals, followed only by a separate explicit C3 decision`
 
-Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed. The host-local v2-r3 candidate and prior host evidence are frozen provenance only. Host forensic qualification is closed, no v2-r4 is authorized, and the repository-native product path supersedes host qualification. The shared control plane remains quarantined and is not an M5b acceptance dependency. M5b remains in progress; current effective authority is `none`.
+The C2 call budget is permanently closed. Historical M4 accounting remains unchanged: Attempt 2 consumed its separately granted one-shot live authority. Attempts 1 and 2 are both permanently consumed. The host-local v2-r3 candidate and prior host evidence remain frozen provenance only. Host forensic qualification is closed, no v2-r4 is authorized, and the repository-native product path supersedes host qualification. The shared control plane remains quarantined and is not an M5b acceptance dependency. M5b mechanism status remains in progress; current effective authority is `none`.
 
 ## Doctrine spine
 
@@ -131,14 +136,14 @@ The host-local v2-r3 archive is `FROZEN_UNQUALIFIED_PROVENANCE_ONLY`; host/archi
 | **M6 — Identity + lab deployment** (Team/User/membership; subject-scoped auth for customer Account Home and separately restricted expert/audit surfaces; lab target under existing deployment contracts) | ⬜ not started | `docs/BLOCKERS.md` Gate 3; maps to C5 |
 | **M7 — Gate 4 corpus + first external users** (real durable Account Home, model-produced Background Intelligence proof, honest quantitative bars, and first users under the calm zero-training/content-quality gate) | ⬜ not started | `docs/BLOCKERS.md` Gate 4; `docs/qa/zero-training-product-acceptance-gate.md`; maps to C6 |
 
-### Calm product continuation (canonical unshipped sequence)
+### Calm product continuation (canonical sequence)
 
 These slices are ordered implementation milestones, not implementation authority. Every slice requires a separate explicit owner decision. A prior mechanism milestone or deterministic fixture cannot skip a later gate.
 
 | Calm milestone | Status | Required outcome / boundary |
 | --- | --- | --- |
-| **C1 — Calm read-only Account Home** | ⬜ not started; exactly one recommended first slice | Deterministic local/test projection over existing admitted/validated data; Level 1 density budget; one truthful account thesis/change/implication/next move/trust line; `View meeting plan` may reveal an already-admitted plan; Package Inspector unserved/unlinked; no provider, identity, persistence, route, deployment, or customer-acceptance claim. |
-| **C2 — Background Intelligence / AI Proposal vertical slice** | ⬜ not started; required before broad customer acceptance | One separately governed model/provider execution over admitted source-grounded research or synthesis. Output remains an honestly labeled untrusted proposal with source→excerpt→claim lineage and execution identity, passes deterministic schema/support validation, routes consequential conflicts to human review, and has no direct ratification, durable-truth, publication, or outbound effect. Acceptance requires at least one genuinely model-produced account thesis, meaningful change, implication, or recommended next move from admitted evidence—not request-supplied or fixture-authored prose. |
+| **C1 — Calm read-only Account Home** | ✅ shipped | Merged through PR #313 at `3fea6c271d1e3a74e025502bc9e46f8289a182a3`. Deterministic local/test projection over admitted/validated data; named visible artifacts and responsive review proof live under `docs/ux/c1-calm-account-home-review/`; no provider, identity, persistence, route, deployment, or customer-acceptance claim. |
+| **C2 — Background Intelligence / AI Proposal vertical slice** | ✅ shipped upon closeout merge | Implementation merged through PR #315: approved head `36afe9429fb5ccfca76157cf87f7e8285938bd43`, merge commit `a6e723485b7695c4e73c2cf11f1871bd9a8ea22b`. Two schema-v2 `needs_review` proposals validate with source→excerpt→proposal lineage and visible trust states. Call budget is closed at 4/4 consumed; 3 calls executed; 2 selected outputs validated; zero database, Graph, persistence, deployment, publication, or customer effects. FedEx retains its mixed-head limitation. Shipped records execution completeness only: owner content-review disposition is pending and C3 eligibility is blocked pending an explicit Continue. Visible artifacts: `docs/ux/c2-governed-account-intelligence-refresh/fresh-university-of-utah.html` and `fresh-fedex.html`; combined owner review surface: `c2-owner-content-review.html` (SHA-256 pinned in `CURRENT_STATUS.json`); closeout: `docs/reviews/c2-governed-account-intelligence-closeout-retro.md`. |
 | **C3 — Prepare Meeting** | ⬜ not started | `Prepare for…` launches the real minimal journey: audience and intended outcome are the only initially visible decisions; compact defaults live behind one `More options` disclosure; a reviewable draft is produced; friction gate passes. |
 | **C4 — Exception review + immutable briefing snapshot** | ⬜ not started | Consequential conflicts, stale/incomplete support, sensitive recommendations, and correction deltas route to human judgment; authorized approval freezes a reproducible reviewed snapshot. Any early delta inspection is manual and non-recurring. |
 | **C5 — Identity/subject boundary + lab integration** | ⬜ not started; maps to M6 | Team/user/account authorization before data read; customer routes and restricted researcher/audit access become enforceable; deployment remains separately authorized. |
@@ -172,6 +177,7 @@ These are the operator's calls, recorded here so the chart carries them visibly.
 5. **A3 timing** — whether the outward server is M7-adjacent or later.
 6. **M5a Step 4 vs. H3 implementation** — **RESOLVED: STEP 4 FIRST.** Steps 1–3 are merged through PRs #278–#280 and Step 4 through PR #282 (`9661468`). The required capstone retro is now `docs/reviews/m5a-product-closeout-retro.md`; H3 remains unstarted and not next-up.
 7. **Post-M5a product direction** — **HISTORICAL MECHANISM DECISION PRESERVED; CUSTOMER SEQUENCE SUPERSEDED BY C1–C9 ABOVE.** H2 and M4 remain satisfied mechanism inputs. Generic schema-v2 prepare, usefulness review, future generic ratification, and one local apply/read-back/inspector render may close M5b mechanism only. Calm customer-product work begins with separately authorized C1 Account Home, requires C2 model-produced Background Intelligence before broad acceptance, and follows the remaining C-track gates. Any source execution, provider call, ratification, durable apply, identity, deployment, or other effect requires its own exact decision; none is currently authorized.
+8. **C2 governed Background Intelligence** — **IMPLEMENTATION MERGED; SHIPPED UPON CLOSEOUT MERGE.** PR #315 merged the exact owner-approved head and preserved two validated `needs_review` proposals with no durable or outbound product effect. The exhausted 4/4 call budget grants no future provider authority. Shipped records execution completeness only; the owner content-review disposition is pending and C3 eligibility is blocked pending an explicit Continue. C3 requires its own explicit decision.
 
 ## Maintenance rules
 

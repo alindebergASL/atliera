@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta http-equiv="Content-Security-Policy" content="default-src &#x27;none&#x27;; style-src &#x27;sha256-mxXDW0alRfz0BzDCAa8w0j+hwrksKHdG0HZUxlFtbjg=&#x27;; script-src &#x27;sha256-hcGuEITB0s+N3ccVZE0B4zGfm56YINzixl0PqKXFe+o=&#x27;; img-src data:; connect-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;; frame-ancestors &#x27;none&#x27;"><title>Atliera C2 owner content review</title><style>
+:root {
+  --paper: #f7f1e5;
+  --paper-strong: #fffaf0;
+  --ink: #24201d;
+  --muted: #6f675f;
+  --rule: rgba(36,32,29,.24);
+  --plum: #49253d;
+  --cobalt: #1647b9;
+  --blue-wash: #e7ebf9;
+  --warm-wash: #efe4d5;
+  --review: #8c3d2f;
+  --focus: #0b63f6;
+  --serif: Iowan Old Style, Baskerville, Georgia, serif;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); color: var(--ink); scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); font: 16px/1.5 var(--sans); overflow-wrap: anywhere; }
+button, summary { font: inherit; touch-action: manipulation; }
+button:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.site-frame { min-height: 100vh; border-top: 4px solid var(--ink); }
+.product-header {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 20px;
+  width: min(100% - 48px, 1320px); margin: 0 auto; padding: 14px 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand { margin: 0; font: 700 17px/1 var(--serif); letter-spacing: .01em; }
+.mode-line { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 12px; }
+.mode-active { color: var(--ink); font-weight: 800; }
+.mode-future { color: var(--muted); opacity: 1; }
+.account-main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
+.intro-line { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.intro-line::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
+.eyebrow, .stage-kicker, .section-label, .source-kicker {
+  margin: 0; color: var(--cobalt); font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase;
+}
+.freshness { margin: 0; color: var(--muted); font-size: 12px; }
+.review-cue { color: var(--review); font-weight: 800; }
+.account-hero { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(230px, .35fr); gap: 54px; padding-left: clamp(0px, 4vw, 58px); }
+.account-hero h1 { margin: 4px 0 6px; font: 500 clamp(40px, 5.3vw, 78px)/.94 var(--serif); letter-spacing: -.052em; }
+.account-thesis { max-width: 900px; margin: 0; font: 500 clamp(19px, 1.8vw, 27px)/1.23 var(--serif); letter-spacing: -.02em; text-wrap: balance; }
+.hero-aside { align-self: end; padding-top: 12px; border-top: 1px solid var(--ink); color: var(--muted); font-size: 13px; }
+.hero-aside p { margin: 0; }
+.grammar {
+  display: grid; grid-template-columns: minmax(0, .88fr) minmax(480px, 1.12fr); gap: clamp(30px, 4vw, 60px);
+  margin: 20px 0 0 clamp(0px, 4vw, 58px); align-items: stretch;
+}
+.context-plane { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.stage { position: relative; padding: 16px 0 14px 58px; }
+.stage + .stage { border-top: 1px solid var(--rule); }
+.stage-num { position: absolute; left: 0; top: 17px; color: var(--plum); font: 800 11px/1 var(--sans); letter-spacing: .12em; }
+.stage h2 { margin: 4px 0 5px; font: 500 clamp(25px, 2.4vw, 38px)/1.02 var(--serif); letter-spacing: -.03em; }
+.stage-copy { margin: 0; font-size: clamp(14px, 1.15vw, 17px); line-height: 1.34; }
+.analysis-line { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.statement-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
+.statement-state { color: var(--muted); font-size: 11px; letter-spacing: .04em; }
+.evidence-trigger {
+  min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--cobalt);
+  font-weight: 800; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
+}
+.decision-plane { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; padding: 22px 28px; background: var(--plum); color: #fffaf3; }
+.decision-plane .stage { padding: 0; }
+.decision-plane .stage + .stage { border: 0; padding-left: 26px; border-left: 1px solid rgba(255,255,255,.26); }
+.decision-plane .stage-num { position: static; display: block; margin-bottom: 6px; color: #e2cfd8; }
+.decision-plane .stage h2 { margin-top: 0; font-size: clamp(25px, 2.25vw, 36px); color: #fffaf3; }
+.decision-plane .stage-copy { color: #f0e7eb; }
+.decision-plane .statement-state { color: #d8cbd1; }
+.decision-plane .evidence-trigger { color: #cdd9ff; }
+.decision-plane button:focus-visible { outline-color: #ffd166; }
+.primary-action {
+  min-height: 44px; margin-top: 9px; padding: 0 17px; border: 1px solid #fffaf3; border-radius: 0;
+  background: #fffaf3; color: var(--plum); font-weight: 850; cursor: pointer;
+}
+.research-disclosure { margin: 26px 0 0 clamp(0px, 10vw, 150px); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.research-disclosure summary { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 20px; cursor: pointer; list-style: none; font-weight: 800; }
+.research-disclosure summary::-webkit-details-marker { display: none; }
+.research-disclosure summary::after { content: "+"; color: var(--cobalt); font-size: 22px; }
+.research-disclosure[open] summary::after { content: "−"; }
+.research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; padding: 18px 0 26px; }
+.research-grid h3 { margin: 0 0 10px; font: 500 24px/1.05 var(--serif); }
+.research-grid ul { margin: 0; padding-left: 18px; }
+.research-grid li + li { margin-top: 7px; }
+.coverage-list { list-style: none; padding: 0 !important; }
+.coverage-list li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); }
+.coverage-state { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.boundary-footer { margin: 22px 0 0; color: var(--muted); font-size: 12px; }
+.evidence-dialog {
+  width: min(760px, calc(100vw - 24px)); max-height: min(820px, calc(100vh - 24px)); padding: 0;
+  border: 0; background: var(--paper-strong); color: var(--ink); box-shadow: 0 24px 90px rgba(36,32,29,.34);
+}
+.evidence-dialog::backdrop { background: rgba(36,32,29,.58); }
+.dialog-frame { display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: inherit; }
+.dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 22px 24px 16px; border-bottom: 1px solid var(--rule); }
+.dialog-header h2 { margin: 4px 0 0; font: 500 31px/1.04 var(--serif); }
+.icon-button { min-width: 70px; min-height: 44px; border: 1px solid var(--rule); background: var(--paper-strong); color: var(--ink); font-weight: 800; cursor: pointer; }
+.dialog-scroll { overflow: auto; padding: 24px; overscroll-behavior: contain; }
+.related-statement { padding: 18px; background: var(--blue-wash); }
+.related-statement p:last-child { margin: 7px 0 0; }
+.evidence-source { padding: 20px 0; border-bottom: 1px solid var(--rule); }
+.evidence-source h3 { margin: 5px 0 10px; font: 500 23px/1.1 var(--serif); }
+.evidence-source blockquote { margin: 0; padding: 15px 18px; border-left: 3px solid var(--cobalt); background: var(--paper); font: 500 17px/1.42 var(--serif); }
+.source-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin: 15px 0 0; }
+.source-meta dt { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.source-meta dd { margin: 2px 0 0; }
+.source-url { margin: 12px 0 0; color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.evidence-boundary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.evidence-boundary > div { padding: 16px; background: var(--warm-wash); }
+.evidence-boundary h3 { margin: 0 0 6px; }
+.evidence-boundary p { margin: 0; }
+@media (min-width: 901px) and (max-width: 1350px) {
+  .product-header { padding: 11px 0 9px; }
+  .account-main { padding-top: 12px; }
+  .intro-line { margin-bottom: 9px; }
+  .account-hero { gap: 36px; }
+  .account-hero h1 { font-size: clamp(38px, 4.6vw, 62px); }
+  .account-thesis { font-size: clamp(18px, 1.55vw, 22px); }
+  .grammar { margin-top: 14px; gap: 28px; }
+  .stage { padding-top: 12px; padding-bottom: 10px; }
+  .stage-num { top: 13px; }
+  .stage h2 { font-size: clamp(24px, 2.1vw, 31px); }
+  .stage-copy { font-size: 14px; }
+  .analysis-line { margin-top: 4px; }
+  .statement-tools { margin-top: 4px; }
+  .decision-plane { padding: 18px 22px; }
+  .decision-plane .stage h2 { font-size: clamp(24px, 2vw, 29px); }
+}
+@media (max-width: 900px) {
+  .account-hero { grid-template-columns: 1fr; gap: 0; padding-left: 0; }
+  .hero-aside { display: none; }
+  .grammar { grid-template-columns: 1fr; margin-left: 0; gap: 18px; }
+  .decision-plane { grid-template-columns: 1fr 1fr; }
+  .research-disclosure { margin-left: 0; }
+}
+@media (max-width: 520px) {
+  .product-header, .account-main { width: min(100% - 24px, 1320px); }
+  .product-header { padding: 10px 0 9px; }
+  .mode-line { font-size: 10px; gap: 6px; }
+  .account-main { padding-top: 10px; }
+  .intro-line { margin-bottom: 8px; }
+  .freshness { font-size: 10px; }
+  .account-hero h1 { margin-top: 2px; font-size: 38px; }
+  .account-thesis { font-size: 16px; line-height: 1.3; }
+  .grammar { margin-top: 10px; gap: 0; }
+  .stage { padding: 8px 0 7px 38px; }
+  .stage-num { top: 12px; }
+  .stage h2 { margin-top: 1px; font-size: 23px; }
+  .stage-copy { font-size: 14px; line-height: 1.32; }
+  .analysis-line { font-size: 12px; }
+  .statement-tools { margin-top: 3px; }
+  .decision-plane { grid-template-columns: 1fr; gap: 13px; padding: 15px; }
+  .decision-plane .stage + .stage { padding: 13px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.26); }
+  .decision-plane .stage h2 { font-size: 23px; }
+  .primary-action { margin-top: 7px; }
+  .research-grid, .source-meta, .evidence-boundary { grid-template-columns: 1fr; }
+  .coverage-list li { grid-template-columns: 110px 1fr; }
+  .dialog-header, .dialog-scroll { padding-left: 17px; padding-right: 17px; }
+  .dialog-header h2 { font-size: 25px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+.review-cover { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; border-top: 4px solid var(--ink); background: var(--paper-strong); }
+.review-cover header, .review-cover main, .review-cover footer, .review-cover .about-review { width: min(100% - 48px, 1120px); margin: 0 auto; }
+.review-cover header { display: flex; justify-content: space-between; gap: 24px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.review-cover main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr); gap: clamp(36px, 7vw, 92px); align-items: center; padding: 60px 0; }
+.review-cover h1 { margin: 8px 0 18px; max-width: 850px; font: 500 clamp(46px, 7vw, 92px)/.92 var(--serif); letter-spacing: -.055em; }
+.review-cover .lede { max-width: 760px; margin: 0; font: 500 clamp(19px, 2vw, 28px)/1.25 var(--serif); }
+.review-cover .cover-note { padding: 26px; background: var(--plum); color: #fffaf3; }
+.review-cover .cover-note h2 { margin: 0 0 10px; font: 500 30px/1.05 var(--serif); }
+.review-cover .cover-note p, .review-cover .cover-note li { color: #f0e7eb; }
+.review-cover .cover-note ol { margin: 14px 0 0; padding-left: 20px; }
+.review-cover .cover-note li + li { margin-top: 9px; }
+.review-cover footer { padding: 18px 0 28px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12px; }
+.review-nav { display: flex; flex-wrap: wrap; gap: 10px; }
+.review-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--ink); color: var(--ink); font-weight: 800; text-decoration: none; }
+.review-nav a:first-child { background: var(--ink); color: var(--paper-strong); }
+.account-review { scroll-margin-top: 12px; }
+.account-review + .account-review { border-top: 16px solid var(--ink); }
+.review-rubric { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 44px 0; display: grid; grid-template-columns: minmax(0, .7fr) minmax(420px, 1.3fr); gap: clamp(36px, 7vw, 90px); border-top: 1px solid var(--ink); }
+.review-rubric h2 { margin: 4px 0 12px; font: 500 clamp(34px, 4vw, 54px)/.98 var(--serif); letter-spacing: -.04em; }
+.review-rubric .lineage { color: var(--muted); font-size: 12px; }
+.review-questions { margin: 0; padding-left: 24px; }
+.review-questions li { padding: 0 0 14px 6px; border-bottom: 1px solid var(--rule); }
+.review-questions li + li { padding-top: 14px; }
+.disposition { margin-top: 22px; padding: 20px; background: var(--blue-wash); }
+.disposition strong { display: block; margin-bottom: 7px; }
+.offline-boundary { color: var(--review); font-weight: 800; }
+@media (max-width: 800px) {
+  .review-cover header { align-items: flex-start; flex-direction: column; }
+  .review-cover main, .review-rubric { grid-template-columns: 1fr; }
+  .review-cover main { padding: 36px 0; }
+  .review-cover h1 { font-size: clamp(44px, 14vw, 68px); }
+  .review-rubric { width: min(100% - 24px, 1320px); padding: 32px 0; }
+}
+.about-review { padding: 18px 0 22px; border-top: 1px solid var(--rule); font-size: 13px; }
+.about-review h2 { margin: 0 0 8px; font: 500 22px/1.1 var(--serif); }
+.about-review p { margin: 0 0 8px; max-width: 920px; }
+.about-review p:last-child { margin-bottom: 0; }
+.excerpt-note { margin: 8px 0 0; color: var(--muted); font-size: 12px; font-style: italic; }
+.coverage-preface { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+</style></head>
+<body>
+<section class="review-cover" aria-labelledby="review-title">
+  <header><p class="brand">Atliera</p><nav class="review-nav" aria-label="Review accounts"><a href="#utah-review">University of Utah</a><a href="#fedex-review">FedEx</a></nav></header>
+  <main><div><p class="eyebrow">C2 owner content review · 30 August 2026 · revised 4 September 2026</p><h1 id="review-title">Two proposals.<br>One human decision.</h1><p class="lede">Review the answer first, open evidence only when needed, and decide whether each account should continue into the C3 meeting-preparation slice.</p></div>
+  <aside class="cover-note"><h2>What you are approving</h2><p>You are evaluating usefulness and content quality—not creating durable account truth.</p><ol><li>Read the thesis and four-part account story.</li><li>Open evidence for any consequential statement.</li><li>Use the five-prompt rubric after each account.</li><li>Reply in chat with Continue, Revise, or Reject.</li></ol><p class="offline-boundary">Offline only · no save · no send · no network</p></aside></main>
+  <section class="about-review" aria-labelledby="about-review-title"><h2 id="about-review-title">About this review</h2><p>Atliera is a governed account-intelligence system that drafts evidence-cited sales-account research for human approval. Nothing becomes durable account truth, and nothing is saved, sent, or used downstream, until the owner approves it.</p><p>C2 is the second delivery slice of the Atliera build: owner review of generated account content. C3, the next slice, adds meeting preparation. The owner is the human accountable for this system&#8217;s output. University of Utah and FedEx are the two accounts produced by the C2 governed fresh execution.</p><p>&#8220;Admitted&#8221; evidence passed the controller&#8217;s (the local orchestration layer&#8217;s) source-authorization checks; only controller-authorized excerpts may support statements. &#8220;Provider budget 4/4&#8221; means all four authorized provider-call reservations for this cycle are consumed &#8212; the full ledger is in the footer below. Commit hashes identify the pipeline code that produced and validated each proposal; SHA-256 values identify each frozen output artifact byte-for-byte. &#8220;Workshop&#8221; is a planned collaborative mode, not yet implemented.</p><p>Reply in the chat session that delivered this page. &#8220;Continue&#8221; makes a proposal eligible for the C3 meeting-preparation slice &#8212; it does not save, send, or publish anything.</p></section>
+  <footer>C2 execution: complete (implementation merged via PR #315 at a6e7234) · Owner disposition: pending · C3 eligibility: blocked pending Continue. Both proposals remain Needs review. Provider budget is closed at 4/4 authorizations consumed: one FedEx validated call; one University of Utah output rejected by deterministic validation; one final University of Utah validated call; and one earlier University of Utah operational reservation that failed before provider import and executed no model call. Per-account footers count selected-output calls only. No additional call is authorized. This combined page is the owner&#8217;s review surface; the authoritative frozen artifacts are the two per-account files identified by SHA-256 in each rubric, and this page&#8217;s own SHA-256 is recorded in the closeout manifest.</footer>
+</section>
+<section id="utah-review" class="account-review" aria-label="University of Utah proposal review"><div class="site-frame">
+<header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
+<div class="account-main" id="utah-main-content" role="region" aria-label="University of Utah proposal">
+  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence freshness mixed · through Jul 9, 2026 where established · recheck</p></div>
+  <section class="account-hero" aria-labelledby="utah-account-title"><div><h1 id="utah-account-title">University of Utah</h1><p class="account-thesis">University of Utah has a legislatively driven, three-year strategic reinvestment context with explicit Responsible AI funding and workforce-training rationale, now paired with approved Year Two planning and separate AI infrastructure and health-AI investments.</p><div class="statement-tools"><span class="statement-state">Evidence-informed interpretation</span><button class="evidence-trigger" type="button" data-dialog="utah-evidence-thesis" aria-label="Evidence for University of Utah account thesis">Evidence</button></div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
+  <section class="grammar" aria-label="Editorial Evidence Synthesis">
+    <div class="context-plane">
+      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2><p class="stage-copy">During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</p><p class="analysis-line"><strong>Known numeric tension:</strong> one-third of $60 million (&#8776;$20.0M), the stated H.B. 265 target of $19.6 million, and the six listed reinvestment lines (summing &#8776;$18.33M) do not reconcile exactly in the admitted excerpts; the difference is unresolved in evidence, not adjudicated here.</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="utah-evidence-established" aria-label="Evidence for University of Utah Established statement">Evidence</button></div></article>
+      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2><p class="stage-copy">The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</p><p class="analysis-line"><strong>Why it may matter:</strong> The approved Year Two plan and stated Responsible AI allocation may make AI teaching, productivity, talent, and interdisciplinary training a timely discovery area, but the evidence does not establish any vendor preference or procurement activity.</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="utah-evidence-changed" aria-label="Evidence for University of Utah Meaningfully changed statement">Evidence</button><button class="evidence-trigger" type="button" data-dialog="utah-evidence-meaning" aria-label="Analysis boundary for University of Utah why-it-may-matter note">Analysis boundary</button></div></article>
+    </div>
+    <div class="decision-plane">
+      <article class="stage open"><span class="stage-num" aria-hidden="true">03</span><p class="stage-kicker">Still open</p><h2>Still open</h2><p class="stage-copy">Clarify funding availability, remaining amount, procurement status, eligible uses, decision authority, and vendor intent for the Responsible AI reinvestment, Redtail-related activity, and Utah Health AI Vault or related AI ecosystem investments.</p><div class="statement-tools"><span class="statement-state">Unresolved question</span><button class="evidence-trigger" type="button" data-dialog="utah-evidence-open" aria-label="Why the University of Utah question remains open">Why this is open</button></div></article>
+      <article class="stage next"><span class="stage-num" aria-hidden="true">04</span><p class="stage-kicker">Recommended next move</p><h2>Recommended next move</h2><p class="stage-copy">Run a discovery conversation focused on mapping the approved reinvestment and AI-infrastructure initiatives to actual owners, timelines, allowable uses, and any formal procurement path before positioning any solution.</p><div class="statement-tools"><span class="statement-state">Recommended action · proposed</span></div><button class="primary-action" type="button" data-dialog="utah-evidence-next" aria-label="Support for University of Utah recommended next move">Review the support</button></article>
+    </div>
+  </section>
+  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><p class="coverage-preface">&#8220;Partial&#8221; = controller-authorized excerpt support is admitted but completeness is not established. &#8220;Gap&#8221; = no controller-authorized excerpt support was admitted.</p><ul class="coverage-list"><li>
+    <span>Identity structure</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Strategic direction</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Financial context</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Digital modernization</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Leadership governance</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Procurement</span>
+    <span class="coverage-state">gap · No controller-authorized excerpt support was admitted.</span>
+  </li><li>
+    <span>Partnerships technology</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Constraints</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Recent changes</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Gaps contradictions</span>
+    <span class="coverage-state">partial</span>
+  </li></ul></section><section><h3>Entity boundaries</h3><ul><li><strong>University of Utah:</strong> University of Utah is admitted as account; relationship to the account: The account itself; University of Utah Health and external governing bodies remain separate entities.</li><li><strong>Related entity:</strong> University of Utah Health is admitted as hospital; relationship to the account: A related academic health enterprise; not merged into University account funding or procurement claims.</li><li><strong>Utah System of Higher Education:</strong> Utah System of Higher Education is admitted as governing_body; relationship to the account: The public higher-education system and Board context; not the account itself.</li><li><strong>Related entity:</strong> State of Utah is admitted as government; relationship to the account: The state policy and appropriations context; not the account or a University budget owner.</li></ul><h3>Material gaps</h3><ul><li>No controller-authorized excerpt-level support for taxonomy:procurement.</li></ul><p class="boundary-footer">Model proposal: openai-codex / gpt-5.5 · 1 call attempted · 1 response admitted. Retained records: 35 discoveries · 10 source candidates · 10 admitted · 0 excluded. These records do not prove external searches or retrievals executed. Provider storage, tools, and network effects remain unestablished. No Graph, database, publication, customer, or deployment effects were created by this local path.</p></section></div></details>
+  <p class="boundary-footer">Proposed account intelligence for local review only. Nothing here is approved, saved to durable account truth, sent, shared, deployed, or used to prepare a meeting.</p>
+</div><dialog class="evidence-dialog" id="utah-evidence-thesis" aria-labelledby="utah-evidence-thesis-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-thesis-title">Account thesis</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>University of Utah has a legislatively driven, three-year strategic reinvestment context with explicit Responsible AI funding and workforce-training rationale, now paired with approved Year Two planning and separate AI infrastructure and health-AI investments.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>The bill established a three-year strategic reinvestment requirement for Utah System of Higher Education degree-granting institutions and was coupled with base budget set-asides in the amount of 10% of state tax dollars within institutional instruction budgets.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>In order to recover set-aside funds, degree granting institutions must reallocate at least 30% of the equivalent funding amounts in FY 2026, 70% in FY 2027, and 100% in FY 2028.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>A three-year framework to reach the University of Utah’s H.B. 265 legislative target of $19.6 million.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 5</p>
+      <h3>Impact 2030 Strategic Reinvestment Plan</h3>
+      <blockquote>Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Office of the President; hosted in USHE board materials</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 6</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote><p class="excerpt-note">Editorial annotation &#8212; not source wording: this excerpt is a table row captured without its column headers; the admitted evidence does not establish what each figure denotes.</p>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 7</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 8</p>
+      <h3>Redtail AI supercomputer ranking and partnership</h3>
+      <blockquote>Redtail is the result of a $50 million public-private partnership among the U, the state of Utah and the Huntsman Family Foundation, with HPE supercomputing infrastructure and NVIDIA technologies. The collaboration expands Utahns’ access to advanced AI computing: the HPE Cray system in Redtail also powers leading supercomputers in the Top500 list. And with its list debut, Redtail joins the country’s most capable academic AI systems.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/facultystaff/utahs-redtail-ai-supercomputer-ranks-among-worlds-fastest-greenest/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 9</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 10</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 11</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Another $15 million will support a new data center and broader AI ecosystem. Together, the state investment adds up to more than $33 million, positioning Utah to lead the nation in AI-enabled health innovation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="utah-evidence-established" aria-labelledby="utah-evidence-established-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-established-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>During the 2025 Legislature, Utah lawmakers required state colleges and universities cut and reinvest $60 million over three years; the U was responsible for one-third of that total.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="utah-evidence-changed" aria-labelledby="utah-evidence-changed-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-changed-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>University of Utah continues reinvestment in AI, behavioral health, nursing</h3>
+      <blockquote>The university is redirecting $4.95 million into engineering programs, another $4.94 million in artificial intelligence, $3.5 million in behavioral health, $1.8 million in civic engagement education, $1.64 million in biotechnology and $1.5 million in nursing and simulation programs over the three-year reinvestment process.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 19, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/business/university-of-utah-continues-reinvestment-in-ai-behavioral-health-nursing/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="utah-evidence-meaning" aria-labelledby="utah-evidence-meaning-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-meaning-title">Evidence-informed interpretation</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>The approved Year Two plan and stated Responsible AI allocation may make AI teaching, productivity, talent, and interdisciplinary training a timely discovery area, but the evidence does not establish any vendor preference or procurement activity.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote><p class="excerpt-note">Editorial annotation &#8212; not source wording: this excerpt is a table row captured without its column headers; the admitted evidence does not establish what each figure denotes.</p>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>Impact 2030 Strategic Reinvestment Plan</h3>
+      <blockquote>Phases 1 Reinvestment: RESPONSIBLE AI § Preparing Utah’s workforce for careers at the intersection of technology, ethics, and innovation § Interdisciplinary training in AI, machine learning, cybersecurity, healthcare, and autonomous systems</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Office of the President; hosted in USHE board materials</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 6, 2025</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2025/060625/UU_Strategic_Reinvestment_2025.pdf</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="utah-evidence-open" aria-labelledby="utah-evidence-open-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-open-title">Unresolved question</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Unresolved question</p><p>Clarify funding availability, remaining amount, procurement status, eligible uses, decision authority, and vendor intent for the Responsible AI reinvestment, Redtail-related activity, and Utah Health AI Vault or related AI ecosystem investments.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote><p class="excerpt-note">Editorial annotation &#8212; not source wording: this excerpt is a table row captured without its column headers; the admitted evidence does not establish what each figure denotes.</p>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>Redtail AI supercomputer ranking and partnership</h3>
+      <blockquote>Redtail is the result of a $50 million public-private partnership among the U, the state of Utah and the Huntsman Family Foundation, with HPE supercomputing infrastructure and NVIDIA technologies. The collaboration expands Utahns’ access to advanced AI computing: the HPE Cray system in Redtail also powers leading supercomputers in the Top500 list. And with its list debut, Redtail joins the country’s most capable academic AI systems.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/facultystaff/utahs-redtail-ai-supercomputer-ranks-among-worlds-fastest-greenest/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 5</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Another $15 million will support a new data center and broader AI ecosystem. Together, the state investment adds up to more than $33 million, positioning Utah to lead the nation in AI-enabled health innovation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The research boundary shows why this question remains open.</p></div>
+          <div><h3>What remains outside it</h3><p>Atliera has not filled the gap with an assumption or converted the question into an account fact.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="utah-evidence-next" aria-labelledby="utah-evidence-next-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="utah-evidence-next-title">Recommended action · proposed</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Recommended action · proposed</p><p>Run a discovery conversation focused on mapping the approved reinvestment and AI-infrastructure initiatives to actual owners, timelines, allowable uses, and any formal procurement path before positioning any solution.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>Utah Board of Higher Education Committee of the Whole Minutes</h3>
+      <blockquote>Chair Covington moved to approve the University of Utah’s Year Two Strategic Reinvestment Plan. Vice Chair Cox seconded the motion, and the Board members in attendance voted unanimously in favor. The motion passed.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah Board of Higher Education / Utah System of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 9, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://ushe.edu/wp-content/uploads/pdf/agendas/2026/061126/6-11-26_approved_minutes.pdf</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>USHE Degree-Granting Institution Strategic Reinvestment Initiative Year Two</h3>
+      <blockquote>The University of Utah is proposing to increase its net reinvestment in instruction from the originally approved amount of $5,595,600 to $5,931,393 upon full plan implementation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>Utah System of Higher Education, Office of the Commissioner</dd></div>
+        <div><dt>Entity</dt><dd>Utah System of Higher Education</dd></div>
+        <div><dt>Publication date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/GhX2WI7Q3ELnppqnDnktwRyOJpjNDJdx4Eb2RxrYDDIA/dQJABJ3Ru9pMLWWQATEfM9uQcUoRElP3ibgQUv8tkHoA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Responsible AI $4,939,436 $4,939,435 —</blockquote><p class="excerpt-note">Editorial annotation &#8212; not source wording: this excerpt is a table row captured without its column headers; the admitted evidence does not establish what each figure denotes.</p>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>University of Utah Strategic Reinvestment Presentation — Year Two Progress Report</h3>
+      <blockquote>Faculty hiring runs ~12 months, so early funds supported one-time AI teaching and productivity tools; a competitive AI talent market refined the FTE plan.”</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah; submitted to Utah Board of Higher Education</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jun 11, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://public.onboardmeetings.com/Meeting/%2FL5G8LkpcI%2F4yuIAsJTMwS5I2HZT2%2FNPJqb2sKFM33AA/gmEQqEn21RAGKgLYGhC3U0y1EBuLxNndftphueTmUnoA/6KbbhYcSPxcDxjlZsA%2FfBjwwXlOAfC8QWc2cMp9SYHUA/2qB9ehBYXD4VnYIin81WapcLpyXs4tenj8ZAEOlRRrMA/Agenda%20Document</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 5</p>
+      <h3>Redtail statewide operating scope</h3>
+      <blockquote>The Center for High Performance Computing (CHPC) at the University of Utah will manage the Redtail AI Factory for Utah. The supercomputer is built for national impact and will support regional AI innovation across sectors and position Utah as a leader in AI-enabled research and innovation. Redtail represents a significant increase in high-end GPU computing capacity at the University of Utah, fueled by $50 million in investment across public and private sectors over five years.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Center for High Performance Computing</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://chpc.utah.edu/redtail/index.php</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 6</p>
+      <h3>Utah Health AI Vault public investment</h3>
+      <blockquote>Under a funding bill passed in the 2026 Legislature, state lawmakers and the governor have invested $18.6 million in a new technology system to maximize understanding of data stored in the Utah Population Database (UPDB) and the expertise of researchers at the Huntsman Cancer Institute and across campus, speeding health innovations and discoveries for generations to come. The Utah Health AI Vault (UHAIV) will be developed and housed at the university in a partnership between Huntsman Cancer Institute, the database, and the Center for High Performance Computing(CHPC).</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>University of Utah Communications / @theU</dd></div>
+        <div><dt>Entity</dt><dd>University of Utah</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://attheu.utah.edu/science-technology/u-to-build-out-utah-health-ai-vault-uhaiv-with-state-support/</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for considering this one safe next move.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not request, approve, authorize, schedule, send, or commit this action.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog></div>
+<section class="review-rubric" aria-labelledby="utah-rubric-title">
+  <div><p class="eyebrow">Your judgment</p><h2 id="utah-rubric-title">Review University of Utah</h2><p>Recommended primary C3 candidate because its selected provider execution and validation share the cleaner lineage head &#8212; both ran from the same commit (2b8a296), so this proposal&#8217;s lineage is a single head.</p><p class="lineage">Selected execution + validation: 2b8a296 · source artifact SHA-256: c769b7c7d6fc4e246aee91748513808dd68a4f81885fbba3dab494050ef663ac</p></div>
+  <div>
+<ol class="review-questions">
+  <li><strong>Useful</strong> — Are the thesis and most meaningful change commercially useful?</li>
+  <li><strong>Grounded</strong> — Are consequential claims supported, with uncertainty explicit and no unsupported certainty?</li>
+  <li><strong>Honest</strong> — Are facts, interpretations, unresolved questions, recommendations, omissions, and contradictions represented truthfully?</li>
+  <li><strong>Navigable</strong> — Can you find the answer, its exact support, and the evidence boundary without getting lost?</li>
+  <li><strong>Worth continuing</strong> — Is the proposed next move safe and useful enough to choose <strong>Continue to C3</strong>, <strong>Revise before C3</strong>, or <strong>Reject</strong>?</li>
+</ol>
+<div class="disposition"><strong>How to reply</strong>Send the disposition plus the prompt name and correction for anything that should change.</div>
+</div>
+</section></section>
+<section id="fedex-review" class="account-review" aria-label="FedEx proposal review"><div class="site-frame">
+<header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
+<div class="account-main" id="fedex-main-content" role="region" aria-label="FedEx proposal">
+  <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="review-cue">Needs review</span> · Evidence freshness mixed · through Jul 21, 2026 where established · recheck</p></div>
+  <section class="account-hero" aria-labelledby="fedex-account-title"><div><h1 id="fedex-account-title">FedEx Corporation</h1><p class="account-thesis">FedEx is presenting a broad operating and technology transformation: it is moving toward an integrated, flexible, efficient, intelligent network, while its digital transformation emphasizes AI-enabled orchestration, standardized workflows, and lower cost to serve.</p><div class="statement-tools"><span class="statement-state">Evidence-informed interpretation</span><button class="evidence-trigger" type="button" data-dialog="fedex-evidence-thesis" aria-label="Evidence for FedEx account thesis">Evidence</button></div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
+  <section class="grammar" aria-label="Editorial Evidence Synthesis">
+    <div class="context-plane">
+      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2><p class="stage-copy">&#8220;We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.&#8221; &#8212; FedEx Corporation, Form 10-K for the fiscal year ended May 31, 2026</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="fedex-evidence-established" aria-label="Evidence for FedEx Established statement">Evidence</button></div></article>
+      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2><p class="stage-copy">&#8220;Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.&#8221; &#8212; FedEx Corporation, Form 10-K for the fiscal year ended May 31, 2026</p><p class="analysis-line"><strong>Why it may matter:</strong> The Network 2.0 program may create operational and technology-adjacent change surfaces because FedEx says it is modernizing and consolidating sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing enterprise linehaul, with Canada fully implemented and U.S. completion expected by the end of calendar year 2027.</p><div class="statement-tools"><span class="statement-state">Exact source wording</span><button class="evidence-trigger" type="button" data-dialog="fedex-evidence-changed" aria-label="Evidence for FedEx Meaningfully changed statement">Evidence</button><button class="evidence-trigger" type="button" data-dialog="fedex-evidence-meaning" aria-label="Analysis boundary for FedEx why-it-may-matter note">Analysis boundary</button></div></article>
+    </div>
+    <div class="decision-plane">
+      <article class="stage open"><span class="stage-num" aria-hidden="true">03</span><p class="stage-kicker">Still open</p><h2>Still open</h2><p class="stage-copy">Open questions: which transformation needs are currently active; whether any budget is available or remaining; whether any relevant procurement is planned, underway, or closed; which uses are eligible within network, AI, developer, cyber, or integration work; who has decision authority across digital, transformation, finance, procurement, and board oversight; and whether FedEx has any vendor intent beyond its general supplier-registration process and multi-year contract caveat.</p><div class="statement-tools"><span class="statement-state">Unresolved question</span><button class="evidence-trigger" type="button" data-dialog="fedex-evidence-open" aria-label="Why the FedEx question remains open">Why this is open</button></div></article>
+      <article class="stage next"><span class="stage-num" aria-hidden="true">04</span><p class="stage-kicker">Recommended next move</p><h2>Recommended next move</h2><p class="stage-copy">Use a bounded discovery motion: register or update supplier information if relevant, then route outreach around FedEx’s stated network transformation, digital and AI workflow agenda, developer-portal integration enablement, and cyber/technology governance, while explicitly asking about timing, ownership, eligible scope, procurement path, and whether any opportunity exists.</p><div class="statement-tools"><span class="statement-state">Recommended action · proposed</span></div><button class="primary-action" type="button" data-dialog="fedex-evidence-next" aria-label="Support for FedEx recommended next move">Review the support</button></article>
+    </div>
+  </section>
+  <details class="research-disclosure"><summary>Research coverage and boundaries</summary><div class="research-grid"><section><h3>Coverage</h3><p class="coverage-preface">&#8220;Partial&#8221; = controller-authorized excerpt support is admitted but completeness is not established. &#8220;Gap&#8221; = no controller-authorized excerpt support was admitted.</p><ul class="coverage-list"><li>
+    <span>Identity structure</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Strategic direction</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Financial context</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Digital modernization</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Leadership governance</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Procurement</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Partnerships technology</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Constraints</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Recent changes</span>
+    <span class="coverage-state">partial</span>
+  </li><li>
+    <span>Gaps contradictions</span>
+    <span class="coverage-state">gap · No controller-authorized excerpt support was admitted.</span>
+  </li></ul></section><section><h3>Entity boundaries</h3><ul><li><strong>FedEx Corporation:</strong> FedEx Corporation is admitted as account; relationship to the account: The parent holding company and account under research.</li><li><strong>Related entity:</strong> Federal Express Corporation is admitted as subsidiary; relationship to the account: The integrated air-ground operating subsidiary; distinct from the parent.</li><li><strong>Related entity:</strong> FedEx Freight Holding Company, Inc. is admitted as other_related_entity; relationship to the account: Separated public company after June 1, 2026; no longer consolidated as a FedEx segment.</li><li><strong>Related entity:</strong> FedEx Dataworks is admitted as business_unit; relationship to the account: Named digital unit with a distinct operating role.</li><li><strong>Related entity:</strong> FedEx Supply Chain is admitted as business_unit; relationship to the account: Portfolio business whose announced sale was not established as closed in admitted evidence.</li><li><strong>FedEx Corporation Board of Directors:</strong> FedEx Corporation Board of Directors is admitted as governing_body; relationship to the account: Corporate governing body.</li><li><strong>Related entity:</strong> RouteSmart Technologies is admitted as subsidiary; relationship to the account: Acquired route-optimization technology business kept distinct.</li></ul><h3>Material gaps</h3><ul><li>No controller-authorized excerpt-level support for taxonomy:gaps_contradictions.</li></ul><p class="boundary-footer">Model proposal: openai-codex / gpt-5.5 · 1 call attempted · 1 response admitted. Retained records: 19 discoveries · 9 source candidates · 9 admitted · 0 excluded. These records do not prove external searches or retrievals executed. Provider storage, tools, and network effects remain unestablished. No Graph, database, publication, customer, or deployment effects were created by this local path.</p></section></div></details>
+  <p class="boundary-footer">Proposed account intelligence for local review only. Nothing here is approved, saved to durable account truth, sent, shared, deployed, or used to prepare a meeting.</p>
+</div><dialog class="evidence-dialog" id="fedex-evidence-thesis" aria-labelledby="fedex-evidence-thesis-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-thesis-title">Account thesis</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>FedEx is presenting a broad operating and technology transformation: it is moving toward an integrated, flexible, efficient, intelligent network, while its digital transformation emphasizes AI-enabled orchestration, standardized workflows, and lower cost to serve.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="fedex-evidence-established" aria-labelledby="fedex-evidence-established-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-established-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>&#8220;We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.&#8221; &#8212; FedEx Corporation, Form 10-K for the fiscal year ended May 31, 2026</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="fedex-evidence-changed" aria-labelledby="fedex-evidence-changed-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-changed-title">Exact source wording</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Exact source wording</p><p>&#8220;Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.&#8221; &#8212; FedEx Corporation, Form 10-K for the fiscal year ended May 31, 2026</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Exact support 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>This statement preserves one admitted exact excerpt or deterministic source attribution.</p></div>
+          <div><h3>What remains outside it</h3><p>It does not establish available budget, approved spend, active procurement, buying intent, urgency, or vendor preference unless the exact wording states those facts.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="fedex-evidence-meaning" aria-labelledby="fedex-evidence-meaning-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-meaning-title">Evidence-informed interpretation</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Evidence-informed interpretation</p><p>The Network 2.0 program may create operational and technology-adjacent change surfaces because FedEx says it is modernizing and consolidating sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing enterprise linehaul, with Canada fully implemented and U.S. completion expected by the end of calendar year 2027.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for this analysis; the interpretation remains proposed and unreviewed.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not directly establish this interpretation or any commercial conclusion.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="fedex-evidence-open" aria-labelledby="fedex-evidence-open-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-open-title">Unresolved question</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Unresolved question</p><p>Open questions: which transformation needs are currently active; whether any budget is available or remaining; whether any relevant procurement is planned, underway, or closed; which uses are eligible within network, AI, developer, cyber, or integration work; who has decision authority across digital, transformation, finance, procurement, and board oversight; and whether FedEx has any vendor intent beyond its general supplier-registration process and multi-year contract caveat.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>We are shifting from a collection of separate but powerful operations to one integrated, flexible, efficient, and intelligent network that delivers better service, runs on a modern technology stack and has a structurally lower cost to serve.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>FedEx Supplier Registration Portal</h3>
+      <blockquote>FedEx employees utilize the FedEx Supplier Registration Portal to identify potential suppliers. If FedEx determines your capabilities can potentially meet our needs, someone may contact you. Please note that many of our contracts are multi-year and therefore, it may be some time before we go out for bid. You may periodically be prompted to update your information or to inform you about changes to the FedEx Supplier Registration Portal.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://suppliers.sourcing.fedex.com/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>Cyber and Technology Oversight Committee Charter</h3>
+      <blockquote>- Review major cyber and technology-related projects and technology architecture decisions; - Assess whether the Company&#39;s cyber and technology programs effectively support the Company&#39;s business objectives and strategies; - Assist Board oversight of cyber and technology-related risks and management efforts to monitor and mitigate those risks; - Advise the Company&#39;s senior Data and Technology management team; and - Advise the Board of Directors on cyber and technology-related matters.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Investor Relations</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation Board of Directors</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://investors.fedex.com/governance/board-of-directors/committee-charters/information-technology-oversight-committee-charter/default.aspx</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The research boundary shows why this question remains open.</p></div>
+          <div><h3>What remains outside it</h3><p>Atliera has not filled the gap with an assumption or converted the question into an account fact.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog><dialog class="evidence-dialog" id="fedex-evidence-next" aria-labelledby="fedex-evidence-next-title">
+    <div class="dialog-frame">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Evidence on demand</p><h2 id="fedex-evidence-next-title">Recommended action · proposed</h2></div>
+        <button class="icon-button" type="button" data-close-dialog aria-label="Close evidence">Close</button>
+      </header>
+      <div class="dialog-scroll">
+        <section class="related-statement"><p class="section-label">Related statement · Recommended action · proposed</p><p>Use a bounded discovery motion: register or update supplier information if relevant, then route outreach around FedEx’s stated network transformation, digital and AI workflow agenda, developer-portal integration enablement, and cyber/technology governance, while explicitly asking about timing, ownership, eligible scope, procurement path, and whether any opportunity exists.</p></section>
+        <article class="evidence-source">
+      <p class="source-kicker">Related evidence context 1</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Through Network 2.0, we continue to transform our surface network in the U.S. and Canada by modernizing and consolidating our sortation facilities and equipment, reducing pickup-and-delivery routes, and optimizing our enterprise linehaul network by moving beyond discrete collaboration to an end-to-end optimized network. Network 2.0 has been fully implemented in Canada and we expect to complete the U.S. implementation by the end of calendar year 2027.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 2</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>Our digital transformation is underpinned by our digital backbone and artificial intelligence (“AI”) capabilities, enabling intelligent orchestration, standardization, and digitized and AI-enabled workflows that drive faster response, fewer exceptions, and lower our cost to serve. Our digital transformation is focused on efficiency, differentiation, and new value creation.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 3</p>
+      <h3>FedEx Corporation Form 10-K for the fiscal year ended May 31, 2026</h3>
+      <blockquote>In May 2026, we introduced an AI-driven assistant within the FedEx Developer Portal to help developers more efficiently access documentation, receive real-time technical guidance, and accelerate integrations with FedEx digital services.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Corporation, filed with the U.S. Securities and Exchange Commission</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Effective or event date</dt><dd>May 31, 2026</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 21, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Jul 20, 2026</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://www.sec.gov/Archives/edgar/data/1048911/000104891126000105/fdx-20260531.htm</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 4</p>
+      <h3>FedEx Supplier Registration Portal</h3>
+      <blockquote>FedEx employees utilize the FedEx Supplier Registration Portal to identify potential suppliers. If FedEx determines your capabilities can potentially meet our needs, someone may contact you. Please note that many of our contracts are multi-year and therefore, it may be some time before we go out for bid. You may periodically be prompted to update your information or to inform you about changes to the FedEx Supplier Registration Portal.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://suppliers.sourcing.fedex.com/</p>
+    </article><article class="evidence-source">
+      <p class="source-kicker">Related evidence context 5</p>
+      <h3>Cyber and Technology Oversight Committee Charter</h3>
+      <blockquote>- Review major cyber and technology-related projects and technology architecture decisions; - Assess whether the Company&#39;s cyber and technology programs effectively support the Company&#39;s business objectives and strategies; - Assist Board oversight of cyber and technology-related risks and management efforts to monitor and mitigate those risks; - Advise the Company&#39;s senior Data and Technology management team; and - Advise the Board of Directors on cyber and technology-related matters.</blockquote>
+      <dl class="source-meta">
+        <div><dt>Publisher</dt><dd>FedEx Investor Relations</dd></div>
+        <div><dt>Entity</dt><dd>FedEx Corporation Board of Directors</dd></div>
+        <div><dt>Publication date</dt><dd>Not established</dd></div>
+        <div><dt>Effective or event date</dt><dd>Not established</dd></div>
+        <div><dt>Retrieved</dt><dd>Aug 22, 2026</dd></div>
+        <div><dt>Evidence current through</dt><dd>Not established</dd></div>
+        <div><dt>Source class</dt><dd>Official primary source</dd></div>
+        <div><dt>Review state</dt><dd>Admitted support · not human reviewed</dd></div>
+      </dl>
+      <p class="source-url">https://investors.fedex.com/governance/board-of-directors/committee-charters/information-technology-oversight-committee-charter/default.aspx</p>
+    </article>
+        <section class="evidence-boundary" aria-label="Evidence boundary">
+          <div><h3>What this supports</h3><p>The admitted evidence provides context for considering this one safe next move.</p></div>
+          <div><h3>What remains outside it</h3><p>The sources do not request, approve, authorize, schedule, send, or commit this action.</p></div>
+        </section>
+      </div>
+    </div>
+  </dialog></div>
+<section class="review-rubric" aria-labelledby="fedex-rubric-title">
+  <div><p class="eyebrow">Your judgment</p><h2 id="fedex-rubric-title">Review FedEx</h2><p>Evaluate the content independently while retaining the mixed-head limitation: the FedEx proposal was executed at one commit (b44471e) and revalidated byte-for-byte at another (2b8a296), so its package combines material produced from more than one repository snapshot and cannot be treated as a single clean-lineage execution. This closeout preserves that limitation rather than retroactively treating the inputs as same-head; merge did not cure or erase it.</p><p class="lineage">Selected execution: b44471e · byte-for-byte revalidation: 2b8a296 · source artifact SHA-256: 4d3bf46855c83eb44be9c0ab6625583f21b033d3236c6248d9da5043a783e311</p></div>
+  <div>
+<ol class="review-questions">
+  <li><strong>Useful</strong> — Are the thesis and most meaningful change commercially useful?</li>
+  <li><strong>Grounded</strong> — Are consequential claims supported, with uncertainty explicit and no unsupported certainty?</li>
+  <li><strong>Honest</strong> — Are facts, interpretations, unresolved questions, recommendations, omissions, and contradictions represented truthfully?</li>
+  <li><strong>Navigable</strong> — Can you find the answer, its exact support, and the evidence boundary without getting lost?</li>
+  <li><strong>Worth continuing</strong> — Is the proposed next move safe and useful enough to choose <strong>Continue to C3</strong>, <strong>Revise before C3</strong>, or <strong>Reject</strong>?</li>
+</ol>
+<div class="disposition"><strong>How to reply</strong>Send the disposition plus the prompt name and correction for anything that should change.</div>
+</div>
+</section></section>
+<script>
+(() => {
+  let returnFocus = null;
+  document.querySelectorAll('[data-dialog]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-dialog');
+      const dialog = id ? document.getElementById(id) : null;
+      if (!(dialog instanceof HTMLDialogElement)) return;
+      returnFocus = button;
+      dialog.showModal();
+      const close = dialog.querySelector('[data-close-dialog]');
+      if (close instanceof HTMLElement) close.focus();
+    });
+  });
+  document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-close-dialog]').forEach((button) => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('close', () => {
+      const target = returnFocus;
+      returnFocus = null;
+      queueMicrotask(() => {
+        if (target instanceof HTMLElement && target.isConnected) target.focus();
+      });
+    });
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+})();
+</script></body></html>

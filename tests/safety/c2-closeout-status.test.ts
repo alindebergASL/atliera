@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
@@ -30,6 +31,9 @@ test("C2 closeout binds the merged implementation and preserves the closed effec
   assert.equal(status.approvedImplementationTree, "0edcb95aa304e2df608fd39658058ee6b6598a79");
   assert.equal(status.implementationMergeCommit, "a6e723485b7695c4e73c2cf11f1871bd9a8ea22b");
   assert.equal(status.proposalReviewState, "needs_review");
+  assert.equal(status.statusMeaning, "execution completeness only; not content approval");
+  assert.equal(status.ownerDisposition, "pending");
+  assert.equal(status.c3Eligibility, "blocked_pending_continue");
   assert.equal(status.exactSingleHeadProviderToRenderProof, false);
   assert.deepEqual(status.providerAccounting, {
     authorizationSlug: "c2-fresh-retained-two-account-20260829",
@@ -40,6 +44,8 @@ test("C2 closeout binds the merged implementation and preserves the closed effec
     rejectedOutputs: 1,
     correctionCallsExecuted: 0,
     additionalCallsAuthorized: 0,
+    failedReservationsPreProvider: 1,
+    perAccountFooterCountingRule: "selected-output calls only",
   });
   assert.deepEqual(status.effects, {
     databaseWrites: 0,
@@ -70,6 +76,9 @@ test("C2 closeout keeps human review distinct from approval and grants no succes
   assert.match(closeout, /readiness_claim: false/u);
   assert.match(closeout, /separate explicit C3 decision/u);
   assert.match(closeout, /not a single-head two-account provider-to-render proof/iu);
+  assert.match(closeout, /counts authorizations, not executed calls/u);
+  assert.match(closeout, /count selected-output calls only/u);
+  assert.match(closeout, /pending an explicit Continue/u);
 
   const prompts = [...closeout.matchAll(/^\d+\. \*\*(Useful|Grounded|Honest|Navigable|Worth continuing)\*\*/gmu)]
     .map((match) => match[1]);
@@ -104,4 +113,28 @@ test("C2 closeout keeps human review distinct from approval and grants no succes
   assert.equal(markerValue(roadmap, "c2_additional_provider_calls_authorized"), "0");
   assert.match(roadmap, /^\| \*\*C1 — Calm read-only Account Home\*\* \| ✅ shipped \|/mu);
   assert.match(roadmap, /^\| \*\*C2 — Background Intelligence \/ AI Proposal vertical slice\*\* \| ✅ shipped upon closeout merge \|/mu);
+});
+
+test("C2 owner review surface is committed and byte-identical to its pinned hash", async () => {
+  const status = await readJson(join(ROOT, "CURRENT_STATUS.json"));
+  const surface = status.ownerReviewSurface;
+
+  assert.equal(surface.file, "docs/ux/c2-governed-account-intelligence-refresh/c2-owner-content-review.html");
+  const bytes = await readFile(join(REPO, surface.file));
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  assert.equal(digest, surface.sha256);
+  const lineage = surface.surfaceLineage.map((entry: any) => entry.sha256);
+  assert.deepEqual(lineage, [
+    "8803991b95315ddce7e08a4ce79558a8eb1af14e571b1adbf7aa601927355911",
+    "894e02b402ac69b18e2a7ae28177ba00d133813176324e0cac4ad634fdae311a",
+  ]);
+  assert.match(surface.surfaceLineage[0].verification, /externally reported/u);
+
+  const surfaceHtml = bytes.toString("utf8");
+  const prompts = [...surfaceHtml.matchAll(/<li><strong>(Useful|Grounded|Honest|Navigable|Worth continuing)<\/strong>/gu)]
+    .map((match) => match[1]);
+  assert.deepEqual(prompts, [
+    "Useful", "Grounded", "Honest", "Navigable", "Worth continuing",
+    "Useful", "Grounded", "Honest", "Navigable", "Worth continuing",
+  ]);
 });

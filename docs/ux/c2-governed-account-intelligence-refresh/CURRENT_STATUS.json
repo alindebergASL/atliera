@@ -2,12 +2,32 @@
   "kind": "atliera.c2-governed-account-intelligence.current-status",
   "schemaVersion": "1",
   "statusUponCloseoutMerge": "shipped",
+  "statusMeaning": "execution completeness only; not content approval",
+  "ownerDisposition": "pending",
+  "c3Eligibility": "blocked_pending_continue",
   "implementationMerged": true,
   "implementationPullRequest": 315,
   "approvedImplementationHead": "36afe9429fb5ccfca76157cf87f7e8285938bd43",
   "approvedImplementationTree": "0edcb95aa304e2df608fd39658058ee6b6598a79",
   "implementationMergeCommit": "a6e723485b7695c4e73c2cf11f1871bd9a8ea22b",
   "proposalReviewState": "needs_review",
+  "ownerReviewSurface": {
+    "file": "docs/ux/c2-governed-account-intelligence-refresh/c2-owner-content-review.html",
+    "sha256": "ee894a5b8a35f1311aba34f4c8306178a26ebe716235d58927bef279a53a9997",
+    "authority": "derived review surface; the two fresh per-account artifacts remain the authoritative frozen artifacts",
+    "surfaceLineage": [
+      {
+        "sha256": "8803991b95315ddce7e08a4ce79558a8eb1af14e571b1adbf7aa601927355911",
+        "role": "previously reviewed five-prompt packet bound to d93c0f5; artifact PASS reported by independent review",
+        "verification": "externally reported (asl_hermes_code review, 2026-09-04); not present in the repository tree at d93c0f5 and not independently verified in-session"
+      },
+      {
+        "sha256": "894e02b402ac69b18e2a7ae28177ba00d133813176324e0cac4ad634fdae311a",
+        "role": "uncommitted 2026-08-30 six-question draft reviewed by the three isolated readers behind the HOLD decision",
+        "verification": "hash verified in-session against the reviewed file"
+      }
+    ]
+  },
   "providerAccounting": {
     "authorizationSlug": "c2-fresh-retained-two-account-20260829",
     "authorizationBudgetConsumed": 4,
@@ -16,7 +36,9 @@
     "validatedSelectedOutputs": 2,
     "rejectedOutputs": 1,
     "correctionCallsExecuted": 0,
-    "additionalCallsAuthorized": 0
+    "additionalCallsAuthorized": 0,
+    "failedReservationsPreProvider": 1,
+    "perAccountFooterCountingRule": "selected-output calls only"
   },
   "exactSingleHeadProviderToRenderProof": false,
   "exactSingleHeadLimitation": "Utah selected execution and validation occurred at 2b8a296; FedEx selected execution occurred at b44471e and was revalidated byte-for-byte at 2b8a296.",

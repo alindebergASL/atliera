@@ -9,9 +9,9 @@ This closeout changes no model output, evidence receipt, execution lineage, or i
 C2 becomes **shipped upon merge of this closeout PR** because both halves of the roadmap done-pattern exist:
 
 1. **Named visible artifacts:** `docs/ux/c2-governed-account-intelligence-refresh/fresh-university-of-utah.html` and `fresh-fedex.html`.
-2. **Bounded successor surface:** human evaluation of the two `needs_review` proposals, followed only by a separate explicit C3 decision. This closeout authorizes no C3 implementation or effect.
+2. **Bounded successor surface:** human evaluation of the two `needs_review` proposals, followed only by a separate explicit C3 decision. The owner disposition is now recorded as University of Utah **Continue to C3** and FedEx **Revise before C3**; this closeout and that disposition authorize no C3 implementation or effect.
 
-"Shipped" here records execution completeness only, never content approval: C2 execution is complete; the owner content-review disposition is pending; C3 eligibility is blocked pending an explicit Continue. A Revise or Reject disposition is a product result recorded against shipped execution, not a contradiction of it.
+"Shipped" here records execution completeness only, never durable-content approval: C2 execution is complete; the owner disposition is recorded; University of Utah is eligible for a separate explicit C3 implementation decision; FedEx remains blocked pending revision. A Revise or Reject disposition is a product result recorded against shipped execution, not a contradiction of it.
 
 ## What C2 proved
 
@@ -49,9 +49,10 @@ This is not a single-head two-account provider-to-render proof. Utah's selected 
 
 ## What remains unproven
 
-- Human evaluation has not approved either proposal as durable account truth.
+- Human evaluation has dispositioned both proposals but has not approved either as durable account truth: University of Utah received Continue to C3; FedEx received Revise before C3.
 - No proposal has been ratified, persisted, published, shared, or used for a customer action.
 - No default application route or worker invokes the C2 provider boundary.
+- No C3 implementation is authorized; FedEx's revision grants no inferred research, retry, or provider-call authority.
 - C3 meeting preparation, C4 reviewed snapshots, C5 identity, lab deployment, C6 first-user acceptance, and customer readiness remain incomplete.
 - Provider behavior and storage/network effects remain externally variable except for the local receipts recorded by the bounded execution.
 
@@ -69,6 +70,15 @@ Review both accounts on that surface and answer exactly five bounded prompts for
 
 A negative finding is a product result, not authority for another provider call or framework expansion.
 
+## Owner disposition recorded (2026-09-04)
+
+The owner's per-prompt rationale and exact decisions are recorded in `c2-owner-disposition-2026-09-04.md`, bound to the committed review surface SHA-256 `ee894a5b8a35f1311aba34f4c8306178a26ebe716235d58927bef279a53a9997` at reviewed candidate `698202924b3ce751aac4bf37096b36fcfe53c7ea`:
+
+- **University of Utah — Continue to C3.** Eligible for a separate explicit C3 implementation decision, with Redtail/UHAIV elevated in meeting preparation and their undated support treated as recheck-first.
+- **FedEx — Revise before C3.** Re-lead with Dataworks/orchestration and the Network 2.0 deadline, demote supplier-portal registration, and strengthen or narrow the thesis beyond 10-K self-description.
+
+The disposition itself authorizes no C3 implementation, provider call, private-evidence read, persistence, Graph/database write, deployment, publication, send, or customer action. FedEx's Revise disposition grants no inferred retry or new research authority.
+
 ## Authority boundary and next decision
 
 - current_effective_authorization: none
@@ -80,6 +90,6 @@ A negative finding is a product result, not authority for another provider call 
 - authorizes_deployment: false
 - authorizes_publication_or_customer_action: false
 - readiness_claim: false
-- next_recommended_work: owner content review of the two C2 proposals; then a separate explicit C3 decision
+- next_recommended_work: separate explicit C3 implementation decision for University of Utah; bounded FedEx content revision with no inferred research, retry, or provider-call authority
 
 This closeout authorizes no live call, retry, acquisition, durable write, runtime integration, deployment, publication, customer effect, C3 implementation, or readiness claim.

@@ -1,16 +1,29 @@
 {
   "kind": "atliera.c2-governed-account-intelligence.current-status",
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "statusUponCloseoutMerge": "shipped",
   "statusMeaning": "execution completeness only; not content approval",
-  "ownerDisposition": "pending",
-  "c3Eligibility": "blocked_pending_continue",
+  "ownerDisposition": {
+    "state": "recorded_mixed",
+    "recordedAt": "2026-09-04",
+    "record": "docs/reviews/c2-owner-disposition-2026-09-04.md",
+    "recordSha256": "d0002ae609ac066fbcfc305204bdac9dfa0b75cf88892f217be5789766a479b9",
+    "reviewedCandidate": "698202924b3ce751aac4bf37096b36fcfe53c7ea",
+    "reviewedSurfaceSha256": "ee894a5b8a35f1311aba34f4c8306178a26ebe716235d58927bef279a53a9997"
+  },
+  "c3Eligibility": {
+    "universityOfUtah": "eligible_pending_explicit_c3_decision",
+    "fedexCorporation": "blocked_pending_revision"
+  },
   "implementationMerged": true,
   "implementationPullRequest": 315,
   "approvedImplementationHead": "36afe9429fb5ccfca76157cf87f7e8285938bd43",
   "approvedImplementationTree": "0edcb95aa304e2df608fd39658058ee6b6598a79",
   "implementationMergeCommit": "a6e723485b7695c4e73c2cf11f1871bd9a8ea22b",
-  "proposalReviewState": "needs_review",
+  "proposalReviewState": {
+    "universityOfUtah": "owner_reviewed_continue",
+    "fedexCorporation": "owner_reviewed_revise"
+  },
   "ownerReviewSurface": {
     "file": "docs/ux/c2-governed-account-intelligence-refresh/c2-owner-content-review.html",
     "sha256": "ee894a5b8a35f1311aba34f4c8306178a26ebe716235d58927bef279a53a9997",
@@ -51,6 +64,6 @@
     "customerActions": 0
   },
   "currentEffectiveAuthorization": "none",
-  "nextRecommendedWork": "owner content review of both needs_review proposals, followed only by a separate explicit C3 decision",
+  "nextRecommendedWork": "separate explicit C3 implementation decision for University of Utah; bounded FedEx content revision with no inferred research, retry, or provider-call authority",
   "immutableEvidenceStatus": "execution-time artifacts and their manifests retain their recorded hashes and historical pre-merge wording"
 }

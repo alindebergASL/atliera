@@ -20,6 +20,7 @@ const SEPARATE_C2_SCOPES = [
   "docs/architecture/agentic-ai-usage-baseline.md",
   "docs/reviews/c2-governed-account-intelligence-closeout-retro.md",
   "docs/reviews/c2-closeout-hold-decision-2026-09-04.md",
+  "docs/reviews/c2-owner-disposition-2026-09-04.md",
   "docs/strategy/roadmap.md",
   "tests/safety/agentic-ai-usage-baseline-contract.test.ts",
 ] as const;

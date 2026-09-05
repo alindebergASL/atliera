@@ -1,0 +1,114 @@
+# governance-classify — classification + ceremony enforcement for the actual PR.
+#
+# Two SEPARATE required checks, deliberately: `classify` computes the tier and
+# refuses frozen mutation; `ceremony` enforces the evidence that tier requires.
+# A green `classify` never means the ceremony was satisfied.
+#
+# TRUST MODEL — enforcement code from the protected base, data from the PR head.
+# Every script that decides an outcome (the wrapper, the classifier, the ceremony
+# verifier) is taken from the protected base and overlaid onto the candidate
+# workspace before anything runs. Everything the decision is ABOUT — the diff,
+# the tier map, the frozen registries, the declaration, the ceremony evidence —
+# is the candidate's. Without this, a PR editing scripts/classify-change-risk.ts
+# is priced by its own edited classifier (reproduced: an underpricing stub
+# reports Tier 0, and the protected verifier then enforces nothing at Tier 0).
+# That is ordinary honest-author drift, not forgery, and it is live whenever
+# this workflow is armed.
+#
+# Consequence, intended: a PR that legitimately improves the classifier is still
+# judged by the previous, merged classifier. The new one takes effect for the
+# PRs that follow it. Enforcement always lags by exactly one merge, which is
+# what makes it enforcement.
+#
+# Adopting this file is a Tier 3 step by path pricing (a conservative review
+# minimum for a file class that can do anything). Its own effect vector is
+# read-only: `contents: read`, no repository write, no deployment, no
+# third-party outbound. Per the threat model, no re-entry trigger fires.
+name: governance-classify
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      tier: ${{ steps.run.outputs.tier }}
+    steps:
+      # Candidate workspace: the immutable PR HEAD, never GitHub's synthetic
+      # merge commit, with full history so the diff can be computed.
+      - name: Check out candidate (evidence and git history)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: candidate
+      - name: Check out enforcement code from the protected base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: enforcement
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Overlay protected enforcement code onto the candidate workspace
+        run: |
+          set -euo pipefail
+          for f in classify-pr.sh classify-change-risk.ts verify-ceremony.ts; do
+            test -f "enforcement/scripts/$f" || { echo "protected base is missing scripts/$f"; exit 1; }
+            cp "enforcement/scripts/$f" "candidate/scripts/$f"
+          done
+          chmod +x candidate/scripts/classify-pr.sh
+          echo "enforcement bytes in use (from base ${{ github.event.pull_request.base.sha }}):"
+          sha256sum candidate/scripts/classify-pr.sh candidate/scripts/classify-change-risk.ts candidate/scripts/verify-ceremony.ts
+      - name: Fetch pinned base for comparison
+        working-directory: candidate
+        run: git fetch --no-tags origin "+${{ github.event.pull_request.base.sha }}:refs/atliera/base"
+      - name: Classify PR change risk
+        id: run
+        working-directory: candidate
+        run: |
+          set -o pipefail
+          scripts/classify-pr.sh refs/atliera/base | tee ../classification.json
+          echo "tier=$(node -e "process.stdout.write(String(require('../classification.json').prTier))")" >> "$GITHUB_OUTPUT"
+      - name: Annotate PR with computed tier
+        if: always()
+        run: echo "::notice title=Governance tier::computed tier ${{ steps.run.outputs.tier }} for ${{ github.event.pull_request.head.sha }} (classified by protected-base enforcement code)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: classification
+          path: classification.json
+
+  ceremony:
+    needs: classify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate (ceremony evidence)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+      - name: Check out enforcement code from the protected base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: enforcement
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enforce ceremony for the computed tier
+        working-directory: enforcement
+        run: |
+          set -euo pipefail
+          echo "enforcement bytes in use (from base ${{ github.event.pull_request.base.sha }}):"
+          sha256sum scripts/verify-ceremony.ts
+          MANIFEST_ARG=""
+          [ -f ../candidate/ceremony.json ] && MANIFEST_ARG="--manifest ../candidate/ceremony.json"
+          DECL_ARG=""
+          [ -f ../candidate/change-risk.json ] && DECL_ARG="--declaration ../candidate/change-risk.json"
+          node --experimental-strip-types scripts/verify-ceremony.ts \
+            --tier "${{ needs.classify.outputs.tier }}" \
+            --sha "${{ github.event.pull_request.head.sha }}" $MANIFEST_ARG $DECL_ARG

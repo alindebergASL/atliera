@@ -161,7 +161,7 @@ function runCommand(command: string, args: readonly string[], requestPath: strin
       if (!stdoutEnded || closeCode === undefined) return;
       if (processGroupAlive(child.pid)) { requestStop(new Error("operator model command left an owned descendant running")); return; }
       if (closeCode !== 0) { settle(new Error("operator model command failed")); return; }
-      try { settle(undefined, new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, bytes))); }
+      try { settle(undefined, new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Buffer.concat(chunks, bytes))); }
       catch { settle(new Error("model response was not valid UTF-8")); }
     };
     signal.addEventListener("abort", onAbort, { once: true });

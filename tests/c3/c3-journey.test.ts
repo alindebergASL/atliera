@@ -8,6 +8,7 @@ import test from "node:test";
 import { canonicalJson, loadC3AccountContext, type FrozenC3AccountContext } from "../../src/c3/context.ts";
 import { assertReplayIdentity, createC3ModelRequest, createC3RevisionContext, createGenerationRecord, validateC3Candidate } from "../../src/c3/draft.ts";
 import { CommandC3ModelProvider } from "../../src/c3/provider.ts";
+import { renderC3Page } from "../../src/c3/render.ts";
 
 const ROOT = process.cwd();
 const BROAD = resolve(ROOT, "fixtures/account-intelligence/c2-01/broad-account-research-input.json");
@@ -197,6 +198,72 @@ test("whole-field support and no-new-account-fact rules cover questions, intende
   assert.equal(createGenerationRecord(request, JSON.stringify(caveat), context).outcome, "succeeded");
 });
 
+test("bounded non-assumption wording permits only the cautioned commercial mention", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CISO", intendedOutcome: "Learn constraints.", durationMinutes: 15, meetingDate: "2026-09-12" });
+  for (const learning of [
+    "Understand whether legislative timing affects security planning while avoiding assumptions about urgency or available purchasing funds.",
+    "Understand legislative timing without assuming that purchasing funding is available.",
+  ]) {
+    const value = JSON.parse(rawCandidate(context)) as any;
+    value.questions.push({ question: "How should legislative timing enter the plan?", intendedLearning: learning,
+      evidenceRefs: [], supportCategory: "open_question" });
+    assert.equal(createGenerationRecord(request, JSON.stringify(value), context).outcome, "succeeded", learning);
+  }
+  for (const learning of [
+    "Confirm the available purchasing funds.",
+    "Avoid assumptions about urgency or available purchasing funds and confirm the available purchasing funds.",
+    "Avoid assumptions about available purchasing funds; confirm the approved purchase.",
+    "Without assuming available funding, the account suffered a ransomware incident.",
+  ]) {
+    const value = JSON.parse(rawCandidate(context)) as any;
+    value.questions.push({ question: "How should legislative timing enter the plan?", intendedLearning: learning,
+      evidenceRefs: [], supportCategory: "open_question" });
+    const record = createGenerationRecord(request, JSON.stringify(value), context);
+    assert.equal(record.outcome, "refused", learning);
+    assert.match(record.refusal!.message, /unsupported incident, commercial assertion/);
+  }
+});
+
+test("every direct-support-permitted draft slot visibly quotes and attributes exact source text", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CISO", intendedOutcome: "Learn constraints.", durationMinutes: 15, meetingDate: "2026-09-12" });
+  const source = context.context.admittedSources.find((item) => item.excerpts.some((excerpt) => /[“”'’,:;()-]/u.test(excerpt.exactExcerpt)))!;
+  const evidence = source.excerpts.find((excerpt) => /[“”'’,:;()-]/u.test(excerpt.exactExcerpt))!;
+  const value = JSON.parse(rawCandidate(context)) as any;
+  const direct = { text: evidence.exactExcerpt, evidenceRefs: [evidence.evidenceId], supportCategory: "direct_support" };
+  value.audienceThesis = direct;
+  value.opening = direct;
+  value.risksUnknowns = [direct];
+  value.questions[1].evidenceRefs = [evidence.evidenceId];
+  value.selectedEvidenceRefs = [evidence.evidenceId];
+  const record = createGenerationRecord(request, JSON.stringify(value), context);
+  assert.equal(record.outcome, "succeeded");
+  assert.equal(record.draft!.opening.text, evidence.exactExcerpt);
+  const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
+  const escapedExcerpt = evidence.exactExcerpt.replace(/[&<>"']/gu,
+    (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]!);
+  for (const title of ["Audience thesis", "Opening", "Risks & unknowns"]) {
+    const start = html.indexOf(`>${title}<`);
+    assert.notEqual(start, -1, title);
+    const section = html.slice(start, html.indexOf("</section>", start));
+    assert.match(section, new RegExp(`<blockquote[^>]*>${escapedExcerpt.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}</blockquote>`), title);
+    assert.ok(section.includes(source.title), `${title} includes source title`);
+    assert.ok(section.includes(source.publisher), `${title} includes publisher`);
+  }
+  assert.match(html, new RegExp(`aria-label="Opening evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+  assert.match(html, new RegExp(`aria-label="Question 2 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+  assert.match(html, new RegExp(`aria-label="Risk or unknown 1 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
+  assert.match(html, /\.support a,\.warning a\{display:inline-flex;align-items:center;min-height:44px;max-width:100%/);
+
+  const inferred = JSON.parse(rawCandidate(context)) as any;
+  const inferenceRecord = createGenerationRecord(request, JSON.stringify(inferred), context);
+  const inferredHtml = renderC3Page(context, { page: "draft", record: inferenceRecord, correctionNote: "" }, "test-csrf");
+  const inferenceStart = inferredHtml.indexOf(">Audience thesis<");
+  const inferenceSection = inferredHtml.slice(inferenceStart, inferredHtml.indexOf("</section>", inferenceStart));
+  assert.doesNotMatch(inferenceSection, /<blockquote/);
+});
+
 test("initial dated discovery requires selected event-date support, not publication or undated support", async () => {
   const context = await load();
   const undated = context.context.admittedSources.find((source) => source.publicationDate === null && source.eventDate === null)!.excerpts[0]!;
@@ -262,6 +329,21 @@ test("operator provider decodes stdout once as fatal UTF-8 and preserves exact r
   const invalid = new CommandC3ModelProvider({ command: process.execPath,
     args: ["-e", "require('node:fs').writeSync(1,Buffer.from([0xc3,0x28]))"], timeoutMs: 5_000 });
   await assert.rejects(invalid.generate(modelRequest, new AbortController().signal), /not valid UTF-8/);
+
+  const bomWire = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(rawCandidate(context), "utf8")]);
+  const bomProvider = new CommandC3ModelProvider({ command: process.execPath,
+    args: ["-e", `require('node:fs').writeSync(1,Buffer.from('${bomWire.toString("base64")}', 'base64'))`], timeoutMs: 5_000 });
+  const bomRaw = await bomProvider.generate(modelRequest, new AbortController().signal);
+  const offlineRaw = bomWire.toString("utf8");
+  assert.equal(bomRaw, offlineRaw);
+  assert.equal(bomRaw.charCodeAt(0), 0xfeff);
+  const online = createGenerationRecord(modelRequest, bomRaw, context);
+  const offline = createGenerationRecord(modelRequest, offlineRaw, context);
+  assert.equal(online.outcome, "refused");
+  assert.equal(offline.outcome, "refused");
+  assert.deepEqual(online, offline);
+  assert.equal(online.rawResponseSha256, createHash("sha256").update(bomWire).digest("hex"));
+  assert.match(online.refusal!.message, /strict JSON object/);
 });
 
 test("TERM-resistant command and descendant are killed and reaped before the provider accepts later work", async () => {

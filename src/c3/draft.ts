@@ -317,8 +317,11 @@ function isBoundedCommercialNonAssumption(value: string, match: RegExpMatchArray
   const scopedCaution = /(?:\bavoid(?:ing)? assumptions? about\b|\bwithout assuming\b|\bdo not assume\b)(?:(?!\b(?:but|however|yet|while|instead|then|confirm(?:s|ed|ing)?|assert(?:s|ed|ing)?)\b)[\s\S])*$/iu;
   const scopedEvidenceLimit = /\b(?:does not|do not|cannot|can not|no evidence (?:of|that))\s+(?:establish|confirm|show|prove)\b(?:(?!\b(?:but|however|yet|while|instead|then)\b)[\s\S])*$/iu;
   const scopedEvidenceLimitWithinMatch = /\b(?:does not|do not|cannot|can not|no evidence (?:of|that))\s+(?:establish|confirm|show|prove)\b/iu;
-  const listItem = "(?:procurement status|eligible commercial uses|buying intent|decision authority|urgency|vendor preference|(?:available )?(?:purchasing )?(?:budget|funding|funds))";
-  const scopedUnknown = new RegExp(`^(?:(?:,\\s*(?:and\\s+)?|\\s+(?:and|or)\\s+)${listItem})*\\s+(?:is|are|remains|remain)\\s+(?:unknown|not established|unclear|unverified)\\s*$`, "iu");
+  const listItem = "(?:procurement status|eligible (?:commercial|vendor) uses|buying intent|decision authority|urgency|vendor (?:preference|intent)|(?:(?:available|remaining) )?(?:purchasing )?(?:budget|funding|funds))";
+  // A trailing source attribution still qualifies this same unknown predicate;
+  // do not let it absorb a contrasting clause or a new asserted predicate.
+  const sourceAttribution = String.raw`(?:\s+by\s+(?:(?!\b(?:but|however|yet|while|instead|then|which|that|confirm(?:s|ed|ing)?|assert(?:s|ed|ing)?|establish(?:es|ed|ing)?|prove(?:s|d)?|show(?:s|ed|ing)?|says?|states?|is|are|has|have|had|was|were|will|can|may|must|should)\b)[^;.!?]){1,160})?`;
+  const scopedUnknown = new RegExp(`^(?:(?:,\\s*(?:and\\s+)?|\\s+(?:and|or)\\s+)${listItem})*\\s+(?:is|are|remains|remain)\\s+(?:unknown|not established|unclear|unverified)${sourceAttribution}\\s*$`, "iu");
   const internalContrast = /\b(?:but|however|yet|while|instead|then)\b/iu.test(match[0]);
   return !internalContrast && (scopedCaution.test(before) || scopedEvidenceLimit.test(before) ||
     scopedEvidenceLimitWithinMatch.test(match[0]) || scopedUnknown.test(after));

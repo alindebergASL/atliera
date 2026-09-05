@@ -94,6 +94,12 @@ test("commercial non-assumptions belong to their proposition and preserve long e
     ["Understand whether legislative timing affects security planning; do not assume urgency or available purchasing funds.", "succeeded"],
     ["Understand whether the legislative timeline imposes planning constraints while avoiding assumptions about urgency or available purchasing funds.", "succeeded"],
     ["Avoid assumptions about available funds, but confirm the approved budget.", "refused"],
+    ["Available purchasing budget, remaining funds, eligible vendor uses, procurement status, and vendor intent are not established by the Redtail and UHAIV investment statements.", "succeeded"],
+    ["Available purchasing budget is not established by the supplied evidence.", "succeeded"],
+    ["Available purchasing budget is not established by the supplied evidence but the budget is approved.", "refused"],
+    ["Available purchasing budget is not established by the report which confirms the funds are available.", "refused"],
+    ["Available purchasing budget is not established by the source while ownership remains unknown.", "refused"],
+    ["Available purchasing budget is ready while ownership is not established by the supplied evidence.", "refused"],
   ] as const;
   for (const [text, expected] of cases) {
     const candidate = JSON.parse(rawCandidate(context));

@@ -226,8 +226,15 @@ test("proposal validator enforces own properties, real calendar dates, offsets, 
     "https://example.com/trailing%",
     "https://example.com/café",
     "https://example.com/path\n",
+    "https://example.com/x#one#two",
+    "https://example.com/a[b]",
+    "https://example.com/?q=[x]",
+    "https://example.com/#part[1]",
   ]) {
     assert.ok(validateDecisionProposal(validWith({ referenceUri }), schema).some((p) => /URI/iu.test(p)), referenceUri);
+  }
+  for (const referenceUri of ["https://[::1]/x?value=a/b?c#part", "https://example.com/a%5Bb%5D#one%23two", "urn:atliera:proposal:synthetic"]) {
+    assert.deepEqual(validateDecisionProposal(validWith({ referenceUri }), schema), [], referenceUri);
   }
   const offsetBase = { ...valid, proposedAt: "2026-09-05T10:30:00+02:00", referenceUri: "urn:atliera:proposal:synthetic" };
   const offset = { ...offsetBase, proposalDigest: computeProposalDigest(offsetBase) };

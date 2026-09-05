@@ -98,6 +98,15 @@ const isRfc3339DateTime = (value: string): boolean => rfc3339Epoch(value) !== un
 function isAbsoluteUri(value: string): boolean {
   const match = value.match(/^[A-Za-z][A-Za-z0-9+.-]*:(?:[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]|%[0-9A-Fa-f]{2})*$/u);
   if (match?.[0] !== value) return false;
+  // RFC 3986 allows one fragment delimiter and raw brackets only in an
+  // authority's IP literal, not in the path, query, or fragment. WHATWG URL
+  // accepts/normalizes these invalid spellings, so check the original bytes.
+  const fragment = value.indexOf("#");
+  if (fragment !== -1 && value.indexOf("#", fragment + 1) !== -1) return false;
+  const hierarchical = value.slice(value.indexOf(":") + 1);
+  const nonAuthority = hierarchical.startsWith("//")
+    ? hierarchical.replace(/^\/\/[^/?#]*/u, "") : hierarchical;
+  if (/[\[\]]/u.test(nonAuthority)) return false;
   try { new URL(value); return true; } catch { return false; }
 }
 

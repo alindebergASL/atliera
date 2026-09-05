@@ -6,7 +6,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit",
+    "build": "node scripts/build-c3.mjs",
+    "start:c3": "node dist/c3/atliera-c3.js serve",
+    "start:c3:recorded": "node dist/c3/atliera-c3.js serve-recorded",
+    "c3:load-context": "tsx src/c3/cli.ts load-context",
+    "c3:emit-model-request": "tsx src/c3/cli.ts emit-model-request",
+    "c3:render-recorded-draft": "tsx src/c3/cli.ts render-recorded-draft",
     "test": "node --import tsx --test tests/**/*.test.ts",
     "ci": "npm run typecheck && npm run build && npm test && npm run gate:fixture:valid",
     "fixture:valid-json": "tsx -e \"import { makeValidBundle } from './tests/fixtures/valid-graph.ts'; console.log(JSON.stringify(makeValidBundle(), null, 2))\"",
@@ -50,6 +55,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "esbuild": "0.28.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

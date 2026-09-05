@@ -208,17 +208,24 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
     for (const networkImport of networkImports) {
       const allowedInboundServer = path === join(root, "scripts", "fake-mode-workshop-server.ts") &&
         /node:http["']/.test(networkImport);
+      const allowedC3InboundServer = path === join(root, "src", "c3", "service.ts") &&
+        /node:http["']/.test(networkImport);
       const allowedAddressClassifier = [
         join(root, "src", "capability", "public-http-fetch-policy.ts"),
         join(root, "src", "capability", "m4-orchestrator-mcp-client.ts"),
       ].includes(path) && /node:net["']/.test(networkImport);
       const allowedM4Adapter = path === join(root, "src", "capability", "m4-sec-live-adapter.ts") &&
         /node:(?:dns|https|http|net)["']/.test(networkImport);
-      assert.equal(allowedInboundServer || allowedAddressClassifier || allowedM4Adapter, true, `${path}: ${networkImport}`);
+      assert.equal(allowedInboundServer || allowedC3InboundServer || allowedAddressClassifier || allowedM4Adapter, true, `${path}: ${networkImport}`);
     }
     if (path === join(root, "scripts", "fake-mode-workshop-server.ts")) {
       assert.equal(networkImports.length, 1);
       assert.match(source, /^import \{ createServer, type ServerResponse \} from "node:http";$/m);
+    }
+    if (path === join(root, "src", "c3", "service.ts")) {
+      assert.equal(networkImports.length, 1);
+      assert.match(source, /^import \{ createServer, type IncomingMessage, type Server, type ServerResponse \} from "node:http";$/m);
+      assert.match(source, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
     }
     if (path === join(root, "src", "capability", "public-http-fetch-policy.ts")) {
       assert.equal(networkImports.length, 1);
@@ -229,6 +236,15 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
       assert.match(source, /^import \{ isIP \} from "node:net";$/m);
     }
     if (path === join(root, "src", "capability", "m4-sec-live-adapter.ts")) assert.equal(networkImports.length, 4);
-    assert.doesNotMatch(source, /\bfetch\s*\(/);
+    const browserFetchCalls = source.match(/\bfetch\s*\(/g) ?? [];
+    if (path === join(root, "src", "c3", "render.ts")) {
+      assert.equal(browserFetchCalls.length, 1);
+      assert.match(source, /const response = await fetch\(url, \{ method: 'POST'/);
+      const endpoints = [...source.matchAll(/requestJson\('(\/api\/[a-z-]+)'/g)].map((match) => match[1]);
+      assert.deepEqual([...new Set(endpoints)].sort(), ["/api/cancel", "/api/discard-revision", "/api/generate", "/api/note", "/api/revise"]);
+      assert.doesNotMatch(source, /requestJson\((?!'\/api\/(?:cancel|discard-revision|generate|note|revise)')/);
+    } else {
+      assert.equal(browserFetchCalls.length, 0, `${path}: browser/global fetch escaped reviewed C3 same-origin calls`);
+    }
   }
 });

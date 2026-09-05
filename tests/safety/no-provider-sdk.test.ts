@@ -94,26 +94,34 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
     );
   });
 
-  it("confines node http/https network modules to the reviewed exact-target M4 adapter", () => {
+  it("confines outbound node http/https modules while admitting the reviewed C3 inbound loopback server", () => {
     const hits = findOffenders(files, joinFragments(NETWORK_FRAGMENTS));
     assert.deepEqual(
       hits,
       [
+        { file: "src/c3/service.ts", needle: "node:http" },
         { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:http" },
         { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:https" },
       ],
       "network module references escaped the reviewed exact-target adapter: " + JSON.stringify(hits, null, 2),
     );
+    const c3 = readFileSync(join(SRC_ROOT, "c3", "service.ts"), "utf8");
+    assert.match(c3, /^import \{ createServer, type IncomingMessage, type Server, type ServerResponse \} from "node:http";$/m);
+    assert.match(c3, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
+    assert.doesNotMatch(c3, /\b(?:node:https|node:net|node:tls|node:dns|undici)\b/);
   });
 
-  it("does not call global fetch() in default paths", () => {
-    // Allow the *identifier* to appear in comments/docs, but flag the
-    // call form `fetch(`. The CLI uses `readFile` instead.
+  it("confines global fetch() to fixed same-origin C3 browser POST requests", () => {
     const hits = findOffenders(files, ["fetch("]);
     assert.deepEqual(
       hits,
-      [],
+      [{ file: "src/c3/render.ts", needle: "fetch(" }],
       "found fetch() call sites in src/: " + JSON.stringify(hits, null, 2),
     );
+    const renderer = readFileSync(join(SRC_ROOT, "c3", "render.ts"), "utf8");
+    assert.equal((renderer.match(/\bfetch\s*\(/g) ?? []).length, 1);
+    assert.match(renderer, /fetch\(url, \{ method: 'POST'/);
+    const endpoints = [...renderer.matchAll(/requestJson\('(\/api\/[a-z]+)'/g)].map((match) => match[1]);
+    assert.deepEqual([...new Set(endpoints)].sort(), ["/api/cancel", "/api/generate", "/api/note", "/api/revise"]);
   });
 });

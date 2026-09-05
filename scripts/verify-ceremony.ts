@@ -69,7 +69,7 @@ const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.ha
 
 function rfc3339Epoch(value: string): number | undefined {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/u);
-  if (!match) return undefined;
+  if (!match || match[0] !== value) return undefined;
   const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetSign, offsetHourText, offsetMinuteText] = match;
   const year = Number(yearText);
   const month = Number(monthText);
@@ -82,27 +82,23 @@ function rfc3339Epoch(value: string): number | undefined {
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   if (!(month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1]! &&
-    hour <= 23 && minute <= 59 && second <= 60 && offsetHour <= 23 && offsetMinute <= 59)) return undefined;
+    hour <= 23 && minute <= 59 && second <= 59 && offsetHour <= 23 && offsetMinute <= 59)) return undefined;
   const fraction = value.match(/\.(\d+)/u)?.[1] ?? "";
   const millis = Number((fraction + "000").slice(0, 3));
   const instant = new Date(0);
   instant.setUTCFullYear(year, month - 1, day);
-  instant.setUTCHours(hour, minute, Math.min(second, 59), millis);
+  instant.setUTCHours(hour, minute, second, millis);
   const offsetDirection = offsetSign === "-" ? -1 : 1;
   const offsetMillis = offsetDirection * (offsetHour * 60 + offsetMinute) * 60_000;
-  return instant.getTime() - offsetMillis + (second === 60 ? 1_000 : 0);
+  return instant.getTime() - offsetMillis;
 }
 
 const isRfc3339DateTime = (value: string): boolean => rfc3339Epoch(value) !== undefined;
 
 function isAbsoluteUri(value: string): boolean {
-  if (!/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(value)) return false;
-  try {
-    void new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
+  const match = value.match(/^[A-Za-z][A-Za-z0-9+.-]*:(?:[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]|%[0-9A-Fa-f]{2})*$/u);
+  if (match?.[0] !== value) return false;
+  try { new URL(value); return true; } catch { return false; }
 }
 
 function schemaProblems(value: unknown, schema: JsonSchema, path = "decision proposal"): string[] {
@@ -130,7 +126,7 @@ function schemaProblems(value: unknown, schema: JsonSchema, path = "decision pro
     if (schema.minLength !== undefined && value.length < schema.minLength) out.push(`${path} is shorter than ${schema.minLength}`);
     if (schema.pattern && !new RegExp(schema.pattern, "u").test(value)) out.push(`${path} does not match its required pattern`);
     if (schema.format === "uri" && !isAbsoluteUri(value)) out.push(`${path} is not an absolute URI`);
-    if (schema.format === "date-time" && !isRfc3339DateTime(value)) out.push(`${path} is not an RFC3339 date-time`);
+    if (schema.format === "date-time" && !isRfc3339DateTime(value)) out.push(`${path} is not in the supported RFC3339 date-time subset`);
   } else if (schema.type === "number" && typeof value !== "number") out.push(`${path} must be a number`);
   else if (schema.type === "integer" && !Number.isInteger(value)) out.push(`${path} must be an integer`);
   else if (schema.type === "boolean" && typeof value !== "boolean") out.push(`${path} must be a boolean`);
@@ -284,6 +280,10 @@ function reduceReviews(
       problems.push(`external review event ${eventId} has malformed immutable metadata`);
       continue;
     }
+    if (state === "DISMISSED") {
+      problems.push(`external review event ${eventId} dismissal chronology is unavailable from the current review snapshot`);
+      continue;
+    }
     valid.push(raw as ReviewGrant["event"] & { state: string });
   }
 
@@ -296,7 +296,7 @@ function reduceReviews(
     const principal = principals.find((p) => p.id === event.user.id)!;
     const principalGrants = grants.get(principal.id) ?? new Map<string, ReviewGrant>();
     grants.set(principal.id, principalGrants);
-    if (event.state === "CHANGES_REQUESTED" || event.state === "DISMISSED") {
+    if (event.state === "CHANGES_REQUESTED") {
       principalGrants.clear();
       continue;
     }

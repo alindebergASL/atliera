@@ -121,7 +121,7 @@ test("missing, stale, wrong-binding, wrong stable id, and wrong account type fai
   assert.match(verifyCeremony(2, SHA, manifest, effects(), [review(OWNER, build, 1206)], undefined, schema).join("\n"), /identity trust policy/u);
 });
 
-test("later change requests and dismissals revoke grants regardless of input order; resubmission restores them", () => {
+test("later change requests revoke grants regardless of input order; resubmission restores them", () => {
   const build = proposal("build-permission");
   const approved = review(OWNER, build, 1301, "2026-09-05T08:31:00Z");
   const rejected = review(OWNER, build, 1302, "2026-09-05T08:32:00Z", { state: "CHANGES_REQUESTED" });
@@ -130,8 +130,18 @@ test("later change requests and dismissals revoke grants regardless of input ord
   }
   const resubmitted = review(OWNER, build, 1303, "2026-09-05T08:33:00Z");
   assert.deepEqual(verifyCeremony(2, SHA, { buildProposal: build }, effects(), [rejected, resubmitted, approved], trust, schema), []);
-  const dismissed = review(OWNER, build, 1304, "2026-09-05T08:34:00Z", { state: "DISMISSED" });
-  assert.match(verifyCeremony(2, SHA, { buildProposal: build }, effects(), [resubmitted, approved, dismissed], trust, schema).join("\n"), /external owner approval/u);
+  const commented = review(OWNER, build, 1304, "2026-09-05T08:34:00Z", { state: "COMMENTED" });
+  assert.deepEqual(verifyCeremony(2, SHA, { buildProposal: build }, effects(), [commented, resubmitted, approved], trust, schema), []);
+});
+
+test("a dismissed current-review snapshot holds conservatively in both array orders", () => {
+  const build = proposal("build-permission");
+  const oldReviewNowDismissed = review(OWNER, build, 1311, "2026-09-05T08:31:00Z", { state: "DISMISSED" });
+  const newerStillApproved = review(OWNER, build, 1312, "2026-09-05T08:33:00Z");
+  for (const events of [[oldReviewNowDismissed, newerStillApproved], [newerStillApproved, oldReviewNowDismissed]]) {
+    const result = verifyCeremony(2, SHA, { buildProposal: build }, effects(), events, trust, schema).join("\n");
+    assert.match(result, /dismissal chronology is unavailable/u);
+  }
 });
 
 test("a later separate effect approval preserves the earlier build grant; a later rejection clears both", () => {
@@ -175,6 +185,10 @@ test("duplicate event identities and malformed chronology are rejected", () => {
 
 test("proposal validator enforces own properties, real calendar dates, offsets, URIs, and digest", () => {
   const valid = proposal("build-permission");
+  const validWith = (changes: Record<string, unknown>) => {
+    const changed = { ...valid, ...changes };
+    return { ...changed, proposalDigest: computeProposalDigest(changed) };
+  };
   assert.deepEqual(validateDecisionProposal(valid, schema), []);
   for (const field of ["kind", "schemaVersion", "recordId", "state", "proposedBy", "decision", "scope", "purpose", "proposedAt", "proposalDigest"] as const) {
     const missing = { ...valid } as Record<string, unknown>;
@@ -201,6 +215,20 @@ test("proposal validator enforces own properties, real calendar dates, offsets, 
   assert.ok(validateDecisionProposal({ ...valid, recordId: 7 }, schema).some((p) => /string/u.test(p)));
   assert.ok(validateDecisionProposal({ ...valid, proposedAt: "2026-02-30T08:30:00Z" }, schema).some((p) => /date-time/u.test(p)));
   assert.ok(validateDecisionProposal({ ...valid, referenceUri: "not a uri" }, schema).some((p) => /URI/iu.test(p)));
+  for (const proposedAt of ["2026-09-05T09:00:60Z", "2026-09-05T09:00:59Z\n"]) {
+    assert.ok(validateDecisionProposal(validWith({ proposedAt }), schema).some((p) => /date-time/u.test(p)), proposedAt);
+  }
+  for (const referenceUri of [
+    "https://example.com/a b",
+    "https://example.com/bad%escape",
+    "https://[bad]/",
+    "https://example.com:abc/",
+    "https://example.com/trailing%",
+    "https://example.com/café",
+    "https://example.com/path\n",
+  ]) {
+    assert.ok(validateDecisionProposal(validWith({ referenceUri }), schema).some((p) => /URI/iu.test(p)), referenceUri);
+  }
   const offsetBase = { ...valid, proposedAt: "2026-09-05T10:30:00+02:00", referenceUri: "urn:atliera:proposal:synthetic" };
   const offset = { ...offsetBase, proposalDigest: computeProposalDigest(offsetBase) };
   assert.deepEqual(validateDecisionProposal(offset, schema), []);

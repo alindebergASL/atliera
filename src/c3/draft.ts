@@ -262,7 +262,7 @@ function supportedText(value: unknown, path: string, known: Set<string>, allowed
     supportCategory === "direct_support" || supportCategory === "cautious_inference" ? 1 : 0);
   const valueText = text(root.text, `${path}.text`);
   if (supportCategory === "cautious_inference" &&
-      !/\b(?:may|might|could|suggests?|appears?|hypothesis|potential|worth (?:asking|clarifying|exploring)|to explore)\b/iu.test(valueText)) {
+      !/\b(?:may|might|could|suggests?|appears?|hypothesis|potential|tentatively|worth (?:asking|clarifying|exploring)|to explore)\b/iu.test(valueText)) {
     throw new Error(`${path} cautious_inference must be explicitly tentative`);
   }
   if (supportCategory === "unknown" &&

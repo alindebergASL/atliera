@@ -40,6 +40,25 @@ function rawCandidate(context: FrozenC3AccountContext, overrides: Record<string,
   });
 }
 
+test("explicit tentatively wording is cautious without bypassing factual or commercial support", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
+  const evidence = context.context.admittedSources.flatMap((source) => source.excerpts)[0]!.evidenceId;
+  const cases = [
+    ["The sources tentatively point to a useful topic to confirm.", "succeeded", "cautious_inference"],
+    ["The sources point to a useful topic to confirm.", "refused", "cautious_inference"],
+    ["The sources tentatively point to an available purchasing budget.", "refused", "cautious_inference"],
+    ["The sources tentatively point to a useful topic to confirm.", "refused", "direct_support"],
+  ] as const;
+  for (const [text, expected, supportCategory] of cases) {
+    const raw = rawCandidate(context, { opening: { text, evidenceRefs: [evidence], supportCategory } });
+    const record = createGenerationRecord(request, raw, context);
+    assert.equal(record.outcome, expected, `${supportCategory}: ${text}`);
+    assert.equal(record.rawResponse, raw);
+    if (expected === "refused") assert.equal(record.refusal!.code, "invalid_model_candidate");
+  }
+});
+
 test("retained table header is bound into the derived caveat rather than falsely reported missing", async () => {
   const context = await load();
   const annotation = context.context.rendererAnnotations.find((item) => item.kind === "source_context_caveat")!;

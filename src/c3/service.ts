@@ -16,7 +16,9 @@ interface Session {
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
   correctionNote: string;
+  pendingPriorNote: string | null;
   pendingRevision: C3RevisionContext | null;
+  pendingRevisionToken: string | null;
   revisionNumber: number;
   sequence: number;
   active?: { readonly controller: AbortController; readonly sequence: number; readonly settled: Promise<void> };
@@ -42,6 +44,11 @@ export interface C3ServerOptions {
   /** Test seam: create the real HTTP request handler without opening a socket. */
   readonly listen?: boolean;
   readonly expectedHost?: string;
+  /** Validated operator recordings used only to prefill and explain an exact local replay. */
+  readonly recordedReplay?: {
+    readonly initialRequest: C3MeetingRequest;
+    readonly correctionNote: string;
+  };
 }
 
 export interface RunningC3Server {
@@ -83,10 +90,10 @@ function nextMeetingDate(now: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function newSession(now: () => Date): Session {
+function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session {
   return { id: randomBytes(24).toString("base64url"), csrf: randomBytes(24).toString("base64url"),
-    form: { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
-    correctionNote: "", pendingRevision: null, revisionNumber: 0, sequence: 0 };
+    form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
+    correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0 };
 }
 
 function parseRequestTarget(rawTarget: string | undefined, expectedHost: string): URL {
@@ -123,11 +130,28 @@ function count(events: readonly GenerationEvent[], kind: GenerationEventKind): n
   return events.filter((event) => event.kind === kind).length;
 }
 
+function pendingPageState(session: Session): { readonly revisionPending: true; readonly pendingRevisionToken: string } |
+  { readonly revisionPending: false } {
+  if (session.pendingRevision !== null && session.pendingRevisionToken !== null) {
+    return { revisionPending: true, pendingRevisionToken: session.pendingRevisionToken };
+  }
+  return { revisionPending: false };
+}
+
+function submittedPendingRevisionToken(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const token = (value as Record<string, unknown>).pendingRevisionToken;
+  return typeof token === "string" && /^[A-Za-z0-9_-]{32}$/u.test(token) ? token : undefined;
+}
+
 export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
+  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state, csrf,
+    options.recordedReplay === undefined ? undefined : { correctionNote: options.recordedReplay.correctionNote,
+      initialRequest: options.recordedReplay.initialRequest });
   let expectedHost = "";
 
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -144,24 +168,26 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     let session = sessionId === undefined ? undefined : sessions.get(sessionId);
     if (session === undefined && req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
       if (sessions.size >= 64) { json(res, 503, { error: "local session limit reached; restart the prototype to clear session memory" }); return; }
-      session = newSession(now); sessions.set(session.id, session);
+      session = newSession(now, options.recordedReplay?.initialRequest); sessions.set(session.id, session);
       res.setHeader("set-cookie", `${cookieName}=${session.id}; HttpOnly; SameSite=Strict; Path=/`);
     }
     if (session === undefined) { json(res, 401, { error: "session required" }); return; }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
       const hasDraft = session.record?.draft !== undefined;
+      const pending = pendingPageState(session);
       if (url.searchParams.get("draft") === "1") {
         if (!hasDraft) {
-          html(res, 409, renderC3Page(options.context, { page: "prepare", request: session.form,
+          html(res, 409, render({ page: "prepare", request: session.form,
             error: "No session draft is available. Keep or edit these inputs and prepare a new draft." }, session.csrf), C3_SCRIPT_SHA256);
           return;
         }
-        html(res, 200, renderC3Page(options.context, { page: "draft", record: session.record!,
-          correctionNote: session.correctionNote }, session.csrf), C3_SCRIPT_SHA256); return;
+        html(res, 200, render({ page: "draft", record: session.record!,
+          correctionNote: session.correctionNote, ...pending }, session.csrf), C3_SCRIPT_SHA256); return;
       }
       const page = url.searchParams.get("prepare") === "1" ?
-        { page: "prepare" as const, request: session.form, hasDraft } : { page: "home" as const, hasDraft };
-      html(res, 200, renderC3Page(options.context, page, session.csrf), C3_SCRIPT_SHA256); return;
+        { page: "prepare" as const, request: session.form, hasDraft, correctionNote: session.correctionNote, ...pending } :
+        { page: "home" as const, hasDraft, ...pending };
+      html(res, 200, render(page, session.csrf), C3_SCRIPT_SHA256); return;
     }
     if (req.method !== "POST" || !url.pathname.startsWith("/api/")) { json(res, 404, { error: "not found" }); return; }
     if (req.headers.origin !== `http://${expectedHost}` || req.headers["x-c3-csrf"] !== session.csrf ||
@@ -177,16 +203,17 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const active = session.active;
       session.sequence += 1;
       if (active !== undefined) { active.controller.abort(); events.push({ kind: "cancelled", sequence: session.sequence }); await active.settled; }
-      const page = renderC3Page(options.context, { page: "prepare", request: session.form,
+      const page = render({ page: "prepare", request: session.form,
         error: "Local generation stopped and current form text was kept. Remote billed-work status may remain unknown in operator accounting.",
-        hasDraft: session.record?.draft !== undefined }, session.csrf);
+        hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
+        ...pendingPageState(session) }, session.csrf);
       json(res, 200, { html: page,
         location: "/?prepare=1", history: "replace",
         status: "Local generation stopped. Current form text is ready to edit or submit again; remote billed-work status may be unknown." }); return;
     }
     if (url.pathname === "/api/note") {
       const displayedRecordId = submittedRecordId(body);
-      if (displayedRecordId === undefined || session.active !== undefined || session.record?.draft === undefined ||
+      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null || session.record?.draft === undefined ||
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before keeping a note." }); return;
       }
@@ -195,12 +222,28 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         json(res, 400, { error: error instanceof Error ? error.message : "invalid correction note" }); return;
       }
       session.correctionNote = action.note;
-      json(res, 200, { html: renderC3Page(options.context, { page: "draft", record: session.record,
-        correctionNote: action.note }, session.csrf), location: "/?draft=1", history: "replace" }); return;
+      json(res, 200, { html: render({ page: "draft", record: session.record,
+        correctionNote: action.note, revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
+    }
+    if (url.pathname === "/api/discard-revision") {
+      const displayedRecordId = submittedRecordId(body);
+      const pendingRevisionToken = submittedPendingRevisionToken(body);
+      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision === null ||
+          session.record?.draft === undefined || session.record.recordId !== displayedRecordId ||
+          pendingRevisionToken === undefined || pendingRevisionToken !== session.pendingRevisionToken) {
+        json(res, 409, { error: "Pending revision identity is missing or stale. Reopen the current session draft before discarding it." }); return;
+      }
+      session.sequence += 1;
+      session.pendingRevision = null;
+      session.pendingRevisionToken = null;
+      session.correctionNote = session.pendingPriorNote ?? session.correctionNote;
+      session.pendingPriorNote = null;
+      json(res, 200, { html: render({ page: "draft", record: session.record, correctionNote: session.correctionNote,
+        revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname === "/api/revise") {
       const displayedRecordId = submittedRecordId(body);
-      if (displayedRecordId === undefined || session.active !== undefined || session.record?.draft === undefined ||
+      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null || session.record?.draft === undefined ||
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before requesting revision." }); return;
       }
@@ -210,13 +253,17 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       const prior = session.record;
       session.sequence += 1;
-      session.revisionNumber += 1;
+      session.revisionNumber = (prior.revision?.revisionNumber ?? 0) + 1;
+      session.pendingPriorNote = session.correctionNote;
       session.correctionNote = action.note;
       session.pendingRevision = createC3RevisionContext(prior, action.note, session.revisionNumber);
+      const pendingRevisionToken = randomBytes(24).toString("base64url");
+      session.pendingRevisionToken = pendingRevisionToken;
       session.form = prior.meetingRequest;
-      session.record = undefined;
-      json(res, 200, { html: renderC3Page(options.context, { page: "prepare", request: session.form,
-        error: `Revision ${String(session.revisionNumber)} will include the exact session correction and prior raw/draft identity.` }, session.csrf),
+      json(res, 200, { html: render({ page: "prepare", request: session.form,
+        error: `Revision ${String(session.revisionNumber)} will include the exact session correction and prior raw/draft identity.`,
+        correctionNote: session.correctionNote, hasDraft: true, revisionPending: true,
+        pendingRevisionToken }, session.csrf),
         location: "/?prepare=1", history: "replace" }); return;
     }
     if (url.pathname !== "/api/generate") { json(res, 404, { error: "not found" }); return; }
@@ -250,16 +297,20 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       if (generation.outcome === "refused") {
         events.push({ kind: "refused", sequence });
-        const page = renderC3Page(options.context, { page: "prepare", request,
+        const page = render({ page: "prepare", request,
           error: `Candidate refused without repair: ${generation.refusal!.message}`,
-          hasDraft: session.record?.draft !== undefined }, session.csrf);
+          hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
+          ...pendingPageState(session) }, session.csrf);
         json(res, 422, { html: page, location: "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
       session.record = generation;
       session.correctionNote = revision?.correctionNote ?? "";
       session.pendingRevision = null;
+      session.pendingRevisionToken = null;
+      session.pendingPriorNote = null;
       events.push({ kind: "succeeded", sequence });
-      json(res, 200, { html: renderC3Page(options.context, { page: "draft", record: generation, correctionNote: session.correctionNote }, session.csrf),
+      json(res, 200, { html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,
+        revisionPending: false }, session.csrf),
         location: "/?draft=1", history: "push" });
     } catch (error) {
       if (session.sequence !== sequence || controller.signal.aborted) {
@@ -268,8 +319,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       events.push({ kind: "failed", sequence });
       const message = error instanceof Error ? error.message : "generation failed";
-      json(res, 502, { html: renderC3Page(options.context, { page: "prepare", request, error: message,
-        hasDraft: session.record?.draft !== undefined }, session.csrf), location: "/?prepare=1", history: "replace", error: message });
+      json(res, 502, { html: render({ page: "prepare", request, error: message,
+        hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
+        ...pendingPageState(session) }, session.csrf),
+        location: "/?prepare=1", history: "replace", error: message });
     } finally {
       res.off("close", onResponseClose);
       if (session.active?.sequence === sequence) session.active = undefined;

@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build-c3.mjs",
     "start:c3": "node dist/c3/atliera-c3.js serve",
+    "start:c3:recorded": "node dist/c3/atliera-c3.js serve-recorded",
     "c3:load-context": "tsx src/c3/cli.ts load-context",
     "c3:emit-model-request": "tsx src/c3/cli.ts emit-model-request",
     "c3:render-recorded-draft": "tsx src/c3/cli.ts render-recorded-draft",

@@ -240,9 +240,9 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
     if (path === join(root, "src", "c3", "render.ts")) {
       assert.equal(browserFetchCalls.length, 1);
       assert.match(source, /const response = await fetch\(url, \{ method: 'POST'/);
-      const endpoints = [...source.matchAll(/requestJson\('(\/api\/[a-z]+)'/g)].map((match) => match[1]);
-      assert.deepEqual([...new Set(endpoints)].sort(), ["/api/cancel", "/api/generate", "/api/note", "/api/revise"]);
-      assert.doesNotMatch(source, /requestJson\((?!'\/api\/(?:cancel|generate|note|revise)')/);
+      const endpoints = [...source.matchAll(/requestJson\('(\/api\/[a-z-]+)'/g)].map((match) => match[1]);
+      assert.deepEqual([...new Set(endpoints)].sort(), ["/api/cancel", "/api/discard-revision", "/api/generate", "/api/note", "/api/revise"]);
+      assert.doesNotMatch(source, /requestJson\((?!'\/api\/(?:cancel|discard-revision|generate|note|revise)')/);
     } else {
       assert.equal(browserFetchCalls.length, 0, `${path}: browser/global fetch escaped reviewed C3 same-origin calls`);
     }

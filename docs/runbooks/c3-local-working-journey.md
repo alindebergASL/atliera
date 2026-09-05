@@ -12,7 +12,46 @@ npm run start:c3
 
 The service binds only to `127.0.0.1` (default `http://127.0.0.1:4317`). `/` always owns Account Home, `/?prepare=1` owns the preserved preparation form, and `/?draft=1` owns the current session draft. A successful generation updates browser history to the draft URL before replacing the rendered document, so reload returns to that draft; Account Home and Prepare expose an explicit reopen link while one exists. Back/Forward between those routes reloads the URL-owned view, while native navigation to and through `#evidence-*` fragments remains in the current document so an unsaved correction note is not discarded. Submitted form state and drafts remain in server memory only while the same cookie and server process survive. The HttpOnly, SameSite Strict, path-root session cookie has a deterministic name derived from the bound port so two local C3 services on `127.0.0.1` do not overwrite each other's cookie; this browser-state namespace is not security isolation. Prepare also keeps the latest unsubmitted form fields in a per-tab browser cache scoped to the account and live server-session identity, so an offline error or cancellation can recover later edits on reload in that tab. Accepted generation and revision clear that cache. A new server session cannot use the prior entry, and stale session entries are removed when storage is available. The page explicitly reports whether this browser permits the cache; when storage is unavailable, it warns that unsubmitted edits cannot be promised across reload. No generated output, correction note, review state, or approval is stored there. A server restart loses the session and the draft URL returns a clear no-draft message with the preserved/default form rather than implying durable storage. With no operator provider configured, Account Home and Prepare work and generation fails truthfully as disabled.
 
-To configure generation, set `C3_MODEL_COMMAND` to one executable path before launch:
+### Serve an exact recorded owner-review journey
+
+For a private review that must make no new provider call, package two already-completed, operator-owned recordings in this exact layout. Copy the original request JSON and raw response bytes; do not regenerate, normalize, or edit either file.
+
+```text
+/absolute/operator-owned/c3-recorded/
+├── prior/
+│   ├── model-request.json
+│   └── raw-response.txt
+└── revision/
+    ├── model-request.json
+    └── raw-response.txt
+```
+
+One safe packaging pattern is:
+
+```sh
+install -d -m 700 /absolute/operator-owned/c3-recorded/prior /absolute/operator-owned/c3-recorded/revision
+install -m 600 /absolute/prior-run/model-request.json /absolute/operator-owned/c3-recorded/prior/model-request.json
+install -m 600 /absolute/prior-run/raw-response.txt /absolute/operator-owned/c3-recorded/prior/raw-response.txt
+install -m 600 /absolute/revision-run/model-request.json /absolute/operator-owned/c3-recorded/revision/model-request.json
+install -m 600 /absolute/revision-run/raw-response.txt /absolute/operator-owned/c3-recorded/revision/raw-response.txt
+```
+
+Build, then start the explicit recorded entrypoint:
+
+```sh
+npm run build
+C3_PORT=4317 npm run start:c3:recorded -- /absolute/operator-owned/c3-recorded
+```
+
+`serve-recorded` reads and validates all four files before it binds to loopback. It recreates both full model requests from the current admitted context, validates both raw candidates without repair, and recreates the revision from the supplied prior generation record plus the exact recorded correction. The revision must retain the prior raw response, validated draft, response hashes, request identity, and record ID exactly. A corrupt response, edited prompt/request, mismatched account, or incorrectly linked revision stops startup. Both candidates must validate successfully; this entrypoint does not bind a refusal-only preview.
+
+The recorded provider is named `recorded-replay`. It is an in-process exact-request map with no subprocess, network, repair, synthetic output, or arbitrary-input fallback. `C3_MODEL_COMMAND` is intentionally ignored by this entrypoint and cannot become its fallback. An edited audience, outcome, date, duration, correction, or prior identity receives a clear refusal and makes no live call. `/healthz` reports `recorded-replay` so the active boundary is inspectable.
+
+Recorded mode prefills the exact initial audience, outcome, date, and duration from `prior/model-request.json`; the date never drifts with launch time. Home, Prepare, and Draft all say **Private candidate preview · Recorded responses · No live generation**, and distinguish any local replay wait from live timing. On the initial draft, “Exact correction available for the recorded revision” discloses copyable operator-recorded correction text. “Use exact recorded correction” deliberately copies those exact bytes into the textarea; it never runs automatically or silently replaces user text. “Request revised draft” still uses the real `/api/revise` path and returns to Prepare before the revision can be replayed. Arbitrary notes remain session notes, but only the exact recorded correction and prior draft identity match the recorded revision. No additional recorded response exists after that revision.
+
+Trust limits: this is an unmerged, proposed, session-only candidate with no approval or durability. The recording directory is operator-controlled input, not an authority record or a substitute for source review. Validation proves exact reconstruction against the current context and existing deterministic validators; it does not prove who created the prior bytes, fresh model behavior, current source truth, representative seller acceptance, or live-provider timing. Loopback binding is not remote-access authentication; use only the separately approved private access route. Restarting loses all sessions and owner-entered notes.
+
+To configure live generation, set `C3_MODEL_COMMAND` to one executable path before launch:
 
 ```sh
 C3_MODEL_COMMAND=/absolute/path/to/controller-owned-wrapper npm run start:c3
@@ -60,7 +99,7 @@ The deterministic support contract distinguishes whole-field verbatim source fac
 ## Focused verification
 
 ```sh
-node --import tsx --test tests/c3/c3-journey.test.ts tests/c3/c3-service.test.ts tests/c3/c3-form-recovery.test.ts
+node --import tsx --test tests/c3/c3-cli.test.ts tests/c3/c3-journey.test.ts tests/c3/c3-service.test.ts tests/c3/c3-form-recovery.test.ts
 npm run typecheck
 npm run build
 ```

@@ -7,9 +7,9 @@ import vm from "node:vm";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { loadC3AccountContext, type FrozenC3AccountContext } from "../../src/c3/context.ts";
-import type { C3ModelRequest } from "../../src/c3/draft.ts";
-import { DisabledC3ModelProvider, type C3ModelProvider } from "../../src/c3/provider.ts";
-import { C3_CLIENT_SCRIPT } from "../../src/c3/render.ts";
+import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, type C3ModelRequest } from "../../src/c3/draft.ts";
+import { DisabledC3ModelProvider, RecordedReplayC3ModelProvider, type C3ModelProvider } from "../../src/c3/provider.ts";
+import { C3_CLIENT_SCRIPT, renderC3Page } from "../../src/c3/render.ts";
 import { startC3Server, type RunningC3Server } from "../../src/c3/service.ts";
 
 const ROOT = process.cwd();
@@ -88,6 +88,12 @@ async function browserSession(running: RunningC3Server) {
   return { cookie, csrf, page: response.text, post };
 }
 
+function pendingRevisionToken(html: string): string {
+  const token = html.match(/data-pending-revision-token="([A-Za-z0-9_-]{32})"/)?.[1];
+  assert.ok(token);
+  return token;
+}
+
 const meetingRequest = { audience: "CISO", intendedOutcome: "Understand priorities and agree a next step.", durationMinutes: 15, meetingDate: "2026-09-12" };
 
 async function harness(provider: C3ModelProvider, now?: () => Date) {
@@ -108,6 +114,7 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
       "primary preparation action precedes the longer orientation rationale on narrow screens");
     assert.match(browser.page, /@media\(max-width:700px\)/);
     assert.match(browser.page, /server restart loses it/);
+    assert.doesNotMatch(browser.page, /Private candidate preview|Recorded responses|No live generation/);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /value="2026-09-12"/);
     assert.match(prepare.text, /Preparing a proposed draft/);
@@ -119,6 +126,168 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
     assert.equal(running.status().generationFailed, 1);
     assert.equal(running.status().customerAvailability, "local_prototype_only");
   } finally { await running.close(); }
+});
+
+test("recorded mode prefills exact request, labels every page, preserves notes, and replays unchanged prior and revision IDs", async () => {
+  const ctx = await context();
+  const initialRequest = { audience: "CIO and engineering leaders", intendedOutcome: "Understand priorities and agree a useful next step",
+    durationMinutes: 15 as const, meetingDate: "2026-09-12" };
+  const correctionNote = "Recorded correction: keep the exact prior identity and allow no follow-up.";
+  const priorRequest = createC3ModelRequest(ctx, initialRequest);
+  const priorRaw = candidate(ctx);
+  const priorRecord = createGenerationRecord(priorRequest, priorRaw, ctx);
+  assert.equal(priorRecord.outcome, "succeeded");
+  const revisionContext = createC3RevisionContext(priorRecord, correctionNote, 1);
+  const revisionRequest = createC3ModelRequest(ctx, initialRequest, revisionContext);
+  const revisionRaw = candidate(ctx);
+  const revisionRecord = createGenerationRecord(revisionRequest, revisionRaw, ctx);
+  assert.equal(revisionRecord.outcome, "succeeded");
+  const provider = new RecordedReplayC3ModelProvider([
+    { request: priorRequest, rawResponse: priorRaw }, { request: revisionRequest, rawResponse: revisionRaw },
+  ]);
+  const running = await startC3Server({ context: ctx, provider, listen: false, expectedHost: HOST,
+    now: () => new Date("2031-01-01T00:00:00.000Z"), recordedReplay: { initialRequest, correctionNote } });
+  try {
+    const browser = await browserSession(running);
+    assert.match(browser.page, /Private candidate preview · Recorded responses · No live generation/);
+    assert.match(browser.page, /Unmerged and proposed.*Session-only; no approval or durable save/);
+    assert.match(browser.page, />Open exact recorded replay</);
+    const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
+    assert.match(prepare.text, /Private candidate preview · Recorded responses · No live generation/);
+    assert.match(prepare.text, /value="CIO and engineering leaders"/);
+    assert.match(prepare.text, /Understand priorities and agree a useful next step/);
+    assert.match(prepare.text, /value="15" selected/);
+    assert.match(prepare.text, /value="2026-09-12"/);
+    assert.doesNotMatch(prepare.text, /2031-01-08/);
+    assert.match(prepare.text, />Replay exact recorded response</);
+    assert.match(prepare.text, /data-use-recorded-request[^>]* hidden>Use recorded request/);
+    assert.match(prepare.text, /not live model timing|not live provider timing/);
+
+    const generated = await browser.post("/api/generate", initialRequest);
+    assert.equal(generated.status, 200);
+    const priorHtml = (JSON.parse(generated.text) as { html: string }).html;
+    assert.match(priorHtml, /Private candidate preview · Recorded responses · No live generation/);
+    assert.match(priorHtml, new RegExp(`data-record-id="${priorRecord.recordId}"`));
+    assert.match(priorHtml, /Exact correction available for the recorded revision/);
+    assert.match(priorHtml, /data-use-recorded-note>Use exact recorded correction/);
+    assert.match(priorHtml, /Recorded correction: keep the exact prior identity and allow no follow-up\./);
+    assert.equal(priorHtml.match(/Recorded initial — before correction\./gu)?.length, 1);
+    assert.ok(priorHtml.indexOf("Recorded initial — before correction.") < priorHtml.indexOf('class="draft-grid"'));
+    assert.match(C3_CLIENT_SCRIPT, /Exact recorded correction copied into the textarea/);
+
+    const arbitrary = "Arbitrary owner note stays a note and has no matching recorded result.";
+    const kept = await browser.post("/api/note", { note: arbitrary, recordId: priorRecord.recordId });
+    assert.equal(kept.status, 200);
+    assert.match((JSON.parse(kept.text) as { html: string }).html, new RegExp(arbitrary));
+    const revised = await browser.post("/api/revise", { note: correctionNote, recordId: priorRecord.recordId });
+    assert.equal(revised.status, 200);
+    const revisionPrepare = (JSON.parse(revised.text) as { html: string }).html;
+    assert.match(revisionPrepare, /Revision 1 will include the exact session correction and prior raw\/draft identity/);
+    assert.match(revisionPrepare, />Replay exact recorded response</);
+    const regenerated = await browser.post("/api/generate", initialRequest);
+    assert.equal(regenerated.status, 200);
+    const revisionHtml = (JSON.parse(regenerated.text) as { html: string }).html;
+    assert.match(revisionHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
+    assert.match(revisionHtml, /Recorded revision.*No further recorded response exists/);
+    assert.equal(running.status().provider, "recorded-replay");
+    assert.equal(running.status().generationSucceeded, 2);
+
+    const editedBrowser = await browserSession(running);
+    const edited = await editedBrowser.post("/api/generate", { ...initialRequest, audience: "CISO" });
+    assert.equal(edited.status, 502);
+    const failure = JSON.parse(edited.text) as { error: string; html: string };
+    assert.match(failure.error, /Recorded replay refused: no response matches this exact request/);
+    assert.match(failure.error, /no live generation was attempted/);
+    assert.match(failure.html, /value="CISO"/);
+    assert.match(failure.html, /data-use-recorded-request[^>]*>Use recorded request/);
+    assert.doesNotMatch(failure.html, /data-use-recorded-request[^>]* hidden/);
+    assert.equal(running.status().generationFailed, 1);
+
+    const arbitraryBrowser = await browserSession(running);
+    const arbitraryInitial = await arbitraryBrowser.post("/api/generate", initialRequest);
+    const arbitraryId = (JSON.parse(arbitraryInitial.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+    assert.equal(arbitraryId, priorRecord.recordId);
+    const unmatchedNote = "Keep this arbitrary owner note exactly; do not substitute the recorded correction.";
+    const unmatchedRevision = await arbitraryBrowser.post("/api/revise", { note: unmatchedNote, recordId: arbitraryId });
+    const unmatchedPrepare = (JSON.parse(unmatchedRevision.text) as { html: string }).html;
+    assert.match(unmatchedPrepare, /Revision pending — previous draft preserved/);
+    assert.match(unmatchedPrepare, new RegExp(unmatchedNote));
+    const unmatchedReplay = await arbitraryBrowser.post("/api/generate", initialRequest);
+    assert.equal(unmatchedReplay.status, 502);
+    assert.match((JSON.parse(unmatchedReplay.text) as { html: string }).html, new RegExp(unmatchedNote));
+
+    const retryBrowser = await browserSession(running);
+    const retryInitial = await retryBrowser.post("/api/generate", initialRequest);
+    const retryInitialId = (JSON.parse(retryInitial.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+    assert.equal(retryInitialId, priorRecord.recordId);
+    assert.equal((await retryBrowser.post("/api/revise", { note: "Discard this unmatched preparation", recordId: retryInitialId })).status, 200);
+    const pendingA = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: retryBrowser.cookie });
+    const tokenA = pendingRevisionToken(pendingA.text);
+    assert.equal((await retryBrowser.post("/api/discard-revision", { recordId: retryInitialId, pendingRevisionToken: tokenA })).status, 200);
+    const exactRetry = await retryBrowser.post("/api/revise", { note: correctionNote, recordId: retryInitialId });
+    assert.match((JSON.parse(exactRetry.text) as { html: string }).html, /Revision 1 will include/);
+    const pendingB = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: retryBrowser.cookie });
+    const tokenB = pendingRevisionToken(pendingB.text);
+    assert.notEqual(tokenB, tokenA);
+    assert.equal((await retryBrowser.post("/api/discard-revision", { recordId: retryInitialId, pendingRevisionToken: tokenA })).status, 409);
+    const retainedB = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: retryBrowser.cookie });
+    assert.equal(pendingRevisionToken(retainedB.text), tokenB);
+    assert.equal((await retryBrowser.post("/api/discard-revision", { recordId: retryInitialId, pendingRevisionToken: tokenB })).status, 200);
+    assert.equal((await retryBrowser.post("/api/revise", { note: correctionNote, recordId: retryInitialId })).status, 200);
+    const retriedRevision = await retryBrowser.post("/api/generate", initialRequest);
+    assert.equal(retriedRevision.status, 200);
+    const retriedHtml = (JSON.parse(retriedRevision.text) as { html: string }).html;
+    assert.match(retriedHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
+    const nextRevision = await retryBrowser.post("/api/revise", { note: "Next successful lineage", recordId: revisionRecord.recordId });
+    assert.equal(nextRevision.status, 200);
+    assert.match((JSON.parse(nextRevision.text) as { html: string }).html, /Revision 2 will include/);
+  } finally { await running.close(); }
+});
+
+test("selected hiring evidence shows only its admitted preceding same-source Responsible AI heading", async () => {
+  const ctx = await context();
+  const base = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), candidate(ctx), ctx);
+  assert.equal(base.outcome, "succeeded");
+  const selectedId = "evidence_2e20762caf4b11701059";
+  const record = { ...base, draft: { ...base.draft!, selectedEvidenceRefs: [selectedId] } };
+  const rendered = renderC3Page(ctx, { page: "draft", record, correctionNote: "" }, "csrf");
+  const selectedExcerpt = ctx.context.admittedSources.flatMap((source) => source.excerpts)
+    .find((excerpt) => excerpt.evidenceId === selectedId)!.exactExcerpt;
+  assert.match(rendered, /Source section:<\/strong> Responsible AI/);
+  assert.match(rendered, /Heading evidence evidence_c0bc6cf74d035bc8e08a/);
+  assert.ok(rendered.includes(`<blockquote>${selectedExcerpt}</blockquote>`), "the admitted selected excerpt remains untouched");
+  assert.ok(rendered.indexOf("Source section:") < rendered.indexOf("Faculty hiring runs ~12 months"));
+
+  for (const mutation of ["missing", "later", "different-source"] as const) {
+    const changed = structuredClone(ctx) as unknown as { context: FrozenC3AccountContext["context"] };
+    const source = changed.context.admittedSources.find((item) => item.excerpts.some((excerpt) => excerpt.evidenceId === selectedId))!;
+    const headingIndex = source.excerpts.findIndex((excerpt) => excerpt.evidenceId === "evidence_c0bc6cf74d035bc8e08a");
+    const heading = source.excerpts[headingIndex]!;
+    if (mutation === "missing") (source.excerpts as unknown as Array<typeof heading>).splice(headingIndex, 1);
+    else (source.excerpts as unknown as Array<typeof heading>)[headingIndex] = { ...heading,
+      ...(mutation === "later" ? { sourceCharStart: 999 } : { sourceId: "source_different" }) };
+    const negative = renderC3Page(changed as FrozenC3AccountContext, { page: "draft", record, correctionNote: "" }, "csrf");
+    assert.doesNotMatch(negative, /Source section:<\/strong> Responsible AI/, mutation);
+  }
+});
+
+test("draft hierarchy preserves generated question text and separates only a literal optional probe", async () => {
+  const ctx = await context();
+  const base = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), candidate(ctx), ctx);
+  assert.equal(base.outcome, "succeeded");
+  const exactQuestion = "Which outcome matters, without changing these exact words?";
+  const exactPrefix = "Establish the selected outcome’s current owner or binding constraint while keeping initiative, university, health-enterprise, and statewide boundaries distinct. ";
+  const exactSuffix = "Optional probe: If Responsible AI talent capacity is relevant to the selected outcome, ask whether the June 11, 2026 Year Two report’s adaptation to one-time AI teaching and productivity tools while faculty hiring ran about 12 months is a pattern that matters now.";
+  const exactLearning = exactPrefix + exactSuffix;
+  const record = { ...base, draft: { ...base.draft!, questions: base.draft!.questions.map((question, index) => index === 0
+    ? { ...question, question: exactQuestion, intendedLearning: exactLearning } : question) } };
+  const rendered = renderC3Page(ctx, { page: "draft", record, correctionNote: "" }, "csrf");
+  assert.match(rendered, /<span class="question-kind">Must ask<\/span>/);
+  assert.ok(rendered.includes(`<strong>${exactQuestion}</strong>`));
+  assert.ok(rendered.includes(`Learn: ${exactPrefix}</p>`));
+  assert.ok(rendered.includes(`<p>${exactSuffix}</p>`));
+  assert.equal(rendered.match(/Optional probe — only if relevant/gu)?.length, 1);
+  assert.match(rendered, /<details class="technical-detail"><summary>Evidence basis<\/summary>/);
 });
 
 test("successful generation is proposed, source-derived, evidence-linked, and retained across reload", async () => {
@@ -313,10 +482,19 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     const revisionPayload = JSON.parse(revision.text) as { html: string; location: string; history: string };
     assert.match(revisionPayload.html, /Revision 1 will include/);
     assert.deepEqual({ location: revisionPayload.location, history: revisionPayload.history }, { location: "/?prepare=1", history: "replace" });
-    const discardedDraft = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
-    assert.equal(discardedDraft.status, 409);
-    assert.match(discardedDraft.text, /No session draft is available/);
-    assert.match(discardedDraft.text, /value="CISO"/);
+    const preservedDraft = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+    assert.equal(preservedDraft.status, 200);
+    assert.match(preservedDraft.text, new RegExp(`data-record-id="${recordId}"`));
+    assert.match(preservedDraft.text, /Revision pending.*preserved previous draft/s);
+    assert.match(preservedDraft.text, /\.review \.warning\{color:var\(--ink\)\}/,
+      "pending warning explicitly overrides the review panel's white foreground");
+    assert.match(preservedDraft.text, /Discard pending revision and return to previous draft/);
+    assert.match(preservedDraft.text, /<textarea[^>]* disabled>/);
+    assert.match(preservedDraft.text, /<button type="submit" disabled>Keep note for this session<\/button>/);
+    assert.match(preservedDraft.text, /data-revise disabled>Request revised draft<\/button>/);
+    assert.doesNotMatch(preservedDraft.text, /data-discard-revision[^>]* disabled/);
+    assert.equal((await browser.post("/api/note", { note: "stale note", recordId })).status, 409);
+    assert.equal((await browser.post("/api/revise", { note: "second pending revision", recordId })).status, 409);
     assert.equal((await browser.post("/api/generate", meetingRequest)).status, 200);
     assert.equal(captured.length, 2);
     assert.equal(captured[0]!.revision, null);
@@ -328,6 +506,64 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     assert.equal(captured[1]!.contextSha256, captured[0]!.contextSha256);
     assert.equal(captured[1]!.revision?.changesAccountTruth, false);
     assert.equal(captured[1]!.revision?.impliesApprovalOrPersistence, false);
+  } finally { await running.close(); }
+});
+
+test("failed or refused revision preserves the prior record until explicit record-bound discard", async () => {
+  const ctx = await context();
+  for (const outcome of ["failed", "refused"] as const) {
+    let calls = 0;
+    const running = await harness({ name: `revision-${outcome}`, generate: async () => {
+      calls += 1;
+      if (calls === 1) return candidate(ctx);
+      if (outcome === "failed") throw new Error("provider failed deterministically");
+      return "not json";
+    } });
+    try {
+      const browser = await browserSession(running);
+      const initial = await browser.post("/api/generate", meetingRequest);
+      const recordId = (JSON.parse(initial.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+      assert.ok(recordId);
+      assert.equal((await browser.post("/api/revise", { note: `Exact ${outcome} correction`, recordId })).status, 200);
+      const replacement = await browser.post("/api/generate", meetingRequest);
+      assert.equal(replacement.status, outcome === "failed" ? 502 : 422);
+      const preserved = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+      assert.equal(preserved.status, 200);
+      assert.match(preserved.text, new RegExp(`data-record-id="${recordId}"`));
+      assert.match(preserved.text, /Revision pending/);
+      const token = pendingRevisionToken(preserved.text);
+      assert.equal((await browser.post("/api/discard-revision", { recordId: "c3_000000000000000000000000", pendingRevisionToken: token })).status, 409);
+      assert.equal((await browser.post("/api/discard-revision", { recordId })).status, 409);
+      const discarded = await browser.post("/api/discard-revision", { recordId, pendingRevisionToken: token });
+      assert.equal(discarded.status, 200);
+      assert.doesNotMatch((JSON.parse(discarded.text) as { html: string }).html, /Revision pending/);
+      assert.equal((await browser.post("/api/note", { note: "Previous draft usable again", recordId })).status, 200);
+    } finally { await running.close(); }
+  }
+});
+
+test("cancelling a pending revision stops generation without discarding the revision or prior record", async () => {
+  const ctx = await context();
+  let calls = 0;
+  const running = await harness({ name: "cancel-revision", generate: async (_request, signal) => {
+    calls += 1;
+    if (calls === 1) return candidate(ctx);
+    return new Promise<string>((resolve) => signal.addEventListener("abort", () => resolve("{}"), { once: true }));
+  } });
+  try {
+    const browser = await browserSession(running);
+    const initial = await browser.post("/api/generate", meetingRequest);
+    const recordId = (JSON.parse(initial.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+    assert.ok(recordId);
+    assert.equal((await browser.post("/api/revise", { note: "Cancelled exact correction", recordId })).status, 200);
+    const pending = browser.post("/api/generate", meetingRequest);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal((await browser.post("/api/cancel", meetingRequest)).status, 200);
+    assert.equal((await pending).status, 409);
+    const preserved = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+    assert.equal(preserved.status, 200);
+    assert.match(preserved.text, new RegExp(`data-record-id="${recordId}"`));
+    assert.match(preserved.text, /Revision pending/);
   } finally { await running.close(); }
 });
 
@@ -406,20 +642,31 @@ test("a displayed old draft cannot abort a newer generation in another tab", asy
   } finally { await running.close(); }
 });
 
-test("client history ignores same-route evidence fragments, preserves unsaved notes, and reloads real routes once", () => {
-  const listeners = new Map<string, Array<() => void>>();
+test("client history ignores evidence fragments and requires an explicit decision before dirty-note route loss", () => {
+  const listeners = new Map<string, Array<(event?: { preventDefault(): void; returnValue?: string }) => void>>();
   let reloads = 0;
-  const note = { value: "Unsaved correction remains in the textarea" };
+  let confirms = 0;
+  let approve = false;
+  const pushed: string[] = [];
+  const noteListeners = new Map<string, Array<() => void>>();
+  const note = { value: "Unsaved correction remains in the textarea",
+    addEventListener(name: string, listener: () => void) { noteListeners.set(name, [...(noteListeners.get(name) ?? []), listener]); },
+    dispatch(name: string) { for (const listener of noteListeners.get(name) ?? []) listener(); } };
   const location = { pathname: "/", search: "?draft=1", hash: "", reload() { reloads += 1; } };
   const window: Record<string, unknown> = { addEventListener(name: string, listener: () => void) {
     listeners.set(name, [...(listeners.get(name) ?? []), listener]);
   }, removeEventListener(name: string, listener: () => void) {
     listeners.set(name, (listeners.get(name) ?? []).filter((candidate) => candidate !== listener));
-  }, location };
+  }, confirm() { confirms += 1; return approve; }, location };
+  const history = { pushState(_state: unknown, _title: string, path: string) { pushed.push(path); location.search = path.slice(1); } };
+  const documentListeners = new Map<string, Array<(event: any) => void>>();
   const document = { activeElement: note,
-    querySelector: (selector: string) => selector === "[data-correction-note]" ? note : null };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+    querySelector: (selector: string) => selector === "[data-correction-note]" ? note : null,
+    addEventListener(name: string, listener: (event: any) => void) {
+      documentListeners.set(name, [...(documentListeners.get(name) ?? []), listener]);
+    } };
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
   assert.equal(listeners.get("popstate")?.length, 1, "document.write script execution does not multiply the route listener");
 
   location.hash = "#evidence-1";
@@ -432,16 +679,45 @@ test("client history ignores same-route evidence fragments, preserves unsaved no
   assert.equal(note.value, "Unsaved correction remains in the textarea");
   assert.equal(document.activeElement, note);
 
+  note.value = "Dirty correction that has not been kept";
+  let unloadPrevented = false;
+  listeners.get("beforeunload")![0]!({ preventDefault() { unloadPrevented = true; } });
+  assert.equal(unloadPrevented, true);
+  for (const special of [
+    { ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }, { download: true }, { target: "_blank" },
+  ]) {
+    const link = { getAttribute(name: string) { return name === "href" ? "/" : name === "target" ? special.target ?? null : null; },
+      hasAttribute(name: string) { return name === "download" && special.download === true; } };
+    documentListeners.get("click")![0]!({ button: special.button ?? 0, ctrlKey: false, metaKey: false, shiftKey: false,
+      altKey: false, ...special, target: { closest() { return link; } }, preventDefault() { throw new Error("special click prevented"); } });
+  }
+  assert.equal(confirms, 0, "modified, non-primary, download, and non-self clicks do not grant approval");
+  unloadPrevented = false;
+  listeners.get("beforeunload")![0]!({ preventDefault() { unloadPrevented = true; } });
+  assert.equal(unloadPrevented, true, "special clicks leave dirty-note unload protection armed");
   location.hash = "";
   location.search = "";
   listeners.get("popstate")![0]!();
-  assert.equal(reloads, 1);
+  assert.equal(confirms, 1);
+  assert.deepEqual(pushed, ["/?draft=1"]);
+  assert.equal(reloads, 0, "declining the warning keeps the draft and its dirty note");
 
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  approve = true;
+  location.search = "";
+  listeners.get("popstate")![0]!();
+  assert.equal(reloads, 1);
+  note.value = "Edited again after navigation approval";
+  note.dispatch("input");
+  unloadPrevented = false;
+  listeners.get("beforeunload")![0]!({ preventDefault() { unloadPrevented = true; } });
+  assert.equal(unloadPrevented, true, "subsequent input revokes an earlier navigation approval");
+
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
+  note.value = "Unsaved correction remains in the textarea";
   location.search = "?prepare=1";
   listeners.get("popstate")![0]!();
   assert.equal(reloads, 2);
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
   location.search = "?draft=1";
   listeners.get("popstate")![0]!();
   assert.equal(reloads, 3, "Home, Prepare, and Draft history entries each resolve their URL-owned document");

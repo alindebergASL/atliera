@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { C3ModelRequest } from "./draft.ts";
+import { canonicalJson } from "./context.ts";
 
 export interface C3ModelProvider {
   readonly name: string;
@@ -14,6 +15,37 @@ export class DisabledC3ModelProvider implements C3ModelProvider {
   readonly name = "disabled";
   async generate(_request: C3ModelRequest, _signal: AbortSignal): Promise<string> {
     throw new Error("model generation is disabled; an operator must configure C3_MODEL_COMMAND on the local server");
+  }
+}
+
+export interface RecordedC3Response {
+  readonly request: C3ModelRequest;
+  readonly rawResponse: string;
+}
+
+/** In-memory replay only: it has no command, network, or synthetic-response fallback. */
+export class RecordedReplayC3ModelProvider implements C3ModelProvider {
+  readonly name = "recorded-replay";
+  readonly #responses: ReadonlyMap<string, string>;
+
+  constructor(responses: readonly RecordedC3Response[]) {
+    if (responses.length === 0) throw new Error("recorded replay requires at least one validated response");
+    const exact = new Map<string, string>();
+    for (const response of responses) {
+      const identity = canonicalJson(response.request);
+      if (exact.has(identity)) throw new Error("recorded replay contains a duplicate model request identity");
+      exact.set(identity, response.rawResponse);
+    }
+    this.#responses = exact;
+  }
+
+  async generate(request: C3ModelRequest, signal: AbortSignal): Promise<string> {
+    if (signal.aborted) throw new Error("recorded replay cancelled");
+    const response = this.#responses.get(canonicalJson(request));
+    if (response === undefined) {
+      throw new Error("Recorded replay refused: no response matches this exact request. Restore the recorded audience, outcome, date, duration, correction, and prior draft identity; no live generation was attempted.");
+    }
+    return response;
   }
 }
 

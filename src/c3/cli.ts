@@ -1,10 +1,11 @@
-import { mkdir, readFile, writeFile, realpath, readdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile, realpath, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { loadC3AccountContext } from "./context.ts";
-import { assertReplayIdentity, createC3ModelRequest, createGenerationRecord, type C3GenerationRecord } from "./draft.ts";
-import { CommandC3ModelProvider, DisabledC3ModelProvider } from "./provider.ts";
+import { canonicalJson, loadC3AccountContext, type FrozenC3AccountContext } from "./context.ts";
+import { assertReplayIdentity, createC3ModelRequest, createC3RevisionContext, createGenerationRecord,
+  type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
+import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider } from "./provider.ts";
 import { renderC3Page } from "./render.ts";
 import { startC3Server } from "./service.ts";
 
@@ -77,6 +78,69 @@ function recordedRequest(value: unknown): ReturnType<typeof createC3ModelRequest
   return value as ReturnType<typeof createC3ModelRequest>;
 }
 
+async function boundedFile(path: string, maxBytes: number, label: string): Promise<Buffer> {
+  const metadata = await stat(path);
+  if (!metadata.isFile() || metadata.size > maxBytes) throw new Error(`${label} must be a bounded regular file`);
+  return readFile(path);
+}
+
+function fatalText(bytes: Buffer, label: string, preserveBom: boolean): string {
+  try { return new TextDecoder("utf-8", { fatal: true, ignoreBOM: preserveBom }).decode(bytes); }
+  catch { throw new Error(`${label} must be valid UTF-8`); }
+}
+
+interface LoadedRecording { readonly request: C3ModelRequest; readonly record: C3GenerationRecord; }
+
+async function loadRecording(context: FrozenC3AccountContext, directory: string, label: string): Promise<LoadedRecording> {
+  const requestPath = resolve(directory, "model-request.json");
+  const rawPath = resolve(directory, "raw-response.txt");
+  const requestText = fatalText(await boundedFile(requestPath, 8 * 1024 * 1024, `${label} model request`), `${label} model request`, false);
+  let value: unknown;
+  try { value = JSON.parse(requestText); } catch { throw new Error(`${label} model request must be strict JSON`); }
+  const supplied = recordedRequest(value);
+  const expected = createC3ModelRequest(context, supplied.meetingRequest, supplied.revision);
+  if (canonicalJson(supplied) !== canonicalJson(expected)) throw new Error(`${label} recorded model request identity or prompt mismatch`);
+  const rawResponse = fatalText(await boundedFile(rawPath, 256 * 1024, `${label} raw response`), `${label} raw response`, true);
+  const record = createGenerationRecord(expected, rawResponse, context);
+  assertReplayIdentity(record, context);
+  if (record.outcome !== "succeeded") throw new Error(`${label} recorded candidate refused without repair: ${record.refusal!.message}`);
+  return { request: expected, record };
+}
+
+export interface C3RecordedReplayBundle {
+  readonly provider: RecordedReplayC3ModelProvider;
+  readonly initialRequest: C3ModelRequest["meetingRequest"];
+  readonly correctionNote: string;
+  readonly priorRecord: C3GenerationRecord;
+  readonly revisionRecord: C3GenerationRecord;
+}
+
+/** Fully reads, recreates, validates, and links both recordings before a socket can be opened. */
+export async function loadC3RecordedReplay(context: FrozenC3AccountContext, recordingDirectory: string): Promise<C3RecordedReplayBundle> {
+  const root = resolve(recordingDirectory);
+  const prior = await loadRecording(context, resolve(root, "prior"), "prior");
+  const revision = await loadRecording(context, resolve(root, "revision"), "revision");
+  if (prior.request.revision !== null) throw new Error("prior recording must be an initial request without revision context");
+  if (revision.request.revision === null) throw new Error("revision recording must include revision context");
+  const linkedRevision = createC3RevisionContext(prior.record, revision.request.revision.correctionNote,
+    revision.request.revision.revisionNumber);
+  const exactRevisionRequest = createC3ModelRequest(context, prior.request.meetingRequest, linkedRevision);
+  if (canonicalJson(revision.request) !== canonicalJson(exactRevisionRequest)) {
+    throw new Error("revision recording does not exactly bind the supplied correction to the supplied prior response and draft identity");
+  }
+  const exactRevisionRecord = createGenerationRecord(exactRevisionRequest, revision.record.rawResponse, context);
+  assertReplayIdentity(exactRevisionRecord, context);
+  if (exactRevisionRecord.recordId !== revision.record.recordId ||
+      canonicalJson(exactRevisionRecord.draft) !== canonicalJson(revision.record.draft)) {
+    throw new Error("revision recording changed while linking exact prior and response identities");
+  }
+  return { provider: new RecordedReplayC3ModelProvider([
+    { request: prior.request, rawResponse: prior.record.rawResponse },
+    { request: exactRevisionRequest, rawResponse: exactRevisionRecord.rawResponse },
+  ]), initialRequest: prior.request.meetingRequest, correctionNote: linkedRevision.correctionNote,
+  priorRecord: prior.record, revisionRecord: exactRevisionRecord };
+}
+
 async function renderRecordedCommand(args: readonly string[]): Promise<void> {
   const [accountId, requestPath, rawResponsePath, outputDirectory] = args;
   if ([accountId, requestPath, rawResponsePath, outputDirectory].some((value) => value === undefined) || args.length !== 4) {
@@ -116,13 +180,29 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 
+async function serveRecordedCommand(args: readonly string[]): Promise<void> {
+  const [recordingDirectory, accountId = "acc_university_of_utah"] = args;
+  if (recordingDirectory === undefined || args.length > 2) throw new Error("usage: serve-recorded RECORDING_DIRECTORY [ACCOUNT_ID]");
+  const frozen = await contextFor(accountId);
+  // C3_MODEL_COMMAND is intentionally neither read nor passed: this command has no external-provider path.
+  const replay = await loadC3RecordedReplay(frozen, recordingDirectory);
+  const portText = process.env.C3_PORT ?? "4317";
+  if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
+  const running = await startC3Server({ context: frozen, provider: replay.provider, port: Number(portText),
+    recordedReplay: { initialRequest: replay.initialRequest, correctionNote: replay.correctionNote } });
+  process.stdout.write(`${running.origin}\n`);
+  const stop = (): void => { void running.close().then(() => process.exit(0)); };
+  process.once("SIGINT", stop); process.once("SIGTERM", stop);
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
   if (command === "load-context") return loadContextCommand(args);
   if (command === "emit-model-request") return emitRequestCommand(args);
   if (command === "render-recorded-draft") return renderRecordedCommand(args);
   if (command === "serve") return serveCommand(args);
-  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve> ...");
+  if (command === "serve-recorded") return serveRecordedCommand(args);
+  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve|serve-recorded> ...");
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

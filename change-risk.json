@@ -1,0 +1,15 @@
+{
+  "effects": {
+    "privateData": false,
+    "providerExecution": false,
+    "networkOrOutbound": false,
+    "retryOrRecurrence": false,
+    "durableWrite": false,
+    "identityOrAuthorization": false,
+    "deployment": false,
+    "customerEffect": false
+  },
+  "guardWeakening": {
+    "tests/safety/c1v-production-visual-calibration.test.ts": "docs/ux/c2-governed-account-intelligence-refresh/CURRENT_STATUS.json"
+  }
+}

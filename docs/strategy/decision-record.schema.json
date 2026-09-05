@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "atliera.owner-decision-record.v2",
+  "title": "Atliera owner decision record (v2 \u2014 externally ratified, append-only)",
+  "description": "The only form in which an owner decision exists. v1 permitted a schema-valid 'effective' record whose owner identity and attestation were self-asserted free text; v2 replaces that with a ratification envelope binding a verified external event to an immutable proposal digest and subject SHA. Agents may author records only in state 'proposed'. There is no grandfathering path: pre-v2 decisions remain documented historical facts and are not re-validated as machine-checkable authority. A record is never edited in place: ratification adds an envelope, and a later decision supersedes an earlier one through explicit predecessor/successor linkage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "recordId",
+    "state",
+    "decidedBy",
+    "decision",
+    "scope",
+    "boundSha",
+    "proposalDigest"
+  ],
+  "properties": {
+    "kind": {
+      "const": "atliera.owner-decision"
+    },
+    "schemaVersion": {
+      "const": "2"
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}$",
+      "description": "Stable id for this decision; supersession links reference it."
+    },
+    "state": {
+      "enum": [
+        "proposed",
+        "ratified",
+        "superseded"
+      ],
+      "description": "proposed: drafted (by anyone, including an agent); confers no authority. ratified: an owner ratification envelope is attached and verified \u2014 this is the only authoritative state. superseded: a later record supersedes it. 'effective' from v1 is not accepted; see grandfathering below."
+    },
+    "decidedBy": {
+      "const": "owner"
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The decision itself, one plain statement."
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the decision governs (milestone, artifact hash, account, gate)."
+    },
+    "boundSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full commit SHA the decision was made against. Abbreviated SHAs are not accepted: an owner decision names an immutable subject."
+    },
+    "proposalDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over the canonicalized proposal fields (kind, schemaVersion, recordId, decision, scope, boundSha). Ratification binds THIS digest, so the decision text cannot change after ratification without invalidating the envelope."
+    },
+    "advisoryInputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Briefs/reviews consulted. Listing an input never substitutes for ratification."
+    },
+    "ratification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "ownerIdentity",
+        "eventUrl",
+        "eventId",
+        "ratifiedProposalDigest",
+        "subjectSha",
+        "timestamp"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "github-merge-approval",
+            "github-review-approval"
+          ],
+          "description": "An externally verifiable event performed under the owner's own identity. Free-text 'verbatim-statement' is NOT a ratification method in v2 \u2014 it may be recorded in advisoryInputs, but authority requires a verifiable event."
+        },
+        "ownerIdentity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The verified account/login that performed the event."
+        },
+        "eventUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Immutable URL of the approval/review event."
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider-assigned immutable id for the event."
+        },
+        "ratifiedProposalDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Must equal this record's proposalDigest."
+        },
+        "subjectSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Must equal this record's boundSha."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Required for state 'ratified'; forbidden in state 'proposed'."
+    },
+    "supersedes": {
+      "type": "string",
+      "description": "recordId of the decision this one replaces."
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "recordId of the decision that replaced this one; set only alongside state 'superseded'."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ratified"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "ratification"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "proposed"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "ratification"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "superseded"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "supersededBy"
+        ]
+      }
+    }
+  ]
+}

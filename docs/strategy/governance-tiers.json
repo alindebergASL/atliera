@@ -1,0 +1,210 @@
+{
+  "kind": "atliera.governance-tier-map",
+  "schemaVersion": "2",
+  "status": "proposed",
+  "algorithm": "max-across-all-matching-prefixes",
+  "unmappedPathPolicy": "tier3-always-declarations-never-lower",
+  "duplicatePrefixes": "load-error",
+  "axisMinTiers": {
+    "privateData": 2,
+    "providerExecution": 2,
+    "networkOrOutbound": 3,
+    "retryOrRecurrence": 3,
+    "durableWrite": 3,
+    "identityOrAuthorization": 3,
+    "deployment": 3,
+    "customerEffect": 3
+  },
+  "prefixes": [
+    {
+      "prefix": "README.md",
+      "minTier": 0
+    },
+    {
+      "prefix": "docs/BLOCKERS.md",
+      "minTier": 0
+    },
+    {
+      "prefix": "docs/architecture/",
+      "minTier": 0,
+      "note": "descriptive prose only; non-authoritative per policy section 5"
+    },
+    {
+      "prefix": "docs/adr/",
+      "minTier": 0
+    },
+    {
+      "prefix": "docs/plans/",
+      "minTier": 0
+    },
+    {
+      "prefix": "docs/qa/",
+      "minTier": 0,
+      "note": "gate definitions that change acceptance criteria carry a status-changing declaration => tier 2 via guard inheritance"
+    },
+    {
+      "prefix": "docs/runbooks/",
+      "minTier": 1,
+      "note": "operational instructions can change what an operator believes is allowed"
+    },
+    {
+      "prefix": "docs/reviews/",
+      "minTier": 1,
+      "note": "historical review records; any status/eligibility/authorization content must be a typed record => tier 2 via section 5"
+    },
+    {
+      "prefix": "docs/decisions/",
+      "minTier": 2,
+      "note": "typed owner decision records"
+    },
+    {
+      "prefix": "docs/strategy/roadmap.md",
+      "minTier": 2,
+      "note": "carries machine-readable status markers; prose-only edits still classify tier 2 until markers are generated projections"
+    },
+    {
+      "prefix": "docs/strategy/governance-tiers.md",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/governance-tiers.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/decision-record.schema.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/",
+      "minTier": 0
+    },
+    {
+      "prefix": "docs/ux/",
+      "minTier": 1
+    },
+    {
+      "prefix": "docs/ux/c2-governed-account-intelligence-refresh/CURRENT_STATUS.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/ux/c2-governed-account-intelligence-refresh/execution-ledger.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/ux/c2-governed-account-intelligence-refresh/data/",
+      "minTier": 2
+    },
+    {
+      "prefix": "fixtures/",
+      "minTier": 1
+    },
+    {
+      "prefix": "fixtures/account-intelligence/",
+      "minTier": 2,
+      "note": "consumed by provider execution"
+    },
+    {
+      "prefix": "tests/",
+      "minTier": 1,
+      "note": "weakening a guard inherits the guarded tier (classifier guardWeakening input)"
+    },
+    {
+      "prefix": "scripts/classify-change-risk.ts",
+      "minTier": 2
+    },
+    {
+      "prefix": "scripts/",
+      "minTier": 1
+    },
+    {
+      "prefix": "src/",
+      "minTier": 2
+    },
+    {
+      "prefix": "src/account-intelligence/",
+      "minTier": 2
+    },
+    {
+      "prefix": ".github/workflows/",
+      "minTier": 3,
+      "note": "CI/CD can produce deployment and outbound effects"
+    },
+    {
+      "prefix": ".github/",
+      "minTier": 2
+    },
+    {
+      "prefix": "deploy/",
+      "minTier": 3
+    },
+    {
+      "prefix": "infra/",
+      "minTier": 3
+    },
+    {
+      "prefix": "migrations/",
+      "minTier": 3
+    },
+    {
+      "prefix": "package.json",
+      "minTier": 2,
+      "note": "dependency and script changes reach every tier's tooling"
+    },
+    {
+      "prefix": "package-lock.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "tsconfig.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/plans/generate-not-reconcile.md",
+      "minTier": 2,
+      "note": "defines Tier 2 accounting semantics; self-priced"
+    },
+    {
+      "prefix": "tests/safety/governance-tier-classifier.test.ts",
+      "minTier": 2,
+      "note": "guards the Tier 2 classifier; self-priced"
+    },
+    {
+      "prefix": "scripts/classify-pr.sh",
+      "minTier": 2
+    },
+    {
+      "prefix": ".github/workflows/governance-classify.yml",
+      "minTier": 3
+    },
+    {
+      "prefix": "change-risk.json",
+      "minTier": 0,
+      "note": "required per-PR effect declaration; Tier 0 so amending it never escalates the change that carries it"
+    },
+    {
+      "prefix": "ceremony.json",
+      "minTier": 0,
+      "note": "per-PR ceremony evidence manifest; validated by verify-ceremony.ts, priced 0 for the same reason"
+    },
+    {
+      "prefix": "docs/decisions/deescalation-ack.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "scripts/verify-ceremony.ts",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/governance-threat-model.md",
+      "minTier": 2,
+      "note": "defines the assurance boundary the ceremony check claims"
+    }
+  ],
+  "frozenRegistries": [
+    "docs/ux/c2-governed-account-intelligence-refresh/artifact-manifest.json",
+    "docs/ux/c2-governed-account-intelligence-refresh/fresh-artifact-manifest.json",
+    "docs/ux/c2-governed-account-intelligence-refresh/SHA256SUMS",
+    "docs/ux/c2-governed-account-intelligence-refresh/FRESH_SHA256SUMS"
+  ],
+  "supersessionPathPrefix": "docs/supersessions/"
+}

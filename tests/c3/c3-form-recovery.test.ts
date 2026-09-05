@@ -80,7 +80,7 @@ function runClient(options: ClientOptions) {
   const cancel = new Element();
   const status = new Element();
   const recovery = new Element();
-  const noteForm = options.recordId === undefined ? null : new Element({}, options.recordId);
+  const noteForm = options.recordId === undefined ? null : new Element({ note: options.correctionNote ?? "" }, options.recordId);
   const revise = new Element();
   const note = new Element();
   note.value = options.correctionNote ?? "";
@@ -120,7 +120,7 @@ function runClient(options: ClientOptions) {
   };
   vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history, FormData: FormDataStub, fetch: options.fetch,
     AbortController, Error, JSON, Number, String });
-  return { form, button, cancel, status, recovery, revise, reviewStatus, writes, navigation };
+  return { form, button, cancel, status, recovery, noteForm, revise, reviewStatus, writes, navigation };
 }
 
 function response(payload: unknown, ok = true): Promise<unknown> {
@@ -223,6 +223,22 @@ test("accepted generation and revision clear stale form recovery before the next
     fetch: () => response({}) });
   assert.equal(prepare.form!.fields.audience!.value, "Revision audience");
   assert.equal(prepare.form!.fields.intendedOutcome!.value, "Revision outcome");
+});
+
+test("successful note save visibly confirms session-only non-approval state", async () => {
+  const calls: { url: string; body: Record<string, unknown> }[] = [];
+  const client = runClient({ csrf: "note-session", recordId: "c3_111111111111111111111111",
+    correctionNote: "Keep the outcome primary.",
+    fetch: (url, init) => {
+      calls.push({ url, body: JSON.parse(init.body) as Record<string, unknown> });
+      return response({ html: "UPDATED DRAFT", location: "/?draft=1", history: "replace" });
+    } });
+  await client.noteForm!.dispatch("submit");
+  assert.deepEqual(calls, [{ url: "/api/note", body: {
+    note: "Keep the outcome primary.", recordId: "c3_111111111111111111111111" } }]);
+  assert.deepEqual(client.navigation, ["replace:/?draft=1"]);
+  assert.deepEqual(client.writes, ["UPDATED DRAFT"]);
+  assert.equal(client.reviewStatus.textContent, "Note kept for this session. It is not approval or durable storage.");
 });
 
 test("storage unavailability makes reload limits explicit and does not block editing", async () => {

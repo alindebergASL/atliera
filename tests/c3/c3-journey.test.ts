@@ -186,15 +186,44 @@ test("meeting prompt ranks outcome and corrected evidence before audience lens w
   assert.match(cio.prompt, /ownerCorrections content_priority.*meaningful selection directive/);
   assert.match(cio.prompt, /Unless the specific meeting request and admitted evidence provide an evidenced reason otherwise/);
   assert.match(cio.prompt, /must visibly affect selectedEvidenceRefs.*not only risksUnknowns/);
-  assert.match(cio.prompt, /exactly three must-ask questions/);
+  assert.match(cio.prompt, /exactly three MAIN must-ask questions/);
+  assert.match(cio.prompt, /at least one MAIN question must earn its wording from a selected evidence anchor/);
+  assert.match(cio.prompt, /must not presume that anchor is today's priority/);
+  assert.match(cio.prompt, /one or two—and no more—unmistakably optional follow-up probes/);
+  assert.match(cio.prompt, /one short sentence beginning exactly 'Optional probe:'/);
+  assert.match(cio.prompt, /optional probe is not a fourth MAIN question/);
   assert.match(cio.prompt, /one or two concrete evidence anchors or known reported roles/);
+  assert.match(cio.prompt, /opening limit is not a cap on useful material across the brief/);
+  assert.match(cio.prompt, /There is no evidence-count quota.*no license for a broad source-summary dump/);
+  assert.match(cio.prompt, /Credit and source-attribute roles already reported by the evidence/);
+  assert.match(cio.prompt, /initiative, operating-unit, and institution-wide boundaries distinct/);
+  assert.match(cio.prompt, /possible enabling constraints, not assumed dependencies/);
+  assert.match(cio.prompt, /preserve flexibility for a CIO or engineering audience to name a different priority/);
+  assert.match(cio.prompt, /unsupported current status, a pilot, vendor activity, an incident, budget availability, or a purchase/);
   assert.match(cio.prompt, /no follow-up is warranted/);
   assert.match(cio.prompt, /Do not require a technical dependency, follow-up owner, format, or date/);
+  const reusableGuidance = cio.prompt.slice(0, cio.prompt.indexOf("MEETING REQUEST"));
+  assert.doesNotMatch(reusableGuidance, /Utah|CHPC|Redtail|UHAIV/u);
   assert.ok(ciso.prompt.includes(context.canonicalJson));
   assert.ok(cio.prompt.includes(context.canonicalJson));
   assert.ok(cio.prompt.includes(context.context.ownerCorrections.find((item) => item.kind === "content_priority")!.text));
   assert.match(ciso.prompt, /canonicalUrl/);
   assert.match(ciso.prompt, /publicationDate/);
+});
+
+test("draft review uses plain session-only copy and a high-contrast label without internal review jargon", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities.", durationMinutes: 15, meetingDate: "2026-09-12" });
+  const record = createGenerationRecord(request, rawCandidate(context), context);
+  const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
+  const review = html.slice(html.indexOf('<section class="review">'), html.indexOf("</main>"));
+  assert.match(review, /Draft review/);
+  assert.match(review, /This draft is proposed and has not been reviewed/);
+  assert.match(review, /only in this server session and is not durably saved/);
+  assert.match(review, /does not approve, share, or send anything/);
+  assert.doesNotMatch(review, /exact prior raw\/draft|authenticated approval\/C4 persistence|ratification/iu);
+  assert.match(html, /\.review-label\{[^}]*color:#fffaf0/);
+  assert.match(html, /data-review-status role="status" aria-live="polite"/);
 });
 
 test("no-change and insufficient-context outcomes validate while unsupported prior-revision change refuses", async () => {
@@ -386,7 +415,9 @@ test("operator command provider receives one bounded request file, returns raw s
   const context = await load();
   const modelRequest = createC3ModelRequest(context, { audience: "CISO", intendedOutcome: "Learn priorities and agree a next step.", durationMinutes: 15, meetingDate: "2026-09-12" });
   const provider = new CommandC3ModelProvider({ command: "/usr/bin/wc", args: ["-c"], timeoutMs: 5_000, maxOutputBytes: 4_096 });
-  assert.match(await provider.generate(modelRequest, new AbortController().signal), /^\s*\d+\s+\/tmp\/atliera-c3-request-[^/]+\/model-request\.json\n$/u);
+  const requestDescription = await provider.generate(modelRequest, new AbortController().signal);
+  const escapedTempDirectory = tmpdir().replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  assert.match(requestDescription, new RegExp(`^\\s*\\d+\\s+${escapedTempDirectory}/atliera-c3-request-[^/]+/model-request\\.json\\n$`, "u"));
 
   const controller = new AbortController();
   const pending = new CommandC3ModelProvider({ command: process.execPath,

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { generateFreshUtahC2AccountHome } from "../../src/cli/generate-c2-account-home.ts";
+import {
+  generateFreshUtahC2AccountHome,
+  preflightFreshC2AccountHomeOutput,
+} from "../../src/cli/generate-c2-account-home.ts";
 
 test("CLI generator re-admits the broad Utah run and writes source-derived review output", async () => {
   const output = await mkdtemp(join(tmpdir(), "atliera-c2-render-"));
@@ -34,6 +37,10 @@ test("CLI generator re-admits the broad Utah run and writes source-derived revie
   assert.equal(generatedResult.discoveries.length, 35);
   assert.equal(generatedResult.effectReceipt.providerCallsAttempted, 1, "historical effect receipt remains historical");
   assert.equal(receipt.providerCallsDuringGeneration, 0, "this renderer run makes no provider call");
+
+  const beforeRepeat = await readFile(join(output, "university-of-utah.html"), "utf8");
+  await assert.rejects(() => generateFreshUtahC2AccountHome(output), /fresh output directory|already exists/u);
+  assert.equal(await readFile(join(output, "university-of-utah.html"), "utf8"), beforeRepeat);
 });
 
 test("CLI generator refuses the frozen historical output directory", async () => {
@@ -41,4 +48,58 @@ test("CLI generator refuses the frozen historical output directory", async () =>
     () => generateFreshUtahC2AccountHome(join(process.cwd(), "docs/ux/c2-governed-account-intelligence-refresh")),
     /outside the frozen C2 history/u,
   );
+});
+
+test("CLI generator refuses an output-directory symlink without changing sentinel bytes", async () => {
+  const fixture = await mkdtemp(join(tmpdir(), "atliera-c2-directory-symlink-"));
+  const target = join(fixture, "target");
+  await mkdir(target);
+  const sentinel = join(target, "university-of-utah.html");
+  await writeFile(sentinel, "directory-symlink-sentinel\n", "utf8");
+  const output = join(fixture, "output-link");
+  await symlink(target, output, "dir");
+
+  await assert.rejects(() => generateFreshUtahC2AccountHome(output), /symbolic link|fresh output directory/u);
+  assert.equal(await readFile(sentinel, "utf8"), "directory-symlink-sentinel\n");
+});
+
+test("CLI generator refuses an existing output-file symlink without changing sentinel bytes", async () => {
+  const fixture = await mkdtemp(join(tmpdir(), "atliera-c2-file-symlink-"));
+  const output = join(fixture, "output");
+  await mkdir(output);
+  const sentinel = join(fixture, "sentinel.html");
+  await writeFile(sentinel, "file-symlink-sentinel\n", "utf8");
+  await symlink(sentinel, join(output, "university-of-utah.html"), "file");
+
+  await assert.rejects(() => generateFreshUtahC2AccountHome(output), /fresh output directory|already exists|symbolic link/u);
+  assert.equal(await readFile(sentinel, "utf8"), "file-symlink-sentinel\n");
+});
+
+test("output preflight resolves the nearest existing ancestor in a disposable protected fixture", async () => {
+  const fixture = await mkdtemp(join(tmpdir(), "atliera-c2-canonical-ancestor-"));
+  const protectedRoot = join(fixture, "frozen-copy");
+  await mkdir(protectedRoot);
+  const sentinel = join(protectedRoot, "sentinel.txt");
+  await writeFile(sentinel, "canonical-ancestor-sentinel\n", "utf8");
+  const alias = join(fixture, "alias");
+  await symlink(protectedRoot, alias, "dir");
+
+  await assert.rejects(
+    () => preflightFreshC2AccountHomeOutput(join(alias, "not-created"), protectedRoot),
+    /resolves inside the frozen C2 history/u,
+  );
+  assert.equal(await readFile(sentinel, "utf8"), "canonical-ancestor-sentinel\n");
+});
+
+test("protected children beginning with two dots are not parent traversal", async () => {
+  const fixture = await mkdtemp(join(tmpdir(), "atliera-c2-dot-child-"));
+  const protectedRoot = join(fixture, "frozen-copy");
+  const child = join(protectedRoot, "..ordinary-child");
+  await mkdir(child, { recursive: true });
+  const alias = join(fixture, "ancestor-alias");
+  await symlink(child, alias, "dir");
+  await assert.rejects(() => preflightFreshC2AccountHomeOutput(join(alias, "new-output"), protectedRoot),
+    /resolves inside the frozen C2 history/u);
+  await assert.rejects(() => readFile(join(child, "new-output", "university-of-utah.html")),
+    (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT");
 });

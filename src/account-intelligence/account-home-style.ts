@@ -40,6 +40,8 @@ main { width: min(100% - 48px, 1320px); margin: 0 auto; padding: 18px 0 68px; }
 .account-hero { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(230px, .35fr); gap: 54px; padding-left: clamp(0px, 4vw, 58px); }
 .account-hero h1 { margin: 4px 0 6px; font: 500 clamp(40px, 5.3vw, 78px)/.94 var(--serif); letter-spacing: -.052em; }
 .account-thesis { max-width: 900px; margin: 0; font: 500 clamp(19px, 1.8vw, 27px)/1.23 var(--serif); letter-spacing: -.02em; text-wrap: balance; }
+.account-thesis-source blockquote { margin: 0; font: inherit; }
+.account-thesis-source figcaption { margin-top: 5px; color: var(--muted); font: 700 11px/1.4 var(--sans); letter-spacing: normal; }
 .hero-aside { align-self: end; padding-top: 12px; border-top: 1px solid var(--ink); color: var(--muted); font-size: 13px; }
 .hero-aside p { margin: 0; }
 .grammar {

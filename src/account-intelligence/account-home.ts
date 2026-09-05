@@ -177,6 +177,9 @@ function stateLabel(statement: IntelligenceStatement): string {
 function evidenceCardLabel(statement: IntelligenceStatement): "Exact support" | "Related evidence context" {
   return statement.state === "source-backed fact" ? "Exact support" : "Related evidence context";
 }
+function evidenceAccessibleLabel(statement: IntelligenceStatement): "Exact source support" | "Related evidence context" {
+  return statement.state === "source-backed fact" ? "Exact source support" : "Related evidence context";
+}
 function supportBoundary(statement: IntelligenceStatement): { supports: string; doesNot: string } {
   if (statement.state === "source-backed fact") return {
     supports: "This statement preserves one admitted exact excerpt or deterministic source attribution.",
@@ -260,17 +263,18 @@ function inlineExactSource(
   statement: IntelligenceStatement,
   lookup: Map<string, { source: AdmittedAccountSource; excerpt: AdmittedAccountSource["excerpts"][number] }>,
   annotations: readonly Readonly<C2AccountHomeAnnotation>[],
+  classes = { prose: "stage-copy", quotation: "stage-source-quote" },
 ): string {
-  if (statement.state !== "source-backed fact") return `<p class="stage-copy">${escapeHtml(statement.text)}</p>`;
+  if (statement.state !== "source-backed fact") return `<p class="${classes.prose}">${escapeHtml(statement.text)}</p>`;
   const item = statement.evidenceIds.map((evidenceId) => lookup.get(evidenceId)).find((entry) => entry !== undefined);
-  if (item === undefined) return `<p class="stage-copy">${escapeHtml(statement.text)}</p>`;
+  if (item === undefined) return `<p class="${classes.prose}">${escapeHtml(statement.text)}</p>`;
   const evidenceAnnotations = annotations.filter((annotation) =>
     annotation.sourceId === item.source.sourceId && annotation.evidenceIds.includes(item.excerpt.evidenceId));
   const renderedAnnotations = evidenceAnnotations.map((annotation) => {
     const label = annotation.kind === "source_context_caveat" ? "Source context" : "Freshness recheck";
     return `<p class="inline-source-note"><strong>${label} — not source wording:</strong> ${escapeHtml(annotation.text)}</p>`;
   }).join("");
-  return `<figure class="stage-source-quote"><blockquote>${escapeHtml(item.excerpt.exactExcerpt)}</blockquote><figcaption>Quoted exactly · ${escapeHtml(item.source.publisher)}</figcaption>${renderedAnnotations}</figure>`;
+  return `<figure class="${classes.quotation}"><blockquote>${escapeHtml(item.excerpt.exactExcerpt)}</blockquote><figcaption>Quoted exactly · ${escapeHtml(item.source.publisher)}</figcaption>${renderedAnnotations}</figure>`;
 }
 
 function buildViewModel(data: Readonly<ValidatedAccountIntelligence>): Readonly<C2AccountHomeViewModel> {
@@ -330,11 +334,11 @@ export function renderC2AccountHome(
 <header class="product-header"><p class="brand">Atliera</p><p class="mode-line" aria-label="Account view; Workshop compatibility retained but not implemented"><span class="mode-active">Account</span><span aria-hidden="true">│</span><span class="mode-future">Workshop</span></p></header>
 <main id="main-content">
   <div class="intro-line"><p class="eyebrow">Governed account intelligence refresh</p><p class="freshness"><span class="${view.reviewCue === "Needs review" ? "review-cue" : ""}">${escapeHtml(view.reviewCue)}</span> · ${escapeHtml(view.freshnessCue)}</p></div>
-  <section class="account-hero" aria-labelledby="account-title"><div><h1 id="account-title">${escapeHtml(view.accountName)}</h1><p class="account-thesis">${escapeHtml(view.thesis.text)}</p><div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.thesis))}</span>${evidenceButton("evidence-thesis", `Evidence context for ${view.accountName} account thesis`)}</div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
+  <section class="account-hero" aria-labelledby="account-title"><div><h1 id="account-title">${escapeHtml(view.accountName)}</h1>${inlineExactSource(view.thesis, lookup, annotations, { prose: "account-thesis", quotation: "account-thesis account-thesis-source" })}<div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.thesis))}</span>${evidenceButton("evidence-thesis", `Evidence context for ${view.accountName} account thesis`)}</div></div><aside class="hero-aside"><p>Answers first. Evidence on demand. Machinery by invitation.</p></aside></section>
   <section class="grammar" aria-label="Editorial Evidence Synthesis">
     <div class="context-plane">
-      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2>${inlineExactSource(view.established, lookup, annotations)}<div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.established))}</span>${evidenceButton("evidence-established", `Exact source support for ${view.accountName} established statement`)}</div></article>
-      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2>${inlineExactSource(view.changed, lookup, annotations)}<p class="analysis-line"><strong>Why it may matter:</strong> ${escapeHtml(view.whyItMayMatter.text)}</p><div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.changed))}</span>${evidenceButton("evidence-changed", `${view.changed.state === "source-backed fact" ? "Exact source support" : "Related evidence context"} for ${view.accountName} meaningfully changed statement`)}${evidenceButton("evidence-meaning", `Related evidence context for ${view.accountName} why-it-may-matter interpretation`, "Analysis boundary")}</div></article>
+      <article class="stage established"><span class="stage-num" aria-hidden="true">01</span><p class="stage-kicker">Established</p><h2>Established</h2>${inlineExactSource(view.established, lookup, annotations)}<div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.established))}</span>${evidenceButton("evidence-established", `${evidenceAccessibleLabel(view.established)} for ${view.accountName} established statement`)}</div></article>
+      <article class="stage changed"><span class="stage-num" aria-hidden="true">02</span><p class="stage-kicker">Meaningfully changed</p><h2>Meaningfully changed</h2>${inlineExactSource(view.changed, lookup, annotations)}<p class="analysis-line"><strong>Why it may matter:</strong> ${escapeHtml(view.whyItMayMatter.text)}</p><div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.changed))}</span>${evidenceButton("evidence-changed", `${evidenceAccessibleLabel(view.changed)} for ${view.accountName} meaningfully changed statement`)}${evidenceButton("evidence-meaning", `Related evidence context for ${view.accountName} why-it-may-matter interpretation`, "Analysis boundary")}</div></article>
     </div>
     <div class="decision-plane">
       <article class="stage open"><span class="stage-num" aria-hidden="true">03</span><p class="stage-kicker">Still open</p><h2>Still open</h2><p class="stage-copy">${escapeHtml(view.stillOpen.text)}</p><div class="statement-tools"><span class="statement-state">${escapeHtml(stateLabel(view.stillOpen))}</span>${evidenceButton("evidence-open", `Related evidence context for why ${view.accountName} question remains open`, "Why this is open")}</div></article>

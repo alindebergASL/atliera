@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { admitAccountResearch } from "../account-intelligence/admission.ts";
@@ -24,6 +24,12 @@ const FRESH_PROPOSAL = resolve(REPO, "docs/ux/c2-governed-account-intelligence-r
 const FRESH_EFFECT_RECEIPT = resolve(REPO, "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/university-of-utah-effect-receipt.json");
 const FROZEN_C2_ROOT = resolve(REPO, "docs/ux/c2-governed-account-intelligence-refresh");
 const UTAH_ACCOUNT_ID = "acc_university_of_utah";
+const OUTPUT_FILENAMES = Object.freeze([
+  "university-of-utah.html",
+  "university-of-utah-validated-result.json",
+  "university-of-utah-renderer-annotations.json",
+  "university-of-utah-render-receipt.json",
+] as const);
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
@@ -31,7 +37,71 @@ function sha256(value: string): string {
 
 function isAtOrBelow(parent: string, candidate: string): boolean {
   const path = relative(parent, candidate);
-  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+  return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
+}
+
+async function lstatIfExists(path: string): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
+  try {
+    return await lstat(path);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function canonicalFromNearestExistingAncestor(path: string): Promise<string> {
+  let ancestor = path;
+  const missingSuffix: string[] = [];
+  while (true) {
+    const info = await lstatIfExists(ancestor);
+    if (info !== undefined) {
+      let canonicalAncestor: string;
+      try {
+        canonicalAncestor = await realpath(ancestor);
+      } catch {
+        throw new Error(`output path has an unresolved symbolic link: ${ancestor}`);
+      }
+      return resolve(canonicalAncestor, ...missingSuffix);
+    }
+    const parent = dirname(ancestor);
+    if (parent === ancestor) throw new Error("output path has no existing ancestor");
+    missingSuffix.unshift(basename(ancestor));
+    ancestor = parent;
+  }
+}
+
+/** Preflights every final output against a protected root without writing either location. */
+export async function preflightFreshC2AccountHomeOutput(
+  outputDirectory: string,
+  protectedRoot = FROZEN_C2_ROOT,
+): Promise<readonly string[]> {
+  const output = resolve(outputDirectory);
+  const protectedPath = resolve(protectedRoot);
+  if (isAtOrBelow(protectedPath, output)) throw new Error("output directory must be outside the frozen C2 history");
+  const canonicalProtected = await realpath(protectedPath);
+  const canonicalOutput = await canonicalFromNearestExistingAncestor(output);
+  if (isAtOrBelow(canonicalProtected, canonicalOutput)) {
+    throw new Error("output directory resolves inside the frozen C2 history");
+  }
+  const outputInfo = await lstatIfExists(output);
+  if (outputInfo?.isSymbolicLink()) throw new Error("output directory must not be a symbolic link; choose a fresh output directory");
+  if (outputInfo !== undefined && !outputInfo.isDirectory()) throw new Error("output path must be a directory");
+
+  const targets = OUTPUT_FILENAMES.map((filename) => resolve(output, filename));
+  const inspected = await Promise.all(targets.map(async (target) => ({
+    target,
+    canonical: await canonicalFromNearestExistingAncestor(target),
+    info: await lstatIfExists(target),
+  })));
+  for (const item of inspected) {
+    if (isAtOrBelow(canonicalProtected, item.canonical)) {
+      throw new Error(`output target resolves inside the frozen C2 history: ${basename(item.target)}`);
+    }
+    if (item.info !== undefined) {
+      throw new Error(`output target already exists; choose a fresh output directory: ${basename(item.target)}`);
+    }
+  }
+  return Object.freeze(targets);
 }
 
 function record(value: unknown, path: string): Record<string, unknown> {
@@ -117,7 +187,7 @@ export interface C2AccountHomeGenerationReceipt {
 /** Re-admits the broad retained Utah packet and renders the committed fresh proposal without provider execution. */
 export async function generateFreshUtahC2AccountHome(outputDirectory: string): Promise<Readonly<C2AccountHomeGenerationReceipt>> {
   const output = resolve(outputDirectory);
-  if (isAtOrBelow(FROZEN_C2_ROOT, output)) throw new Error("output directory must be outside the frozen C2 history");
+  await preflightFreshC2AccountHomeOutput(output);
   const [broadRaw, proposalRaw, effectReceiptRaw] = await Promise.all([
     readFile(BROAD_INPUT, "utf8"),
     readFile(FRESH_PROPOSAL, "utf8"),
@@ -162,11 +232,12 @@ export async function generateFreshUtahC2AccountHome(outputDirectory: string): P
     htmlSha256: sha256(html),
   };
   await mkdir(output, { recursive: true });
+  const [htmlPath, resultPath, annotationsPath, receiptPath] = await preflightFreshC2AccountHomeOutput(output);
   await Promise.all([
-    writeFile(resolve(output, "university-of-utah.html"), html),
-    writeFile(resolve(output, "university-of-utah-validated-result.json"), `${JSON.stringify(data, null, 2)}\n`),
-    writeFile(resolve(output, "university-of-utah-renderer-annotations.json"), `${JSON.stringify(annotations, null, 2)}\n`),
-    writeFile(resolve(output, "university-of-utah-render-receipt.json"), `${JSON.stringify(receipt, null, 2)}\n`),
+    writeFile(htmlPath!, html, { encoding: "utf8", flag: "wx" }),
+    writeFile(resultPath!, `${JSON.stringify(data, null, 2)}\n`, { encoding: "utf8", flag: "wx" }),
+    writeFile(annotationsPath!, `${JSON.stringify(annotations, null, 2)}\n`, { encoding: "utf8", flag: "wx" }),
+    writeFile(receiptPath!, `${JSON.stringify(receipt, null, 2)}\n`, { encoding: "utf8", flag: "wx" }),
   ]);
   return Object.freeze(receipt);
 }

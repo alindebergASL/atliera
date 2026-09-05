@@ -7,6 +7,7 @@ import {
   type C2AccountHomeAnnotation,
 } from "../../src/account-intelligence/account-home.ts";
 import type { IntelligenceStatementState } from "../../src/account-intelligence/contracts.ts";
+import { snapshotAccountIntelligenceProposal } from "../../src/account-intelligence/proposal.ts";
 import { AccountIntelligenceProviderBoundary, AccountIntelligenceProviderRefusal } from "../../src/account-intelligence/provider.ts";
 import { executeAccountIntelligenceRefresh } from "../../src/account-intelligence/refresh.ts";
 import { FixtureAccountIntelligenceProvider, makeC2FixtureInput } from "../fixtures/c2-account-intelligence.ts";
@@ -136,6 +137,52 @@ test("non-factual change does not announce exact support and quoted facts stay a
   const html = renderC2AccountHome({ ...result, proposal: { ...result.proposal, meaningfullyChanged: [changed] } }).html;
   assert.match(html, /data-dialog="evidence-changed" aria-label="Related evidence context for Harbor Transit meaningfully changed statement"/u);
   assert.doesNotMatch(html, /data-dialog="evidence-changed" aria-label="Exact source support/u);
+});
+
+test("validated non-factual established context announces related context rather than exact support", async () => {
+  const { result } = await runFixture();
+  const established = {
+    ...result.proposal.establishedContext[0]!,
+    state: "evidence-linked proposed claim" as const,
+    text: "The official record may provide useful operating context.",
+    riskFlags: ["insufficient_evidence" as const],
+  };
+  const riskConflictFlags = result.proposal.riskConflictFlags.map((risk) => risk.flag === "insufficient_evidence"
+    ? { ...risk, statementIds: [...risk.statementIds, established.statementId] }
+    : risk);
+  const proposal = snapshotAccountIntelligenceProposal({
+    ...result.proposal,
+    establishedContext: [established, ...result.proposal.establishedContext.slice(1)],
+    riskConflictFlags,
+  }, result.request, result.admittedSources);
+  const html = renderC2AccountHome({ ...result, proposal }).html;
+  assert.match(html, /data-dialog="evidence-established" aria-label="Related evidence context for Harbor Transit established statement"/u);
+  assert.doesNotMatch(html, /data-dialog="evidence-established" aria-label="Exact source support/u);
+});
+
+test("validated factual thesis is quoted and attributed while the normal interpretive thesis is unchanged", async () => {
+  const { result } = await runFixture();
+  const normalHtml = renderC2AccountHome(result).html;
+  assert.match(normalHtml, /<p class="account-thesis">Harbor Transit&#39;s official record may be worth clarifying before further interpretation\.<\/p>/u);
+  assert.doesNotMatch(normalHtml, /<figure class="account-thesis account-thesis-source">/u);
+
+  const sourceFact = {
+    ...result.proposal.establishedContext[0]!,
+    statementId: result.proposal.accountThesis.statementId,
+  };
+  const riskConflictFlags = result.proposal.riskConflictFlags.map((risk) => ({
+    ...risk,
+    statementIds: risk.statementIds.filter((statementId) => statementId !== result.proposal.accountThesis.statementId),
+  }));
+  const proposal = snapshotAccountIntelligenceProposal({
+    ...result.proposal,
+    accountThesis: sourceFact,
+    riskConflictFlags,
+  }, result.request, result.admittedSources);
+  const html = renderC2AccountHome({ ...result, proposal }).html;
+  const hero = html.match(/<section class="account-hero"[\s\S]*?<\/section>/u)?.[0] ?? "";
+  assert.match(hero, /<figure class="account-thesis account-thesis-source"><blockquote>Harbor Transit publishes[^<]+<\/blockquote><figcaption>Quoted exactly · Harbor Transit<\/figcaption>/u);
+  assert.doesNotMatch(hero, /<p class="account-thesis">/u);
 });
 
 test("evidence triggers have unique statement-specific human names without raw identifiers", async () => {

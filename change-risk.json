@@ -10,6 +10,7 @@
     "customerEffect": false
   },
   "guardWeakening": {
-    "tests/safety/c1v-production-visual-calibration.test.ts": "docs/ux/c2-governed-account-intelligence-refresh/CURRENT_STATUS.json"
+    "tests/safety/governance-tier-classifier.test.ts": "scripts/verify-ceremony.ts",
+    "tests/safety/c1v-production-visual-calibration.test.ts": "docs/ux/c1v-production-visual-calibration/"
   }
 }

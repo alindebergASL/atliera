@@ -75,6 +75,15 @@
       "minTier": 2
     },
     {
+      "prefix": "docs/strategy/decision-proposal.schema.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/governance-trust.json",
+      "minTier": 3,
+      "note": "protected identity trust root"
+    },
+    {
       "prefix": "docs/strategy/",
       "minTier": 0
     },
@@ -102,6 +111,11 @@
       "prefix": "fixtures/account-intelligence/",
       "minTier": 2,
       "note": "consumed by provider execution"
+    },
+    {
+      "prefix": "presentation/",
+      "minTier": 1,
+      "note": "pure offline presentation only; effect declarations still escalate"
     },
     {
       "prefix": "tests/",
@@ -188,7 +202,8 @@
     },
     {
       "prefix": "docs/decisions/deescalation-ack.json",
-      "minTier": 2
+      "minTier": 2,
+      "note": "reserved historical path pricing; not consumed as a live candidate de-escalation exception"
     },
     {
       "prefix": "scripts/verify-ceremony.ts",

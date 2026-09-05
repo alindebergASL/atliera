@@ -10,15 +10,16 @@
  * Frozen-registry paths are hard violations unless the change set INCLUDES a
  * supersession record under the supersession prefix. Registry entries resolve
  * from the registry's own directory to repository-relative paths.
- * De-escalation between two map versions is detected mechanically
- * (compareMaps) and must carry an owner decision record.
+ * Candidate-map de-escalation from the protected pricing map is detected
+ * mechanically (compareMaps) and refused. No candidate-authored exception is
+ * a live authority input.
  *
  * CLI (CI usage; pure — reads inputs, writes nothing):
  *   node --experimental-strip-types scripts/classify-change-risk.ts \
- *     [--map governance-tiers.json] [--base-map old-tiers.json] \
+ *     [--map protected-governance-tiers.json] [--candidate-map governance-tiers.json] \
  *     [--declaration change-risk.json] [--require-declaration] file1 file2 ...
  * Exit 2: frozen violation. Exit 3: missing/invalid declaration when required.
- * Exit 4: de-escalation detected without acknowledgment input.
+ * Exit 4: candidate de-escalation detected (HOLD).
  */
 
 import { readFileSync } from "node:fs";
@@ -269,7 +270,7 @@ export interface Deescalation {
   to: number | string;
 }
 
-/** Mechanical de-escalation detection between the base branch's map and the PR's map (policy §4.5). */
+/** Mechanical de-escalation detection between the protected pricing map and candidate map data (policy §4.5). */
 export function compareMaps(base: TierMap, next: TierMap): Deescalation[] {
   const out: Deescalation[] = [];
   const nextRules = new Map(next.prefixes.map((e) => [e.prefix, e.minTier]));
@@ -287,40 +288,6 @@ export function compareMaps(base: TierMap, next: TierMap): Deescalation[] {
     if (!next.frozenRegistries.includes(reg)) out.push({ kind: "registry-removed", subject: reg, from: "frozen", to: "absent" });
   }
   return out;
-}
-
-export interface DeescalationAck {
-  /** A schema-v2 owner decision record in state "ratified" (see decision-record.schema.json). */
-  schemaVersion?: string;
-  state?: string;
-  decidedBy?: string;
-  scope?: string;
-  boundSha?: string;
-  ratification?: { method?: string; ownerIdentity?: string; eventUrl?: string; eventId?: string; subjectSha?: string };
-  acknowledgedDeescalations?: Array<{ kind: string; subject: string }>;
-}
-
-/**
- * An owner may authorize de-escalation, but only with an effective, attested
- * decision record that names every detected de-escalation. Anything less leaves
- * the de-escalations unauthorized (CLI exit 4).
- */
-export function deescalationsUnauthorized(found: Deescalation[], ack?: DeescalationAck): Deescalation[] {
-  if (found.length === 0) return [];
-  // v2.3: schema-v2 semantics only. v2.2 accepted v1's "effective" + truthy
-  // ownerAttestation, which the shipped schema no longer produces.
-  const ratified =
-    ack !== undefined &&
-    ack.schemaVersion === "2" &&
-    ack.state === "ratified" &&
-    ack.decidedBy === "owner" &&
-    ack.ratification !== undefined &&
-    (ack.ratification.method === "github-merge-approval" || ack.ratification.method === "github-review-approval") &&
-    Boolean(ack.ratification.ownerIdentity) &&
-    Boolean(ack.ratification.eventId);
-  if (!ratified) return found;
-  const acked = new Set((ack!.acknowledgedDeescalations ?? []).map((a) => `${a.kind}:${a.subject}`));
-  return found.filter((d) => !acked.has(`${d.kind}:${d.subject}`));
 }
 
 /** Resolve registry entries (relative to the registry's directory) to repository-relative paths. */
@@ -420,9 +387,8 @@ const isMain = process.argv[1]?.endsWith("classify-change-risk.ts");
 if (isMain) {
   const argv = process.argv.slice(2);
   let mapPath = "docs/strategy/governance-tiers.json";
-  let baseMapPath: string | undefined;
+  let candidateMapPath: string | undefined;
   let declPath: string | undefined;
-  let ackPath: string | undefined;
   let statusPath: string | undefined;
   let requireDeclaration = false;
   const paths: string[] = [];
@@ -434,9 +400,8 @@ if (isMain) {
     if (optionsDone) { paths.push(a); continue; }
     if (a === "--") { optionsDone = true; continue; }
     if (a === "--map") mapPath = argv[++i]!;
-    else if (a === "--base-map") baseMapPath = argv[++i]!;
+    else if (a === "--candidate-map") candidateMapPath = argv[++i]!;
     else if (a === "--declaration") declPath = argv[++i]!;
-    else if (a === "--deescalation-ack") ackPath = argv[++i]!;
     else if (a === "--name-status") statusPath = argv[++i]!;
     else if (a === "--require-declaration") requireDeclaration = true;
     else paths.push(a);
@@ -518,30 +483,24 @@ if (isMain) {
   const result = classifyChange(map!, entries, frozen!, declaration);
 
   let deescalations: Deescalation[] = [];
-  let unauthorized: Deescalation[] = [];
-  if (baseMapPath) {
+  if (candidateMapPath) {
     try {
-      deescalations = compareMaps(loadMap(readFileSync(baseMapPath, "utf8")), map!);
-    } catch {
-      // base map absent or unreadable (map new in this PR): nothing to compare
+      const candidateMap = loadMap(readFileSync(candidateMapPath, "utf8"));
+      deescalations = compareMaps(map!, candidateMap);
+    } catch (err) {
+      fail(5, `invalid candidate governance map: ${(err as Error).message}`);
     }
-    let ack: DeescalationAck | undefined;
-    if (ackPath) {
-      try {
-        ack = JSON.parse(readFileSync(ackPath, "utf8")) as DeescalationAck;
-      } catch (err) {
-        fail(3, `invalid de-escalation acknowledgement: ${(err as Error).message}`);
-      }
-    }
-    unauthorized = deescalationsUnauthorized(deescalations, ack);
   }
 
   process.stdout.write(
-    JSON.stringify({ ...result, deescalations, unauthorizedDeescalations: unauthorized }, null, 2) + "\n",
+    JSON.stringify({ ...result, deescalations, unauthorizedDeescalations: deescalations }, null, 2) + "\n",
   );
 
   // Exit contract (propagated verbatim by scripts/classify-pr.sh):
-  //   2 frozen violation · 3 declaration/ack invalid · 4 unauthorized de-escalation · 5 invalid map/registry
+  //   2 frozen violation · 3 declaration invalid · 4 candidate de-escalation HOLD · 5 invalid map/registry
   if (result.violations.length > 0) process.exit(2);
-  if (unauthorized.length > 0) process.exit(4);
+  if (deescalations.length > 0) {
+    process.stderr.write("HOLD: candidate governance rule lowering/removal requires a future separately authorized gate; no candidate acknowledgement or administrator bypass is accepted\n");
+    process.exit(4);
+  }
 }

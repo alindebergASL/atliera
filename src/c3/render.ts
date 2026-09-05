@@ -53,9 +53,17 @@ const SCRIPT = `
       }
     }
   } catch { formCache = null; }
-  // History entries own their view. Back/Forward must resolve that route,
-  // not leave the last document.write() draft under a Prepare/Home URL.
-  if (typeof window !== 'undefined') window.addEventListener('popstate', () => window.location.reload());
+  // History entries own their route, while fragments remain native same-document evidence navigation.
+  // Replace the handler because document.open() may clear Window listeners before the replacement script runs.
+  if (typeof window !== 'undefined') {
+    const routePath = () => (window.location?.pathname || '') + (window.location?.search || '');
+    const previous = window.__atlieraC3RouteOwnerV1;
+    if (previous?.handler && typeof window.removeEventListener === 'function') window.removeEventListener('popstate', previous.handler);
+    const owner = { path: routePath(), handler: null };
+    owner.handler = () => { if (routePath() !== owner.path) window.location.reload(); };
+    window.__atlieraC3RouteOwnerV1 = owner;
+    window.addEventListener('popstate', owner.handler);
+  }
   const replacePage = (payload) => {
     const allowed = ['/', '/?prepare=1', '/?draft=1'];
     if (allowed.includes(payload.location) && (payload.history === 'push' || payload.history === 'replace')) {

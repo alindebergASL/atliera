@@ -147,6 +147,72 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
   } finally { await running.close(); }
 });
 
+test("two local service ports retain independent browser-jar sessions and a restart invalidates only its session", async () => {
+  const ctx = await context();
+  const provider: C3ModelProvider = { name: "shared-browser-jar", generate: async () => candidate(ctx) };
+  const cookieJar = new Map<string, string>();
+  const cookieHeader = (): string => [...cookieJar].map(([name, value]) => `${name}=${value}`).join("; ");
+  const rememberCookie = (response: ResponseResult): void => {
+    const setCookie = response.headers.get("set-cookie");
+    assert.equal(typeof setCookie, "string");
+    assert.match(setCookie as string, /; HttpOnly; SameSite=Strict; Path=\/$/u);
+    const pair = (setCookie as string).split(";", 1)[0]!;
+    const separator = pair.indexOf("=");
+    assert.ok(separator > 0);
+    cookieJar.set(pair.slice(0, separator), pair.slice(separator + 1));
+  };
+  const get = async (running: RunningC3Server, path: string): Promise<ResponseResult> => requestTo(running, "GET", path, undefined,
+    { host: new URL(running.origin).host, ...(cookieJar.size === 0 ? {} : { cookie: cookieHeader() }) });
+  const post = async (running: RunningC3Server, csrf: string, path: string, body: unknown): Promise<ResponseResult> => requestTo(running, "POST", path, body,
+    { host: new URL(running.origin).host, cookie: cookieHeader(), origin: running.origin,
+      "x-c3-csrf": csrf, "content-type": "application/json" });
+  const start = (expectedHost: string) => startC3Server({ context: ctx, provider, listen: false, expectedHost });
+
+  let first = await start("127.0.0.1:4317");
+  const second = await start("127.0.0.1:4318");
+  try {
+    const firstHome = await get(first, "/");
+    rememberCookie(firstHome);
+    const firstCsrf = firstHome.text.match(/name="c3-csrf" content="([^"]+)"/)?.[1];
+    assert.ok(firstCsrf);
+    const firstGenerated = await post(first, firstCsrf, "/api/generate", meetingRequest);
+    const firstRecordId = (JSON.parse(firstGenerated.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+    assert.ok(firstRecordId);
+    assert.equal((await post(first, firstCsrf, "/api/note", { note: "Port 4317 correction", recordId: firstRecordId })).status, 200);
+
+    const secondHome = await get(second, "/");
+    rememberCookie(secondHome);
+    const secondCsrf = secondHome.text.match(/name="c3-csrf" content="([^"]+)"/)?.[1];
+    assert.ok(secondCsrf);
+    const secondGenerated = await post(second, secondCsrf, "/api/generate", { ...meetingRequest, audience: "CIO" });
+    const secondRecordId = (JSON.parse(secondGenerated.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
+    assert.ok(secondRecordId);
+    assert.equal((await post(second, secondCsrf, "/api/note", { note: "Port 4318 correction", recordId: secondRecordId })).status, 200);
+
+    assert.equal(cookieJar.size, 2, "the browser jar keeps one host cookie name per bound service port");
+    assert.ok([...cookieJar.keys()].every((name) => /^c3sid_[0-9]+$/u.test(name)));
+    const firstDraft = await get(first, "/?draft=1");
+    const secondDraft = await get(second, "/?draft=1");
+    assert.equal(firstDraft.status, 200);
+    assert.match(firstDraft.text, /Port 4317 correction/);
+    assert.doesNotMatch(firstDraft.text, /Port 4318 correction/);
+    assert.equal(secondDraft.status, 200);
+    assert.match(secondDraft.text, /Port 4318 correction/);
+    assert.doesNotMatch(secondDraft.text, /Port 4317 correction/);
+
+    await first.close();
+    first = await start("127.0.0.1:4317");
+    const invalidated = await get(first, "/?draft=1");
+    rememberCookie(invalidated);
+    assert.equal(invalidated.status, 409);
+    assert.match(invalidated.text, /No session draft is available/);
+    assert.equal((await get(second, "/?draft=1")).status, 200, "restarting one service does not clear the other service's memory");
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
+
 test("invalid model JSON is refused without repair; Host, Origin, session, and CSRF boundaries reject", async () => {
   const running = await harness({ name: "test-invalid", generate: async () => "not json" });
   try {
@@ -340,15 +406,45 @@ test("a displayed old draft cannot abort a newer generation in another tab", asy
   } finally { await running.close(); }
 });
 
-test("client history traversal reloads the URL-owned view", () => {
-  const listeners = new Map<string, () => void>();
+test("client history ignores same-route evidence fragments, preserves unsaved notes, and reloads real routes once", () => {
+  const listeners = new Map<string, Array<() => void>>();
   let reloads = 0;
-  const window = { addEventListener(name: string, listener: () => void) { listeners.set(name, listener); },
-    location: { reload() { reloads += 1; } } };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document: { querySelector: () => null } });
-  assert.ok(listeners.has("popstate"));
-  listeners.get("popstate")!();
+  const note = { value: "Unsaved correction remains in the textarea" };
+  const location = { pathname: "/", search: "?draft=1", hash: "", reload() { reloads += 1; } };
+  const window: Record<string, unknown> = { addEventListener(name: string, listener: () => void) {
+    listeners.set(name, [...(listeners.get(name) ?? []), listener]);
+  }, removeEventListener(name: string, listener: () => void) {
+    listeners.set(name, (listeners.get(name) ?? []).filter((candidate) => candidate !== listener));
+  }, location };
+  const document = { activeElement: note,
+    querySelector: (selector: string) => selector === "[data-correction-note]" ? note : null };
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  assert.equal(listeners.get("popstate")?.length, 1, "document.write script execution does not multiply the route listener");
+
+  location.hash = "#evidence-1";
+  assert.equal(reloads, 0, "a native evidence link does not reload the document");
+  location.hash = "";
+  listeners.get("popstate")![0]!();
+  location.hash = "#evidence-1";
+  listeners.get("popstate")![0]!();
+  assert.equal(reloads, 0, "Back/Forward within evidence fragments remains same-document navigation");
+  assert.equal(note.value, "Unsaved correction remains in the textarea");
+  assert.equal(document.activeElement, note);
+
+  location.hash = "";
+  location.search = "";
+  listeners.get("popstate")![0]!();
   assert.equal(reloads, 1);
+
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  location.search = "?prepare=1";
+  listeners.get("popstate")![0]!();
+  assert.equal(reloads, 2);
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document });
+  location.search = "?draft=1";
+  listeners.get("popstate")![0]!();
+  assert.equal(reloads, 3, "Home, Prepare, and Draft history entries each resolve their URL-owned document");
 });
 
 test("rendered client restores edited in-flight form, ignores stale HTML, and confines requests to fixed same-origin POST routes", async () => {

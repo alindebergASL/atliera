@@ -70,6 +70,13 @@ function cookieValue(req: IncomingMessage, name: string): string | undefined {
   return cookie.split(";").map((item) => item.trim().split("=")).find(([key]) => key === name)?.[1];
 }
 
+function sessionCookieName(expectedHost: string): string {
+  const port = new URL(`http://${expectedHost}`).port;
+  if (!/^[0-9]+$/u.test(port)) throw new Error("local service host must include a bound port");
+  // Cookie names prevent same-host local services from overwriting browser state; they are not a security boundary.
+  return `c3sid_${port}`;
+}
+
 function nextMeetingDate(now: Date): string {
   const date = new Date(now);
   date.setUTCDate(date.getUTCDate() + 7);
@@ -132,11 +139,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (url.pathname === "/healthz" && req.method === "GET") {
       json(res, 200, status()); return;
     }
-    let session = cookieValue(req, "c3sid") === undefined ? undefined : sessions.get(cookieValue(req, "c3sid")!);
+    const cookieName = sessionCookieName(expectedHost);
+    const sessionId = cookieValue(req, cookieName);
+    let session = sessionId === undefined ? undefined : sessions.get(sessionId);
     if (session === undefined && req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
       if (sessions.size >= 64) { json(res, 503, { error: "local session limit reached; restart the prototype to clear session memory" }); return; }
       session = newSession(now); sessions.set(session.id, session);
-      res.setHeader("set-cookie", `c3sid=${session.id}; HttpOnly; SameSite=Strict; Path=/`);
+      res.setHeader("set-cookie", `${cookieName}=${session.id}; HttpOnly; SameSite=Strict; Path=/`);
     }
     if (session === undefined) { json(res, 401, { error: "session required" }); return; }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {

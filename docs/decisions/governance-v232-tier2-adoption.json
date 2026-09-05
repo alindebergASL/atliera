@@ -1,0 +1,16 @@
+{
+  "kind": "atliera.owner-decision",
+  "schemaVersion": "2",
+  "recordId": "governance-v232-tier2-adoption",
+  "state": "proposed",
+  "decidedBy": "owner",
+  "decision": "Adopt bounded governance v2.3.2 Tier-2 machinery, with the forgery-control class deferred under the named re-entry triggers; do not arm the Tier-3 workflow in this change.",
+  "scope": "Atliera governance Tier-2 machinery at commit 1714783968179f6ed0714c376957e9fbf105754b",
+  "boundSha": "1714783968179f6ed0714c376957e9fbf105754b",
+  "proposalDigest": "sha256:86c7868b6dc6dfa8d393adb17cef97707131ffb6f7e60fb0b4c35c5c814f9d37",
+  "advisoryInputs": [
+    "owner statement: Governance scope decision — bounded v2.3, forgery class deferred (2026-09-05)",
+    "package: atliera-premier-proposals-v2.3.2.zip; sha256:14fde043fdf406cbe76921f303a70e315cc7763471934ec5a2ec5e15f39d96bb",
+    "review lineage: v2.3.1 HOLD; grandfather mechanism removed in v2.3.2"
+  ]
+}

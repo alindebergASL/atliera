@@ -46,9 +46,12 @@ test("explicit tentatively wording is cautious without bypassing factual or comm
   const evidence = context.context.admittedSources.flatMap((source) => source.excerpts)[0]!.evidenceId;
   const cases = [
     ["The sources tentatively point to a useful topic to confirm.", "succeeded", "cautious_inference"],
+    ["As tentative context to confirm, the sources describe a useful topic.", "succeeded", "cautious_inference"],
     ["The sources point to a useful topic to confirm.", "refused", "cautious_inference"],
-    ["The sources tentatively point to an available purchasing budget.", "refused", "cautious_inference"],
-    ["The sources tentatively point to a useful topic to confirm.", "refused", "direct_support"],
+    ["As tentative context, the account experienced a data breach.", "refused", "cautious_inference"],
+    ["As tentative context, the account has an available purchasing budget.", "refused", "cautious_inference"],
+    ["As tentative context to confirm, the sources describe a useful topic.", "refused", "direct_support"],
+    ["Tentativeness surrounds this account topic.", "refused", "cautious_inference"],
   ] as const;
   for (const [text, expected, supportCategory] of cases) {
     const raw = rawCandidate(context, { opening: { text, evidenceRefs: [evidence], supportCategory } });

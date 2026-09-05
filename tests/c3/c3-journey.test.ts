@@ -65,6 +65,27 @@ test("an imperative allocation-to-purchase remains a typed refusal, not a safe r
   }
 });
 
+test("commercial non-assumptions belong to their proposition and preserve long enumerated unknowns", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CISO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
+  const cases = [
+    ["Avoid assumptions about available funds; the approved budget is ready.", "refused"],
+    ["Confirm the available purchasing funds while ownership remains unknown.", "refused"],
+    ["Available purchasing budget, procurement status, eligible commercial uses, buying intent, decision authority, urgency, and vendor preference are not established.", "succeeded"],
+    ["Understand whether legislative timing affects security planning; do not assume urgency or available purchasing funds.", "succeeded"],
+    ["Understand whether the legislative timeline imposes planning constraints while avoiding assumptions about urgency or available purchasing funds.", "succeeded"],
+    ["Avoid assumptions about available funds, but confirm the approved budget.", "refused"],
+  ] as const;
+  for (const [text, expected] of cases) {
+    const candidate = JSON.parse(rawCandidate(context));
+    candidate.questions[0].intendedLearning = text;
+    const raw = JSON.stringify(candidate);
+    const record = createGenerationRecord(request, raw, context);
+    assert.equal(record.outcome, expected, text);
+    assert.equal(record.rawResponse, raw);
+  }
+});
+
 function withContradiction(context: FrozenC3AccountContext): FrozenC3AccountContext {
   const changed = { ...context.context, declaredContradictions: ["Two admitted sources disagree about the responsible entity."] };
   const json = canonicalJson(changed);

@@ -297,23 +297,28 @@ function draftWarnings(candidate: C3MeetingDraftCandidate, context: FrozenC3Acco
   return warnings;
 }
 
-const HIGH_RISK_ASSERTION = /\b(?:suffered|experienced|was hit by)\b.{0,80}\b(?:ransomware|cyber ?attack|data breach)\b|\b(?:appointed|selected|chose|chosen|contracted with|preferred)\b.{0,80}\b(?:vendor|provider|partner|recovery|deployment)\b|\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b.{0,60}\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b.{0,40}\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b|\$\s*\d[\d,.]*\s*(?:million|m)?\b.{0,60}\b(?:ready to spend|available|approved budget)\b|\b(?:already approved|approved purchase|active procurement)\b|\b(?:allocate|spend)\b.{0,80}\b(?:budget|funding|funds?)\b.{0,80}\b(?:buy|purchase)\b|\b(?:must|should)\s+(?:we\s+)?(?:buy|purchase|select|replace)\b/iu;
+const HIGH_RISK_ASSERTION = /\b(?:suffered|experienced|was hit by)\b.{0,80}\b(?:ransomware|cyber ?attack|data breach)\b|\b(?:appointed|selected|chose|chosen|contracted with|preferred)\b.{0,80}\b(?:vendor|provider|partner|recovery|deployment)\b|\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b[^;.!?]{0,60}?\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b[^;.!?]{0,40}?\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b|\$\s*\d[\d,.]*\s*(?:million|m)?\b.{0,60}\b(?:ready to spend|available|approved budget)\b|\b(?:already approved|approved purchase|active procurement)\b|\b(?:allocate|spend)\b.{0,80}\b(?:budget|funding|funds?)\b.{0,80}\b(?:buy|purchase)\b|\b(?:must|should)\s+(?:we\s+)?(?:buy|purchase|select|replace)\b/iu;
 const HIGH_RISK_ASSERTIONS = new RegExp(HIGH_RISK_ASSERTION.source, `${HIGH_RISK_ASSERTION.flags}g`);
-const COMMERCIAL_AVAILABILITY_ASSERTION = /\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b.{0,60}\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b.{0,40}\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b/iu;
+const COMMERCIAL_AVAILABILITY_ASSERTION = /\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b[^;.!?]{0,60}?\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b[^;.!?]{0,40}?\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b/iu;
 
 function isBoundedCommercialNonAssumption(value: string, match: RegExpMatchArray): boolean {
   if (!COMMERCIAL_AVAILABILITY_ASSERTION.test(match[0])) return false;
   if (/\b(?:confirm(?:s|ed|ing)?|assert(?:s|ed|ing)?)\b/iu.test(match[0]) &&
       !/\b(?:does not|do not|cannot|can not|without)\s+(?:confirm|assert)\b/iu.test(match[0])) return false;
   const start = match.index ?? 0;
-  const before = value.slice(Math.max(0, start - 180), start);
-  const after = value.slice(start + match[0].length, start + match[0].length + 100);
-  const scopedCaution = /(?:\bavoid(?:ing)? assumptions? about\b|\bwithout assuming\b)(?:(?![.!?;]|\b(?:but|however|yet|confirm(?:s|ed|ing)?|assert(?:s|ed|ing)?)\b)[\s\S]){0,140}$/iu;
-  const scopedEvidenceLimit = /\b(?:does not|do not|cannot|can not|no evidence (?:of|that))\s+(?:establish|confirm|show|prove)\b[^.!?;]{0,100}$/iu;
+  const before = value.slice(0, start).split(/[.!?;]/u).at(-1) ?? "";
+  const after = value.slice(start + match[0].length).split(/[.!?;]/u)[0] ?? "";
+  // Exceptions belong to this proposition, not to an arbitrary nearby
+  // 'unknown'. Commercial lists may share one trailing predicate, but an
+  // unrelated subject such as 'ownership remains unknown' cannot excuse it.
+  const scopedCaution = /(?:\bavoid(?:ing)? assumptions? about\b|\bwithout assuming\b|\bdo not assume\b)(?:(?!\b(?:but|however|yet|while|instead|then|confirm(?:s|ed|ing)?|assert(?:s|ed|ing)?)\b)[\s\S])*$/iu;
+  const scopedEvidenceLimit = /\b(?:does not|do not|cannot|can not|no evidence (?:of|that))\s+(?:establish|confirm|show|prove)\b(?:(?!\b(?:but|however|yet|while|instead|then)\b)[\s\S])*$/iu;
   const scopedEvidenceLimitWithinMatch = /\b(?:does not|do not|cannot|can not|no evidence (?:of|that))\s+(?:establish|confirm|show|prove)\b/iu;
-  const scopedUnknown = /^[^.!?;]{0,80}\b(?:unknown|not established|unclear|unverified)\b/iu;
-  return scopedCaution.test(before) || scopedEvidenceLimit.test(before) ||
-    scopedEvidenceLimitWithinMatch.test(match[0]) || scopedUnknown.test(after);
+  const listItem = "(?:procurement status|eligible commercial uses|buying intent|decision authority|urgency|vendor preference|(?:available )?(?:purchasing )?(?:budget|funding|funds))";
+  const scopedUnknown = new RegExp(`^(?:(?:,\\s*(?:and\\s+)?|\\s+(?:and|or)\\s+)${listItem})*\\s+(?:is|are|remains|remain)\\s+(?:unknown|not established|unclear|unverified)\\s*$`, "iu");
+  const internalContrast = /\b(?:but|however|yet|while|instead|then)\b/iu.test(match[0]);
+  return !internalContrast && (scopedCaution.test(before) || scopedEvidenceLimit.test(before) ||
+    scopedEvidenceLimitWithinMatch.test(match[0]) || scopedUnknown.test(after));
 }
 
 function assertNoUnsupportedAccountAssertion(value: string, category: C3SupportCategory, path: string): void {

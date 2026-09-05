@@ -69,7 +69,7 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /Normal app boot and Workshop rendering use 0 default-path model\/provider calls/i);
     assert.match(doc, /Normal app boot and Workshop rendering use 0 autonomous tool actions/i);
     assert.match(doc, /No resident autonomous shell agent/i);
-    assert.match(doc, /No app server or worker path currently invokes `ModelProvider\.generate`/i);
+    assert.match(doc, /Normal app boot, Workshop rendering, and the default C3 launch do not invoke `ModelProvider\.generate`/i);
     assert.match(doc, /No source call sites currently invoke `ModelAdapter\.propose`/i);
     assert.match(doc, /The only `\.propose\(` source call site is the C2-01 review-only `AccountIntelligenceProviderBoundary` invocation/i);
     assert.match(doc, /C2 snapshots only its local boundary configuration/i);
@@ -80,7 +80,8 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /`ExternalCommandModelProvider` is a sealed validation seam/i);
     assert.match(doc, /`AgentRunRecord` is orchestration evidence, not a running autonomous loop/i);
     assert.match(doc, /Recent `owl-alpha` usage was limited to explicitly approved validation runs/i);
-    assert.match(doc, /runtime\/model-mode integration: none/i);
+    assert.match(doc, /runtime\/model-mode integration: optional local C3 prototype only; normal Workshop and default C3 remain zero-provider/i);
+    assert.match(doc, /C3 is a separate optional operator-command local prototype, not the normal Workshop/i);
     assert.match(doc, /tools_or_plugins_requested: false/i);
     assert.match(doc, /web_search_requested: false/i);
     assert.match(doc, /launch_readiness_claim: false/i);
@@ -90,7 +91,7 @@ test("agentic AI usage baseline records current runtime and validation boundarie
     assert.match(doc, /runtime_agentic_ai_usage: gated-zero-default/i);
     assert.match(doc, /validation_agentic_ai_usage: bounded-approved-slices/i);
     assert.match(doc, /autonomous_agent_behavior: absent/i);
-    assert.match(doc, /Any future provider call, tool\/web-search enablement, autonomous loop, production write, deployment, or runtime\/model-mode integration needs a separate reviewed change/i);
+    assert.match(doc, /Any provider path beyond the reviewed optional local C3 command seam.*needs a separate reviewed change/i);
     assertNoPositiveReadiness("agentic AI usage baseline", doc);
   });
 
@@ -100,11 +101,12 @@ test("agentic AI usage baseline records current runtime and validation boundarie
       ["src/account-intelligence/refresh.ts:LINE:const providerResult = await input.providerBoundary.propose(request, plan, admitted.sources);"],
     );
     const generateMatches = matchingSourceLines(/\.generate\(/);
-    assert.equal(generateMatches.length, 4);
+    assert.equal(generateMatches.length, 5);
     assert.deepEqual(
       generateMatches.map((match) => match.replace(/:\d+:/, ":LINE:")),
       [
         "src/account-intelligence/provider.ts:LINE:const response = await this.#provider.generate(modelRequest);",
+        "src/c3/service.ts:LINE:const raw = await options.provider.generate(modelRequest, controller.signal);",
         "src/model/codex-auth-provider-bridge.ts:LINE:response = await this.transport.generate(request);",
         "src/model/provider-validation.ts:LINE:response = await input.provider.generate(input.request);",
         "src/validation/live-provider-moderate-proof-verifier.ts:LINE:const response: ModelProviderResponse = await input.provider.generate(input.request);",

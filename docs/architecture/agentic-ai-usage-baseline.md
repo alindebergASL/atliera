@@ -16,14 +16,15 @@ Interpretation: Atliera has some agent-facing seams, but default runtime agentic
 - Normal app boot and Workshop rendering use 0 default-path model/provider calls.
 - Normal app boot and Workshop rendering use 0 autonomous tool actions.
 - Runtime Workshop preview remains fake-mode/no-write and reports `providerCallsMade: 0` with `productionWrites: false`.
-- No app server or worker path currently invokes `ModelProvider.generate`.
+- Normal app boot, Workshop rendering, and the default C3 launch do not invoke `ModelProvider.generate`; C3 defaults to a disabled provider.
 - No source call sites currently invoke `ModelAdapter.propose`.
 - The only `.propose(` source call site is the C2-01 review-only `AccountIntelligenceProviderBoundary` invocation in `src/account-intelligence/refresh.ts`; it requires an explicitly injected, single-use provider boundary and is not wired to an app server, worker, customer route, persistence path, or default runtime.
-- The `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`; and the review-only C2 boundary, `src/account-intelligence/provider.ts`. C2 snapshots only its local boundary configuration. Provider behavior remains an external mutable effect; C2 validates the response, enforces output/cost/shape limits, and reports provider storage/tool/network behavior as unestablished. None is a default runtime app path.
+- The `.generate(` source call sites are the provider-validation harness, `src/model/provider-validation.ts`; the fail-closed Codex-auth bridge adapter, `src/model/codex-auth-provider-bridge.ts`; the lab/test-only runtime proof harness, `src/validation/live-provider-moderate-proof-verifier.ts`; the review-only C2 boundary, `src/account-intelligence/provider.ts`; and the C3 local service's explicitly injected provider call. C2 snapshots only its local boundary configuration. Provider behavior remains an external mutable effect; C2 validates the response, enforces output/cost/shape limits, and reports provider storage/tool/network behavior as unestablished. None is a default provider-enabled app path.
+- C3 is a separate optional operator-command local prototype, not the normal Workshop. It is disabled by default, loopback-only, session-memory-only, accepts no command/path from HTTP, performs no source retrieval or durable write, and requires an operator to configure one local executable. That wrapper owns any credentials in private files and must preserve external reservation/receipt accounting; repository code does not receive provider secrets or claim remote cancellation.
 - No source path constructs `ExternalCommandModelProvider` as a default runtime dependency.
 - No resident autonomous shell agent is installed or required by the app.
 - No worker polling loop currently dequeues jobs to execute model/tool plans.
-- runtime/model-mode integration: none.
+- runtime/model-mode integration: optional local C3 prototype only; normal Workshop and default C3 remain zero-provider.
 
 ## Current validation behavior
 
@@ -51,7 +52,7 @@ Prompt contracts define allowed operation shapes and safety obligations for futu
 - provider_or_model_comparison: false.
 - production writes: none.
 - paid fallback: none.
-- runtime/model-mode integration: none.
+- runtime/model-mode integration: optional local C3 prototype only; disabled by default.
 - launch_readiness_claim: false.
 - product_readiness_claim: false.
 - production_readiness_claim: false.
@@ -67,4 +68,4 @@ Prompt contracts define allowed operation shapes and safety obligations for futu
 
 ## Next-step boundary
 
-Any future provider call, tool/web-search enablement, autonomous loop, production write, deployment, or runtime/model-mode integration needs a separate reviewed change with an explicit approval packet, safety tests, sanitized status follow-up, and no readiness overclaim.
+Any provider path beyond the reviewed optional local C3 command seam, or any tool/web-search enablement, autonomous loop, production write, deployment, or broader runtime/model-mode integration needs a separate reviewed change with explicit authority, safety tests, sanitized status follow-up, and no readiness overclaim.

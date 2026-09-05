@@ -197,12 +197,12 @@ export function createC3RevisionContext(record: C3GenerationRecord, correctionNo
 
 function audiencePriority(audience: string): string {
   if (/\b(?:ciso|security|risk)\b/iu.test(audience)) {
-    return "Prioritize security ownership, controls, risk boundaries, evidence freshness, and decision-relevant unknowns.";
+    return "Use the CISO or security audience as a secondary framing lens after outcome and evidence ranking. Emphasize security ownership, controls, risk boundaries, evidence freshness, and decision-relevant unknowns only where they help the stated outcome; the title alone does not establish a security problem or required follow-up.";
   }
   if (/\b(?:cio|engineering|technology|platform|architect)\b/iu.test(audience)) {
-    return "Prioritize architecture, operating model, integration dependencies, delivery sequencing, and technical learning.";
+    return "Use the CIO or engineering audience as a secondary framing lens after outcome and evidence ranking. Operating model, architecture, integration, sequencing, and technical learning may be relevant, but the title alone does not make any of them the priority, binding constraint, or required follow-up.";
   }
-  return "Adapt priorities and question ordering to the named audience without changing source facts.";
+  return "Use the named audience as a secondary framing lens after outcome and evidence ranking. Adapt language and question ordering without letting the title establish a priority, constraint, or follow-up, and without changing source facts.";
 }
 
 export function createC3ModelRequest(context: FrozenC3AccountContext, requestInput: unknown,
@@ -222,10 +222,13 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
   };
   const prompt = [
     "Prepare a small, useful meeting draft from the supplied admitted account context.",
-    "For a 15-minute meeting, favor three prioritized questions: current priority, the audience's key constraint, and one useful next step. Keep each question focused rather than combining a list of workstreams. Longer meetings may use more questions.",
+    "Rank the draft outcome-first: start with the meeting request's intended outcome, then applicable owner content-priority corrections, then the strongest relevant account evidence and known reported roles, and only then the audience lens. Audience keywords must not prematurely narrow the outcome to a technical, security, or other functional agenda.",
+    "Treat each ownerCorrections content_priority as a meaningful selection directive, not merely a caveat. Use the relevanceCandidates reasons to connect it to evidence. Unless the specific meeting request and admitted evidence provide an evidenced reason otherwise, that evidence must visibly affect selectedEvidenceRefs and at least one of the thesis, opening, or must-ask questions—not only risksUnknowns; an audience title alone is not a reason to depart. Preserve content_caveat items as limits rather than converting them into priorities.",
+    "For a 15-minute meeting, return exactly three must-ask questions in this order: identify the outcome that matters now; learn the selected outcome's current owner or binding constraint without re-asking already reported roles; and determine whether any next step would be useful and what it should accomplish. Keep each question focused rather than combining a menu of workstreams. If a broader governance, dependency, or measurement probe is genuinely needed, mention it briefly as optional prose in the relevant intendedLearning or closeCriterion, not as another ordered question. Longer meetings may use more questions.",
     "Use plain seller-facing language: say sources, current priorities, and what to confirm—not retained material, admitted context, controller authorization, excerpt-level support, or schema. Keep governance/session/approval explanations out of the meeting content; the application displays those states separately. An unknown field must identify an actual account or evidence unknown, not explain the application.",
-    "Write a concise natural spoken opening inviting the audience to confirm the most relevant account-specific priority. Prefer a recommendation phrased as an invitation to consider or a cautious hypothesis, rather than an isolated literal quotation with no conversational bridge. Keep source facts exact under the support contract; do not turn a paraphrase into direct_support.",
+    "Keep the draft concise but substantive. Ground the audience thesis and natural spoken opening in one or two concrete evidence anchors or known reported roles most relevant to the intended outcome. Acknowledge a role the evidence already reports instead of using a must-ask question to make the audience re-establish it, while never implying a current date, decision authority, or ownership beyond the cited excerpt. Prefer an invitation to confirm or a cautious hypothesis over an isolated literal quotation with no conversational bridge. Keep source facts exact under the support contract; do not turn a paraphrase into direct_support.",
     "Avoid repeating the same generic caveat in every field. In risksUnknowns, keep the few consequential source/date/entity/funding uncertainties, tied to their affected evidence and the learning decision. Neither brevity nor conversational wording permits dropping a known contradiction or consequential warning.",
+    "Make closeCriterion genuinely non-presumptive: it must allow agreement on a useful next step or a clear conclusion that no follow-up is warranted. Do not require a technical dependency, follow-up owner, format, or date unless the conversation establishes one as useful.",
     "Return exactly one JSON object matching the supplied schema, with no markdown and no additional fields.",
     "You select meaningful evidence and write the prose. Do not merely repeat the relevance candidates; they are candidates with reasons, not conclusions.",
     "Preserve facts, entity boundaries, declared contradictions, material gaps, owner corrections, source dates, and renderer annotations.",
@@ -234,7 +237,7 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
     "A dated event found in initial research is not a change against a prior revision. No prior revision exists here, so change_against_prior_revision is invalid.",
     "Use no_material_change_established for a useful steady-state agenda and insufficient_context when evidence cannot support useful preparation.",
     "A valid direct_support example copies one exactExcerpt as the whole text field. A mixed source summary plus proposed discussion is NOT direct_support; represent it as an explicitly tentative cautious_inference or split it into an exact fact and a recommendation. Questions always use open_question even when evidenceRefs provide related context.",
-    "Ask 3-7 ordered questions. Keep the thesis concise. Cite only supplied evidence IDs and include every cited ID once in selectedEvidenceRefs.",
+    "Ask 3-7 ordered questions, subject to the exactly-three rule for a 15-minute meeting. Keep the thesis concise. Cite only supplied evidence IDs and include every cited ID once in selectedEvidenceRefs.",
     audiencePriority(meetingRequest.audience),
     `MEETING REQUEST\n${canonicalJson(meetingRequest)}`,
     revision === null ? "REVISION CONTEXT\nnone" : `REVISION CONTEXT (session-only correction; does not mutate or ratify account truth; SHA-256 ${revisionSha256!})\n${canonicalJson(revision)}`,

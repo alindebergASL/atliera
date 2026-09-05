@@ -10,7 +10,7 @@ npm run build
 npm run start:c3
 ```
 
-The service binds only to `127.0.0.1` (default `http://127.0.0.1:4317`). `/` always owns Account Home, `/?prepare=1` owns the preserved preparation form, and `/?draft=1` owns the current session draft. A successful generation updates browser history to the draft URL before replacing the rendered document, so reload returns to that draft; Account Home and Prepare expose an explicit reopen link while one exists. Back, reload, and browser close retain state only while the same cookie and server process survive. A server restart loses the session and the draft URL returns a clear no-draft message with the preserved/default form rather than implying durable storage. With no operator provider configured, Account Home and Prepare work and generation fails truthfully as disabled.
+The service binds only to `127.0.0.1` (default `http://127.0.0.1:4317`). `/` always owns Account Home, `/?prepare=1` owns the preserved preparation form, and `/?draft=1` owns the current session draft. A successful generation updates browser history to the draft URL before replacing the rendered document, so reload returns to that draft; Account Home and Prepare expose an explicit reopen link while one exists. Submitted form state and drafts remain in server memory only while the same cookie and server process survive. Prepare also keeps the latest unsubmitted form fields in a per-tab browser cache scoped to the account and live server-session identity, so an offline error or cancellation can recover later edits on reload in that tab. Accepted generation and revision clear that cache. A new server session cannot use the prior entry, and stale session entries are removed when storage is available. The page explicitly reports whether this browser permits the cache; when storage is unavailable, it warns that unsubmitted edits cannot be promised across reload. No generated output, correction note, review state, or approval is stored there. A server restart loses the session and the draft URL returns a clear no-draft message with the preserved/default form rather than implying durable storage. With no operator provider configured, Account Home and Prepare work and generation fails truthfully as disabled.
 
 To configure generation, set `C3_MODEL_COMMAND` to one executable path before launch:
 
@@ -58,7 +58,7 @@ The deterministic support contract distinguishes whole-field verbatim source fac
 ## Focused verification
 
 ```sh
-node --import tsx --test tests/c3/c3-journey.test.ts tests/c3/c3-service.test.ts
+node --import tsx --test tests/c3/c3-journey.test.ts tests/c3/c3-service.test.ts tests/c3/c3-form-recovery.test.ts
 npm run typecheck
 npm run build
 ```

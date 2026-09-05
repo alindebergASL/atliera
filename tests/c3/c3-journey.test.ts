@@ -149,16 +149,25 @@ test("adapter refuses retained clean-text tampering instead of repairing old pro
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("meeting prompt carries full canonical context and differentiates audience priorities without changing facts", async () => {
+test("meeting prompt ranks outcome and corrected evidence before audience lens while preserving concise discovery", async () => {
   const context = await load();
   const base = { intendedOutcome: "Understand priorities and agree a useful follow-up.", durationMinutes: 15, meetingDate: "2026-09-12" };
   const ciso = createC3ModelRequest(context, { ...base, audience: "CISO" });
   const cio = createC3ModelRequest(context, { ...base, audience: "CIO and engineering leaders" });
   assert.notEqual(ciso.meetingRequestSha256, cio.meetingRequestSha256);
-  assert.match(ciso.prompt, /security ownership, controls, risk boundaries/);
-  assert.match(cio.prompt, /architecture, operating model, integration dependencies/);
+  assert.match(ciso.prompt, /security ownership, controls, risk boundaries.*only where they help the stated outcome/);
+  assert.match(cio.prompt, /Operating model, architecture, integration, sequencing, and technical learning may be relevant.*title alone does not make any of them the priority/);
+  assert.ok(cio.prompt.indexOf("Rank the draft outcome-first") < cio.prompt.indexOf("Use the CIO or engineering audience as a secondary framing lens"));
+  assert.match(cio.prompt, /ownerCorrections content_priority.*meaningful selection directive/);
+  assert.match(cio.prompt, /Unless the specific meeting request and admitted evidence provide an evidenced reason otherwise/);
+  assert.match(cio.prompt, /must visibly affect selectedEvidenceRefs.*not only risksUnknowns/);
+  assert.match(cio.prompt, /exactly three must-ask questions/);
+  assert.match(cio.prompt, /one or two concrete evidence anchors or known reported roles/);
+  assert.match(cio.prompt, /no follow-up is warranted/);
+  assert.match(cio.prompt, /Do not require a technical dependency, follow-up owner, format, or date/);
   assert.ok(ciso.prompt.includes(context.canonicalJson));
   assert.ok(cio.prompt.includes(context.canonicalJson));
+  assert.ok(cio.prompt.includes(context.context.ownerCorrections.find((item) => item.kind === "content_priority")!.text));
   assert.match(ciso.prompt, /canonicalUrl/);
   assert.match(ciso.prompt, /publicationDate/);
 });

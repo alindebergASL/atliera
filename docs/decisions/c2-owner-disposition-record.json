@@ -1,0 +1,19 @@
+{
+  "kind": "atliera.owner-decision",
+  "schemaVersion": "1",
+  "state": "effective",
+  "decidedBy": "owner",
+  "decision": "Utah: Continue to C3. FedEx: Revise before C3 — Worth continuing: re-lead the next move with the Dataworks/AI-orchestration and Network 2.0 (end-2027) threads and demote supplier-portal registration to housekeeping; Useful: strengthen or re-scope the thesis beyond 10-K self-description; re-run gaps_contradictions on a fresh single-head execution when budget permits, curing the mixed-head limitation.",
+  "scope": "C2 owner content review of the combined surface c2-owner-content-review.html (SHA-256 ee894a5b8a35f1311aba34f4c8306178a26ebe716235d58927bef279a53a9997); governs C3 eligibility for both accounts. Supersedes the agent-derived recording in PR #317, which this decision now confirms as to outcome; the authorship defect is recorded in the 2026-09-04 disposition incident.",
+  "boundSha": "b93f0d61122722715d2db33636cfb7828fbf3f95",
+  "advisoryInputs": [
+    "Claude disposition brief 2026-09-04 (c2-disposition-brief.md)",
+    "Three isolated reviews 2026-08-30 (fresh-eyes, naive-reader, PR-contextual)",
+    "asl_hermes_code independent verification 2026-09-04"
+  ],
+  "ownerAttestation": {
+    "method": "verbatim-statement",
+    "reference": "Owner statement in Claude (Cowork) session, 2026-09-04: \"I should add I did review the c2 disposition and agreed with your findings\" — following the owner's review of the ee894a5b surface and the disposition brief recommending Utah: Continue / FedEx: Revise.",
+    "timestamp": "2026-09-04T16:13:21-07:00"
+  }
+}

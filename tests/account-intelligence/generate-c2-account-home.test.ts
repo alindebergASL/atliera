@@ -24,7 +24,10 @@ test("CLI generator re-admits the broad Utah run and writes source-derived revie
   assert.match(html, /University of Utah/u);
   assert.match(html, /Redtail/u);
   assert.match(html, /Utah Health AI Vault/u);
-  assert.match(html, /table row captured without its column headers/u);
+  assert.match(html, /same retained source includes the header/u);
+  assert.match(html, /REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE/u);
+  assert.match(html, /do not establish remaining purchasing funds/u);
+  assert.doesNotMatch(html, /without its column headers|does not establish what either figure denotes/u);
   assert.match(html, /recheck it before meeting use/u);
   assert.match(html, /Related evidence context 1/u);
   assert.match(html, /Exact support 1/u);

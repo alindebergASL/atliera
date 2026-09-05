@@ -139,9 +139,13 @@ function annotationFor(
 }
 
 function utahRendererAnnotations(sources: readonly AdmittedAccountSource[]): readonly C2AccountHomeAnnotation[] {
+  const header = sources.find((source) => source.retrievalId === "retrieval-ut-s2")?.excerpts[0];
+  if (header?.exactExcerpt !== "REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE") {
+    throw new Error("funding-table annotation header no longer matches admitted source context");
+  }
   return [
     annotationFor(sources, "utah-funding-table-header-caveat", "source_context_caveat", "retrieval-ut-s2", [1],
-      "This excerpt is a table row captured without its column headers; the admitted evidence does not establish what either figure denotes."),
+      "The same retained source includes the header “REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE”. Read this funding row alongside that header; three-year plan figures do not establish remaining purchasing funds, allowable vendor spend, or buying intent."),
     annotationFor(sources, "utah-redtail-article-date-recheck", "freshness_recheck", "retrieval-owner-redtail-article", [0],
       "Publication, event, and evidence-current-through dates are not established for this retained Redtail source; recheck it before meeting use."),
     annotationFor(sources, "utah-redtail-chpc-date-recheck", "freshness_recheck", "retrieval-owner-redtail-chpc", [1],

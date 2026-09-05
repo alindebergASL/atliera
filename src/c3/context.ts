@@ -183,11 +183,15 @@ function annotations(sources: readonly C3RetainedSource[]): C3ContextAnnotation[
     }
     const tableExcerpt = source.excerpts.find((item) => /^Responsible AI\s+\$[\d,.]+\s+\$[\d,.]+/u.test(item.exactExcerpt));
     if (tableExcerpt !== undefined) {
+      const tableHeader = source.excerpts.find((item) => item.exactExcerpt ===
+        "REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE");
       result.push({
         kind: "source_context_caveat",
         sourceId: source.sourceId,
-        evidenceIds: [tableExcerpt.evidenceId],
-        text: "This retained table row has no column headers, so the figures' meanings are not established.",
+        evidenceIds: tableHeader === undefined ? [tableExcerpt.evidenceId] : [tableHeader.evidenceId, tableExcerpt.evidenceId],
+        text: tableHeader === undefined
+          ? "Read this funding row in its full retained source context; the row alone does not establish the column meanings or available purchasing funds."
+          : `The same retained source includes the header “${tableHeader.exactExcerpt}”. Read this funding row alongside that header; three-year plan figures do not establish remaining purchasing funds, allowable vendor spend, or buying intent.`,
       });
     }
   }

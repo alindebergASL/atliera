@@ -340,6 +340,17 @@ test("a displayed old draft cannot abort a newer generation in another tab", asy
   } finally { await running.close(); }
 });
 
+test("client history traversal reloads the URL-owned view", () => {
+  const listeners = new Map<string, () => void>();
+  let reloads = 0;
+  const window = { addEventListener(name: string, listener: () => void) { listeners.set(name, listener); },
+    location: { reload() { reloads += 1; } } };
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document: { querySelector: () => null } });
+  assert.ok(listeners.has("popstate"));
+  listeners.get("popstate")!();
+  assert.equal(reloads, 1);
+});
+
 test("rendered client restores edited in-flight form, ignores stale HTML, and confines requests to fixed same-origin POST routes", async () => {
   type Listener = (event: any) => unknown;
   class Element {

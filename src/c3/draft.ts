@@ -222,6 +222,10 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
   };
   const prompt = [
     "Prepare a small, useful meeting draft from the supplied admitted account context.",
+    "For a 15-minute meeting, favor three prioritized questions: current priority, the audience's key constraint, and one useful next step. Keep each question focused rather than combining a list of workstreams. Longer meetings may use more questions.",
+    "Use plain seller-facing language: say sources, current priorities, and what to confirm—not retained material, admitted context, controller authorization, excerpt-level support, or schema. Keep governance/session/approval explanations out of the meeting content; the application displays those states separately. An unknown field must identify an actual account or evidence unknown, not explain the application.",
+    "Write a concise natural spoken opening inviting the audience to confirm the most relevant account-specific priority. Prefer a recommendation phrased as an invitation to consider or a cautious hypothesis, rather than an isolated literal quotation with no conversational bridge. Keep source facts exact under the support contract; do not turn a paraphrase into direct_support.",
+    "Avoid repeating the same generic caveat in every field. In risksUnknowns, keep the few consequential source/date/entity/funding uncertainties, tied to their affected evidence and the learning decision. Neither brevity nor conversational wording permits dropping a known contradiction or consequential warning.",
     "Return exactly one JSON object matching the supplied schema, with no markdown and no additional fields.",
     "You select meaningful evidence and write the prose. Do not merely repeat the relevance candidates; they are candidates with reasons, not conclusions.",
     "Preserve facts, entity boundaries, declared contradictions, material gaps, owner corrections, source dates, and renderer annotations.",
@@ -293,7 +297,7 @@ function draftWarnings(candidate: C3MeetingDraftCandidate, context: FrozenC3Acco
   return warnings;
 }
 
-const HIGH_RISK_ASSERTION = /\b(?:suffered|experienced|was hit by)\b.{0,80}\b(?:ransomware|cyber ?attack|data breach)\b|\b(?:appointed|selected|chose|chosen|contracted with|preferred)\b.{0,80}\b(?:vendor|provider|partner|recovery|deployment)\b|\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b.{0,60}\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b.{0,40}\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b|\$\s*\d[\d,.]*\s*(?:million|m)?\b.{0,60}\b(?:ready to spend|available|approved budget)\b|\b(?:already approved|approved purchase|active procurement)\b|\b(?:must|should)\s+(?:we\s+)?(?:buy|purchase|select|replace)\b/iu;
+const HIGH_RISK_ASSERTION = /\b(?:suffered|experienced|was hit by)\b.{0,80}\b(?:ransomware|cyber ?attack|data breach)\b|\b(?:appointed|selected|chose|chosen|contracted with|preferred)\b.{0,80}\b(?:vendor|provider|partner|recovery|deployment)\b|\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b.{0,60}\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b.{0,40}\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b|\$\s*\d[\d,.]*\s*(?:million|m)?\b.{0,60}\b(?:ready to spend|available|approved budget)\b|\b(?:already approved|approved purchase|active procurement)\b|\b(?:allocate|spend)\b.{0,80}\b(?:budget|funding|funds?)\b.{0,80}\b(?:buy|purchase)\b|\b(?:must|should)\s+(?:we\s+)?(?:buy|purchase|select|replace)\b/iu;
 const HIGH_RISK_ASSERTIONS = new RegExp(HIGH_RISK_ASSERTION.source, `${HIGH_RISK_ASSERTION.flags}g`);
 const COMMERCIAL_AVAILABILITY_ASSERTION = /\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b.{0,60}\b(?:purchasing\s+)?(?:budget|funding|funds?)\b|\b(?:budget|funding|funds?)\b.{0,40}\b(?:available|approved|allocated|ready[- ]to[- ]spend)\b/iu;
 

@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { mkdir, readFile, writeFile, realpath, readdir } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { loadC3AccountContext } from "./context.ts";
@@ -24,11 +24,27 @@ async function contextFor(accountId: string) {
 
 async function ensureOutput(directory: string): Promise<string> {
   const output = resolve(directory);
-  const fromRepository = relative(REPO, output);
-  if (fromRepository === "" || (fromRepository !== ".." && !fromRepository.startsWith(`..${sep}`) && !isAbsolute(fromRepository))) {
+  const repository = await realpath(REPO);
+  const outside = (candidate: string): boolean => {
+    const path = relative(repository, candidate);
+    return path === ".." || path.startsWith(`..${sep}`) || isAbsolute(path);
+  };
+  let ancestor = output;
+  let canonicalAncestor: string;
+  while (true) {
+    try { canonicalAncestor = await realpath(ancestor); break; }
+    catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT" || dirname(ancestor) === ancestor) throw error;
+      ancestor = dirname(ancestor);
+    }
+  }
+  const canonicalTarget = resolve(canonicalAncestor, relative(ancestor, output));
+  if (!outside(output) || !outside(canonicalTarget)) {
     throw new Error("C3 evaluation output directory must be outside the repository");
   }
   await mkdir(output, { recursive: true });
+  if (!outside(await realpath(output))) throw new Error("C3 canonical output must be outside the repository");
+  if ((await readdir(output)).length !== 0) throw new Error("C3 evaluation output directory must be empty; existing files are not overwritten");
   return output;
 }
 
@@ -38,8 +54,8 @@ async function loadContextCommand(args: readonly string[]): Promise<void> {
   const frozen = await contextFor(accountId);
   const output = await ensureOutput(outputDirectory);
   await Promise.all([
-    writeFile(resolve(output, "account-context.json"), `${JSON.stringify(frozen.context, null, 2)}\n`),
-    writeFile(resolve(output, "account-context-identity.json"), `${JSON.stringify({ kind: "atliera.c3.account-context-identity", schemaVersion: "1", sha256: frozen.sha256 }, null, 2)}\n`),
+    writeFile(resolve(output, "account-context.json"), `${JSON.stringify(frozen.context, null, 2)}\n`, { mode: 0o600, flag: "wx" }),
+    writeFile(resolve(output, "account-context-identity.json"), `${JSON.stringify({ kind: "atliera.c3.account-context-identity", schemaVersion: "1", sha256: frozen.sha256 }, null, 2)}\n`, { mode: 0o600, flag: "wx" }),
   ]);
   process.stdout.write(`${JSON.stringify({ accountId, contextSha256: frozen.sha256, sources: frozen.context.admittedSources.length })}\n`);
 }
@@ -52,7 +68,7 @@ async function emitRequestCommand(args: readonly string[]): Promise<void> {
   const frozen = await contextFor(accountId!);
   const request = createC3ModelRequest(frozen, { audience, intendedOutcome, durationMinutes: 15, meetingDate });
   const output = await ensureOutput(outputDirectory!);
-  await writeFile(resolve(output, "model-request.json"), `${JSON.stringify(request, null, 2)}\n`, { mode: 0o600 });
+  await writeFile(resolve(output, "model-request.json"), `${JSON.stringify(request, null, 2)}\n`, { mode: 0o600, flag: "wx" });
   process.stdout.write(`${JSON.stringify({ accountId, contextSha256: frozen.sha256, meetingRequestSha256: request.meetingRequestSha256 })}\n`);
 }
 
@@ -70,7 +86,7 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
   const supplied = recordedRequest(JSON.parse(await readFile(resolve(requestPath!), "utf8")));
   const expected = createC3ModelRequest(frozen, supplied.meetingRequest, supplied.revision);
   if (JSON.stringify(supplied) !== JSON.stringify(expected)) throw new Error("recorded model request identity or prompt mismatch");
-  const rawResponse = await readFile(resolve(rawResponsePath!), "utf8");
+  const rawResponse = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await readFile(resolve(rawResponsePath!)));
   const record = createGenerationRecord(expected, rawResponse, frozen);
   assertReplayIdentity(record, frozen);
   const output = await ensureOutput(outputDirectory!);
@@ -79,8 +95,8 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
     : renderC3Page(frozen, { page: "prepare", request: expected.meetingRequest,
       error: `Recorded candidate refused without repair: ${record.refusal!.message}` }, "recorded-read-only");
   await Promise.all([
-    writeFile(resolve(output, "generation-record.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 }),
-    writeFile(resolve(output, "draft.html"), page),
+    writeFile(resolve(output, "generation-record.json"), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600, flag: "wx" }),
+    writeFile(resolve(output, "draft.html"), page, { mode: 0o600, flag: "wx" }),
   ]);
   process.stdout.write(`${JSON.stringify({ recordId: record.recordId, outcome: record.outcome,
     rawResponseSha256: record.rawResponseSha256, output: resolve(output, "draft.html") })}\n`);

@@ -21,6 +21,9 @@ function humanDate(value: string | null): string {
 const SCRIPT = `
 (() => {
   const csrf = document.querySelector('meta[name="c3-csrf"]')?.getAttribute('content') || '';
+  // History entries own their view. Back/Forward must resolve that route,
+  // not leave the last document.write() draft under a Prepare/Home URL.
+  if (typeof window !== 'undefined') window.addEventListener('popstate', () => window.location.reload());
   const replacePage = (payload) => {
     const allowed = ['/', '/?prepare=1', '/?draft=1'];
     if (allowed.includes(payload.location) && (payload.history === 'push' || payload.history === 'replace')) {

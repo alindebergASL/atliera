@@ -30,7 +30,9 @@ C3_PORT=4317 C3_MODEL_COMMAND=/absolute/path/to/wrapper npm run start:c3
 
 ## Controller evaluation and replay
 
-All output paths below are operator-owned and should be outside the repository.
+All output paths below are operator-owned and should be empty directories outside the repository. Canonical ancestors are checked and existing output files are never overwritten (including symlinks). Use a fresh output directory for each run. Recorded response decoding is fatal UTF-8 and preserves a BOM, so online and offline refusal/identity semantics agree.
+
+The full-context adapter binds the retained funding row to its retained header when present. Three-year plan figures still do not establish remaining purchasing funds, allowable vendor spend, or buying intent. Updating a derived annotation or meeting prompt changes request identity; old recordings remain historical and must never be relabeled as calls under the new input.
 
 ```sh
 npm run c3:load-context -- acc_university_of_utah /absolute/external/eval/context

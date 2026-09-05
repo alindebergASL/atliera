@@ -40,6 +40,31 @@ function rawCandidate(context: FrozenC3AccountContext, overrides: Record<string,
   });
 }
 
+test("retained table header is bound into the derived caveat rather than falsely reported missing", async () => {
+  const context = await load();
+  const annotation = context.context.rendererAnnotations.find((item) => item.kind === "source_context_caveat")!;
+  const source = context.context.admittedSources.find((item) => item.sourceId === annotation.sourceId)!;
+  const header = source.excerpts.find((item) => item.exactExcerpt === "REINVESTMENT AREA APPROVED 3-YR CURRENT 3-YR NET CHANGE")!;
+  assert.ok(header);
+  assert.ok(annotation.evidenceIds.includes(header.evidenceId));
+  assert.equal(annotation.evidenceIds.length, 2);
+  assert.ok(annotation.text.includes(header.exactExcerpt));
+  assert.doesNotMatch(annotation.text, /no column headers|meanings are not established/u);
+  assert.match(annotation.text, /do not establish remaining purchasing funds/u);
+});
+
+test("an imperative allocation-to-purchase remains a typed refusal, not a safe recommendation", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
+  for (const text of ["Allocate the full reinvestment budget to buy our platform immediately.", "Spend the funding to purchase our platform."]) {
+    const raw = rawCandidate(context, { closeCriterion: { text, evidenceRefs: [], supportCategory: "recommendation" } });
+    const record = createGenerationRecord(request, raw, context);
+    assert.equal(record.outcome, "refused");
+    assert.equal(record.rawResponse, raw);
+    assert.match(record.refusal!.message, /prescriptive purchase/u);
+  }
+});
+
 function withContradiction(context: FrozenC3AccountContext): FrozenC3AccountContext {
   const changed = { ...context.context, declaredContradictions: ["Two admitted sources disagree about the responsible entity."] };
   const json = canonicalJson(changed);
@@ -386,8 +411,11 @@ test("timeout and output overflow also reap TERM-resistant owned commands before
     for (const mode of ["timeout", "overflow"] as const) {
       const marker = join(directory, `${mode}.pid`);
       const script = `const fs=require('node:fs');fs.writeFileSync(process.argv[1],String(process.pid));process.on('SIGTERM',()=>{});${mode === "overflow" ? "fs.writeSync(1,Buffer.alloc(2048));" : ""}setInterval(()=>{},1000)`;
+      // Keep the one-second model timeout, but allow bounded scheduler/reap
+      // latency after KILL on a shared CI host. A 30 ms cleanup grace flaked
+      // into the provider's legitimate fail-closed HOLD before Node reaped it.
       const provider = new CommandC3ModelProvider({ command: process.execPath, args: ["-e", script, marker],
-        timeoutMs: mode === "timeout" ? 1_000 : 5_000, maxOutputBytes: 1_024, killGraceMs: 30 });
+        timeoutMs: mode === "timeout" ? 1_000 : 5_000, maxOutputBytes: 1_024, killGraceMs: 250 });
       const pending = provider.generate(modelRequest, new AbortController().signal);
       await assert.rejects(pending, mode === "timeout" ? /timed out; remote billed-work status may be unknown/ : /exceeded output bound; remote billed-work status may be unknown/);
       const pid = Number(await readFile(marker, "utf8"));

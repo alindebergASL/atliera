@@ -65,8 +65,8 @@ jobs:
           done
           cp enforcement/docs/strategy/governance-tiers.json candidate/.atliera-enforcement/governance-tiers.json
           cp enforcement/docs/strategy/decision-record.schema.json candidate/.atliera-enforcement/decision-record.schema.json
-          cp enforcement/docs/strategy/decision-proposal.schema.json candidate/.atliera-enforcement/decision-proposal.schema.json
-          cp enforcement/docs/strategy/governance-trust.json candidate/.atliera-enforcement/governance-trust.json
+          # Classification does not consume proposal-schema or identity policy.
+          # Ceremony reads those from its own protected enforcement checkout.
           chmod +x candidate/scripts/classify-pr.sh
           echo "enforcement bytes in use (from base ${{ github.event.pull_request.base.sha }}):"
           sha256sum candidate/scripts/classify-pr.sh candidate/scripts/classify-change-risk.ts candidate/scripts/verify-ceremony.ts

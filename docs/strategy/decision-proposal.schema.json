@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "atliera.decision-proposal.v3",
+  "title": "Atliera decision proposal (v3 — proposed, never self-ratifying)",
+  "description": "Candidate-tree input to live ceremony verification. It is always proposed and carries no authority. Authority is an external GitHub review fetched by protected-base workflow code and bound to this proposal plus the exact candidate head. Historical v1/v2 records remain immutable history and are validated only by the explicitly historical validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "schemaVersion", "recordId", "state", "proposedBy", "decision", "scope", "purpose", "proposedAt", "proposalDigest"],
+  "properties": {
+    "kind": { "const": "atliera.decision-proposal" },
+    "schemaVersion": { "const": "3" },
+    "recordId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+    "state": { "const": "proposed" },
+    "proposedBy": { "enum": ["agent", "owner"] },
+    "decision": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string", "minLength": 1 },
+    "purpose": { "enum": ["build-permission", "effect-permission"] },
+    "proposedAt": { "type": "string", "format": "date-time" },
+    "referenceUri": { "type": "string", "format": "uri" },
+    "effectAxes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["privateData", "providerExecution", "networkOrOutbound", "retryOrRecurrence", "durableWrite", "identityOrAuthorization", "deployment", "customerEffect"] }
+    },
+    "proposalDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "purpose": { "const": "effect-permission" } }, "required": ["purpose"] },
+      "then": { "required": ["effectAxes"] }
+    },
+    {
+      "if": { "properties": { "purpose": { "const": "build-permission" } }, "required": ["purpose"] },
+      "then": { "not": { "required": ["effectAxes"] } }
+    }
+  ]
+}

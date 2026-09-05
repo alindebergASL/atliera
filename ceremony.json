@@ -1,0 +1,14 @@
+{
+  "buildProposal": {
+    "kind": "atliera.decision-proposal",
+    "schemaVersion": "3",
+    "recordId": "c3-governance-reset-build",
+    "state": "proposed",
+    "proposedBy": "agent",
+    "decision": "Permit building and merging the bounded governance liveness, protected-base candidate-map refusal, schema-alignment, identity, and obsolete C1V scope-guard repair.",
+    "scope": "This pull request's exact candidate head, including removal of the obsolete C1V uncommitted-path assertion in favor of current diff classification; no provider call, effect, deployment, customer action, or post-effect receipt.",
+    "purpose": "build-permission",
+    "proposedAt": "2026-09-05T08:43:40Z",
+    "proposalDigest": "sha256:5034e53e5423b3a2aa3126212d935f713aee37674ca4b9a0580260fb2a610559"
+  }
+}

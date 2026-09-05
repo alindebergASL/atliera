@@ -7,7 +7,6 @@ import {
   classifyChange,
   classifyFile,
   compareMaps,
-  deescalationsUnauthorized,
   loadFrozenPaths,
   loadMap,
   validateDeclaration,
@@ -16,13 +15,12 @@ import {
   type EffectVector,
 } from "../../scripts/classify-change-risk.ts";
 import {
-  assertedAxesFromDeclaration,
-  validateDecisionRecord,
-  verifyCeremony,
+  validateHistoricalDecisionRecordV2,
 } from "../../scripts/verify-ceremony.ts";
 
 const REPO = new URL("../..", import.meta.url).pathname;
 const map = loadMap(readFileSync(join(REPO, "docs", "strategy", "governance-tiers.json"), "utf8"));
+const historicalDecisionSchema = JSON.parse(readFileSync(join(REPO, "docs", "strategy", "decision-record.schema.json"), "utf8"));
 
 const allFalse = Object.fromEntries(REQUIRED_AXES.map((a) => [a, false])) as EffectVector;
 const fx = (over: Partial<EffectVector>): EffectVector => ({ ...allFalse, ...over });
@@ -218,6 +216,21 @@ test("de-escalation between map versions is detected mechanically", () => {
   assert.deepEqual(compareMaps(map, raised), []);
 });
 
+test("actual workflow and PR wrapper keep protected pricing separate from candidate map comparison", () => {
+  const wrapper = readFileSync(join(REPO, "scripts/classify-pr.sh"), "utf8");
+  const workflow = readFileSync(join(REPO, ".github/workflows/governance-classify.yml"), "utf8");
+  assert.match(wrapper, /MAP="\$\{ATL_GOVERNANCE_MAP:-docs\/strategy\/governance-tiers\.json\}"/u);
+  assert.match(wrapper, /CANDIDATE_MAP="\$\{ATL_GOVERNANCE_CANDIDATE_MAP:-docs\/strategy\/governance-tiers\.json\}"/u);
+  assert.match(wrapper, /args=\(--map "\$\{MAP\}" --candidate-map "\$\{CANDIDATE_MAP\}"/u);
+  assert.doesNotMatch(wrapper, /--base-map|--deescalation-ack/u);
+  assert.match(workflow, /ATL_GOVERNANCE_MAP: \.atliera-enforcement\/governance-tiers\.json/u);
+  assert.match(workflow, /ATL_GOVERNANCE_CANDIDATE_MAP: docs\/strategy\/governance-tiers\.json/u);
+
+  const lowered = { ...map, prefixes: map.prefixes.map((entry) => entry.prefix === "src/" ? { ...entry, minTier: 0 } : entry) };
+  assert.equal(classifyFile(map, "src/rule-probe.ts", new Set(), { effects: allFalse }).tier, 2);
+  assert.deepEqual(compareMaps(map, lowered), [{ kind: "rule-lowered", subject: "src/", from: 2, to: 0 }]);
+});
+
 test("PR tier is the maximum across files", () => {
   const change = classifyChange(map, ["README.md", "docs/ux/surface/index.html", "src/account-intelligence/provider.ts", ".github/workflows/ci.yml"], FROZEN, { effects: allFalse });
   assert.equal(change.prTier, 3);
@@ -294,7 +307,7 @@ test("BUG 2 — renaming a frozen artifact classifies the SOURCE identity", () =
   assert.equal(benign.violations.length, 0);
 });
 
-test("BUG 3 — ceremony consumes schema-v2 records and rejects v1-shaped authority", () => {
+test("historical schema-v2 proposed, ratified, and superseded shapes validate without becoming live authority", () => {
   const SHA = "b93f0d61122722715d2db33636cfb7828fbf3f95";
   const DIG = "sha256:" + "a".repeat(64);
   const v2Record = {
@@ -310,128 +323,79 @@ test("BUG 3 — ceremony consumes schema-v2 records and rejects v1-shaped author
     ratification: {
       method: "github-merge-approval",
       ownerIdentity: "alindebergASL",
-      eventUrl: "https://github.com/alindebergASL/atliera/pull/318#event-1",
+      eventUrl: "urn:atliera:historical-event:EV1",
       eventId: "EV1",
       ratifiedProposalDigest: DIG,
       subjectSha: SHA,
-      timestamp: "2026-09-05T00:00:00Z",
+      timestamp: "2026-09-05T02:00:00+02:00",
     },
   };
-  // A real v2 ratified record must PASS — v2.2 rejected exactly this (exit 6).
-  assert.deepEqual(verifyCeremony(2, SHA, { decisionRecord: v2Record }), []);
+  assert.deepEqual(validateHistoricalDecisionRecordV2(v2Record, historicalDecisionSchema), []);
+  const proposed = { ...v2Record, state: "proposed" } as Record<string, unknown>;
+  delete proposed.ratification;
+  assert.deepEqual(validateHistoricalDecisionRecordV2(proposed, historicalDecisionSchema), []);
+  const superseded = { ...proposed, state: "superseded", supersededBy: "c3-successor" };
+  assert.deepEqual(validateHistoricalDecisionRecordV2(superseded, historicalDecisionSchema), []);
 
-  // The v1 shape the v2.2 verifier accepted must now be rejected.
-  const v1Record = { state: "effective", decidedBy: "owner", ownerAttestation: { method: "verbatim-statement" }, boundSha: SHA };
-  const v1Problems = verifyCeremony(2, SHA, { decisionRecord: v1Record as never });
-  assert.ok(v1Problems.some((p) => /not schema v2/u.test(p)));
-  assert.ok(v1Problems.some((p) => /v1 'ownerAttestation'/u.test(p)));
-
-  // Cross-field equalities are enforced at runtime (schema cannot express them).
-  const digestMismatch = { ...v2Record, ratification: { ...v2Record.ratification, ratifiedProposalDigest: "sha256:" + "b".repeat(64) } };
-  assert.ok(verifyCeremony(2, SHA, { decisionRecord: digestMismatch }).some((p) => /does not equal the record's proposalDigest/u.test(p)));
-  const subjectMismatch = { ...v2Record, ratification: { ...v2Record.ratification, subjectSha: "c".repeat(40) } };
-  assert.ok(verifyCeremony(2, SHA, { decisionRecord: subjectMismatch }).some((p) => /does not equal the record's boundSha/u.test(p)));
-
-  // Exact SHA equality: v2.2 used startsWith, so empty strings matched everything.
+  // Cross-field authority predicates are intentionally not smuggled into the
+  // historical schema-shape validator; it is disconnected from live ceremony.
+  const schemaValidMismatch = { ...v2Record, ratification: { ...v2Record.ratification, subjectSha: "c".repeat(40) } };
+  assert.deepEqual(validateHistoricalDecisionRecordV2(schemaValidMismatch, historicalDecisionSchema), []);
   const empties = { ...v2Record, boundSha: "", ratification: { ...v2Record.ratification, subjectSha: "" } };
-  assert.ok(verifyCeremony(2, SHA, { decisionRecord: empties }).length > 0, "empty SHAs must not match");
-  assert.ok(verifyCeremony(2, "", { decisionRecord: v2Record }).some((p) => /not a 40-hex/u.test(p)));
-
-  // Unratified and agent-authored records carry no authority.
-  assert.ok(verifyCeremony(2, SHA, { decisionRecord: { ...v2Record, state: "proposed" } }).some((p) => /only 'ratified'/u.test(p)));
-  assert.ok(verifyCeremony(2, SHA, { decisionRecord: { ...v2Record, decidedBy: "agent" } as never }).some((p) => /decidedBy/u.test(p)));
-
-  // Missing schema-required fields are now caught (v2.3.1 finding 1b).
-  for (const field of ["recordId", "decision", "scope"] as const) {
+  assert.ok(validateHistoricalDecisionRecordV2(empties, historicalDecisionSchema).length > 0, "empty historical SHAs remain invalid");
+  for (const field of ["kind", "schemaVersion", "recordId", "state", "decidedBy", "decision", "scope", "boundSha", "proposalDigest"] as const) {
     const missing = { ...v2Record } as Record<string, unknown>;
     delete missing[field];
-    assert.ok(
-      verifyCeremony(2, SHA, { decisionRecord: missing as never }).some((p) => new RegExp(field === "recordId" ? "recordId" : `no ${field}`, "u").test(p)),
-      `omitting ${field} must be caught`,
-    );
+    assert.ok(validateHistoricalDecisionRecordV2(missing, historicalDecisionSchema).some((p) => new RegExp(field, "u").test(p)));
   }
+  for (const key of ["constructor", "__proto__"]) {
+    const extra = JSON.parse(JSON.stringify(v2Record).replace(/}$/, `,"${key}":true}`));
+    assert.ok(validateHistoricalDecisionRecordV2(extra, historicalDecisionSchema).some((p) => /additional property/u.test(p)), key);
+  }
+  for (const [field, value] of [
+    ["kind", "other-kind"],
+    ["schemaVersion", "1"],
+    ["recordId", "Bad id"],
+    ["state", "effective"],
+    ["decidedBy", "agent"],
+    ["decision", ""],
+    ["scope", ""],
+    ["boundSha", "short"],
+    ["proposalDigest", "sha256:short"],
+  ] as const) {
+    assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, [field]: value }, historicalDecisionSchema).length > 0, `${field} constraint`);
+  }
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, advisoryInputs: [7] }, historicalDecisionSchema).some((p) => /string/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, supersedes: 7 }, historicalDecisionSchema).some((p) => /string/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...superseded, supersededBy: 7 }, historicalDecisionSchema).some((p) => /string/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, recordId: 7 }, historicalDecisionSchema).some((p) => /string/u.test(p)));
+  for (const field of ["method", "ownerIdentity", "eventUrl", "eventId", "ratifiedProposalDigest", "subjectSha", "timestamp"] as const) {
+    const ratification = { ...v2Record.ratification } as Record<string, unknown>;
+    delete ratification[field];
+    assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification }, historicalDecisionSchema).some((p) => new RegExp(field, "u").test(p)), field);
+  }
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, method: "verbatim-statement" } }, historicalDecisionSchema).some((p) => /allowed value/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, ownerIdentity: "" } }, historicalDecisionSchema).some((p) => /shorter/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, eventId: "" } }, historicalDecisionSchema).some((p) => /shorter/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, ratifiedProposalDigest: "sha256:short" } }, historicalDecisionSchema).some((p) => /pattern/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, subjectSha: "short" } }, historicalDecisionSchema).some((p) => /pattern/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, constructor: true } }, historicalDecisionSchema).some((p) => /additional property/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, eventUrl: "not uri" } }, historicalDecisionSchema).some((p) => /URI/iu.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, ratification: { ...v2Record.ratification, timestamp: "2026-02-30T00:00:00Z" } }, historicalDecisionSchema).some((p) => /date-time/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, state: "proposed" }, historicalDecisionSchema).some((p) => /forbidden schema/u.test(p)));
+  const noEnvelope = { ...v2Record } as Record<string, unknown>;
+  delete noEnvelope.ratification;
+  assert.ok(validateHistoricalDecisionRecordV2(noEnvelope, historicalDecisionSchema).some((p) => /ratification.*required/u.test(p)));
+  assert.ok(validateHistoricalDecisionRecordV2({ ...v2Record, state: "superseded" }, historicalDecisionSchema).some((p) => /supersededBy.*required/u.test(p)));
 });
 
-test("BUG 4 — asserted effects come from the committed declaration, not the manifest", () => {
-  const SHA = "b93f0d61122722715d2db33636cfb7828fbf3f95";
-  const DIG = "sha256:" + "a".repeat(64);
-  const record = {
-    kind: "atliera.owner-decision", schemaVersion: "2", recordId: "r", state: "ratified", decidedBy: "owner",
-    decision: "d", scope: "s", boundSha: SHA, proposalDigest: DIG,
-    ratification: { method: "github-merge-approval", ownerIdentity: "o", eventUrl: "u", eventId: "e", ratifiedProposalDigest: DIG, subjectSha: SHA, timestamp: "t" },
-  };
-  const att = { reviewer: "asl_hermes_code", eventUrl: "https://x/y#r1", eventId: "R1", verdict: "PASS", boundSha: SHA };
-  const declAssertsDurable = { effects: { durableWrite: true, privateData: false } };
-
-  assert.deepEqual(assertedAxesFromDeclaration(declAssertsDurable), ["durableWrite"]);
-
-  // v2.2 read assertedEffects from the manifest, so omitting it bypassed receipts.
-  const bypassed = verifyCeremony(3, SHA, { decisionRecord: record, reviewAttestation: att }, declAssertsDurable);
-  assert.ok(bypassed.some((p) => /asserts 'durableWrite'/u.test(p)), "omitting manifest effects must not bypass receipts");
-
-  // A receipt must be bound to the candidate SHA and record an outcome.
-  const unbound = verifyCeremony(3, SHA, { decisionRecord: record, reviewAttestation: att, effectReceipts: [{ axis: "durableWrite", subjectSha: "0".repeat(40), outcome: "ok" }] }, declAssertsDurable);
-  assert.ok(unbound.some((p) => /not bound to candidate/u.test(p)));
-  const noOutcome = verifyCeremony(3, SHA, { decisionRecord: record, reviewAttestation: att, effectReceipts: [{ axis: "durableWrite", subjectSha: SHA }] }, declAssertsDurable);
-  assert.ok(noOutcome.some((p) => /records no outcome/u.test(p)));
-  // Correct receipt satisfies.
-  assert.deepEqual(
-    verifyCeremony(3, SHA, { decisionRecord: record, reviewAttestation: att, effectReceipts: [{ axis: "durableWrite", subjectSha: SHA, outcome: "applied" }] }, declAssertsDurable),
-    [],
-  );
-});
-
-test("de-escalation acknowledgement requires a ratified schema-v2 record", () => {
-  const lowered = { ...map, prefixes: map.prefixes.map((e) => (e.prefix === "migrations/" ? { ...e, minTier: 1 } : e)) };
-  const found = compareMaps(map, lowered);
-  const acked = [{ kind: "rule-lowered", subject: "migrations/" }];
-  const ratifiedAck = {
-    schemaVersion: "2", state: "ratified", decidedBy: "owner",
-    ratification: { method: "github-merge-approval" as const, ownerIdentity: "o", eventId: "e" },
-    acknowledgedDeescalations: acked,
-  };
-  assert.equal(deescalationsUnauthorized(found, ratifiedAck).length, 0);
-  // The v1 shape no longer authorizes.
-  assert.equal(deescalationsUnauthorized(found, { state: "effective", decidedBy: "owner", acknowledgedDeescalations: acked } as never).length, 1);
-  assert.equal(deescalationsUnauthorized(found, { ...ratifiedAck, state: "proposed" }).length, 1);
-  assert.equal(deescalationsUnauthorized(found, undefined).length, 1);
-});
-
-test("grandfathered authority is not a valid path at all (v2.3.2 removal)", () => {
-  const SHA = "b93f0d61122722715d2db33636cfb7828fbf3f95";
-  // The v2.3.1 bypass: correct historical identity, contradictory decision text.
-  const contradictory = {
-    decidedBy: "owner",
-    decision: "FedEx: Continue to C3 without revision.", // the real record says "Revise before C3"
-    boundSha: SHA,
-    grandfathered: {
-      reason: "C2 disposition",
-      originalRecord: "docs/decisions/c2-owner-disposition-record.json",
-      originalRecordSha256: "b67cca34c6742f56443661add72c1e252322879abaea4581d9fdec5a93ee160b",
-    },
-  };
-  const problems = validateDecisionRecord(contradictory as never);
-  assert.ok(problems.length > 0, "a grandfathered claim must never satisfy ceremony");
-  assert.ok(problems.some((p) => /grandfathered authority is not a valid path/u.test(p)));
-  // And the v2.3 shape (v1-flavoured, agent-authored) is equally rejected.
-  assert.ok(
-    validateDecisionRecord({ state: "effective", decidedBy: "agent", grandfathered: { reason: "legacy" } } as never).length > 0,
-  );
-});
-
-test("verifier and schema agree: no record shape passes one and fails the other", () => {
-  const schema = JSON.parse(readFileSync(join(REPO, "docs", "strategy", "decision-record.schema.json"), "utf8"));
-  // The schema no longer defines a grandfathered representation, and with
-  // additionalProperties:false any record carrying one is schema-invalid —
-  // matching the verifier's rejection. v2.3.1 had a shape that passed the
-  // verifier and failed the schema with 8 errors; that contradiction is gone.
-  assert.equal(schema.properties.grandfathered, undefined, "schema must not define a grandfathered path");
+test("live schema is proposal-only and historical records have a separate validator", () => {
+  const schema = JSON.parse(readFileSync(join(REPO, "docs", "strategy", "decision-proposal.schema.json"), "utf8"));
   assert.equal(schema.additionalProperties, false);
-  assert.match(schema.description, /no grandfathering path/u);
-  // The one authoritative shape validates against both: required fields present,
-  // ratified state, ratification envelope.
+  assert.equal(schema.properties.state.const, "proposed");
+  assert.equal(schema.properties.ratification, undefined);
   const required: string[] = schema.required;
-  for (const f of ["kind", "schemaVersion", "recordId", "state", "decidedBy", "decision", "scope", "boundSha", "proposalDigest"]) {
+  for (const f of ["kind", "schemaVersion", "recordId", "state", "proposedBy", "decision", "scope", "purpose", "proposedAt", "proposalDigest"]) {
     assert.ok(required.includes(f), `schema must require ${f}`);
   }
 });
@@ -456,50 +420,33 @@ test("FINDING 2 — parseable but malformed registries fail closed", () => {
   assert.ok(load("0".repeat(64) + "  a.html\n", "docs/ux/pkg/SUMS").has("docs/ux/pkg/a.html"));
 });
 
-test("FINDING 3 — re-entry triggers are prospective and name the one exemption", () => {
+test("active trust boundary names protected-base enforcement and its adoption blocker", () => {
   const tm = readFileSync(join(REPO, "docs", "strategy", "governance-threat-model.md"), "utf8");
-  assert.match(tm, /occurring after this policy is activated/u);
-  assert.match(tm, /Prospective by construction/u);
-  assert.match(tm, /b67cca34/u, "the exempt historical record must be named by hash");
-  assert.match(tm, /does not itself fire any trigger/u, "ratification is the policy working, not an effect");
+  assert.match(tm, /protected base/u);
+  assert.match(tm, /no bootstrap exception or administrator bypass/u);
+  assert.match(tm, /remain blocked until an authentic independent adoption action/u);
 });
 
-test("the threat model states the deferred class and its re-entry triggers", () => {
+test("active trust boundary separates authority, effects, receipts, and credential provenance", () => {
   const tm = readFileSync(join(REPO, "docs", "strategy", "governance-threat-model.md"), "utf8");
   for (const required of [
-    /does NOT defend against/u,
-    /Forged ratification/u,
-    /circularity/u,
-    /Re-entry triggers/u,
-    /first durable write/u,
-    /second person or a non-owner-controlled agent gains commit access/u,
+    /No self-consistent candidate-only record/u,
+    /Missing identity evidence fails closed/u,
+    /agent action using an owner's credential remains an agent act/u,
+    /Build permission/u,
+    /separate effect-permission proposal/u,
+    /Post-effect receipts/u,
   ]) {
     assert.match(tm, required);
   }
 });
 
-test("decision-record schema v2 binds ratification to a verified external event", () => {
-  const schema = JSON.parse(readFileSync(join(REPO, "docs", "strategy", "decision-record.schema.json"), "utf8"));
-  assert.equal(schema.properties.schemaVersion.const, "2");
-  assert.equal(schema.properties.decidedBy.const, "owner");
-  assert.deepEqual(schema.properties.state.enum, ["proposed", "ratified", "superseded"]);
-
-  // Free-text self-assertion is no longer a ratification method.
-  assert.deepEqual(schema.properties.ratification.properties.method.enum, ["github-merge-approval", "github-review-approval"]);
-  for (const field of ["ownerIdentity", "eventUrl", "eventId", "ratifiedProposalDigest", "subjectSha", "timestamp"]) {
-    assert.ok(schema.properties.ratification.required.includes(field), `ratification must require ${field}`);
-  }
-  // Full SHA only; digest binds the proposal text.
-  assert.equal(schema.properties.boundSha.pattern, "^[0-9a-f]{40}$");
+test("decision-proposal schema v3 cannot carry candidate self-ratification", () => {
+  const schema = JSON.parse(readFileSync(join(REPO, "docs", "strategy", "decision-proposal.schema.json"), "utf8"));
+  assert.equal(schema.properties.schemaVersion.const, "3");
+  assert.equal(schema.properties.state.const, "proposed");
+  assert.deepEqual(schema.properties.purpose.enum, ["build-permission", "effect-permission"]);
+  assert.equal(schema.properties.boundSha, undefined);
+  assert.equal(schema.properties.ratification, undefined);
   assert.ok(schema.properties.proposalDigest.pattern.startsWith("^sha256:"));
-  // Append-only transitions: ratified requires an envelope, proposed forbids one, superseded links forward.
-  const conds = schema.allOf;
-  assert.equal(conds[0].if.properties.state.const, "ratified");
-  assert.deepEqual(conds[0].then.required, ["ratification"]);
-  assert.equal(conds[1].if.properties.state.const, "proposed");
-  assert.ok(conds[1].then.not.required.includes("ratification"));
-  assert.equal(conds[2].if.properties.state.const, "superseded");
-  assert.deepEqual(conds[2].then.required, ["supersededBy"]);
-  // v2.3.2: there is no grandfathering path; pre-v2 history is documented fact.
-  assert.equal(schema.properties.grandfathered, undefined);
 });

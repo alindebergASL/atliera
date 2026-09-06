@@ -45,6 +45,12 @@ test("explicit tentatively wording is cautious without bypassing factual or comm
   const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
   const evidence = context.context.admittedSources.flatMap((source) => source.excerpts)[0]!.evidenceId;
   const cases = [
+    ["Two possible starting points are topics to confirm with you.", "succeeded", "cautious_inference"],
+    ["These look like possible starting points to confirm with you.", "succeeded", "cautious_inference"],
+    ["As possible context, the account experienced a data breach.", "refused", "cautious_inference"],
+    ["As possible context, the account has an available purchasing budget.", "refused", "cautious_inference"],
+    ["These are possible topics to confirm.", "refused", "direct_support"],
+    ["It is impossible to ignore this topic.", "refused", "cautious_inference"],
     ["The sources tentatively point to a useful topic to confirm.", "succeeded", "cautious_inference"],
     ["As tentative context to confirm, the sources describe a useful topic.", "succeeded", "cautious_inference"],
     ["The sources point to a useful topic to confirm.", "refused", "cautious_inference"],

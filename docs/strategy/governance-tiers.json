@@ -75,6 +75,20 @@
       "minTier": 2
     },
     {
+      "prefix": "docs/strategy/decision-proposal.schema.json",
+      "minTier": 2
+    },
+    {
+      "prefix": "docs/strategy/governance-trust.json",
+      "minTier": 3,
+      "note": "protected identity trust root"
+    },
+    {
+      "prefix": "docs/strategy/standing-development-policy.md",
+      "minTier": 3,
+      "note": "records the user's verbatim authority and the bounded adoption procedure"
+    },
+    {
       "prefix": "docs/strategy/",
       "minTier": 0
     },
@@ -103,6 +117,7 @@
       "minTier": 2,
       "note": "consumed by provider execution"
     },
+
     {
       "prefix": "tests/",
       "minTier": 1,
@@ -188,7 +203,8 @@
     },
     {
       "prefix": "docs/decisions/deescalation-ack.json",
-      "minTier": 2
+      "minTier": 2,
+      "note": "reserved historical path pricing; not consumed as a live candidate de-escalation exception"
     },
     {
       "prefix": "scripts/verify-ceremony.ts",

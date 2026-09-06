@@ -4,12 +4,11 @@
 # refuses frozen mutation; `ceremony` enforces the evidence that tier requires.
 # A green `classify` never means the ceremony was satisfied.
 #
-# TRUST MODEL — enforcement code from the protected base, data from the PR head.
-# Every script that decides an outcome (the wrapper, the classifier, the ceremony
-# verifier) is taken from the protected base and overlaid onto the candidate
-# workspace before anything runs. Everything the decision is ABOUT — the diff,
-# the tier map, the frozen registries, the declaration, the ceremony evidence —
-# is the candidate's. Without this, a PR editing scripts/classify-change-risk.ts
+# TRUST MODEL — enforcement code/config from protected base; proposal from head;
+# actual review events from GitHub. Every script, schema, tier map, and identity
+# allowlist that decides an outcome is taken from the protected base. Everything
+# the decision is ABOUT — the diff, frozen registries, declaration, and proposed
+# decision — is the candidate's. Without this, a PR editing the classifier
 # is priced by its own edited classifier (reproduced: an underpricing stub
 # reports Tier 0, and the protected verifier then enforces nothing at Tier 0).
 # That is ordinary honest-author drift, not forgery, and it is live whenever
@@ -23,13 +22,16 @@
 # Adopting this file is a Tier 3 step by path pricing (a conservative review
 # minimum for a file class that can do anything). Its own effect vector is
 # read-only: `contents: read`, no repository write, no deployment, no
-# third-party outbound. Per the threat model, no re-entry trigger fires.
+# third-party outbound or product/provider call.
 name: governance-classify
 on:
   pull_request:
     branches: [main]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   classify:
@@ -53,13 +55,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Overlay protected enforcement code onto the candidate workspace
+      - name: Overlay protected enforcement code and config onto the candidate workspace
         run: |
           set -euo pipefail
-          for f in classify-pr.sh classify-change-risk.ts verify-ceremony.ts; do
-            test -f "enforcement/scripts/$f" || { echo "protected base is missing scripts/$f"; exit 1; }
-            cp "enforcement/scripts/$f" "candidate/scripts/$f"
+          mkdir -p candidate/.atliera-enforcement
+          for f in scripts/classify-pr.sh scripts/classify-change-risk.ts scripts/verify-ceremony.ts; do
+            test -f "enforcement/$f" || { echo "protected base is missing $f"; exit 1; }
+            cp "enforcement/$f" "candidate/$f"
           done
+          cp enforcement/docs/strategy/governance-tiers.json candidate/.atliera-enforcement/governance-tiers.json
+          cp enforcement/docs/strategy/decision-record.schema.json candidate/.atliera-enforcement/decision-record.schema.json
+          # Classification does not consume proposal-schema or identity policy.
+          # Ceremony reads those from its own protected enforcement checkout.
           chmod +x candidate/scripts/classify-pr.sh
           echo "enforcement bytes in use (from base ${{ github.event.pull_request.base.sha }}):"
           sha256sum candidate/scripts/classify-pr.sh candidate/scripts/classify-change-risk.ts candidate/scripts/verify-ceremony.ts
@@ -69,6 +76,9 @@ jobs:
       - name: Classify PR change risk
         id: run
         working-directory: candidate
+        env:
+          ATL_GOVERNANCE_MAP: .atliera-enforcement/governance-tiers.json
+          ATL_GOVERNANCE_CANDIDATE_MAP: docs/strategy/governance-tiers.json
         run: |
           set -o pipefail
           scripts/classify-pr.sh refs/atliera/base | tee ../classification.json
@@ -99,6 +109,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Fetch external GitHub review evidence
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            require('fs').writeFileSync('external-reviews.json', JSON.stringify(reviews));
       - name: Enforce ceremony for the computed tier
         working-directory: enforcement
         run: |
@@ -111,4 +132,8 @@ jobs:
           [ -f ../candidate/change-risk.json ] && DECL_ARG="--declaration ../candidate/change-risk.json"
           node --experimental-strip-types scripts/verify-ceremony.ts \
             --tier "${{ needs.classify.outputs.tier }}" \
-            --sha "${{ github.event.pull_request.head.sha }}" $MANIFEST_ARG $DECL_ARG
+            --sha "${{ github.event.pull_request.head.sha }}" \
+            --events ../external-reviews.json \
+            --trust docs/strategy/governance-trust.json \
+            --proposal-schema docs/strategy/decision-proposal.schema.json \
+            --repository "${{ github.repository }}" $MANIFEST_ARG $DECL_ARG

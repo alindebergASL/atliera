@@ -11,9 +11,9 @@
 # - The effect declaration is the committed root `change-risk.json` at the PR
 #   head, REQUIRED. It is priced Tier 0 by the map so amending it never
 #   escalates the change that carries it.
-# - The base branch's tier map is extracted for mechanical de-escalation
-#   detection. An owner acknowledgement may be supplied at
-#   `docs/decisions/deescalation-ack.json`.
+# - Protected-base map bytes price the PR. Candidate map bytes are loaded only
+#   as data for independent rule-lowering/removal detection; any lowering is a
+#   HOLD pending a future separately authorized gate.
 # - Deleted lines in tests/safety/ are surfaced as guard-weakening review flags.
 #
 # THIS CHECK IS CLASSIFICATION ONLY. It computes and reports the tier and
@@ -23,18 +23,17 @@
 # requirements were met".
 #
 # Exit codes are propagated verbatim from the classifier:
-#   0 ok · 2 frozen violation · 3 declaration/ack invalid · 4 unauthorized
-#   de-escalation · 5 invalid tier map or unsafe registry entry
+#   0 ok · 2 frozen violation · 3 declaration invalid · 4 candidate
+#   de-escalation HOLD · 5 invalid tier map or unsafe registry entry
 set -euo pipefail
 
 BASE_REF="${1:?usage: classify-pr.sh <base-ref>}"
-MAP="docs/strategy/governance-tiers.json"
+MAP="${ATL_GOVERNANCE_MAP:-docs/strategy/governance-tiers.json}"
+CANDIDATE_MAP="${ATL_GOVERNANCE_CANDIDATE_MAP:-docs/strategy/governance-tiers.json}"
 DECL="change-risk.json"
-ACK="docs/decisions/deescalation-ack.json"
 
 STATUS_TMP="$(mktemp)"
-BASE_MAP_TMP="$(mktemp)"
-cleanup() { rm -f "${STATUS_TMP}" "${BASE_MAP_TMP}"; }
+cleanup() { rm -f "${STATUS_TMP}"; }
 trap cleanup EXIT
 
 git diff --name-status -z "${BASE_REF}...HEAD" > "${STATUS_TMP}"
@@ -43,19 +42,10 @@ if [ ! -s "${STATUS_TMP}" ]; then
   exit 0
 fi
 
-args=(--map "${MAP}" --name-status "${STATUS_TMP}" --require-declaration)
+args=(--map "${MAP}" --candidate-map "${CANDIDATE_MAP}" --name-status "${STATUS_TMP}" --require-declaration)
 
 if [ -f "${DECL}" ]; then
   args+=(--declaration "${DECL}")
-fi
-
-if git cat-file -e "${BASE_REF}:${MAP}" 2>/dev/null; then
-  git show "${BASE_REF}:${MAP}" > "${BASE_MAP_TMP}"
-  args+=(--base-map "${BASE_MAP_TMP}")
-fi
-
-if [ -f "${ACK}" ]; then
-  args+=(--deescalation-ack "${ACK}")
 fi
 
 # Guard-weakening review flag: deletions in safety tests get named attention.

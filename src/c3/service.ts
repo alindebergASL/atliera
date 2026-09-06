@@ -221,8 +221,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       try { action = reviewAction(body); } catch (error) {
         json(res, 400, { error: error instanceof Error ? error.message : "invalid correction note" }); return;
       }
+      const noChange = session.correctionNote === action.note;
       session.correctionNote = action.note;
-      json(res, 200, { html: render({ page: "draft", record: session.record,
+      json(res, 200, { noChange, status: noChange ? "Note unchanged. Already kept for this session." :
+        "Note kept for this session. It is not approval or durable storage.", html: render({ page: "draft", record: session.record,
         correctionNote: action.note, revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname === "/api/discard-revision") {
@@ -252,11 +254,22 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         json(res, 400, { error: error instanceof Error ? error.message : "invalid correction note" }); return;
       }
       const prior = session.record;
+      if (action.note.trim().length === 0 || action.note === prior.revision?.correctionNote) {
+        json(res, 200, { noChange: true, status: action.note.trim().length === 0 ?
+          "No revision requested. Add a correction first; the current draft and note are unchanged." :
+          "Correction unchanged from the one already used for this draft. No revision requested; draft and note kept." }); return;
+      }
+      const revisionNumber = (prior.revision?.revisionNumber ?? 0) + 1;
+      let revision: C3RevisionContext;
+      try { revision = createC3RevisionContext(prior, action.note, revisionNumber); }
+      catch {
+        json(res, 400, { error: "Use at least three characters with no leading or trailing whitespace for a revision. Your draft and saved note were kept." }); return;
+      }
       session.sequence += 1;
-      session.revisionNumber = (prior.revision?.revisionNumber ?? 0) + 1;
+      session.revisionNumber = revisionNumber;
       session.pendingPriorNote = session.correctionNote;
       session.correctionNote = action.note;
-      session.pendingRevision = createC3RevisionContext(prior, action.note, session.revisionNumber);
+      session.pendingRevision = revision;
       const pendingRevisionToken = randomBytes(24).toString("base64url");
       session.pendingRevisionToken = pendingRevisionToken;
       session.form = prior.meetingRequest;
@@ -273,6 +286,16 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
       json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
+    }
+    // Reopening is an exact comparison against the current successful record, never a replay fallback.
+    // Active work and pending corrections retain their existing cancellation/identity paths.
+    if (session.active === undefined && session.pendingRevision === null && session.record?.draft !== undefined &&
+        sameMeetingRequest(session.record.meetingRequest, request)) {
+      session.form = request;
+      const status = "Meeting inputs unchanged. Reopened the existing session draft; no new generation. Your note is kept.";
+      json(res, 200, { noChange: true, status, html: render({ page: "draft", record: session.record,
+        correctionNote: session.correctionNote, notice: status, revisionPending: false }, session.csrf),
+        location: "/?draft=1", history: "push" }); return;
     }
     session.form = request;
     const previous = session.active;
@@ -375,9 +398,14 @@ function submittedRecordId(value: unknown): string | undefined {
 function reviewAction(value: unknown): ReviewAction {
   if (value === null || Array.isArray(value) || typeof value !== "object") throw new Error("invalid request");
   const root = value as Record<string, unknown>;
-  if (Object.keys(root).length !== 2 || typeof root.note !== "string" || root.note.length < 1 || root.note.length > 1_000 ||
+  if (Object.keys(root).length !== 2 || typeof root.note !== "string" || root.note.length > 1_000 ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(root.note) || submittedRecordId(root) === undefined) {
     throw new Error("invalid correction note");
   }
   return { note: root.note, recordId: root.recordId as string };
+}
+
+function sameMeetingRequest(left: C3MeetingRequest, right: C3MeetingRequest): boolean {
+  return left.audience === right.audience && left.intendedOutcome === right.intendedOutcome &&
+    left.durationMinutes === right.durationMinutes && left.meetingDate === right.meetingDate;
 }

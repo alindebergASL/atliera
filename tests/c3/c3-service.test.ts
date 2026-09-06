@@ -113,7 +113,7 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
     assert.ok(browser.page.indexOf('class="hero-actions"') < browser.page.indexOf('class="orientation"'),
       "primary preparation action precedes the longer orientation rationale on narrow screens");
     assert.match(browser.page, /@media\(max-width:700px\)/);
-    assert.match(browser.page, /server restart loses it/);
+    assert.match(browser.page, /server restart loses them/);
     assert.doesNotMatch(browser.page, /Private candidate preview|Recorded responses|No live generation/);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /value="2026-09-12"/);
@@ -150,7 +150,8 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
   try {
     const browser = await browserSession(running);
     assert.match(browser.page, /Private candidate preview · Recorded responses · No live generation/);
-    assert.match(browser.page, /Unmerged and proposed.*Session-only; no approval or durable save/);
+    assert.match(browser.page, /Proposed meeting drafts.*Session-only; no approval or durable save/);
+    assert.doesNotMatch(browser.page, /Unmerged and proposed/);
     assert.match(browser.page, />Open exact recorded replay</);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Private candidate preview · Recorded responses · No live generation/);
@@ -282,12 +283,12 @@ test("draft hierarchy preserves generated question text and separates only a lit
   const record = { ...base, draft: { ...base.draft!, questions: base.draft!.questions.map((question, index) => index === 0
     ? { ...question, question: exactQuestion, intendedLearning: exactLearning } : question) } };
   const rendered = renderC3Page(ctx, { page: "draft", record, correctionNote: "" }, "csrf");
-  assert.match(rendered, /<span class="question-kind">Must ask<\/span>/);
+  assert.match(rendered, /<ol class="questions">/);
   assert.ok(rendered.includes(`<strong>${exactQuestion}</strong>`));
   assert.ok(rendered.includes(`Learn: ${exactPrefix}</p>`));
   assert.ok(rendered.includes(`<p>${exactSuffix}</p>`));
   assert.equal(rendered.match(/Optional probe — only if relevant/gu)?.length, 1);
-  assert.match(rendered, /<details class="technical-detail"><summary>Evidence basis<\/summary>/);
+  assert.match(rendered, /data-evidence-link data-context="Question 2"/);
 });
 
 test("successful generation is proposed, source-derived, evidence-linked, and retained across reload", async () => {
@@ -297,20 +298,20 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     const browser = await browserSession(running);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.equal(prepare.status, 200);
-    assert.match(prepare.text, /Prepare for…/);
+    assert.match(prepare.text, /Prepare a meeting/);
     const generated = await browser.post("/api/generate", meetingRequest);
     assert.equal(generated.status, 200);
     const payload = JSON.parse(generated.text) as { html: string; location: string; history: string };
-    assert.match(payload.html, /Proposed · Not reviewed · Not durably saved/);
+    assert.match(payload.html, /Proposed and unreviewed/);
     assert.match(payload.html, /related evidence context/i);
-    assert.match(payload.html, /Selected evidence/);
+    assert.match(payload.html, /Evidence behind the brief/);
     assert.doesNotMatch(payload.html, /evidence_[a-f0-9]+/);
     assert.deepEqual({ location: payload.location, history: payload.history }, { location: "/?draft=1", history: "push" });
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.match(reloaded.text, /Meeting draft/);
     const home = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
     assert.match(home.text, /Account Home/);
-    assert.doesNotMatch(home.text, /Meeting draft/);
+    assert.match(home.text, /aria-current="page">Account Home/);
     assert.match(home.text, /href="\/\?draft=1"[^>]*>Reopen session draft/);
     assert.equal(running.status().generationSucceeded, 1);
   } finally { await running.close(); }
@@ -486,8 +487,8 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     assert.equal(preservedDraft.status, 200);
     assert.match(preservedDraft.text, new RegExp(`data-record-id="${recordId}"`));
     assert.match(preservedDraft.text, /Revision pending.*preserved previous draft/s);
-    assert.match(preservedDraft.text, /\.review \.warning\{color:var\(--ink\)\}/,
-      "pending warning explicitly overrides the review panel's white foreground");
+    assert.match(preservedDraft.text, /\.review\{[^}]*color:var\(--ink\)/,
+      "review uses a legible dark foreground on the light surface");
     assert.match(preservedDraft.text, /Discard pending revision and return to previous draft/);
     assert.match(preservedDraft.text, /<textarea[^>]* disabled>/);
     assert.match(preservedDraft.text, /<button type="submit" disabled>Keep note for this session<\/button>/);
@@ -688,7 +689,7 @@ test("client history ignores evidence fragments and requires an explicit decisio
   ]) {
     const link = { getAttribute(name: string) { return name === "href" ? "/" : name === "target" ? special.target ?? null : null; },
       hasAttribute(name: string) { return name === "download" && special.download === true; } };
-    documentListeners.get("click")![0]!({ button: special.button ?? 0, ctrlKey: false, metaKey: false, shiftKey: false,
+    documentListeners.get("click")!.at(-1)!({ button: special.button ?? 0, ctrlKey: false, metaKey: false, shiftKey: false,
       altKey: false, ...special, target: { closest() { return link; } }, preventDefault() { throw new Error("special click prevented"); } });
   }
   assert.equal(confirms, 0, "modified, non-primary, download, and non-self clicks do not grant approval");
@@ -848,4 +849,105 @@ test("server shutdown waits for active provider abort cleanup", async () => {
   assert.equal(cleanupFinished, true);
   assert.ok(Date.now() - started >= 25);
   assert.equal((await pending).status, 409);
+});
+
+test("exact unchanged submissions retain draft and note, while each meeting decision still targets a new request", async () => {
+  const ctx = await context();
+  const captured: C3ModelRequest[] = [];
+  const running = await harness({ name: "deterministic-targeting-fixture", generate: async (request) => {
+    captured.push(request); return candidate(ctx);
+  } });
+  try {
+    const browser = await browserSession(running);
+    const initial = JSON.parse((await browser.post("/api/generate", meetingRequest)).text) as { html: string };
+    const recordId = initial.html.match(/data-record-id="([^"]+)"/)![1]!;
+    const note = "Keep this private session correction.";
+    await browser.post("/api/note", { recordId, note });
+    const repeated = JSON.parse((await browser.post("/api/note", { recordId, note })).text) as { noChange: boolean; status: string };
+    assert.equal(repeated.noChange, true);
+    assert.match(repeated.status, /unchanged/);
+    for (let i = 0; i < 2; i += 1) {
+      const reopened = JSON.parse((await browser.post("/api/generate", meetingRequest)).text) as { html: string; noChange: boolean };
+      assert.equal(reopened.noChange, true);
+      assert.ok(reopened.html.includes(recordId));
+      assert.ok(reopened.html.includes(note));
+      assert.match(reopened.html, /no new generation/);
+    }
+    assert.equal(captured.length, 1);
+    assert.equal(running.status().generationAttempted, 1);
+    for (const empty of ["", "   ", "\n"]) {
+      const noRevision = JSON.parse((await browser.post("/api/revise", { recordId, note: empty })).text) as { noChange: boolean };
+      assert.equal(noRevision.noChange, true);
+      const page = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+      assert.ok(page.text.includes(note));
+      assert.doesNotMatch(page.text, /data-pending-revision-token=/);
+    }
+    for (const invalid of ["a", "ab", " Leading space", "Trailing space "]) {
+      const refused = await browser.post("/api/revise", { recordId, note: invalid });
+      assert.equal(refused.status, 400);
+      assert.match(refused.text, /draft and saved note were kept/);
+      const kept = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+      assert.ok(kept.text.includes(note));
+      assert.ok(kept.text.includes(recordId));
+      assert.doesNotMatch(kept.text, /data-pending-revision-token=/);
+      const setup = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
+      assert.ok(setup.text.includes(meetingRequest.intendedOutcome));
+      assert.equal(captured.length, 1);
+    }
+    const cleared = JSON.parse((await browser.post("/api/note", { recordId, note: "" })).text) as { noChange: boolean; html: string };
+    assert.equal(cleared.noChange, false);
+    assert.doesNotMatch(cleared.html, /Keep this private session correction/);
+    assert.equal(JSON.parse((await browser.post("/api/note", { recordId, note: "" })).text).noChange, true);
+    // Saving before revising must still work: note equality is against the applied correction, not the saved note.
+    await browser.post("/api/note", { recordId, note });
+    await browser.post("/api/revise", { recordId, note });
+    const revised = JSON.parse((await browser.post("/api/generate", meetingRequest)).text) as { html: string };
+    const revisedId = revised.html.match(/data-record-id="([^"]+)"/)![1]!;
+    assert.notEqual(revisedId, recordId);
+    assert.equal(captured.length, 2);
+    const unchangedRevision = JSON.parse((await browser.post("/api/revise", { recordId: revisedId, note })).text);
+    assert.equal(unchangedRevision.noChange, true);
+    assert.equal((await browser.post("/api/revise", { recordId, note: "" })).status, 409, "no-op does not bypass stale record guard");
+    let current = meetingRequest;
+    const decisions = [ { audience: "CIO and engineering leaders" }, { intendedOutcome: "Understand ownership and constraints." },
+      { durationMinutes: 30 }, { meetingDate: "2026-09-13" }, { audience: "CIO and  engineering leaders" } ];
+    for (const change of decisions) {
+      current = { ...current, ...change };
+      const result = JSON.parse((await browser.post("/api/generate", current)).text) as { html: string; noChange?: boolean };
+      assert.notEqual(result.noChange, true, "one exact-byte change cannot reuse another meeting's draft");
+      const last = captured.at(-1)!;
+      assert.deepEqual(last.meetingRequest, current);
+      assert.equal(last.contextSha256, captured[0]!.contextSha256);
+      const setup = result.html.match(/<dl class="meeting-context"[\s\S]*?<\/dl>/)![0];
+      assert.ok(setup.includes(current.audience));
+      assert.ok(setup.includes(current.intendedOutcome));
+      assert.ok(setup.includes(`${current.durationMinutes} minutes`));
+    }
+    assert.equal(captured.length, 7);
+    assert.equal((await browser.post("/api/generate", { ...current, audience: current.audience + " " })).status, 400, "invalid whitespace is refused, never normalized into a replay");
+    assert.equal(captured.length, 7);
+  } finally { await running.close(); }
+});
+
+test("brief exposes sparse and conflicting fixture context without inventing support or hiding unknowns", async () => {
+  const original = await context();
+  const conflict = "Two retained sources disagree on ownership; neither is reconciled.";
+  const gap = "Current decision owner is not established.";
+  const ctx = { ...original, context: { ...original.context, declaredContradictions: [conflict], materialGaps: [gap] } };
+  const value = JSON.parse(candidate(ctx));
+  value.temporalOutcome = "insufficient_context";
+  value.audienceThesis = { text: "Current audience priorities remain unknown.", supportCategory: "unknown", evidenceRefs: [] };
+  value.questions[1].evidenceRefs = [];
+  value.selectedEvidenceRefs = [];
+  const record = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), JSON.stringify(value), ctx);
+  assert.equal(record.outcome, "succeeded");
+  const html = renderC3Page(ctx, { page: "draft", record, correctionNote: "" }, "csrf");
+  assert.match(html, /No evidence selected by this draft/);
+  assert.match(html, /Unknown · not established/);
+  assert.ok(html.includes(conflict));
+  assert.ok(html.includes(gap));
+  assert.match(html, /Full retained source context/);
+  assert.match(html, /Context is insufficient/);
+  assert.equal(record.rawResponse, JSON.stringify(value));
+  assert.doesNotMatch(html, /data-evidence-link data-context=/);
 });

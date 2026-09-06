@@ -120,7 +120,7 @@ function runClient(options: ClientOptions) {
   };
   vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history, FormData: FormDataStub, fetch: options.fetch,
     AbortController, Error, JSON, Number, String });
-  return { form, button, cancel, status, recovery, noteForm, revise, reviewStatus, writes, navigation };
+  return { form, button, cancel, status, recovery, noteForm, note, revise, reviewStatus, writes, navigation };
 }
 
 function response(payload: unknown, ok = true): Promise<unknown> {
@@ -236,8 +236,8 @@ test("successful note save visibly confirms session-only non-approval state", as
   await client.noteForm!.dispatch("submit");
   assert.deepEqual(calls, [{ url: "/api/note", body: {
     note: "Keep the outcome primary.", recordId: "c3_111111111111111111111111" } }]);
-  assert.deepEqual(client.navigation, ["replace:/?draft=1"]);
-  assert.deepEqual(client.writes, ["UPDATED DRAFT"]);
+  assert.deepEqual(client.navigation, [], "keeping a note preserves the current fragment and scroll position");
+  assert.deepEqual(client.writes, [], "keeping a note preserves open evidence and the current textarea");
   assert.equal(client.reviewStatus.textContent, "Note kept for this session. It is not approval or durable storage.");
 });
 
@@ -370,4 +370,67 @@ test("direct and repeated Cancel share the barrier before another generation", a
   resolveFirst({ ok: true, json: async () => ({ html: "STALE", location: "/?draft=1", history: "push" }) });
   await firstSubmit;
   assert.deepEqual(client.writes, []);
+});
+
+test("note save preserves newer typing and no-change revision leaves recovery and draft in place", async () => {
+  const storage = new TabStorage();
+  storage.values.set('atliera.c3.unsent-form.v1:acc_university_of_utah:note-race', '{"audience":"CISO"}');
+  let settle!: (response: unknown) => void;
+  const pending = new Promise((resolve) => { settle = resolve; });
+  let calls = 0;
+  const client = runClient({ csrf: "note-race", storage, recordId: "c3_111111111111111111111111", correctionNote: "Submitted note",
+    fetch: () => { calls += 1; return calls === 1 ? pending : response({ noChange: true, status: "No revision requested. Add a correction first." }); } });
+  const saving = client.noteForm!.dispatch("submit");
+  client.note.value = "Newer typing while save is pending";
+  await client.revise.dispatch("click");
+  assert.equal(calls, 1, "a concurrent revision cannot supersede an unsettled note action");
+  settle({ ok: true, json: async () => ({ status: "Note kept for this session." }) });
+  await saving;
+  assert.match(client.reviewStatus.textContent, /Newer edits.*still unsaved/);
+  assert.deepEqual(client.writes, []);
+  assert.equal(client.note.value, "Newer typing while save is pending");
+  client.note.value = "";
+  await client.revise.dispatch("click");
+  assert.equal(calls, 2);
+  assert.match(client.reviewStatus.textContent, /No revision requested/);
+  assert.deepEqual(client.writes, []);
+  assert.deepEqual(client.navigation, []);
+  assert.equal(storage.values.size, 1, "a no-op does not clear unsent form recovery");
+  assert.equal(client.note.disabled, false);
+});
+
+test("native question citations reveal exact evidence and return focus context without replacing a dirty draft", () => {
+  const clicks: Array<(event: any) => void> = [];
+  const listeners = new Map<string, () => void>();
+  let focused = 0;
+  let reloads = 0;
+  const back = { hidden: true, textContent: "", href: "", setAttribute(_name: string, value: string) { this.href = value; } };
+  const target = { open: false, querySelector(selector: string) {
+    return selector === 'summary' ? { focus() { focused += 1; } } : selector === '[data-evidence-return]' ? back : null;
+  } };
+  const note = { value: "Saved note", addEventListener() {} };
+  const location = { pathname: "/", search: "?draft=1", hash: "", reload() { reloads += 1; } };
+  const document = { querySelector(selector: string) {
+    return selector === '#evidence-1' ? target : selector === '[data-correction-note]' ? note : null;
+  }, addEventListener(_name: string, callback: (event: any) => void) { clicks.push(callback); } };
+  const window = { location, addEventListener(name: string, callback: () => void) { listeners.set(name, callback); } };
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { document, window });
+  note.value = "Unsaved correction";
+  const citation = { id: "cite-question-2-1", getAttribute(name: string) {
+    return name === 'href' ? '#evidence-1' : name === 'data-context' ? 'Question 2' : null;
+  } };
+  for (const callback of clicks) callback({ button: 0, target: { closest() { return citation; } },
+    preventDefault() { throw new Error("Native citation navigation must not be prevented"); } });
+  assert.equal(target.open, true, "one native click, including keyboard-generated click, reveals the excerpt");
+  assert.equal(back.hidden, false);
+  assert.equal(back.href, '#cite-question-2-1');
+  assert.equal(back.textContent, 'Return to Question 2');
+  assert.equal(focused, 1);
+  assert.equal(note.value, 'Unsaved correction');
+  location.hash = '#evidence-1';
+  target.open = false;
+  listeners.get('hashchange')!();
+  assert.equal(target.open, true, "native fragment Forward or direct fragment entry reveals evidence");
+  listeners.get('popstate')!();
+  assert.equal(reloads, 0);
 });

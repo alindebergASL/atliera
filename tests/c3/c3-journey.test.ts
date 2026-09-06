@@ -219,13 +219,13 @@ test("draft review uses plain session-only copy and a high-contrast label withou
   const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities.", durationMinutes: 15, meetingDate: "2026-09-12" });
   const record = createGenerationRecord(request, rawCandidate(context), context);
   const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
-  const review = html.slice(html.indexOf('<section class="review">'), html.indexOf("</main>"));
+  const review = html.slice(html.indexOf('<section class="review"'), html.indexOf("</main>"));
   assert.match(review, /Draft review/);
-  assert.match(review, /This draft is proposed and has not been reviewed/);
-  assert.match(review, /only in this server session and is not durably saved/);
-  assert.match(review, /does not approve, share, or send anything/);
+  assert.match(html, /Proposed and unreviewed/);
+  assert.match(review, /Notes are lost when this server session ends/);
+  assert.match(html, /Nothing is shared, sent, approved, or saved to the account/);
   assert.doesNotMatch(review, /exact prior raw\/draft|authenticated approval\/C4 persistence|ratification/iu);
-  assert.match(html, /\.review-label\{[^}]*color:#fffaf0/);
+  assert.match(html, /\.review-label\{[^}]*color:var\(--muted\)/);
   assert.match(html, /data-review-status role="status" aria-live="polite"/);
 });
 
@@ -355,7 +355,7 @@ test("every direct-support-permitted draft slot visibly quotes and attributes ex
   const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
   const escapedExcerpt = evidence.exactExcerpt.replace(/[&<>"']/gu,
     (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]!);
-  for (const title of ["Audience thesis", "Opening", "Risks & unknowns"]) {
+  for (const title of ["Situation for this audience", "Opening", "Before relying on this brief"]) {
     const start = html.indexOf(`>${title}<`);
     assert.notEqual(start, -1, title);
     const section = html.slice(start, html.indexOf("</section>", start));
@@ -366,12 +366,12 @@ test("every direct-support-permitted draft slot visibly quotes and attributes ex
   assert.match(html, new RegExp(`aria-label="Opening evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
   assert.match(html, new RegExp(`aria-label="Question 2 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
   assert.match(html, new RegExp(`aria-label="Risk or unknown 1 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
-  assert.match(html, /\.support a,\.warning a\{display:inline-flex;align-items:center;min-height:44px;max-width:100%/);
+  assert.match(html, /\.support a,\.warning a[^}]*min-height:44px;max-width:100%/);
 
   const inferred = JSON.parse(rawCandidate(context)) as any;
   const inferenceRecord = createGenerationRecord(request, JSON.stringify(inferred), context);
   const inferredHtml = renderC3Page(context, { page: "draft", record: inferenceRecord, correctionNote: "" }, "test-csrf");
-  const inferenceStart = inferredHtml.indexOf(">Audience thesis<");
+  const inferenceStart = inferredHtml.indexOf(">Situation for this audience<");
   const inferenceSection = inferredHtml.slice(inferenceStart, inferredHtml.indexOf("</section>", inferenceStart));
   assert.doesNotMatch(inferenceSection, /<blockquote/);
 });

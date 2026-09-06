@@ -10,7 +10,7 @@
     "customerEffect": false
   },
   "guardWeakening": {
-    "tests/safety/governance-tier-classifier.test.ts": "scripts/verify-ceremony.ts",
-    "tests/safety/c1v-production-visual-calibration.test.ts": "scripts/verify-ceremony.ts"
+    "tests/safety/no-provider-sdk.test.ts": "src/c3/provider.ts",
+    "tests/safety/agentic-ai-usage-baseline-contract.test.ts": "docs/architecture/agentic-ai-usage-baseline.md"
   }
 }

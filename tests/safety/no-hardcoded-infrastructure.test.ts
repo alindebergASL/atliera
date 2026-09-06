@@ -136,6 +136,11 @@ function isIntentionalAcquisitionPolicyLiteral(hit: {
   kind: string;
   value: string;
 }): boolean {
+  // C3 is an inbound-only local prototype. Its literal loopback bind and
+  // same-origin HTTP construction are restrictions, not deploy infrastructure.
+  if (hit.file === "src/c3/service.ts" &&
+      ((hit.kind === "literal IPv4 address" && hit.value === "127.0.0.1") ||
+       (hit.kind === "protocol URL" && hit.value === "http://$"))) return true;
   const acquisitionPolicyFiles = new Set([
     "src/capability/m4-target-policy.ts",
     "src/capability/public-http-fetch-policy.ts",
@@ -213,6 +218,9 @@ describe("safety: app/deploy files do not hardcode infrastructure locations", ()
   });
 
   it("contains no hardcoded URLs, IPs, DB URLs, host assignments, DB paths, or Atliera server-local paths", () => {
+    const c3Service = readFileSync(join(REPO_ROOT, "src", "c3", "service.ts"), "utf8");
+    assert.match(c3Service, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
+    assert.doesNotMatch(c3Service, /server\.listen\([^\n]+(?:0\.0\.0\.0|::)/);
     const hits = findInfrastructureLiterals(scannedFiles());
     assert.deepEqual(
       hits,

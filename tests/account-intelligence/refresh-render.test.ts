@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderC2AccountHome } from "../../src/account-intelligence/account-home.ts";
+import { C2_ACCOUNT_HOME_CSS } from "../../src/account-intelligence/account-home-style.ts";
+import {
+  renderC2AccountHome,
+  type C2AccountHomeAnnotation,
+} from "../../src/account-intelligence/account-home.ts";
+import type { IntelligenceStatementState } from "../../src/account-intelligence/contracts.ts";
+import { snapshotAccountIntelligenceProposal } from "../../src/account-intelligence/proposal.ts";
 import { AccountIntelligenceProviderBoundary, AccountIntelligenceProviderRefusal } from "../../src/account-intelligence/provider.ts";
 import { executeAccountIntelligenceRefresh } from "../../src/account-intelligence/refresh.ts";
 import { FixtureAccountIntelligenceProvider, makeC2FixtureInput } from "../fixtures/c2-account-intelligence.ts";
@@ -87,6 +93,156 @@ test("Editorial Evidence Synthesis renderer keeps answers first and machinery be
   assert.equal(artifact.boundary.clientNetworkCalls, 0);
   assert.equal(artifact.boundary.providerCalls, 0);
   assert.equal(artifact.boundary.workshopBehavior, 0);
+});
+
+test("evidence labels follow statement semantics and exact facts quote their publisher inline", async () => {
+  const { result } = await runFixture();
+  const evidenceId = result.admittedSources[0]!.excerpts[0]!.evidenceId;
+  const states: readonly IntelligenceStatementState[] = [
+    "source-backed fact",
+    "evidence-linked proposed claim",
+    "evidence-informed interpretation",
+    "unresolved question",
+    "recommendation",
+  ];
+  for (const state of states) {
+    const accountThesis = {
+      ...result.proposal.accountThesis,
+      state,
+      text: state === "source-backed fact" ? result.admittedSources[0]!.excerpts[0]!.exactExcerpt : `Synthetic ${state}`,
+      evidenceIds: [evidenceId],
+    };
+    const html = renderC2AccountHome({ ...result, proposal: { ...result.proposal, accountThesis } }).html;
+    const thesisDialog = html.match(/<dialog class="evidence-dialog" id="evidence-thesis"[\s\S]*?<\/dialog>/u)?.[0] ?? "";
+    if (state === "source-backed fact") {
+      assert.match(thesisDialog, /class="source-kicker">Exact support 1/u);
+      assert.doesNotMatch(thesisDialog, /Related evidence context 1/u);
+    } else {
+      assert.match(thesisDialog, /class="source-kicker">Related evidence context 1/u);
+      assert.doesNotMatch(thesisDialog, /class="source-kicker">Exact support 1/u);
+    }
+  }
+  const html = renderC2AccountHome(result).html;
+  assert.match(html, /<figure class="stage-source-quote"><blockquote>Harbor Transit publishes[^<]+<\/blockquote><figcaption>Quoted exactly · Harbor Transit<\/figcaption>/u);
+  assert.match(html, /<figure class="stage-source-quote"><blockquote>Harbor Transit proposed[^<]+<\/blockquote><figcaption>Quoted exactly · Harbor Transit<\/figcaption>/u);
+});
+
+test("non-factual change does not announce exact support and quoted facts stay attributed in dialogs", async () => {
+  const { result } = await runFixture();
+  const original = renderC2AccountHome(result).html;
+  const factDialog = original.match(/<dialog class="evidence-dialog" id="evidence-established"[\s\S]*?<\/dialog>/u)?.[0] ?? "";
+  assert.match(factDialog, /class="related-statement"[\s\S]*?<figure class="stage-source-quote"><blockquote>/u);
+  assert.match(factDialog, /<figcaption>Quoted exactly · Harbor Transit<\/figcaption>/u);
+  const changed = { ...result.proposal.meaningfullyChanged[0]!, state: "evidence-linked proposed claim" as const };
+  const html = renderC2AccountHome({ ...result, proposal: { ...result.proposal, meaningfullyChanged: [changed] } }).html;
+  assert.match(html, /data-dialog="evidence-changed" aria-label="Related evidence context for Harbor Transit meaningfully changed statement"/u);
+  assert.doesNotMatch(html, /data-dialog="evidence-changed" aria-label="Exact source support/u);
+});
+
+test("validated non-factual established context announces related context rather than exact support", async () => {
+  const { result } = await runFixture();
+  const established = {
+    ...result.proposal.establishedContext[0]!,
+    state: "evidence-linked proposed claim" as const,
+    text: "The official record may provide useful operating context.",
+    riskFlags: ["insufficient_evidence" as const],
+  };
+  const riskConflictFlags = result.proposal.riskConflictFlags.map((risk) => risk.flag === "insufficient_evidence"
+    ? { ...risk, statementIds: [...risk.statementIds, established.statementId] }
+    : risk);
+  const proposal = snapshotAccountIntelligenceProposal({
+    ...result.proposal,
+    establishedContext: [established, ...result.proposal.establishedContext.slice(1)],
+    riskConflictFlags,
+  }, result.request, result.admittedSources);
+  const html = renderC2AccountHome({ ...result, proposal }).html;
+  assert.match(html, /data-dialog="evidence-established" aria-label="Related evidence context for Harbor Transit established statement"/u);
+  assert.doesNotMatch(html, /data-dialog="evidence-established" aria-label="Exact source support/u);
+});
+
+test("validated factual thesis is quoted and attributed while the normal interpretive thesis is unchanged", async () => {
+  const { result } = await runFixture();
+  const normalHtml = renderC2AccountHome(result).html;
+  assert.match(normalHtml, /<p class="account-thesis">Harbor Transit&#39;s official record may be worth clarifying before further interpretation\.<\/p>/u);
+  assert.doesNotMatch(normalHtml, /<figure class="account-thesis account-thesis-source">/u);
+
+  const sourceFact = {
+    ...result.proposal.establishedContext[0]!,
+    statementId: result.proposal.accountThesis.statementId,
+  };
+  const riskConflictFlags = result.proposal.riskConflictFlags.map((risk) => ({
+    ...risk,
+    statementIds: risk.statementIds.filter((statementId) => statementId !== result.proposal.accountThesis.statementId),
+  }));
+  const proposal = snapshotAccountIntelligenceProposal({
+    ...result.proposal,
+    accountThesis: sourceFact,
+    riskConflictFlags,
+  }, result.request, result.admittedSources);
+  const html = renderC2AccountHome({ ...result, proposal }).html;
+  const hero = html.match(/<section class="account-hero"[\s\S]*?<\/section>/u)?.[0] ?? "";
+  assert.match(hero, /<figure class="account-thesis account-thesis-source"><blockquote>Harbor Transit publishes[^<]+<\/blockquote><figcaption>Quoted exactly · Harbor Transit<\/figcaption>/u);
+  assert.doesNotMatch(hero, /<p class="account-thesis">/u);
+});
+
+test("evidence triggers have unique statement-specific human names without raw identifiers", async () => {
+  const { result } = await runFixture({ accountName: "Synthetic Harbor Cooperative" });
+  const html = renderC2AccountHome(result).html;
+  const names = [...html.matchAll(/<button\b[^>]*data-dialog="[^"]+"[^>]*aria-label="([^"]+)"/gu)].map((match) => match[1]!);
+  assert.equal(names.length, 6);
+  assert.equal(new Set(names).size, names.length);
+  for (const name of names) {
+    assert.match(name, /Synthetic Harbor Cooperative/u);
+    assert.doesNotMatch(name, /(?:source|evidence)_[a-f0-9]+|(?:thesis|changed|next)-\d+/iu);
+  }
+  for (const context of ["account thesis", "established statement", "meaningfully changed statement",
+    "why-it-may-matter interpretation", "question remains open", "recommended next move"]) {
+    assert.ok(names.some((name) => name.includes(context)), context);
+  }
+});
+
+test("typed renderer annotations bind to admitted visible evidence, remain external, and escape hostile text", async () => {
+  const { result } = await runFixture();
+  const source = result.admittedSources[0]!;
+  const hostileSource = {
+    ...source,
+    title: 'Synthetic "North & South" <source>',
+    publisher: "Harbor <script>alert('publisher')</script> Cooperative",
+  };
+  const hostileResult = { ...result, admittedSources: [hostileSource] };
+  const evidenceId = source.excerpts[1]!.evidenceId;
+  const annotation: C2AccountHomeAnnotation = {
+    annotationId: "synthetic-table-context",
+    kind: "source_context_caveat",
+    sourceId: source.sourceId,
+    evidenceIds: [evidenceId],
+    text: 'Headers are absent; <img src=x onerror="alert(1)"> is not source wording.',
+  };
+  const before = JSON.stringify(hostileResult.admittedSources);
+  const html = renderC2AccountHome(hostileResult, [annotation]).html;
+  assert.equal(JSON.stringify(hostileResult.admittedSources), before);
+  assert.match(html, /Source context — not source wording:/u);
+  assert.match(html, /Synthetic &quot;North &amp; South&quot; &lt;source&gt;/u);
+  assert.match(html, /Quoted exactly · Harbor &lt;script&gt;alert\(&#39;publisher&#39;\)&lt;\/script&gt; Cooperative/u);
+  assert.match(html, /Headers are absent; &lt;img src=x onerror=&quot;alert\(1\)&quot;&gt; is not source wording\./u);
+  assert.doesNotMatch(html, /<img\b|onerror="alert\(1\)"/iu);
+
+  const otherSource = { ...source, sourceId: "source_other-synthetic", excerpts: [] };
+  assert.throws(() => renderC2AccountHome({ ...result, admittedSources: [source, otherSource] }, [{
+    ...annotation,
+    sourceId: otherSource.sourceId,
+  }]), /evidence binding does not belong to its admitted source/u);
+  assert.throws(() => renderC2AccountHome(result, [{ ...annotation, evidenceIds: ["evidence_not-visible"] }]),
+    /evidence binding does not belong to its admitted source/u);
+  assert.throws(() => renderC2AccountHome(result, [{ ...annotation, kind: "blanket_warning" as never }]), /kind refused/u);
+});
+
+test("mobile CSS keeps why-it-matters visible and provides a useful 320px reflow with touch targets", () => {
+  assert.doesNotMatch(C2_ACCOUNT_HOME_CSS, /\.analysis-line\s*\{[^}]*display:\s*none/isu);
+  assert.match(C2_ACCOUNT_HOME_CSS, /@media\s*\(max-width:\s*360px\)/u);
+  assert.match(C2_ACCOUNT_HOME_CSS, /\.coverage-list li\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/u);
+  assert.match(C2_ACCOUNT_HOME_CSS, /\.evidence-trigger[\s\S]*?min-height:\s*44px/u);
+  assert.match(C2_ACCOUNT_HOME_CSS, /\.primary-action[\s\S]*?min-height:\s*44px/u);
 });
 
 test("malicious HTML from admitted source is inert escaped text in the renderer", async () => {

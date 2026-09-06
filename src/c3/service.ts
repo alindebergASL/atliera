@@ -5,6 +5,7 @@ import type { FrozenC3AccountContext } from "./context.ts";
 import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, snapshotMeetingFormState, snapshotMeetingRequest,
   type C3GenerationRecord, type C3MeetingFormState, type C3MeetingRequest, type C3RevisionContext } from "./draft.ts";
 import type { C3ModelProvider } from "./provider.ts";
+import { boundedPlanningText, MEETING_NOTE_SECTIONS, newPlanningBrief, updatePlanningBrief, type PlanningBrief, type PlanningKind } from "./planning.ts";
 import { renderC3Page } from "./render.ts";
 
 type GenerationEventKind = "attempted" | "succeeded" | "refused" | "cancelled" | "failed";
@@ -16,6 +17,9 @@ interface Session {
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
   correctionNote: string;
+  planning: Record<PlanningKind, PlanningBrief>;
+  sectionNotes: Record<string, string>;
+
   pendingPriorNote: string | null;
   pendingRevision: C3RevisionContext | null;
   pendingRevisionToken: string | null;
@@ -40,6 +44,8 @@ export interface C3ServerOptions {
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   readonly port?: number;
+  /** Labels hand-authored local fixtures; never changes request matching. */
+  readonly syntheticPreview?: boolean;
   readonly now?: () => Date;
   /** Test seam: create the real HTTP request handler without opening a socket. */
   readonly listen?: boolean;
@@ -93,6 +99,7 @@ function nextMeetingDate(now: Date): string {
 function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session {
   return { id: randomBytes(24).toString("base64url"), csrf: randomBytes(24).toString("base64url"),
     form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
+    planning: { strategy: newPlanningBrief("strategy"), "next-steps": newPlanningBrief("next-steps") }, sectionNotes: {},
     correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0 };
 }
 
@@ -149,9 +156,9 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
-  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state, csrf,
+  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state, csrf,
     options.recordedReplay === undefined ? undefined : { correctionNote: options.recordedReplay.correctionNote,
-      initialRequest: options.recordedReplay.initialRequest });
+      initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
   let expectedHost = "";
 
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -174,6 +181,11 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (session === undefined) { json(res, 401, { error: "session required" }); return; }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
       const hasDraft = session.record?.draft !== undefined;
+      const kind = url.searchParams.get("kind");
+      if (kind !== null) {
+        if (kind !== "strategy" && kind !== "next-steps") { json(res, 400, { error: "Unknown brief kind" }); return; }
+        html(res, 200, render({ page: "planning", brief: session.planning[kind], hasDraft }, session.csrf), C3_SCRIPT_SHA256); return;
+      }
       const pending = pendingPageState(session);
       if (url.searchParams.get("draft") === "1") {
         if (!hasDraft) {
@@ -196,6 +208,40 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     let body: unknown;
     try { body = await readJson(req); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
+    if (url.pathname.startsWith("/api/planning/")) {
+      const kind = url.pathname.slice("/api/planning/".length);
+      if (kind !== "strategy" && kind !== "next-steps") { json(res, 400, { error: "Unknown brief kind" }); return; }
+      if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
+        json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
+      }
+      try {
+        const result = updatePlanningBrief(session.planning[kind], body);
+        session.planning[kind] = result.brief;
+        json(res, 200, { version: result.brief.version, noChange: result.noChange,
+          status: result.noChange ? "No change. Existing session text kept." : `Session edit kept · version ${result.brief.version}. No account truth, approval, or durable save changed.` });
+      } catch (error) { json(res, 409, { error: error instanceof Error ? error.message : "Planning edit refused" }); }
+      return;
+    }
+    if (url.pathname === "/api/section-note") {
+      const displayedRecordId = submittedRecordId(body);
+      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null ||
+          session.record?.draft === undefined || session.record.recordId !== displayedRecordId) {
+        json(res, 409, { error: "Displayed draft is stale or revision is pending. Reopen the current draft before keeping a section note." }); return;
+      }
+      try {
+        const value = body as Record<string, unknown>;
+        if (Object.keys(value).sort().join(",") !== "priorText,recordId,section,text" ||
+            !MEETING_NOTE_SECTIONS.includes(value.section as typeof MEETING_NOTE_SECTIONS[number])) throw new Error("Invalid section note");
+        const section = value.section as string;
+        const text = boundedPlanningText(value.text, 1000);
+        const prior = session.sectionNotes[section] ?? "";
+        if (value.priorText !== prior) throw new Error("Section note is stale. Copy your unsaved text and reopen the current draft.");
+        session.sectionNotes[section] = text;
+        json(res, 200, { noChange: text === prior, status: text === prior ? "Note unchanged. Already kept for this session." :
+          text === "" ? "Section note cleared. Recorded text unchanged." : "Section note kept for this session. Recorded text unchanged; no revision requested." });
+      } catch (error) { json(res, 409, { error: error instanceof Error ? error.message : "Section note refused" }); }
+      return;
+    }
     if (url.pathname === "/api/cancel") {
       try { session.form = snapshotMeetingFormState(body); } catch (error) {
         json(res, 400, { error: error instanceof Error ? error.message : "invalid form state" }); return;
@@ -332,6 +378,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           ...pendingPageState(session) }, session.csrf);
         json(res, 422, { html: page, location: "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
+      if (revision === null) session.sectionNotes = {};
       session.record = generation;
       session.correctionNote = revision?.correctionNote ?? "";
       session.pendingRevision = null;

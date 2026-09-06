@@ -109,7 +109,7 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
     assert.match(browser.page, /Related evidence context for this proposed thesis|Direct source support/);
     assert.match(browser.page, /<blockquote>/);
     assert.match(browser.page, /Why this is worth checking/);
-    assert.match(browser.page, /Focused next action/);
+    assert.match(browser.page, /Proposed next action/);
     assert.ok(browser.page.indexOf('class="hero-actions"') < browser.page.indexOf('class="orientation"'),
       "primary preparation action precedes the longer orientation rationale on narrow screens");
     assert.match(browser.page, /@media\(max-width:700px\)/);
@@ -152,7 +152,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.match(browser.page, /Private candidate preview · Recorded responses · No live generation/);
     assert.match(browser.page, /Proposed meeting drafts.*Session-only; no approval or durable save/);
     assert.doesNotMatch(browser.page, /Unmerged and proposed/);
-    assert.match(browser.page, />Open exact recorded replay</);
+    assert.match(browser.page, />Open Workshop · Prepare for…</);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Private candidate preview · Recorded responses · No live generation/);
     assert.match(prepare.text, /value="CIO and engineering leaders"/);
@@ -310,8 +310,8 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.match(reloaded.text, /Meeting draft/);
     const home = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
-    assert.match(home.text, /Account Home/);
-    assert.match(home.text, /aria-current="page">Account Home/);
+    assert.match(home.text, /Account Intel/);
+    assert.match(home.text, /aria-current="page">Account Intel/);
     assert.match(home.text, /href="\/\?draft=1"[^>]*>Reopen session draft/);
     assert.equal(running.status().generationSucceeded, 1);
   } finally { await running.close(); }
@@ -1082,4 +1082,84 @@ test("brief exposes sparse and conflicting fixture context without inventing sup
   assert.match(html, /Context is insufficient/);
   assert.equal(record.rawResponse, JSON.stringify(value));
   assert.doesNotMatch(html, /data-evidence-link data-context=/);
+});
+
+// Sprint regressions use authored synthetic context; no retained private research or provider calls.
+test("Account Intel and purpose-specific templates share injected context without account or kind bleed", async () => {
+  const { syntheticWorkshopContext } = await import("../fixtures/c3-workshop.ts");
+  for (const account of ["harbor", "cedar"] as const) {
+    const ctx = syntheticWorkshopContext(account);
+    const running = await startC3Server({ context: ctx, provider: new DisabledC3ModelProvider(), listen: false, expectedHost: HOST });
+    try {
+      const browser = await browserSession(running);
+      assert.match(browser.page, /Account Intel/);
+      assert.match(browser.page, /Developments and priorities/);
+      assert.match(browser.page, /Stakeholders and relationships/);
+      assert.doesNotMatch(browser.page, account === "harbor" ? /Cedar Works/ : /Harbor Transit/);
+      const strategy = await requestTo(running, "GET", "/?kind=strategy", undefined, { cookie: browser.cookie });
+      assert.match(strategy.text, /Options and tradeoffs/);
+      assert.match(strategy.text, /not AI-generated/);
+      const setup = await browser.post("/api/planning/strategy", { version: 0, audience: "CIO", intendedOutcome: "Choose what to validate", detail: "This quarter" });
+      assert.equal(setup.status, 200);
+      const edit = await browser.post("/api/planning/strategy", { version: 1, section: "options", text: "Compare a bounded pilot with waiting." });
+      assert.equal(edit.status, 200);
+      assert.equal((await browser.post("/api/planning/strategy", { version: 1, section: "options", text: "Stale overwrite" })).status, 409);
+      const noChange = await browser.post("/api/planning/strategy", { version: 2, section: "options", text: "Compare a bounded pilot with waiting." });
+      assert.equal(JSON.parse(noChange.text).noChange, true);
+      const reopened = await requestTo(running, "GET", "/?kind=strategy", undefined, { cookie: browser.cookie });
+      assert.match(reopened.text, /Compare a bounded pilot with waiting\./);
+      const next = await requestTo(running, "GET", "/?kind=next-steps", undefined, { cookie: browser.cookie });
+      assert.match(next.text, /Owners and dependencies/);
+      assert.doesNotMatch(next.text, /Compare a bounded pilot with waiting\./);
+      const accountHome = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
+      assert.doesNotMatch(accountHome.text, /Compare a bounded pilot with waiting\./);
+      assert.equal((await browser.post("/api/planning/next-steps", { version: 0, section: "actions", text: "User next step" }, { "x-c3-csrf": "bad" })).status, 403);
+      const otherSession = await browserSession(running);
+      const otherBrief = await requestTo(running, "GET", "/?kind=strategy", undefined, { cookie: otherSession.cookie });
+      assert.doesNotMatch(otherBrief.text, /Compare a bounded pilot with waiting\./);
+      assert.equal(running.status().generationAttempted, 0);
+    } finally { await running.close(); }
+  }
+});
+
+test("in-place meeting notes retain raw response, bind displayed identity and protect pending revisions", async () => {
+  const { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } = await import("../fixtures/c3-workshop.ts");
+  const ctx = syntheticWorkshopContext();
+  const raw = syntheticMeetingCandidate(ctx);
+  const exact = createC3ModelRequest(ctx, syntheticMeetingRequest);
+  const record = createGenerationRecord(exact, raw, ctx);
+  const running = await startC3Server({ context: ctx, provider: new RecordedReplayC3ModelProvider([{ request: exact, rawResponse: raw }]), listen: false, expectedHost: HOST });
+  try {
+    const browser = await browserSession(running);
+    assert.equal((await browser.post("/api/generate", syntheticMeetingRequest)).status, 200);
+    const edit = { recordId: record.recordId, section: "Opening", text: "Ask about the participant’s priority first.", priorText: "" };
+    assert.equal((await browser.post("/api/section-note", edit)).status, 200);
+    assert.equal((await browser.post("/api/section-note", edit)).status, 409, "stale prior text cannot overwrite a saved note");
+    assert.equal(JSON.parse((await browser.post("/api/section-note", { ...edit, priorText: edit.text })).text).noChange, true);
+    const page = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+    assert.match(page.text, /Ask about the participant’s priority first/);
+    assert.match(page.text, /Confirm what matters to this audience before proposing a direction\./);
+    assert.equal(record.rawResponse, raw);
+    assert.equal((await browser.post("/api/section-note", { ...edit, priorText: edit.text, text: "" })).status, 200);
+    assert.equal((await browser.post("/api/revise", { recordId: record.recordId, note: "A correction without any recorded response" })).status, 200);
+    assert.equal((await browser.post("/api/section-note", edit)).status, 409);
+    assert.equal((await browser.post("/api/generate", syntheticMeetingRequest)).status, 502);
+    const preserved = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+    assert.match(preserved.text, /Revision pending/);
+    assert.match(preserved.text, /Confirm what matters to this audience before proposing a direction\./);
+  } finally { await running.close(); }
+});
+
+test("sparse and conflicting synthetic contexts remain explicit across account and planning views", async () => {
+  const { syntheticWorkshopContext } = await import("../fixtures/c3-workshop.ts");
+  for (const mode of ["sparse", "conflict"] as const) {
+    const running = await startC3Server({ context: syntheticWorkshopContext("harbor", mode), provider: new DisabledC3ModelProvider(), listen: false, expectedHost: HOST });
+    try {
+      const browser = await browserSession(running);
+      for (const route of ["/", "/?kind=strategy", "/?kind=next-steps"]) {
+        const page = await requestTo(running, "GET", route, undefined, { cookie: browser.cookie });
+        assert.match(page.text, mode === "sparse" ? /No admitted sources/ : /Conflicting context/);
+      }
+    } finally { await running.close(); }
+  }
 });

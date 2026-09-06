@@ -1,6 +1,6 @@
 # Governance trust boundary — v3
 
-Status: candidate transition (2026-09-06) under [standing development policy](standing-development-policy.md). This describes the candidate check, not completed adoption or new effect authority.
+Status: adopted via PR #322 (2026-09-06) under [standing development policy](standing-development-policy.md). This describes the active protected-base check; it grants no new product-effect authority.
 
 ## Protected-base enforcement
 

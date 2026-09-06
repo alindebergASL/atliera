@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "astra-standing-development-transition",
+    "recordId": "c3-account-to-meeting-milestone",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Adopt the user-authorized Astra standing development workflow and bounded protected-base governance repair.",
-    "scope": "This pull request's exact candidate head: standing agent guidance, attributed independent technical reviews instead of per-step human build approval, protected-base checks, and obsolete scope-guard repair. No new product/provider call, customer effect, persistence, or deployment. The separate one-time supported check transition requires the documented owner authorization and protection restoration.",
+    "decision": "Build and merge the authorized C3 account-to-meeting preparation milestone.",
+    "scope": "This exact candidate revision: inherited C2 evidence renderer, coherent C3 meeting preparation, evidence inspection, session notes and revision/reopen behavior, cancellation race fix, tests and truthful operator documentation. No durable account save, customer publication, live provider routing, new data acquisition or deployment is authorized by this build report.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-06T06:20:25.770Z",
-    "proposalDigest": "sha256:29ae6a1fd09b87e833030278e80c96d1459e26793529b0b0e4962886348fd03f"
+    "proposedAt": "2026-09-06T07:00:06.752Z",
+    "proposalDigest": "sha256:0e96a1a8f6905afa05242c36069dca908e651524646e5892cc011ab5283337e7"
   }
 }

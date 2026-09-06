@@ -1,5 +1,7 @@
 # Standing development workflow — GPT-6 Astra
 
+Status: adopted. Policy candidate `f4df15f61c58c134772d670a7331aec76fb0c2cb` merged through PR #322 as `0ae15ceaa618d13015a9e35c9f56ddbced64cebb`. The integrator read back the merge and exact restoration of the original required checks. The adoption procedure below records the completed one-time transition; it is not permission to repeat it.
+
 ## Source and attribution
 
 The following is the user's actual statement received on 2026-09-06, copied verbatim from the Hermes conversation (session `20260906_053839_67e1c689`, user message 656431; external conversation provenance, not a GitHub signature or review). This transcription was prepared by Hermes/Astra. It is not an agent impersonation of the user, a claim that a human published a GitHub event, or a grant of new product effects.

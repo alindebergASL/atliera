@@ -1,6 +1,6 @@
 # Governance tiers v3 — risk-priced verification policy
 
-Status: candidate check transition (2026-09-06) implementing the user's [standing development workflow](standing-development-policy.md). Development direction is current; these enforcement bytes are not adopted until they land through an authorized protected-base transition. This candidate cannot judge itself. Companions: `governance-tiers.json`, `governance-trust.json`, `decision-proposal.schema.json`, the historical `decision-record.schema.json`, the classifier/verifier, and focused behavioral tests.
+Status: adopted via PR #322 (2026-09-06), implementing the user's [standing development workflow](standing-development-policy.md). Subsequent candidates are judged by these protected-base enforcement bytes, never their own proposed edits. Companions: `governance-tiers.json`, `governance-trust.json`, `decision-proposal.schema.json`, the historical `decision-record.schema.json`, the classifier/verifier, and focused behavioral tests.
 
 ## 1. Principle
 

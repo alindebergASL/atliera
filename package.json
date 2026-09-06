@@ -51,7 +51,8 @@
     "s3:compatibility:filesystem": "tsx src/cli/s3-compatibility.ts validate-filesystem",
     "s3:compatibility:check-aws-cli": "tsx src/cli/s3-compatibility.ts check-aws-cli",
     "s3:compatibility:aws-cli": "tsx src/cli/s3-compatibility.ts validate-aws-cli",
-    "product-preview:plan": "tsx src/cli/product-preview-plan.ts plan"
+    "product-preview:plan": "tsx src/cli/product-preview-plan.ts plan",
+    "preview:account-workshop": "node --import tsx scripts/preview-account-workshop.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -9,8 +9,5 @@
     "deployment": false,
     "customerEffect": false
   },
-  "guardWeakening": {
-    "tests/safety/no-provider-sdk.test.ts": "src/c3/provider.ts",
-    "tests/safety/agentic-ai-usage-baseline-contract.test.ts": "docs/architecture/agentic-ai-usage-baseline.md"
-  }
+  "guardWeakening": {}
 }

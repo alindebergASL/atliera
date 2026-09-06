@@ -298,18 +298,24 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         location: "/?draft=1", history: "push" }); return;
     }
     session.form = request;
-    const previous = session.active;
-    if (previous !== undefined) { previous.controller.abort(); await previous.settled; }
+    // Claim ownership before yielding: concurrent replacements may await the same
+    // predecessor, but only the newest request (unless cancelled) may start work.
     session.sequence += 1;
     const sequence = session.sequence;
+    const previous = session.active;
     const controller = new AbortController();
     let resolveSettled!: () => void;
     const settled = new Promise<void>((resolve) => { resolveSettled = resolve; });
-    session.active = { controller, sequence, settled };
-    events.push({ kind: "attempted", sequence });
     const onResponseClose = (): void => { if (!res.writableEnded) controller.abort(); };
     res.once("close", onResponseClose);
     try {
+      if (previous !== undefined) { previous.controller.abort(); await previous.settled; }
+      if (session.sequence !== sequence || controller.signal.aborted || res.destroyed) {
+        if (!res.writableEnded && !res.destroyed) json(res, 409, { error: "stale generation discarded" });
+        return;
+      }
+      session.active = { controller, sequence, settled };
+      events.push({ kind: "attempted", sequence });
       const revision = session.pendingRevision;
       const modelRequest = createC3ModelRequest(options.context, request, revision);
       const raw = await options.provider.generate(modelRequest, controller.signal);

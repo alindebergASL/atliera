@@ -448,6 +448,138 @@ test("cancellation signals provider, discards stale completion, and preserves in
   } finally { await running.close(); }
 });
 
+for (const cancelWhileWaiting of [false, true]) {
+  test(`overlapping replacements retain cancellation ownership (cancel while waiting: ${cancelWhileWaiting})`, { timeout: 3000 }, async () => {
+    const ctx = await context();
+    const raw = candidate(ctx);
+    const calls: string[] = [];
+    const starts: { audience: string; signal: AbortSignal; release: () => void }[] = [];
+    let occupied = false;
+    let cleanup = false;
+    const running = await harness({ name: "synthetic-single-slot", generate: async (request, signal) => {
+      calls.push(request.meetingRequest.audience);
+      if (cleanup) return raw;
+      if (occupied) throw new Error("one generation is already running");
+      occupied = true;
+      try {
+        return await new Promise<string>((resolve) => {
+          starts.push({ audience: request.meetingRequest.audience, signal, release: () => resolve(raw) });
+        });
+      } finally { occupied = false; }
+    } });
+    // A complete event-loop turn drains the in-memory request body and handler microtasks.
+    // Provider settlement stays explicitly gated: no sleep or scheduler-dependent release.
+    const drain = () => new Promise<void>((resolve) => setImmediate(resolve));
+    try {
+      const browser = await browserSession(running);
+      const first = browser.post("/api/generate", { ...meetingRequest, audience: "First" });
+      await drain();
+      assert.equal(starts.length, 1);
+      const second = browser.post("/api/generate", { ...meetingRequest, audience: "Second" });
+      await drain();
+      assert.equal(starts[0]!.signal.aborted, true);
+      const third = browser.post("/api/generate", { ...meetingRequest, audience: "Third" });
+      await drain();
+      assert.deepEqual(calls, ["First"], "both replacements wait for the same predecessor");
+      const edited = { ...meetingRequest, audience: "Kept cancellation edits" };
+      let cancelled = cancelWhileWaiting ? browser.post("/api/cancel", edited) : undefined;
+      await drain();
+      starts[0]!.release();
+      await drain();
+      if (cancelWhileWaiting) assert.deepEqual(calls, ["First"], "cancel invalidates every waiting admission");
+      if (!cancelWhileWaiting) {
+        cancelled = browser.post("/api/cancel", edited);
+        await drain();
+        assert.equal(starts[1]?.signal.aborted, true, "cancel must abort the remaining provider, not an overwritten active slot");
+        assert.equal(occupied, true, "cancel waits for actual provider settlement");
+        assert.deepEqual(calls, ["First", "Third"], "only the newest waiting request may enter the provider");
+        starts[1]!.release(); // Even valid late success must not become an accepted draft.
+      }
+      assert.equal((await cancelled!).status, 200);
+      assert.deepEqual((await Promise.all([first, second, third])).map((response) => response.status), [409, 409, 409]);
+      assert.deepEqual(calls, cancelWhileWaiting ? ["First"] : ["First", "Third"]);
+      assert.equal(running.status().generationSucceeded, 0);
+      assert.equal(running.status().generationFailed, 0);
+      assert.equal(running.status().generationCancelled, 1);
+      assert.equal((await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie })).status, 409);
+      const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
+      assert.match(prepare.text, /Kept cancellation edits/);
+    } finally {
+      cleanup = true;
+      for (const start of starts) start.release();
+      await drain();
+      await running.close();
+    }
+  });
+}
+
+for (const disconnectWhileWaiting of [false, true]) {
+  test(`disconnected generation cannot dispatch or accept late success (waiting: ${disconnectWhileWaiting})`, async () => {
+    const ctx = await context();
+    const starts: { signal: AbortSignal; release: () => void }[] = [];
+    let cleanup = false;
+    const running = await harness({ name: "synthetic-disconnect", generate: async (_request, signal) => {
+      if (cleanup) return candidate(ctx);
+      await new Promise<void>((resolve) => { starts.push({ signal, release: resolve }); });
+      return candidate(ctx);
+    } });
+    const drain = () => new Promise<void>((resolve) => setImmediate(resolve));
+    try {
+      const browser = await browserSession(running);
+      const prior = disconnectWhileWaiting ? browser.post("/api/generate", meetingRequest) : undefined;
+      await drain();
+      const req = new PassThrough() as PassThrough & { method: string; url: string; headers: Record<string, string> };
+      req.method = "POST"; req.url = "/api/generate";
+      req.headers = { host: HOST, cookie: browser.cookie, origin: ORIGIN, "x-c3-csrf": browser.csrf, "content-type": "application/json" };
+      const res = new MemoryResponse();
+      running.server.emit("request", req as unknown as IncomingMessage, res as unknown as ServerResponse);
+      req.end(JSON.stringify({ ...meetingRequest, audience: "Disconnected replacement" }));
+      await drain();
+      assert.equal(starts.length, 1);
+      res.emit("close");
+      assert.equal(starts[0]!.signal.aborted, true);
+      starts[0]!.release();
+      await drain();
+      assert.equal(starts.length, 1, "a disconnected waiter must never reach the provider");
+      assert.equal(res.statusCode, 409);
+      assert.equal(res.listenerCount("close"), 0, "waiting and active requests both remove response listeners");
+      if (prior !== undefined) assert.equal((await prior).status, 409);
+      assert.equal(running.status().generationSucceeded, 0);
+      assert.equal((await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie })).status, 409);
+    } finally {
+      cleanup = true;
+      for (const start of starts) start.release();
+      await drain();
+      await running.close();
+    }
+  });
+}
+
+test("normal generation supersession still admits and accepts the replacement", async () => {
+  const ctx = await context();
+  let release!: () => void;
+  const signals: AbortSignal[] = [];
+  const running = await harness({ name: "synthetic-supersession", generate: async (_request, signal) => {
+    signals.push(signal);
+    if (signals.length === 1) await new Promise<void>((resolve) => { release = resolve; });
+    return candidate(ctx);
+  } });
+  try {
+    const browser = await browserSession(running);
+    const first = browser.post("/api/generate", meetingRequest);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const second = browser.post("/api/generate", { ...meetingRequest, audience: "Replacement" });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(signals[0]!.aborted, true);
+    release();
+    assert.equal((await first).status, 409);
+    assert.equal((await second).status, 200);
+    assert.equal(signals.length, 2);
+    assert.equal(signals[1]!.aborted, false);
+    assert.equal(running.status().generationSucceeded, 1);
+  } finally { release?.(); await running.close(); }
+});
+
 test("explicit cancel preserves bounded partial form text instead of restoring the last valid request", async () => {
   const running = await harness(new DisabledC3ModelProvider());
   try {

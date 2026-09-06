@@ -10,6 +10,8 @@ The candidate supplies only the diff, candidate governance map data for comparis
 
 ## Authority boundary
 
+Missing identity evidence fails closed. An agent action using an owner's credential remains an agent act; publishing an attributed independent technical report never impersonates human approval.
+
 A proposed decision states an exact decision, scope, and purpose. Its digest is recomputed from those fields. Development already within authorized scope needs no new per-step human approval. Tier-2/3 builds instead require an externally published `COMMENTED` independent technical report, bound to the exact head and proposal. The existing owner account or an optional pinned technical-reviewer account may publish it. An agent report names its actual actor/model, distinct implementation and review execution contexts, evidence URI, coverage and verdict. Fresh same-family Astra review contexts are valid; they are not human approval or another model family. Missing or invalid report fields fail closed.
 
 For a declared **effect permission**, a matching GitHub approval must:
@@ -33,7 +35,7 @@ Provider execution and private-data handling keep their Tier-2 floors. Network/o
 
 ## Offline presentation boundary
 
-Pure offline presentation may live under `presentation/` at Tier 1. Evidence admission, lineage, generation/provider code, and effects remain under their existing Tier-2-or-higher paths. The classifier still takes the maximum across every matching rule and every declared effect, unknown paths remain Tier 3, and an effect declaration escalates presentation code normally. Tests enforce these examples; renderer corrections are outside this repair.
+No unused `presentation/` pricing exception is installed. Unmapped paths remain Tier 3. Evidence admission, lineage, generation/provider code, and effects remain under their existing Tier-2-or-higher paths. The classifier takes the maximum across every matching rule and every declared effect. The standing authority document is explicitly Tier 3; tests enforce these boundaries. Renderer corrections are outside this policy repair.
 
 ## Historical records
 

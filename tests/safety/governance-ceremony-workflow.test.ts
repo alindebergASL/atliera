@@ -66,7 +66,7 @@ function review(
   return {
     id,
     html_url: `https://github.com/alindebergASL/atliera/pull/99#pullrequestreview-${id}`,
-    state: "APPROVED",
+    state: p.purpose === "build-permission" ? "COMMENTED" : "APPROVED",
     commit_id: SHA,
     submitted_at: submittedAt,
     author_association: "OWNER",
@@ -76,16 +76,32 @@ function review(
       `Atliera-Scope: ${p.scope}`,
       `Atliera-Purpose: ${p.purpose}`,
       `Atliera-Proposal-Digest: ${p.proposalDigest}`,
+      ...(p.purpose === "build-permission" ? [
+        "Atliera-Review-Kind: independent-technical",
+        "Atliera-Review-Actor: agent",
+        "Atliera-Implementer-Context: synthetic-implementation",
+        "Atliera-Reviewer-Context: synthetic-review",
+        "Atliera-Model: gpt-6-astra (synthetic fixture, no model invoked)",
+        "Atliera-Evidence: urn:atliera:synthetic:review",
+        "Atliera-Coverage: synthetic functional and architecture/security checks",
+        "Atliera-Verdict: PASS",
+      ] : []),
     ].join("\n"),
     ...overrides,
   };
 }
 
-test("offline presentation is Tier 1; evidence remains Tier 2; unknowns and effects fail high", () => {
-  assert.equal(classifyFile(map, "presentation/account-home.ts", new Set(), effects()).tier, 1);
+test("authority policy, unknowns, and effects fail high; evidence remains Tier 2", () => {
+  assert.equal(classifyFile(map, "docs/strategy/standing-development-policy.md", new Set(), effects()).tier, 3);
+  assert.equal(classifyFile(map, "presentation/account-home.ts", new Set(), effects()).tier, 3);
   assert.equal(classifyFile(map, "src/account-intelligence/admission.ts", new Set(), effects()).tier, 2);
   assert.equal(classifyFile(map, "unexpected/new-path.ts", new Set(), effects()).tier, 3);
   assert.equal(classifyFile(map, "presentation/account-home.ts", new Set(), effects({ durableWrite: true })).tier, 3);
+});
+
+test("checked-in build proposal digest matches the actual decision and scope", () => {
+  const manifest = JSON.parse(readFileSync(join(REPO, "ceremony.json"), "utf8"));
+  assert.equal(computeProposalDigest(manifest.buildProposal), manifest.buildProposal.proposalDigest);
 });
 
 test("synthetic Tier 1, Tier 2, and Tier 3 paths use explicit stable principal ids", () => {
@@ -98,23 +114,22 @@ test("synthetic Tier 1, Tier 2, and Tier 3 paths use explicit stable principal i
   );
 });
 
-test("checked-in owner identity permits synthetic Tier 2 while real Tier 3 remains an explicit identity HOLD", () => {
+test("checked-in publisher permits independent agent reports at Tier 2 and 3 without a human enrollment", () => {
   const protectedTrust = JSON.parse(readFileSync(join(REPO, "docs/strategy/governance-trust.json"), "utf8")) as TrustPolicy;
   const build = proposal("build-permission");
   const owner = protectedTrust.owner!;
   assert.deepEqual(verifyCeremony(2, SHA, { buildProposal: build }, effects(), [review(owner, build, 1101)], protectedTrust, schema), []);
   const tier3 = verifyCeremony(3, SHA, { buildProposal: build }, effects(), [review(owner, build, 1101)], protectedTrust, schema);
-  assert.match(tier3.join("\n"), /independent technical review/u);
+  assert.deepEqual(tier3, []);
   assert.equal(protectedTrust.technicalReviewers?.length, 0);
-  assert.match(protectedTrust.technicalReviewerHold ?? "", /HOLD/u);
 });
 
 test("missing, stale, wrong-binding, wrong stable id, and wrong account type fail closed", () => {
   const build = proposal("build-permission");
   const manifest: CeremonyManifest = { buildProposal: build };
-  assert.match(verifyCeremony(2, SHA, manifest, effects(), [], trust, schema).join("\n"), /external owner approval/u);
-  assert.match(verifyCeremony(2, SHA, manifest, effects(), [review(OWNER, build, 1201, undefined, { commit_id: OTHER_SHA })], trust, schema).join("\n"), /external owner approval/u);
-  assert.match(verifyCeremony(2, SHA, manifest, effects(), [review(OWNER, { ...build, decision: "Different decision" }, 1202)], trust, schema).join("\n"), /external owner approval/u);
+  assert.match(verifyCeremony(2, SHA, manifest, effects(), [], trust, schema).join("\n"), /independent technical review/u);
+  assert.match(verifyCeremony(2, SHA, manifest, effects(), [review(OWNER, build, 1201, undefined, { commit_id: OTHER_SHA })], trust, schema).join("\n"), /independent technical review/u);
+  assert.match(verifyCeremony(2, SHA, manifest, effects(), [review(OWNER, { ...build, decision: "Different decision" }, 1202)], trust, schema).join("\n"), /independent technical review/u);
   assert.match(verifyCeremony(2, SHA, manifest, effects(), [review({ ...OWNER, id: 999 }, build, 1203)], trust, schema).join("\n"), /stable user id/u);
   assert.match(verifyCeremony(2, SHA, manifest, effects(), [review({ ...OWNER, login: "renamed-owner" }, build, 1204)], trust, schema).join("\n"), /pinned login/u);
   assert.match(verifyCeremony(2, SHA, manifest, effects(), [review({ ...OWNER, type: "Bot" }, build, 1205)], trust, schema).join("\n"), /type is not User/u);
@@ -126,7 +141,7 @@ test("later change requests revoke grants regardless of input order; resubmissio
   const approved = review(OWNER, build, 1301, "2026-09-05T08:31:00Z");
   const rejected = review(OWNER, build, 1302, "2026-09-05T08:32:00Z", { state: "CHANGES_REQUESTED" });
   for (const events of [[approved, rejected], [rejected, approved]]) {
-    assert.match(verifyCeremony(2, SHA, { buildProposal: build }, effects(), events, trust, schema).join("\n"), /external owner approval/u);
+    assert.match(verifyCeremony(2, SHA, { buildProposal: build }, effects(), events, trust, schema).join("\n"), /independent technical review/u);
   }
   const resubmitted = review(OWNER, build, 1303, "2026-09-05T08:33:00Z");
   assert.deepEqual(verifyCeremony(2, SHA, { buildProposal: build }, effects(), [rejected, resubmitted, approved], trust, schema), []);
@@ -159,14 +174,14 @@ test("a later separate effect approval preserves the earlier build grant; a late
   assert.match(result, /effect permission/u);
 });
 
-test("effect permission and technical review require independent event and principal identities", () => {
+test("a COMMENTED technical report cannot double as effect approval; duplicate principal config fails", () => {
   const build = proposal("build-permission");
   const effect = proposal("effect-permission", "Permit one durable write after merge.");
   const declared = effects({ durableWrite: true });
   const manifest: CeremonyManifest = { buildProposal: build, effectProposal: effect };
   const combined = review(OWNER, build, 1501);
   combined.body += `\n${review(OWNER, effect, 1502).body}`;
-  assert.match(verifyCeremony(3, SHA, manifest, declared, [combined, review(REVIEWER, build, 1503)], trust, schema).join("\n"), /distinct external owner review events/u);
+  assert.match(verifyCeremony(3, SHA, manifest, declared, [combined, review(REVIEWER, build, 1503)], trust, schema).join("\n"), /external owner approval.*effect permission/u);
 
   const sharedPrincipalTrust: TrustPolicy = { ...trust, technicalReviewers: [{ ...OWNER }] };
   assert.match(
@@ -259,6 +274,51 @@ test("candidate self-attestation cannot satisfy protected-base ceremony", () => 
   const problems = verifyCeremony(2, SHA, candidateOnly as never, effects(), [], trust, schema);
   assert.ok(problems.some((p) => /build proposal/u.test(p)));
   assert.ok(problems.length > 0, "candidate-authored authority fields are not consumed");
+});
+
+test("Astra in separate contexts is valid technical evidence, never a human self-approval", () => {
+  const build = proposal("build-permission");
+  const report = review(OWNER, build, 1701);
+  assert.deepEqual(verifyCeremony(3, SHA, { buildProposal: build }, effects(), [report], trust, schema), []);
+  for (const changed of [
+    { ...report, state: "APPROVED" },
+    { ...report, body: "Ordinary discussion, not a review report." },
+    { ...report, body: report.body!.replace("synthetic-review", "synthetic-implementation") },
+    { ...report, body: report.body!.replace("Atliera-Review-Actor: agent", "Atliera-Review-Actor: owner-approved") },
+    { ...report, body: report.body! + "\nAtliera-Verdict: FAIL" },
+    { ...report, body: report.body!.replace("urn:atliera:synthetic:review", "not a uri") },
+  ]) assert.ok(verifyCeremony(3, SHA, { buildProposal: build }, effects(), [changed], trust, schema).length > 0);
+  for (const field of ["Review-Kind", "Review-Actor", "Implementer-Context", "Reviewer-Context", "Model", "Evidence", "Coverage", "Verdict"]) {
+    const missing = { ...report, body: report.body!.split("\n").filter((line) => !line.startsWith(`Atliera-${field}:`)).join("\n") };
+    assert.ok(verifyCeremony(3, SHA, { buildProposal: build }, effects(), [missing], trust, schema).length > 0, field);
+  }
+});
+
+test("later failed technical report supersedes PASS; fresh verified fix can restore it", () => {
+  const build = proposal("build-permission");
+  const pass = review(OWNER, build, 1711);
+  const fail = review(OWNER, build, 1712, "2026-09-05T08:32:00Z");
+  fail.body = fail.body!.replace("Atliera-Verdict: PASS", "Atliera-Verdict: FAIL");
+  for (const events of [[pass, fail], [fail, pass]]) {
+    assert.match(verifyCeremony(3, SHA, { buildProposal: build }, effects(), events, trust, schema).join("\n"), /verdict is not PASS/u);
+  }
+  const fixed = review(OWNER, build, 1713, "2026-09-05T08:33:00Z");
+  assert.deepEqual(verifyCeremony(3, SHA, { buildProposal: build }, effects(), [fixed, fail, pass], trust, schema), []);
+});
+
+test("standing build workflow does not grant effect permission or accept a stale effect approval", () => {
+  const build = proposal("build-permission");
+  const effect = proposal("effect-permission");
+  const report = review(OWNER, build, 1721);
+  const approval = review(OWNER, effect, 1722);
+  for (const invalid of [undefined, { ...approval, state: "COMMENTED" }, { ...approval, commit_id: OTHER_SHA }, { ...approval, author_association: "MEMBER" }]) {
+    assert.ok(verifyCeremony(3, SHA, { buildProposal: build, effectProposal: effect }, effects({ durableWrite: true }), [report, ...(invalid ? [invalid] : [])], trust, schema).length > 0);
+  }
+  assert.deepEqual(verifyCeremony(3, SHA, { buildProposal: build, effectProposal: effect }, effects({ durableWrite: true }), [report, approval], trust, schema), []);
+});
+
+test("invalid tier cannot skip the review check", () => {
+  for (const tier of [-1, 4, NaN, 1.5]) assert.ok(verifyCeremony(tier, SHA, undefined).length > 0);
 });
 
 test("workflow protects enforcement roots, compares candidate map data, and reevaluates edited reviews", () => {

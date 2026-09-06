@@ -22,7 +22,24 @@ A short list of forbidden phrases is enforced in CI by `tests/safety/forbidden-p
 - Citations to specs, papers, audits, or other material outside the repository must be visibly marked as external and nonbinding — they inform, they do not govern.
 - The milestone chart specifically has one source of truth: `docs/strategy/roadmap.md`. Reference it; never restate it.
 
-## Standing expectations (unchanged, restated for newcomers)
+## Standing development workflow (2026-09-06)
+
+Follow [the user's standing development policy](docs/strategy/standing-development-policy.md).
+GPT-6 Astra is the main model and preferred Codex model for substantial engineering;
+preserve useful specialists and the current effective reasoning setting initially.
+Hermes owns implementation, testing, independent reviews, material fixes, documentation
+and merges within existing scope, budget and merge authority, without per-step human
+approvals. Give the user usable milestones and consequential decisions, not routine
+checkpoints. Complete useful authorized work before escalating.
+
+Independent Astra contexts are valid technical reviews, not another model family or
+human approval. Use other models when useful; report the actual reviewer and evidence.
+Preserve required checks, exact reviewed revisions, product-effect permissions, budgets,
+trust claims and persistence boundaries. This policy grants no branch-protection change
+or administrative bypass. Historical instructions do not reimpose superseded development
+ceremony; product content-review and ratification requirements remain distinct.
+
+## Safety and evidence expectations
 
 - The full safety suite is doctrine, not decoration: a red on a `tests/safety/` test is a boundary breach, not a flake.
 - Statuses, approvals, and assessments follow the consumable paper-trail discipline indexed in `docs/runbooks/INDEX.md`.

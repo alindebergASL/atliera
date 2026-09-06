@@ -420,11 +420,13 @@ test("FINDING 2 — parseable but malformed registries fail closed", () => {
   assert.ok(load("0".repeat(64) + "  a.html\n", "docs/ux/pkg/SUMS").has("docs/ux/pkg/a.html"));
 });
 
-test("active trust boundary names protected-base enforcement and its adoption blocker", () => {
+test("active trust boundary preserves protected-base checks and bounds the authorized adoption", () => {
   const tm = readFileSync(join(REPO, "docs", "strategy", "governance-threat-model.md"), "utf8");
   assert.match(tm, /protected base/u);
-  assert.match(tm, /no bootstrap exception or administrator bypass/u);
-  assert.match(tm, /remain blocked until an authentic independent adoption action/u);
+  assert.match(tm, /No candidate-provided bootstrap exception or administrator bypass is consumed/u);
+  assert.match(tm, /retains technical checks and independent review/u);
+  assert.match(tm, /restores the requirement after adoption/u);
+  assert.match(tm, /not a general candidate-selectable exception/u);
 });
 
 test("active trust boundary separates authority, effects, receipts, and credential provenance", () => {
@@ -433,7 +435,7 @@ test("active trust boundary separates authority, effects, receipts, and credenti
     /No self-consistent candidate-only record/u,
     /Missing identity evidence fails closed/u,
     /agent action using an owner's credential remains an agent act/u,
-    /Build permission/u,
+    /Standing build authority/u,
     /separate effect-permission proposal/u,
     /Post-effect receipts/u,
   ]) {

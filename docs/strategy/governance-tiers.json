@@ -84,6 +84,11 @@
       "note": "protected identity trust root"
     },
     {
+      "prefix": "docs/strategy/standing-development-policy.md",
+      "minTier": 3,
+      "note": "records the user's verbatim authority and the bounded adoption procedure"
+    },
+    {
       "prefix": "docs/strategy/",
       "minTier": 0
     },
@@ -112,11 +117,7 @@
       "minTier": 2,
       "note": "consumed by provider execution"
     },
-    {
-      "prefix": "presentation/",
-      "minTier": 1,
-      "note": "pure offline presentation only; effect declarations still escalate"
-    },
+
     {
       "prefix": "tests/",
       "minTier": 1,

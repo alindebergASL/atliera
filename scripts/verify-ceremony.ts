@@ -61,7 +61,7 @@ export interface TrustPolicy {
   repository?: string;
   owner?: TrustedPrincipal;
   technicalReviewers?: TrustedPrincipal[];
-  technicalReviewerHold?: string;
+
 }
 
 type JsonSchema = Record<string, any>;
@@ -204,6 +204,25 @@ function expectedLines(p: DecisionProposal): string[] {
   ];
 }
 
+/** Evidence is a published technical report, not proof of a human or model execution. */
+function technicalReportProblems(body: string): string[] {
+  const fields = ["Review-Kind", "Review-Actor", "Implementer-Context", "Reviewer-Context", "Model", "Evidence", "Coverage", "Verdict"];
+  const values = new Map<string, string>();
+  const problems: string[] = [];
+  for (const field of fields) {
+    const lines = body.split(/\r?\n/u).filter((line) => line.startsWith(`Atliera-${field}: `));
+    if (lines.length !== 1 || !lines[0]!.slice(`Atliera-${field}: `.length).trim()) {
+      problems.push(`technical report requires one nonempty Atliera-${field} field`);
+    } else values.set(field, lines[0]!.slice(`Atliera-${field}: `.length).trim());
+  }
+  if (values.get("Review-Kind") !== "independent-technical") problems.push("technical report kind is not independent-technical");
+  if (!["agent", "human"].includes(values.get("Review-Actor") ?? "")) problems.push("technical report must disclose its actual actor");
+  if (values.get("Implementer-Context") === values.get("Reviewer-Context")) problems.push("technical review must use a separate execution context from implementation");
+  if (!isAbsoluteUri(values.get("Evidence") ?? "")) problems.push("technical report evidence must be an absolute URI");
+  if (values.get("Verdict") !== "PASS") problems.push("technical report verdict is not PASS");
+  return problems;
+}
+
 function principalProblems(principal: TrustedPrincipal | undefined, path: string): string[] {
   const problems: string[] = [];
   if (!principal || typeof principal !== "object") return [`${path} is unavailable`];
@@ -224,9 +243,7 @@ function trustProblems(trust: TrustPolicy | undefined, repository: string | unde
   if (!Array.isArray(trust.technicalReviewers)) problems.push("protected technical reviewer list is unavailable");
   else {
     trust.technicalReviewers.forEach((principal, index) => problems.push(...principalProblems(principal, `protected technical reviewer principal ${index}`)));
-    if (trust.technicalReviewers.length === 0 && (typeof trust.technicalReviewerHold !== "string" || trust.technicalReviewerHold.length === 0)) {
-      problems.push("empty protected technical reviewer list must carry an explicit HOLD reason");
-    }
+
   }
   const principals = [trust.owner, ...(trust.technicalReviewers ?? [])].filter((p): p is TrustedPrincipal => p !== undefined);
   const ids = new Set<number>();
@@ -253,13 +270,16 @@ function reduceReviews(
   const problems: string[] = [];
   const principals = [trust.owner, ...(trust.technicalReviewers ?? [])]
     .filter((p): p is ReviewGrant["principal"] => typeof p?.login === "string" && typeof p.id === "number" && p.type === "User");
-  const authorityStates = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
+  const authorityStates = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED", "COMMENTED"]);
   const seenEventIds = new Set<number>();
   const valid: Array<ReviewGrant["event"] & { state: string }> = [];
 
   for (const raw of events) {
     const state = raw.state?.toUpperCase() ?? "";
     if (!authorityStates.has(state)) continue;
+    // Ordinary comments carry no grant. Explicit COMMENTED technical reports
+    // work on owner-authored PRs without manufacturing a self-approval.
+    if (state === "COMMENTED" && !(raw.body ?? "").includes("Atliera-Review-Kind:")) continue;
     if (!Number.isSafeInteger(raw.id) || Number(raw.id) <= 0) {
       problems.push("external review event id is not a positive safe integer");
       continue;
@@ -311,6 +331,8 @@ function reduceReviews(
     }
     for (const proposal of proposals) {
       if (event.commit_id === undefined || expectedLines(proposal).some((line) => !(event.body ?? "").split(/\r?\n/u).includes(line))) continue;
+      if (proposal.purpose === "build-permission" && event.state !== "COMMENTED") continue;
+      if (proposal.purpose === "effect-permission" && event.state !== "APPROVED") continue;
       principalGrants.set(proposal.proposalDigest, { event, principal });
     }
   }
@@ -327,6 +349,7 @@ export function verifyCeremony(
   schema?: JsonSchema,
   repository?: string,
 ): string[] {
+  if (!Number.isInteger(tier) || tier < 0 || tier > 3) return ["tier must be an integer from 0 through 3"];
   if (!SHA40.test(sha)) return [`candidate sha is not a 40-hex commit SHA: '${sha}'`];
   if (tier <= 1) return [];
   const problems: string[] = [];
@@ -341,13 +364,12 @@ export function verifyCeremony(
   const reduced = trust && identityProblems.length === 0 ? reduceReviews(externalReviews, proposals, trust) : { grants: new Map<number, Map<string, ReviewGrant>>(), problems: [] };
   problems.push(...reduced.problems);
   const ownerId = trust?.owner?.id;
-  const buildApproval = build && typeof ownerId === "number" ? reduced.grants.get(ownerId)?.get(build.proposalDigest) : undefined;
-  if (buildApproval?.event.commit_id !== sha || buildApproval?.event.author_association !== "OWNER") {
-    if (buildApproval) reduced.grants.get(ownerId!)?.delete(build!.proposalDigest);
-  }
-  const acceptedBuildApproval = build && typeof ownerId === "number" ? reduced.grants.get(ownerId)?.get(build.proposalDigest) : undefined;
-  if (build && trust && !acceptedBuildApproval) {
-    problems.push("no external owner approval matches the exact candidate head, identity, decision, scope, purpose, and digest");
+  const technicalReports = [...reduced.grants.values()].map((grants) => build ? grants.get(build.proposalDigest) : undefined)
+    .filter((grant): grant is ReviewGrant => grant?.event.commit_id === sha);
+  const acceptedBuildReview = technicalReports.find((grant) => technicalReportProblems(grant.event.body ?? "").length === 0);
+  if (!acceptedBuildReview) {
+    problems.push("requires an independent technical review matching the exact candidate head, publisher identity, decision, scope, purpose, and digest");
+    for (const grant of technicalReports) problems.push(...technicalReportProblems(grant.event.body ?? ""));
   }
 
   const asserted = assertedAxesFromDeclaration(declaration);
@@ -362,23 +384,12 @@ export function verifyCeremony(
     acceptedEffectApproval = effectApproval?.event.commit_id === sha && effectApproval.event.author_association === "OWNER" ? effectApproval : undefined;
     if (effect && trust && !acceptedEffectApproval) {
       problems.push("no external owner approval matches the effect permission and exact candidate head");
-    } else if (acceptedEffectApproval && acceptedBuildApproval && acceptedEffectApproval.event.id === acceptedBuildApproval.event.id) {
-      problems.push("build permission and effect permission require distinct external owner review events");
+    } else if (acceptedEffectApproval && acceptedBuildReview && acceptedEffectApproval.event.id === acceptedBuildReview.event.id) {
+      problems.push("technical review and effect permission require distinct external review events");
     }
   }
 
-  if (tier >= 3) {
-    const reviewerApprovals = (trust?.technicalReviewers ?? []).map((reviewer) =>
-      typeof reviewer.id === "number" && build ? reduced.grants.get(reviewer.id)?.get(build.proposalDigest) : undefined,
-    ).filter((grant): grant is ReviewGrant => grant?.event.commit_id === sha);
-    const technicalApproval = reviewerApprovals.find((grant) =>
-      grant.principal.id !== ownerId && grant.event.id !== acceptedBuildApproval?.event.id && grant.event.id !== acceptedEffectApproval?.event.id,
-    );
-    if (!build || !technicalApproval) {
-      const hold = trust?.technicalReviewers?.length === 0 ? ` (${trust.technicalReviewerHold ?? "HOLD: no independently verified technical reviewer principal"})` : "";
-      problems.push(`tier 3 requires an independent technical review bound to the build proposal and exact candidate head${hold}`);
-    }
-  }
+
   return problems;
 }
 
@@ -401,7 +412,7 @@ if (isMain) {
       value("--repository"),
     );
     process.stdout.write(JSON.stringify({ tier, sha, satisfied: problems.length === 0, problems,
-      assuranceScope: "pinned GitHub principal ids, chronology-reduced external reviews, exact head, and explicit proposal binding; human-vs-delegated credential provenance remains an operational trust root" }, null, 2) + "\n");
+      assuranceScope: "pinned GitHub publishers, chronology-reduced external reports, exact head and proposal binding; technical actor/model/context/evidence are attributed claims, not human approval or independently authenticated execution; effect authorization remains separate" }, null, 2) + "\n");
     if (problems.length > 0) process.exit(6);
   } catch (err) {
     process.stderr.write(`invalid ceremony input: ${(err as Error).message}\n`);

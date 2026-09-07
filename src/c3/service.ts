@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
-import type { FrozenC3AccountContext } from "./context.ts";
+import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, snapshotMeetingFormState, snapshotMeetingRequest,
   type C3GenerationRecord, type C3MeetingFormState, type C3MeetingRequest, type C3RevisionContext } from "./draft.ts";
 import type { C3ModelProvider } from "./provider.ts";
@@ -37,7 +37,7 @@ export interface C3ServiceStatus {
   readonly generationCancelled: number;
   readonly generationFailed: number;
   readonly c2Implementation: "complete";
-  readonly ownerDisposition: "recorded";
+  readonly ownerDisposition: "recorded" | "absent";
   readonly customerAvailability: "local_prototype_only";
 }
 
@@ -153,6 +153,7 @@ function submittedPendingRevisionToken(value: unknown): string | undefined {
 }
 
 export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
+  if (isCuratedContext(options.context) && options.recordedReplay !== undefined) throw new Error("Agent-curated context cannot claim recorded replay");
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
@@ -344,6 +345,9 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         location: "/?prepare=1", history: "replace" }); return;
     }
     if (url.pathname !== "/api/generate") { json(res, 404, { error: "not found" }); return; }
+    if (isCuratedContext(options.context)) {
+      json(res, 409, { error: "Agent-curated context is template-only; no live generation or recorded-model response is available. Use Strategy or Next steps." }); return;
+    }
     const operation = operationEnvelope(body);
     if (operation === undefined || !matchesDisplayedState(session, operation) ||
         session.operations.has(operation.operationId) || session.operations.size >= 256) {
@@ -438,10 +442,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     });
   });
 
-  const status = (): C3ServiceStatus => ({ provider: options.provider.name,
+  const status = (): C3ServiceStatus => ({ provider: isCuratedContext(options.context) ? "disabled_curated_template_only" : options.provider.name,
     generationAttempted: count(events, "attempted"), generationSucceeded: count(events, "succeeded"),
     generationRefused: count(events, "refused"), generationCancelled: count(events, "cancelled"),
-    generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: "recorded",
+    generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: options.context.context.ownerDecisionSource === null ? "absent" : "recorded",
     customerAvailability: "local_prototype_only" });
   if (options.listen === false) {
     expectedHost = options.expectedHost ?? "127.0.0.1:4317";

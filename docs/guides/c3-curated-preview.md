@@ -31,4 +31,4 @@ Manual strategy and next-step planning text is editable using session-only state
 
 Curated model generation and recorded replay are unavailable and refused before provider execution. This preview does not authorize provider activation, model recording, deployment, or other product effects.
 
-The slice does not yet supply an in-app account switcher, an editable structured proposed-action bridge, or full two-account sprint/persona acceptance. Those remain later bounded work. Documentation alone grants no deployment, provider, or effects authority.
+The shared interface now includes an [editable structured proposed-next-step bridge](c3-proposed-next-step.md). An in-app account switcher and full two-account sprint/persona acceptance remain later bounded work. Documentation alone grants no deployment, provider, or effects authority.

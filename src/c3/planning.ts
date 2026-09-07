@@ -6,7 +6,16 @@ export interface PlanningSection {
   readonly text: string;
   readonly authorship: "template" | "user";
 }
+export interface ProposedNextStep {
+  readonly concern: string;
+  readonly action: string;
+  readonly owner: string;
+  readonly targetDate: string;
+  readonly questionOrBlocker: string;
+  readonly evidenceIds: readonly string[];
+}
 export interface PlanningBrief {
+  readonly proposedNextStep?: ProposedNextStep;
   readonly kind: PlanningKind;
   readonly version: number;
   readonly audience: string;
@@ -38,7 +47,7 @@ export function boundedPlanningText(value: unknown, maximum: number): string {
   return value;
 }
 
-export function updatePlanningBrief(brief: PlanningBrief, value: unknown): { brief: PlanningBrief; noChange: boolean } {
+export function updatePlanningBrief(brief: PlanningBrief, value: unknown, knownEvidenceIds: readonly string[] = []): { brief: PlanningBrief; noChange: boolean } {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid planning edit");
   const body = value as Record<string, unknown>;
   if (body.version !== brief.version) throw new Error("Displayed planning version is stale. Reopen the brief before saving; copy your unsaved text first.");
@@ -56,6 +65,26 @@ export function updatePlanningBrief(brief: PlanningBrief, value: unknown): { bri
     if (!audience.trim() || !intendedOutcome.trim()) throw new Error("Audience and intended outcome are required");
     if (audience === brief.audience && intendedOutcome === brief.intendedOutcome && detail === brief.detail) return { brief, noChange: true };
     changed = { ...brief, audience, intendedOutcome, detail };
+  } else if (Object.keys(body).sort().join(",") === "proposedNextStep,version") {
+    if (brief.kind !== "next-steps") throw new Error("Proposed next step requires the next-steps brief");
+    const raw = body.proposedNextStep;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw) ||
+        Object.keys(raw).sort().join(",") !== "action,concern,evidenceIds,owner,questionOrBlocker,targetDate") throw new Error("Invalid proposed next step fields");
+    const value = raw as Record<string, unknown>;
+    const concern = boundedPlanningText(value.concern, 2000);
+    const action = boundedPlanningText(value.action, 4000);
+    const owner = boundedPlanningText(value.owner, 160);
+    const targetDate = boundedPlanningText(value.targetDate, 10);
+    const questionOrBlocker = boundedPlanningText(value.questionOrBlocker, 2000);
+    if (!concern.trim() || !action.trim()) throw new Error("Concern and action are required");
+    if (targetDate !== "" && (!/^\d{4}-\d{2}-\d{2}$/u.test(targetDate) ||
+        !Number.isFinite(Date.parse(targetDate)) || new Date(targetDate).toISOString().slice(0, 10) !== targetDate)) throw new Error("Target date must be a real ISO YYYY-MM-DD date or blank");
+    const ids = value.evidenceIds;
+    if (!Array.isArray(ids) || ids.length > 32 || new Set(ids).size !== ids.length ||
+        ids.some((id) => typeof id !== "string" || !id.length || id.length > 256 || !knownEvidenceIds.includes(id))) throw new Error("Evidence must use unique known account evidence IDs (maximum 32)");
+    const proposedNextStep: ProposedNextStep = { concern, action, owner, targetDate, questionOrBlocker, evidenceIds: [...ids] };
+    if (JSON.stringify(proposedNextStep) === JSON.stringify(brief.proposedNextStep)) return { brief, noChange: true };
+    changed = { ...brief, proposedNextStep };
   } else throw new Error("Invalid planning fields");
   return { brief: { ...changed, version: brief.version + 1 }, noChange: false };
 }

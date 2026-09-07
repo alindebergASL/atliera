@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-two-account-curated-context",
+    "recordId": "c3-session-proposed-next-step",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build and merge the authorized C3 two-account curated-context integration.",
-    "scope": "Shared read-only C3 account projection and session-only planning for historical Utah and curated University of Missouri public context; exact excerpt and user-text preservation; explicit campus versus system attribution; curated generation and replay refusal. No fabricated admission, owner disposition, human approval or model recording. No new research execution, live product model or retrieval activation, paid routes, deployment, migrations, durable product writes, sharing, approval or outreach. Structured proposed-action bridge and account switcher remain separate later work.",
+    "decision": "Build and merge the authorized C3 session-only proposed-next-step bridge.",
+    "scope": "One shared Utah and Missouri proposed next step with concern, action, optional proposed owner/date, question or blocker and existing account evidence references; read-only strategy suggestion; explicit versioned session keep, cancellation and recovery. No account truth, assignment, human approval, model recording, new research, live model or retrieval activation, new paid routes, deployment, migrations, durable product writes, sharing, outreach or branch-protection changes. Full sprint persona acceptance and account selector are not claimed.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-07T06:58:34.839573Z",
-    "proposalDigest": "sha256:e5177f4934b1bfc3dffdc45849dae1ffb25fe55cdd589403a80cedc8e7168cd4"
+    "proposedAt": "2026-09-07T07:52:56.780217Z",
+    "proposalDigest": "sha256:df4cae54c58660b086fe2a386b84ae05e87b79d71f3d33b57e831491b223c268"
   }
 }

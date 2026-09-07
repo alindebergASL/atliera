@@ -186,7 +186,8 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const kind = url.searchParams.get("kind");
       if (kind !== null) {
         if (kind !== "strategy" && kind !== "next-steps") { json(res, 400, { error: "Unknown brief kind" }); return; }
-        html(res, 200, render({ page: "planning", brief: session.planning[kind], hasDraft }, session.csrf), C3_SCRIPT_SHA256); return;
+        html(res, 200, render({ page: "planning", brief: session.planning[kind], hasDraft,
+          ...(kind === "next-steps" && url.searchParams.get("from") === "strategy" ? { strategySuggestion: session.planning.strategy.sections.find((section) => section.id === "decision")! } : {}) }, session.csrf), C3_SCRIPT_SHA256); return;
       }
       const pending = pendingPageState(session);
       if (url.searchParams.get("draft") === "1") {
@@ -216,8 +217,12 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
         json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
       }
+      if (session.active !== undefined || session.pendingRevision !== null) {
+        json(res, 409, { error: "Session work is active or a revision is pending. Finish or cancel it before keeping planning edits." }); return;
+      }
       try {
-        const result = updatePlanningBrief(session.planning[kind], body);
+        const evidenceIds = options.context.context.admittedSources.flatMap((source) => source.excerpts.map((excerpt) => excerpt.evidenceId));
+        const result = updatePlanningBrief(session.planning[kind], body, evidenceIds);
         session.planning[kind] = result.brief;
         json(res, 200, { version: result.brief.version, noChange: result.noChange,
           status: result.noChange ? "No change. Existing session text kept." : `Session edit kept · version ${result.brief.version}. No account truth, approval, or durable save changed.` });

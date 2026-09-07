@@ -4,9 +4,12 @@ import vm from "node:vm";
 import { C3_CLIENT_SCRIPT } from "../../src/c3/render.ts";
 import { PLANNING_CLIENT_SCRIPT } from "../../src/c3/planning-client.ts";
 
-function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean } = {}) {
+function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean; proposal?: boolean } = {}) {
   const cache = options.cache ?? new Map<string, string>();
   const field = { name: "text", value: options.initial ?? "Saved section", maxLength: 4000 };
+  const proposalFields = ["concern", "action", "owner", "targetDate", "questionOrBlocker"].map((name) => ({ name, value: name === "action" ? "Saved action" : "", maxLength: 4000 }));
+  const evidence = { name: "evidenceIds", multiple: true, options: [{ value: "known", selected: false }, { value: "second", selected: false }] };
+  const projection = Object.fromEntries([...proposalFields.map((f) => f.name), "evidenceIds"].map((name) => [name, { textContent: "Not set" }]));
   const savedCopy = { textContent: "Saved section" };
   const authorship = { textContent: "Template-authored planning prompt" };
   const status = { textContent: "", after() {} };
@@ -16,9 +19,9 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   const buttons = [{ disabled: false }, { disabled: false }];
   const form = {
     dataset: { editKey: "strategy-options", endpoint: "/api/planning/strategy", version: "0", section: "options" },
-    querySelectorAll: (selector: string) => selector === "textarea" ? [field] : buttons,
+    querySelectorAll: (selector: string) => selector === "textarea" ? (options.proposal ? proposalFields : [field]) : selector === "select[multiple]" ? (options.proposal ? [evidence] : []) : buttons,
     querySelector: (selector: string) => selector === "[data-local-status]" ? status : { addEventListener(_name: string, fn: () => void) { cancel = fn; } },
-    closest: (selector: string) => selector === "details" ? detail : { querySelector: (s: string) => s === "[data-saved-copy]" ? savedCopy : s === "[data-authorship]" ? authorship : null },
+    closest: (selector: string) => selector === "details" ? detail : { querySelector: (s: string) => s.startsWith("[data-proposed-value=") ? projection[s.match(/="([^"]+)"/)![1]!] : s === "[data-saved-copy]" ? (options.proposal ? null : savedCopy) : s === "[data-authorship]" ? authorship : null },
     addEventListener: (name: string, fn: (event: any) => any) => listeners.set(name, listeners.has(name) ? ((prior) => (event: any) => { prior(event); return fn(event); })(listeners.get(name)!) : fn),
   };
   const windowListeners = new Map<string, (event: any) => void>();
@@ -32,6 +35,7 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
     removeItem(key: string) { if (options.storageFails) throw new Error("storage unavailable"); cache.delete(key); } },
     addEventListener: (name: string, fn: (event: any) => void) => windowListeners.set(name, fn) };
   if (options.sectionNote) Object.assign(form.dataset, { recordId: "same-record", endpoint: "/api/section-note" });
+  if (options.proposal) { Object.assign(form.dataset, { proposedNextStep: "", editKey: "next-steps-proposal", endpoint: "/api/planning/next-steps" }); delete (form.dataset as any).section; }
   const scope: any = { document, window, requestJson: async (_url: string, body: unknown) => {
     const response = options.fetch ? await options.fetch(JSON.parse(JSON.stringify(body))) : { ok: true, json: async () => ({ version: 1, status: "Session edit kept", noChange: false }) };
     const payload = await response.json();
@@ -41,7 +45,7 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   scope.fetch = async (_url: string, init: any) => options.fetch!(JSON.parse(init.body));
   vm.runInNewContext(options.composed ? C3_CLIENT_SCRIPT.replace("let confirmLocalEditDeparture = () => true;", "let confirmLocalEditDeparture = () => true; globalThis.localGuard = () => confirmLocalEditDeparture();") : PLANNING_CLIENT_SCRIPT, scope);
   return { note, navigate: () => { let prevented = false; click({ button: 0, target: { closest: () => ({ getAttribute: (name: string) => name === "href" ? "/?prepare=1" : null, hasAttribute: () => false }) }, preventDefault() { prevented = true; } }); return !prevented; },
-    guard: () => options.composed ? scope.localGuard() : scope.confirmLocalEditDeparture(), field, savedCopy, authorship, status, cache, detail, buttons, form,
+    proposalFields, evidence, projection, guard: () => options.composed ? scope.localGuard() : scope.confirmLocalEditDeparture(), field, savedCopy, authorship, status, cache, detail, buttons, form,
     input: () => listeners.get("input")!({}), cancel: () => cancel(),
     submit: () => listeners.get("submit")!({ preventDefault() {} }), windowListeners };
 }
@@ -171,4 +175,40 @@ test("CS-06 explicit departure guards blocked storage, failed saves and in-fligh
   assert.equal(busy.guard(), false, "in-flight save cannot depart even with discard confirmation");
   settle({ ok: true, json: async () => ({ status: "Kept", noChange: false, version: 1 }) }); await saving;
   assert.equal(busy.field.value, "Newer typing"); assert.equal(busy.guard(), true);
+});
+
+
+test("proposal save projects acknowledged fields and preserves delayed typing and evidence recovery", async () => {
+  let settle!: (value: any) => void; let body: any;
+  const ui = client({ proposal: true, fetch: async (value) => { body = value; return new Promise((resolve) => { settle = resolve; }); } });
+  ui.proposalFields[0]!.value = "Exact concern"; ui.evidence.options[0]!.selected = true;
+  const saving = ui.submit(); ui.proposalFields[1]!.value = "Newer action"; ui.evidence.options[1]!.selected = true; ui.input();
+  settle({ ok: true, json: async () => ({ version: 1, noChange: false, status: "Kept" }) }); await saving;
+  assert.deepEqual(body.proposedNextStep.evidenceIds, ["known"]);
+  assert.equal(body.proposedNextStep.action, "Saved action");
+  assert.equal(ui.projection.action!.textContent, "Saved action");
+  assert.equal(ui.projection.owner!.textContent, "Unassigned");
+  assert.equal(ui.proposalFields[1]!.value, "Newer action");
+  const restored = client({ proposal: true, cache: ui.cache });
+  assert.match(restored.status.textContent, /different brief version/);
+  ui.cancel(); assert.equal(ui.proposalFields[1]!.value, "Saved action"); assert.equal(ui.evidence.options[1]!.selected, false);
+});
+
+test("proposal evidence cache restores safely and failed acknowledgement preserves saved projection", async () => {
+  const ui = client({ proposal: true, fetch: async () => ({ ok: true, json: async () => ({ version: 99, status: "Kept", noChange: false }) }) });
+  ui.evidence.options[0]!.selected = true; ui.input();
+  const restored = client({ proposal: true, cache: ui.cache }); assert.equal(restored.evidence.options[0]!.selected, true);
+  await ui.submit(); assert.equal(ui.projection.action!.textContent, "Not set"); assert.match(ui.status.textContent, /not confirmed/);
+  ui.cancel(); assert.equal(ui.evidence.options[0]!.selected, false);
+});
+
+
+test("proposal transport failure and invalid cached evidence never replace the kept proposal", async () => {
+  const ui = client({ proposal: true, fetch: async () => ({ ok: false, json: async () => ({ error: "offline" }) }) });
+  ui.proposalFields[1]!.value = "Unsubmitted action"; ui.evidence.options[0]!.selected = true; ui.input();
+  await ui.submit(); assert.equal(ui.projection.action!.textContent, "Not set"); assert.equal(ui.proposalFields[1]!.value, "Unsubmitted action"); assert.match(ui.status.textContent, /offline/);
+  const key = [...ui.cache.keys()][0]!; const cached = JSON.parse(ui.cache.get(key)!); cached.values.evidenceIds = ["foreign"];
+  ui.cache.set(key, JSON.stringify(cached)); const reopened = client({ proposal: true, cache: ui.cache });
+  assert.equal(reopened.evidence.options[0]!.selected, false); assert.equal(reopened.proposalFields[1]!.value, "Saved action"); assert.match(reopened.status.textContent, /different brief version or saved baseline/);
+  ui.cancel(); assert.equal(ui.proposalFields[1]!.value, "Saved action"); assert.equal(ui.evidence.options[0]!.selected, false);
 });

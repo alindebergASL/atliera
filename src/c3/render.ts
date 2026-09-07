@@ -10,7 +10,7 @@ type C3PendingState = { readonly revisionPending: true; readonly pendingRevision
   { readonly revisionPending?: false; readonly pendingRevisionToken?: never };
 
 export type C3PageState = (
-  | { readonly page: "planning"; readonly brief: PlanningBrief; readonly hasDraft?: boolean }
+  | { readonly page: "planning"; readonly brief: PlanningBrief; readonly strategySuggestion?: PlanningBrief["sections"][number]; readonly hasDraft?: boolean }
   | { readonly page: "home"; readonly hasDraft?: boolean }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
       readonly correctionNote?: string; readonly displayedRecordId?: string | null }
@@ -451,7 +451,7 @@ function addAdmittedSourceSectionContext(context: FrozenC3AccountContext, record
 
 function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: string, options?: C3RenderOptions): string {
   const recorded = options !== undefined;
-  if (state.page === "planning") return shell(`Workshop for ${context.context.account.accountName}`, planningPage(context, state.brief), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
+  if (state.page === "planning") return shell(`Workshop for ${context.context.account.accountName}`, planningPage(context, state.brief, state.strategySuggestion), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
   if (state.page === "home") return shell(context.context.account.accountName, home(context, state.hasDraft ?? false, recorded,
     state.revisionPending ?? false), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
   if (state.page === "prepare") return shell(`Prepare for ${context.context.account.accountName}`, prepare(context, state.request, state.error,

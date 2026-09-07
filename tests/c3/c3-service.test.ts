@@ -461,6 +461,7 @@ test("cancellation signals provider, discards stale completion, and preserves in
     const browser = await browserSession(running);
     const pending = browser.post("/api/generate", meetingRequest);
     await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal((await browser.post("/api/planning/next-steps", { version: 0, section: "actions", text: "Blocked while active" })).status, 409);
     const changedRequest = { ...meetingRequest, audience: "CIO and engineering leaders" };
     const cancelled = await browser.post("/api/cancel", changedRequest);
     assert.equal(cancelled.status, 200);
@@ -1171,6 +1172,8 @@ test("in-place meeting notes retain raw response, bind displayed identity and pr
     assert.equal((await browser.post("/api/section-note", { ...edit, priorText: edit.text, text: "" })).status, 200);
     assert.equal((await browser.post("/api/revise", { recordId: record.recordId, note: "A correction without any recorded response" })).status, 200);
     assert.equal((await browser.post("/api/section-note", edit)).status, 409);
+    assert.equal((await browser.post("/api/planning/strategy", { version: 0, section: "decision", text: "Blocked while pending" })).status, 409);
+    assert.equal((await browser.post("/api/planning/next-steps", { version: 0, proposedNextStep: { concern: "Question", action: "Investigate", owner: "", targetDate: "", questionOrBlocker: "", evidenceIds: [] } })).status, 409);
     assert.equal((await browser.post("/api/generate", syntheticMeetingRequest)).status, 502);
     const preserved = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.match(preserved.text, /Revision pending/);
@@ -1275,4 +1278,34 @@ test("CS-05 leading newline section note can reload, keep unchanged, then clear"
     assert.equal(JSON.parse((await browser.post("/api/section-note", { recordId, section: "Opening", priorText: htmlText, text: htmlText })).text).noChange, true);
     assert.equal((await browser.post("/api/section-note", { recordId, section: "Opening", priorText: htmlText, text: "" })).status, 200);
   } finally { await running.close(); }
+});
+
+
+test("proposed step bridge is read-only and validates session, kind and frozen evidence without generation", async () => {
+  const { loadCuratedC3Context } = await import("../../src/c3/curated-context.ts");
+  const { loadC3AccountContext } = await import("../../src/c3/context.ts");
+  const contexts = [await loadCuratedC3Context("fixtures/account-intelligence/c3-curated/missouri.json", "acc_university_of_missouri"),
+    await loadC3AccountContext({ broadInputPath: "fixtures/account-intelligence/c2-01/broad-account-research-input.json", proposalPath: "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/university-of-utah-validated-proposal.json", ownerDecisionPath: "docs/decisions/c2-owner-disposition-record.json", accountId: "acc_university_of_utah" })];
+  for (const ctx of contexts) {
+    const running = await startC3Server({ context: ctx, provider: new DisabledC3ModelProvider(), listen: false, expectedHost: HOST });
+    try {
+      const browser = await browserSession(running);
+      const proposal = { concern: "Exact concern", action: "Authored action", owner: "", targetDate: "", questionOrBlocker: "", evidenceIds: [ctx.context.admittedSources[0]!.excerpts[0]!.evidenceId] };
+      const route = "/api/planning/next-steps";
+      await browser.post("/api/planning/strategy", { version: 0, section: "decision", text: "Separate strategy suggestion" });
+      const before = await requestTo(running, "GET", "/?kind=next-steps&from=strategy", undefined, { cookie: browser.cookie });
+      assert.match(before.text, /Separate strategy suggestion/);
+      assert.match(before.text, /No proposed next step kept/);
+      assert.equal((await browser.post(route, { version: 0, proposedNextStep: proposal }, { "x-c3-csrf": "bad" })).status, 403);
+      assert.equal((await browser.post("/api/planning/strategy", { version: 1, proposedNextStep: proposal })).status, 409);
+      assert.equal((await browser.post(route, { version: 0, proposedNextStep: { ...proposal, evidenceIds: [contexts.find((other) => other !== ctx)!.context.admittedSources[0]!.excerpts[0]!.evidenceId] } })).status, 409);
+      assert.equal((await browser.post(route, { version: 0, proposedNextStep: proposal })).status, 200);
+      const saved = await requestTo(running, "GET", "/?kind=next-steps", undefined, { cookie: browser.cookie });
+      const bridge = await requestTo(running, "GET", "/?kind=next-steps&from=strategy", undefined, { cookie: browser.cookie });
+      assert.match(bridge.text, /Authored action/); assert.match(bridge.text, /Separate strategy suggestion/);
+      assert.equal((await requestTo(running, "GET", "/?kind=next-steps", undefined, { cookie: browser.cookie })).text, saved.text);
+      assert.equal(JSON.parse((await browser.post(route, { version: 1, proposedNextStep: proposal })).text).noChange, true);
+      assert.equal(running.status().generationAttempted, 0);
+    } finally { await running.close(); }
+  }
 });

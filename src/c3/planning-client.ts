@@ -7,8 +7,11 @@ export const PLANNING_CLIENT_SCRIPT = `
   const account = document.querySelector('meta[name="c3-account"]')?.content || '';
   let busy = false;
   const states = forms.map((form) => {
-    const fields = Array.from(form.querySelectorAll('textarea'));
-    const values = () => Object.fromEntries(fields.map((field) => [field.name, field.value]));
+    const fields = [...Array.from(form.querySelectorAll('textarea')), ...Array.from(form.querySelectorAll('select[multiple]'))];
+    const read = (field) => field.multiple ? Array.from(field.options).filter((option) => option.selected).map((option) => option.value) : field.value;
+    const write = (field, value) => { if (field.multiple) Array.from(field.options).forEach((option) => { option.selected = value.includes(option.value); }); else field.value = value; };
+    const valid = (field, value) => field.multiple ? Array.isArray(value) && value.length <= 32 && new Set(value).size === value.length && value.every((id) => typeof id === 'string' && Array.from(field.options).some((option) => option.value === id)) : typeof value === 'string' && value.length <= field.maxLength;
+    const values = () => Object.fromEntries(fields.map((field) => [field.name, read(field)]));
     const status = form.querySelector('[data-local-status]');
     const key = 'atliera.c3.local-edit.v1:' + account + ':' + csrf + ':' + form.dataset.editKey;
     const identity = () => form.dataset.recordId || form.dataset.version;
@@ -23,8 +26,8 @@ export const PLANNING_CLIENT_SCRIPT = `
       const raw = window.sessionStorage.getItem(key);
       if (raw) {
         const cached = JSON.parse(raw);
-        if (cached.identity === identity() && JSON.stringify(cached.saved) === JSON.stringify(state.saved) && fields.every((field) => typeof cached.values?.[field.name] === 'string' && cached.values[field.name].length <= field.maxLength)) {
-          fields.forEach((field) => { field.value = cached.values[field.name]; });
+        if (cached.identity === identity() && JSON.stringify(cached.saved) === JSON.stringify(state.saved) && fields.every((field) => valid(field, cached.values?.[field.name]))) {
+          fields.forEach((field) => { write(field, cached.values[field.name]); });
           state.cached = true;
           if (JSON.stringify(values()) !== JSON.stringify(state.saved)) { form.closest('details').open = true; status.textContent = 'Unsubmitted edit restored in this tab. Keep it deliberately for this session.'; }
         } else { status.textContent = 'An older unsubmitted edit exists for a different brief version or saved baseline. Copy it below before discarding; current saved content was kept.';
@@ -32,9 +35,10 @@ export const PLANNING_CLIENT_SCRIPT = `
       }
     } catch { status.textContent = 'Reload recovery unavailable. Copy unsaved text before leaving.'; }
     form.addEventListener('input', cache);
+    form.addEventListener('change', cache);
     form.querySelector('[data-local-cancel]').addEventListener('click', () => {
       if (busy) return;
-      fields.forEach((field) => { field.value = state.saved[field.name]; });
+      fields.forEach((field) => { write(field, state.saved[field.name]); });
       status.textContent = clear() ? 'Edit cancelled. Saved section and brief kept.' : 'Edit cancelled here; reload recovery could not be cleared.';
     });
     form.addEventListener('submit', async (event) => {
@@ -42,7 +46,7 @@ export const PLANNING_CLIENT_SCRIPT = `
       const submitted = values(); cache();
       const section = form.dataset.section;
       const body = form.dataset.recordId ? { recordId: form.dataset.recordId, section, text: submitted.text, priorText: state.saved.text } :
-        { version: Number(form.dataset.version), ...(section ? { section, text: submitted.text } : submitted) };
+        { version: Number(form.dataset.version), ...(form.dataset.proposedNextStep !== undefined ? { proposedNextStep: submitted } : section ? { section, text: submitted.text } : submitted) };
       forms.forEach((item) => item.querySelectorAll('button').forEach((button) => { button.disabled = true; }));
       status.textContent = 'Keeping session edit… The brief remains available.';
       try {
@@ -60,6 +64,14 @@ export const PLANNING_CLIENT_SCRIPT = `
           states.filter((item) => item !== state && JSON.stringify(item.values()) !== JSON.stringify(item.saved)).forEach((item) => item.cache());
         }
         const container = form.closest('.draft-section') || form.closest('.section-note');
+        if (form.dataset.proposedNextStep !== undefined) {
+          fields.forEach((field) => {
+            const projection = container.querySelector('[data-proposed-value="' + field.name + '"]');
+            if (projection) projection.textContent = field.multiple ? (submitted[field.name].map((id) => Array.from(field.options).find((option) => option.value === id)?.label || id).join(' · ') || 'Not set') : (submitted[field.name].trim() ? submitted[field.name] : (field.name === 'owner' || field.name === 'targetDate' ? 'Unassigned' : 'Not set'));
+          });
+          const summary = container.querySelector('[data-proposal-status]');
+          if (summary) summary.textContent = 'User-authored proposed next step · session-only';
+        }
         const copy = container.querySelector('[data-saved-copy]');
         if (copy) copy.textContent = form.dataset.recordId ? (submitted.text ? 'User note · ' + submitted.text : 'No user note for this section.') : submitted.text || 'Section cleared. No conclusion asserted.';
         const authorship = container.querySelector('[data-authorship]');
@@ -82,7 +94,7 @@ export const PLANNING_CLIENT_SCRIPT = `
     departureApproved = typeof window.confirm === 'function' && window.confirm('Leave with unsubmitted section edits? Copy or keep them first if you need them.');
     return departureApproved;
   };
-  forms.forEach((form) => form.addEventListener('input', () => { departureApproved = false; }));
+  forms.forEach((form) => ['input', 'change'].forEach((event) => form.addEventListener(event, () => { departureApproved = false; })));
   window.addEventListener('beforeunload', (event) => {
     if (busy || states.some((state) => !state.cached && JSON.stringify(state.values()) !== JSON.stringify(state.saved))) { event.preventDefault(); event.returnValue = ''; }
   });

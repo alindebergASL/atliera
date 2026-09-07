@@ -126,3 +126,34 @@ test("setup changes preserve authored sections and reject unbounded or foreign s
   assert.throws(() => updatePlanningBrief(setup, { version: 2, section: "direction", text: "x".repeat(4001) }));
   assert.throws(() => updatePlanningBrief(setup, { version: 2, section: "direction", text: "safe", approved: true }));
 });
+
+test("proposed next step is exact, bounded, account-evidenced and uses the brief version", () => {
+  const brief = newPlanningBrief("next-steps");
+  const proposal = { concern: "\nExact concern ", action: "Keep raw provenance replacement phrases", owner: "", targetDate: "", questionOrBlocker: "", evidenceIds: ["known"] };
+  const kept = updatePlanningBrief(brief, { version: 0, proposedNextStep: proposal }, ["known"]).brief;
+  assert.deepEqual(kept.proposedNextStep, proposal);
+  assert.equal(kept.version, 1);
+  const proseEdit = updatePlanningBrief(kept, { version: 1, section: "actions", text: "Additional planning" }).brief;
+  assert.deepEqual(proseEdit.proposedNextStep, proposal);
+  assert.equal(proseEdit.version, 2);
+  assert.equal(updatePlanningBrief(kept, { version: 1, proposedNextStep: proposal }, ["known"]).noChange, true);
+  assert.throws(() => updatePlanningBrief(kept, { version: 0, proposedNextStep: proposal }, ["known"]), /stale/);
+  assert.throws(() => updatePlanningBrief(newPlanningBrief("strategy"), { version: 0, proposedNextStep: proposal }, ["known"]));
+  for (const delta of [{ concern: " " }, { action: "" }, { action: "x".repeat(4001) }, { concern: "x".repeat(2001) }, { owner: "x".repeat(161) }, { questionOrBlocker: "x".repeat(2001) }, { action: "bad\u0000text" }, { targetDate: "2026-02-29" }, { targetDate: "2026-9-01" }, { evidenceIds: ["foreign"] }, { evidenceIds: ["https://example.test"] }, { evidenceIds: ["known", "known"] }, { approved: true }]) {
+    assert.throws(() => updatePlanningBrief(brief, { version: 0, proposedNextStep: { ...proposal, ...delta } }, ["known"]));
+  }
+  assert.equal(updatePlanningBrief(brief, { version: 0, proposedNextStep: { ...proposal, targetDate: "2028-02-29" } }, ["known"]).brief.proposedNextStep?.targetDate, "2028-02-29");
+});
+
+test("proposed form preserves exact provenance phrases and keeps suggestion separate and before context", () => {
+  const ctx = syntheticWorkshopContext();
+  const text = '\nAdmitted public context | Proposed and unreviewed local content. <exact> & "quoted"';
+  const proposal = { concern: text, action: text, owner: "", targetDate: "", questionOrBlocker: text, evidenceIds: [ctx.context.admittedSources[0]!.excerpts[0]!.evidenceId] };
+  const brief = updatePlanningBrief(newPlanningBrief("next-steps"), { version: 0, proposedNextStep: proposal }, proposal.evidenceIds).brief;
+  const page = renderC3Page(ctx, { page: "planning", brief, strategySuggestion: { id: "decision", title: "Decision", text: "Separate read-only suggestion", authorship: "user" } }, "test");
+  for (const field of ["concern", "action", "questionOrBlocker"]) assert.ok(page.includes(`name="${field}" maxlength="${field === "action" ? 4000 : 2000}"${field === "questionOrBlocker" ? "" : " required"}>\n${escaped(text)}</textarea>`));
+  assert.match(page, /not an accepted decision/);
+  assert.match(page, /data-proposed-value="owner">Unassigned/);
+  assert.ok(page.indexOf('data-proposed-next-step') < page.indexOf('class="work-context"'));
+  assert.doesNotMatch(page.match(/<form data-local-edit data-proposed-next-step[\s\S]*?<\/form>/)![0], /Separate read-only suggestion/);
+});

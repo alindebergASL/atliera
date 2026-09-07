@@ -4,10 +4,11 @@ import vm from "node:vm";
 import { C3_CLIENT_SCRIPT } from "../../src/c3/render.ts";
 import { PLANNING_CLIENT_SCRIPT } from "../../src/c3/planning-client.ts";
 
-function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean; proposal?: boolean } = {}) {
+function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean; proposal?: boolean; owner?: string; version?: string } = {}) {
   const cache = options.cache ?? new Map<string, string>();
   const field = { name: "text", value: options.initial ?? "Saved section", maxLength: 4000 };
-  const proposalFields = ["concern", "action", "owner", "targetDate", "questionOrBlocker"].map((name) => ({ name, value: name === "action" ? "Saved action" : "", maxLength: 4000 }));
+  const proposalFields = ["concern", "action", "owner", "targetDate", "questionOrBlocker"].map((name) => ({ name, value: name === "action" ? "Saved action" : name === "owner" ? options.owner ?? "" : "", maxLength: 4000 }));
+  const inputNames = ["targetDate"];
   const evidence = { name: "evidenceIds", multiple: true, options: [{ value: "known", selected: false }, { value: "second", selected: false }] };
   const projection = Object.fromEntries([...proposalFields.map((f) => f.name), "evidenceIds"].map((name) => [name, { textContent: "Not set" }]));
   const savedCopy = { textContent: "Saved section" };
@@ -18,8 +19,8 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   let cancel: () => void = () => {};
   const buttons = [{ disabled: false }, { disabled: false }];
   const form = {
-    dataset: { editKey: "strategy-options", endpoint: "/api/planning/strategy", version: "0", section: "options" },
-    querySelectorAll: (selector: string) => selector === "textarea" ? (options.proposal ? proposalFields : [field]) : selector === "select[multiple]" ? (options.proposal ? [evidence] : []) : buttons,
+    dataset: { editKey: "strategy-options", endpoint: "/api/planning/strategy", version: options.version ?? "0", section: "options" },
+    querySelectorAll: (selector: string) => selector === "textarea" ? (options.proposal ? proposalFields.filter((f) => !inputNames.includes(f.name)) : [field]) : selector === 'input[type="text"]' ? (options.proposal ? proposalFields.filter((f) => inputNames.includes(f.name)) : []) : selector === "select[multiple]" ? (options.proposal ? [evidence] : []) : buttons,
     querySelector: (selector: string) => selector === "[data-local-status]" ? status : { addEventListener(_name: string, fn: () => void) { cancel = fn; } },
     closest: (selector: string) => selector === "details" ? detail : { querySelector: (s: string) => s.startsWith("[data-proposed-value=") ? projection[s.match(/="([^"]+)"/)![1]!] : s === "[data-saved-copy]" ? (options.proposal ? null : savedCopy) : s === "[data-authorship]" ? authorship : null },
     addEventListener: (name: string, fn: (event: any) => any) => listeners.set(name, listeners.has(name) ? ((prior) => (event: any) => { prior(event); return fn(event); })(listeners.get(name)!) : fn),
@@ -211,4 +212,82 @@ test("proposal transport failure and invalid cached evidence never replace the k
   ui.cache.set(key, JSON.stringify(cached)); const reopened = client({ proposal: true, cache: ui.cache });
   assert.equal(reopened.evidence.options[0]!.selected, false); assert.equal(reopened.proposalFields[1]!.value, "Saved action"); assert.match(reopened.status.textContent, /different brief version or saved baseline/);
   ui.cancel(); assert.equal(ui.proposalFields[1]!.value, "Saved action"); assert.equal(ui.evidence.options[0]!.selected, false);
+});
+
+
+test("compact owner textarea and date input join payload, recovery, no-change, cancellation and delayed typing", async () => {
+  let body: any; let settle!: (value: any) => void;
+  const ui = client({ proposal: true, fetch: async (value) => { body = value; return new Promise((resolve) => { settle = resolve; }); } });
+  const owner = ui.proposalFields.find((f) => f.name === "owner")!;
+  const date = ui.proposalFields.find((f) => f.name === "targetDate")!;
+  owner.value = 'A & "B"'; date.value = "2028-02-29"; ui.input();
+  const cached = JSON.parse([...ui.cache.values()][0]!);
+  assert.equal(cached.values.owner, owner.value); assert.equal(cached.values.targetDate, date.value);
+  assert.equal(cached.saved.owner, ""); assert.equal(cached.saved.targetDate, "");
+  assert.equal(ui.guard(), false, "owner/date edits require the departure guard");
+  const restored = client({ proposal: true, cache: new Map(ui.cache) });
+  assert.equal(restored.proposalFields[2]!.value, owner.value);
+  assert.equal(restored.proposalFields[3]!.value, date.value); assert.equal(restored.detail.open, true);
+  restored.cancel(); assert.equal(restored.proposalFields[2]!.value, ""); assert.equal(restored.proposalFields[3]!.value, "");
+  const saving = ui.submit(); owner.value = "Newer owner"; date.value = "2028-03-01"; ui.input();
+  settle({ ok: true, json: async () => ({ version: 1, noChange: false, status: "Kept" }) }); await saving;
+  assert.equal(body.proposedNextStep.owner, 'A & "B"'); assert.equal(body.proposedNextStep.targetDate, "2028-02-29");
+  assert.equal(ui.projection.owner!.textContent, 'A & "B"'); assert.equal(ui.projection.targetDate!.textContent, "2028-02-29");
+  assert.equal(owner.value, "Newer owner"); assert.equal(date.value, "2028-03-01");
+  assert.match(ui.status.textContent, /Newer typing/);
+  assert.equal(JSON.parse([...ui.cache.values()][0]!).values.owner, "Newer owner");
+  ui.cancel(); assert.equal(owner.value, 'A & "B"'); assert.equal(date.value, "2028-02-29");
+  const same = client({ proposal: true, fetch: async (value) => { body = value; return { ok: true, json: async () => ({ version: 0, noChange: true, status: "No change" }) }; } });
+  await same.submit(); assert.equal(body.proposedNextStep.owner, ""); assert.equal(body.proposedNextStep.targetDate, "");
+  assert.equal(same.form.dataset.version, "0"); assert.equal(same.cache.size, 0);
+});
+
+
+test("single-line owner acknowledgement recovers newer multiline owner and action on reload", async () => {
+  let settle!: (value: any) => void;
+  const ui = client({ proposal: true, owner: "First line\nSecond line", fetch: async () => new Promise((resolve) => { settle = resolve; }) });
+  assert.ok(ui.form.querySelectorAll("textarea").some((field) => field === ui.proposalFields[2]!));
+  ui.proposalFields[2]!.value = "Single line owner";
+  const saving = ui.submit();
+  const newerOwner = "\nNewer team A\nNewer team B & <review>";
+  ui.proposalFields[2]!.value = newerOwner;
+  ui.proposalFields[1]!.value = "Newer unsubmitted action"; ui.input();
+  settle({ ok: true, json: async () => ({ version: 1, noChange: false, status: "Kept" }) });
+  await saving;
+  const cached = JSON.parse([...ui.cache.values()][0]!);
+  assert.equal(cached.identity, "1");
+  assert.equal(cached.saved.owner, "Single line owner");
+  assert.equal(cached.values.owner, newerOwner);
+  assert.equal(ui.proposalFields[2]!.value, newerOwner);
+  assert.equal(ui.projection.owner!.textContent, "Single line owner");
+  assert.equal(cached.saved.action, "Saved action");
+  assert.deepEqual(Object.keys(cached.saved), ["concern", "action", "owner", "questionOrBlocker", "targetDate", "evidenceIds"]);
+  const reopened = client({ proposal: true, owner: "Single line owner", version: "1", cache: ui.cache });
+  assert.ok(reopened.form.querySelectorAll("textarea").some((field) => field === reopened.proposalFields[2]!));
+  assert.equal(reopened.proposalFields[1]!.value, "Newer unsubmitted action");
+  assert.equal(reopened.proposalFields[2]!.value, newerOwner);
+  assert.match(reopened.status.textContent, /Unsubmitted edit restored/);
+  reopened.cancel();
+  assert.equal(reopened.proposalFields[1]!.value, "Saved action");
+  assert.equal(reopened.proposalFields[2]!.value, "Single line owner");
+});
+
+test("saved baseline accepts old cache property order but requires identical keys and field values", () => {
+  const ui = client({ proposal: true });
+  ui.proposalFields[1]!.value = "Cached action"; ui.input();
+  const key = [...ui.cache.keys()][0]!;
+  const cached = JSON.parse(ui.cache.get(key)!);
+  // Older all-textarea forms stored owner/date before questionOrBlocker.
+  const oldSaved = Object.fromEntries(["concern", "action", "owner", "targetDate", "questionOrBlocker", "evidenceIds"].map((name) => [name, cached.saved[name]]));
+  const restore = (saved: any) => client({ proposal: true, cache: new Map([[key, JSON.stringify({ ...cached, saved })]]) });
+  const reopened = restore(oldSaved);
+  assert.equal(reopened.proposalFields[1]!.value, "Cached action");
+  assert.match(reopened.status.textContent, /Unsubmitted edit restored/);
+  const { owner: _owner, ...missingOwner } = oldSaved;
+  for (const saved of [missingOwner, { ...oldSaved, extra: "" }, { ...oldSaved, owner: "Other owner" },
+    { ...oldSaved, evidenceIds: ["known"] }, { ...missingOwner, replacement: "" }]) {
+    const stale = restore(saved);
+    assert.equal(stale.proposalFields[1]!.value, "Saved action");
+    assert.match(stale.status.textContent, /different brief version or saved baseline/);
+  }
 });

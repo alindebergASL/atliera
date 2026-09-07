@@ -7,7 +7,7 @@ export const PLANNING_CLIENT_SCRIPT = `
   const account = document.querySelector('meta[name="c3-account"]')?.content || '';
   let busy = false;
   const states = forms.map((form) => {
-    const fields = [...Array.from(form.querySelectorAll('textarea')), ...Array.from(form.querySelectorAll('select[multiple]'))];
+    const fields = [...Array.from(form.querySelectorAll('textarea')), ...Array.from(form.querySelectorAll('input[type="text"]')), ...Array.from(form.querySelectorAll('select[multiple]'))];
     const read = (field) => field.multiple ? Array.from(field.options).filter((option) => option.selected).map((option) => option.value) : field.value;
     const write = (field, value) => { if (field.multiple) Array.from(field.options).forEach((option) => { option.selected = value.includes(option.value); }); else field.value = value; };
     const valid = (field, value) => field.multiple ? Array.isArray(value) && value.length <= 32 && new Set(value).size === value.length && value.every((id) => typeof id === 'string' && Array.from(field.options).some((option) => option.value === id)) : typeof value === 'string' && value.length <= field.maxLength;
@@ -26,7 +26,11 @@ export const PLANNING_CLIENT_SCRIPT = `
       const raw = window.sessionStorage.getItem(key);
       if (raw) {
         const cached = JSON.parse(raw);
-        if (cached.identity === identity() && JSON.stringify(cached.saved) === JSON.stringify(state.saved) && fields.every((field) => valid(field, cached.values?.[field.name]))) {
+        // Control types can change on reload; cache property order is not baseline identity.
+        const sameBaseline = cached.saved && typeof cached.saved === 'object' && !Array.isArray(cached.saved) &&
+          Object.keys(cached.saved).length === Object.keys(state.saved).length &&
+          Object.keys(state.saved).every((name) => Object.prototype.hasOwnProperty.call(cached.saved, name) && JSON.stringify(cached.saved[name]) === JSON.stringify(state.saved[name]));
+        if (cached.identity === identity() && sameBaseline && fields.every((field) => valid(field, cached.values?.[field.name]))) {
           fields.forEach((field) => { write(field, cached.values[field.name]); });
           state.cached = true;
           if (JSON.stringify(values()) !== JSON.stringify(state.saved)) { form.closest('details').open = true; status.textContent = 'Unsubmitted edit restored in this tab. Keep it deliberately for this session.'; }

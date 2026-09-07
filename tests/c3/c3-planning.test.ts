@@ -157,3 +157,65 @@ test("proposed form preserves exact provenance phrases and keeps suggestion sepa
   assert.ok(page.indexOf('data-proposed-next-step') < page.indexOf('class="work-context"'));
   assert.doesNotMatch(page.match(/<form data-local-edit data-proposed-next-step[\s\S]*?<\/form>/)![0], /Separate read-only suggestion/);
 });
+
+
+test("calm next-step editor precedes collapsed readback and suggestion, with compact optional inputs", () => {
+  for (const account of ["harbor", "cedar"] as const) {
+    const ctx = syntheticWorkshopContext(account);
+    const brief = newPlanningBrief("next-steps");
+    const page = renderC3Page(ctx, { page: "planning", brief, strategySuggestion: { id: "decision", title: "Decision", text: "Exact suggestion <keep> & verify", authorship: "user" } }, "test");
+    const main = page.match(/<main\b[\s\S]*?<\/main>/u)![0];
+    const visible = closedView(main);
+    assert.match(main, /<details class="kept-proposal"><summary>Kept proposal details<\/summary><dl>/);
+    assert.ok(main.indexOf('data-proposed-next-step') < main.indexOf('<dl>'));
+    assert.ok(main.indexOf('Author or edit proposed next step') < main.indexOf('Strategy suggestion'));
+    assert.doesNotMatch(visible, /Unassigned|Not set|Exact suggestion/);
+    assert.match(visible, /Author or edit proposed next step/);
+    const form = main.match(/<form data-local-edit data-proposed-next-step[\s\S]*?<\/form>/u)![0];
+    assert.equal((form.match(/type="submit"/gu) ?? []).length, 1);
+    assert.match(form, /<textarea id="proposal-owner" name="owner" maxlength="160" rows="1">/);
+    assert.match(form, /<input type="text" id="proposal-targetDate" name="targetDate" maxlength="10"/);
+    assert.doesNotMatch(form, /<input[^>]*name="owner"|<textarea[^>]*name="targetDate"/);
+    assert.match(main, /Exact suggestion &lt;keep&gt; &amp; verify/);
+    assert.match(main, /not an accepted decision/);
+    assert.match(main, /not saved as a proposed next step/);
+  }
+});
+
+test("evidence options are concise and uniquely numbered with exact source inspection retained", () => {
+  const ctx = syntheticWorkshopContext();
+  const page = renderC3Page(ctx, { page: "planning", brief: newPlanningBrief("next-steps") }, "test");
+  const select = page.match(/<select id="proposal-evidence"[\s\S]*?<\/select>/u)![0];
+  const options = [...select.matchAll(/<option value="([^"]+)"[^>]*>([^<]*)<\/option>/gu)];
+  const evidence = ctx.context.admittedSources.flatMap((source) => source.excerpts.map((excerpt) => ({ source, excerpt })));
+  assert.equal(options.length, evidence.length);
+  evidence.forEach(({ source, excerpt }, index) => {
+    assert.equal(options[index]![1], escaped(excerpt.evidenceId));
+    assert.match(options[index]![2]!, new RegExp('^Evidence ' + (index + 1) + ' · '));
+    assert.ok(options[index]![2]!.length <= 160);
+    assert.ok(page.includes('<details id="evidence-' + (index + 1) + '"><summary>Evidence ' + (index + 1) + ' · ' + escaped(source.title)));
+    assert.ok(page.includes('<blockquote>' + escaped(excerpt.exactExcerpt) + '</blockquote>'));
+    assert.ok(page.includes(escaped(source.fullBoundedCleanText)));
+    assert.ok(page.includes('id="cite-proposal-' + (index + 1) + '" data-evidence-link data-context="Proposed next step" href="#evidence-' + (index + 1) + '"'));
+  });
+});
+
+test("owner always renders a compact textarea so recovery can retain newer multiline text", () => {
+  const ctx = syntheticWorkshopContext();
+  for (const owner of [undefined, "", "Single line owner"]) {
+    const brief = owner === undefined ? newPlanningBrief("next-steps") : updatePlanningBrief(newPlanningBrief("next-steps"), { version: 0, proposedNextStep: { concern: "Concern", action: "Action", owner, targetDate: "", questionOrBlocker: "", evidenceIds: [] } }).brief;
+    const page = renderC3Page(ctx, { page: "planning", brief }, "test");
+    const form = page.match(/<form data-local-edit data-proposed-next-step[\s\S]*?<\/form>/u)![0];
+    assert.match(form, /<textarea id="proposal-owner" name="owner" maxlength="160" rows="1">/);
+    assert.doesNotMatch(form, /<input[^>]*name="owner"/);
+    assert.match(form, /<input type="text" id="proposal-targetDate"/);
+  }
+});
+
+test("existing multiline owner text stays exact when reopening the compact editor", () => {
+  const ctx = syntheticWorkshopContext();
+  const owner = '\nTeam A\nTeam B & <review>';
+  const brief = updatePlanningBrief(newPlanningBrief("next-steps"), { version: 0, proposedNextStep: { concern: "Concern", action: "Action", owner, targetDate: "", questionOrBlocker: "", evidenceIds: [] } }).brief;
+  const page = renderC3Page(ctx, { page: "planning", brief }, "test");
+  assert.ok(page.includes(`<textarea id="proposal-owner" name="owner" maxlength="160" rows="1">\n${escaped(owner)}</textarea>`));
+});

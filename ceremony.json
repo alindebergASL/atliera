@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-session-proposed-next-step",
+    "recordId": "c3-calm-planning-presentation",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build and merge the authorized C3 session-only proposed-next-step bridge.",
-    "scope": "One shared Utah and Missouri proposed next step with concern, action, optional proposed owner/date, question or blocker and existing account evidence references; read-only strategy suggestion; explicit versioned session keep, cancellation and recovery. No account truth, assignment, human approval, model recording, new research, live model or retrieval activation, new paid routes, deployment, migrations, durable product writes, sharing, outreach or branch-protection changes. Full sprint persona acceptance and account selector are not claimed.",
+    "decision": "Implement the authorized bounded C3 calm next-step presentation slice.",
+    "scope": "Shared Utah and Missouri next-step presentation: concise header and primary author/edit disclosure before optional kept details and read-only strategy suggestion; compact owner/date inputs with exact existing user text retained; numbered evidence labels linking to unchanged exact excerpts. Preserve session-only keep, no-change, cancellation, recovery, validation and refusal rules. No account switcher, new research, model or provider execution, private evidence acquisition, new spend, durable product writes, assignment, approval, sharing, outreach, deployment, migrations or protection changes. Full CI, two-account browser verification, independent reviews and publication remain integrator work; full persona/synthetic or customer acceptance is not claimed.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-07T07:52:56.780217Z",
-    "proposalDigest": "sha256:df4cae54c58660b086fe2a386b84ae05e87b79d71f3d33b57e831491b223c268"
+    "proposedAt": "2026-09-07T08:47:26.376Z",
+    "proposalDigest": "sha256:74934cf38edc4817cd8dd6f37305ea9adeab30df21b65d8474c6a59924e67752"
   }
 }

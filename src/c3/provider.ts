@@ -8,11 +8,13 @@ import { canonicalJson } from "./context.ts";
 
 export interface C3ModelProvider {
   readonly name: string;
+  readonly executionMode?: "local" | "external";
   generate(request: C3ModelRequest, signal: AbortSignal): Promise<string>;
 }
 
 export class DisabledC3ModelProvider implements C3ModelProvider {
   readonly name = "disabled";
+  readonly executionMode = "local" as const;
   async generate(_request: C3ModelRequest, _signal: AbortSignal): Promise<string> {
     throw new Error("model generation is disabled; an operator must configure C3_MODEL_COMMAND on the local server");
   }
@@ -26,6 +28,7 @@ export interface RecordedC3Response {
 /** In-memory replay only: it has no command, network, or synthetic-response fallback. */
 export class RecordedReplayC3ModelProvider implements C3ModelProvider {
   readonly name = "recorded-replay";
+  readonly executionMode = "local" as const;
   readonly #responses: ReadonlyMap<string, string>;
 
   constructor(responses: readonly RecordedC3Response[]) {
@@ -63,6 +66,7 @@ class CommandCleanupError extends Error { readonly cleanupConfirmed = false; }
 
 export class CommandC3ModelProvider implements C3ModelProvider {
   readonly name = "operator-command";
+  readonly executionMode = "external" as const;
   readonly #command: string;
   readonly #timeoutMs: number;
   readonly #maxOutputBytes: number;

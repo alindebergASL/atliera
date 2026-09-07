@@ -18,7 +18,7 @@ if (!createGenerationRecord(revision, revisedRaw, context).draft) throw new Erro
 const responses = new Map([[canonicalJson(initial), raw], [canonicalJson(revision), revisedRaw]]);
 const running = await startC3Server({ context, port: 4321, recordedReplay: { initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection },
   syntheticPreview: true,
-  provider: { name: "synthetic-authored-preview", async generate(request, signal) {
+  provider: { name: "synthetic-authored-preview", executionMode: "local", async generate(request, signal) {
     await new Promise<void>((resolve, reject) => {
       const abort = () => { clearTimeout(timer); reject(new Error("Synthetic local work cancelled")); };
       const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, 800);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes, webcrypto } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { resolve } from "node:path";
@@ -83,9 +84,31 @@ async function browserSession(running: RunningC3Server) {
   const cookie = (setCookie as string).split(";", 1)[0]!;
   const csrf = response.text.match(/name="c3-csrf" content="([^"]+)"/)?.[1];
   assert.ok(csrf);
-  const post = (path: string, body: unknown, headers: Record<string, string> = {}) => requestTo(running, "POST", path, body,
+  const rawPost = (path: string, body: unknown, headers: Record<string, string> = {}) => requestTo(running, "POST", path, body,
     { cookie, origin: ORIGIN, "x-c3-csrf": csrf, "content-type": "application/json", ...headers });
-  return { cookie, csrf, page: response.text, post };
+  // One logical browser: retain only state actually displayed/acknowledged by its responses.
+  let recordId: string | null = null, pendingToken: string | null = null, priorNote = "", operationId = "";
+  const post = async (path: string, body: any, headers: Record<string, string> = {}) => {
+    let wire = body;
+    if (path === "/api/generate" || path === "/api/cancel") {
+      if (path === "/api/generate") operationId = randomBytes(24).toString("base64url");
+      wire = { request: body, operationId, recordId, pendingRevisionToken: pendingToken };
+    } else if ((path === "/api/note" || path === "/api/revise") && body && typeof body === "object") wire = { ...body, priorNote };
+    const result = await rawPost(path, wire, headers);
+    if (result.status < 300) {
+      const payload = JSON.parse(result.text);
+      if (payload.savedNote !== undefined) priorNote = payload.savedNote;
+      if (payload.html) {
+        recordId = payload.html.match(/data-record-id="([^"]+)"/)?.[1] ?? recordId;
+        pendingToken = payload.html.match(/data-pending-revision-token="([A-Za-z0-9_-]{32})"/)?.[1] ?? null;
+        const note = payload.html.match(/<textarea[^>]*data-correction-note[^>]*>\n?([\s\S]*?)<\/textarea>/)?.[1];
+        if (note !== undefined) priorNote = note.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '\"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+        else if (path === "/api/revise") priorNote = body.note;
+      }
+    }
+    return result;
+  };
+  return { cookie, csrf, page: response.text, post, rawPost };
 }
 
 function pendingRevisionToken(html: string): string {
@@ -333,7 +356,9 @@ test("two local service ports retain independent browser-jar sessions and a rest
   };
   const get = async (running: RunningC3Server, path: string): Promise<ResponseResult> => requestTo(running, "GET", path, undefined,
     { host: new URL(running.origin).host, ...(cookieJar.size === 0 ? {} : { cookie: cookieHeader() }) });
-  const post = async (running: RunningC3Server, csrf: string, path: string, body: unknown): Promise<ResponseResult> => requestTo(running, "POST", path, body,
+  const post = async (running: RunningC3Server, csrf: string, path: string, body: unknown): Promise<ResponseResult> => requestTo(running, "POST", path,
+    path === "/api/generate" ? { request: body, operationId: randomBytes(24).toString("base64url"), recordId: null, pendingRevisionToken: null } :
+    path === "/api/note" ? { ...(body as object), priorNote: "" } : body,
     { host: new URL(running.origin).host, cookie: cookieHeader(), origin: running.origin,
       "x-c3-csrf": csrf, "content-type": "application/json" });
   const start = (expectedHost: string) => startC3Server({ context: ctx, provider, listen: false, expectedHost });
@@ -533,7 +558,7 @@ for (const disconnectWhileWaiting of [false, true]) {
       req.headers = { host: HOST, cookie: browser.cookie, origin: ORIGIN, "x-c3-csrf": browser.csrf, "content-type": "application/json" };
       const res = new MemoryResponse();
       running.server.emit("request", req as unknown as IncomingMessage, res as unknown as ServerResponse);
-      req.end(JSON.stringify({ ...meetingRequest, audience: "Disconnected replacement" }));
+      req.end(JSON.stringify({ request: { ...meetingRequest, audience: "Disconnected replacement" }, operationId: "d".repeat(32), recordId: null, pendingRevisionToken: null }));
       await drain();
       assert.equal(starts.length, 1);
       res.emit("close");
@@ -581,20 +606,20 @@ test("normal generation supersession still admits and accepts the replacement", 
 });
 
 test("explicit cancel preserves bounded partial form text instead of restoring the last valid request", async () => {
-  const running = await harness(new DisabledC3ModelProvider());
+  const running = await harness({ name: "local", executionMode: "local", generate: async (_request, signal) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("cancelled")))) });
   try {
     const browser = await browserSession(running);
-    await browser.post("/api/generate", meetingRequest);
+    const pending = browser.post("/api/generate", meetingRequest);
+    await new Promise<void>((resolve) => setImmediate(resolve));
     const partial = { audience: "", intendedOutcome: "Partially edited outcome", durationMinutes: 15, meetingDate: "2026-09-" };
     const cancelled = await browser.post("/api/cancel", partial);
     assert.equal(cancelled.status, 200);
     const payload = JSON.parse(cancelled.text) as { html: string; status: string };
-    assert.match(payload.html, /value="" placeholder="CISO"/);
-    assert.match(payload.html, /Partially edited outcome/);
-    assert.match(payload.html, /value="2026-09-"/);
+    assert.equal((await pending).status, 409);
     assert.match(payload.status, /Current form text is ready/);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Partially edited outcome/);
+    assert.match(prepare.text, /value="2026-09-"/);
     assert.doesNotMatch(prepare.text, /value="CISO"/);
   } finally { await running.close(); }
 });
@@ -786,7 +811,7 @@ test("client history ignores evidence fragments and requires an explicit decisio
     addEventListener(name: string, listener: () => void) { noteListeners.set(name, [...(noteListeners.get(name) ?? []), listener]); },
     dispatch(name: string) { for (const listener of noteListeners.get(name) ?? []) listener(); } };
   const location = { pathname: "/", search: "?draft=1", hash: "", reload() { reloads += 1; } };
-  const window: Record<string, unknown> = { addEventListener(name: string, listener: () => void) {
+  const window: Record<string, unknown> = { crypto: webcrypto, addEventListener(name: string, listener: () => void) {
     listeners.set(name, [...(listeners.get(name) ?? []), listener]);
   }, removeEventListener(name: string, listener: () => void) {
     listeners.set(name, (listeners.get(name) ?? []).filter((candidate) => candidate !== listener));
@@ -890,7 +915,7 @@ test("rendered client restores edited in-flight form, ignores stale HTML, and co
     }
     throw new Error("unexpected route");
   };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
   const submitting = form.dispatch("submit");
   await new Promise((resolve) => setImmediate(resolve));
   form.values.audience = "CIO and engineering leaders";
@@ -928,12 +953,12 @@ test("rendered review handlers surface note and revise network errors and revise
     '[data-correction-note]': note, '[data-review-status]': reviewStatus, 'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
     open() {}, write() {}, close() {} };
   const fetchStub = async (url: string, init: { body: string }): Promise<never> => { calls.push({ url, body: init.body }); throw new Error(`${url} network unavailable`); };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
   await noteForm.dispatch("submit");
   assert.match(reviewStatus.textContent, /\/api\/note network unavailable/);
   await revise.dispatch("click");
   assert.match(reviewStatus.textContent, /\/api\/revise network unavailable/);
-  assert.deepEqual(JSON.parse(calls[1]!.body), { note: "Current unsaved correction", recordId: "record-visible" });
+  assert.deepEqual(JSON.parse(calls[1]!.body), { note: "Current unsaved correction", recordId: "record-visible", priorNote: "Current unsaved correction" });
 });
 
 test("rendered client updates allowlisted history before draft replacement and revision returns to Prepare", async () => {
@@ -948,8 +973,10 @@ test("rendered client updates allowlisted history before draft replacement and r
   }
   const form = new Element({ audience: "CISO", intendedOutcome: "Learn", durationMinutes: "15", meetingDate: "2026-09-12" });
   const button = new Element(); const status = new Element(); const meta = new Element(); const revise = new Element(); const note = new Element(); const reviewStatus = new Element();
+  const focusEvents: unknown[] = [];
+  const heading = { setAttribute: (name: string, value: string) => focusEvents.push([name, value]), focus: (options: unknown) => focusEvents.push(JSON.parse(JSON.stringify(options))) };
   const writes: string[] = []; const navigation: string[] = [];
-  const document = { querySelector(selector: string): unknown { return ({ '[data-generate]': form, '[data-status]': status,
+  const document = { querySelector(selector: string): unknown { return ({ 'main h1': heading, '[data-generate]': form, '[data-status]': status,
     '[data-revise]': revise, '[data-correction-note]': note, '[data-review-status]': reviewStatus,
     'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
     open() {}, write(html: string) { writes.push(html); navigation.push(`write:${html}`); }, close() {} };
@@ -961,9 +988,10 @@ test("rendered client updates allowlisted history before draft replacement and r
   const fetchStub = async (url: string): Promise<any> => ({ ok: true, json: async () => url === "/api/generate"
     ? ({ html: "DRAFT PAGE", location: "/?draft=1", history: "push" })
     : ({ html: "PREPARE PAGE", location: "/?prepare=1", history: "replace" }) });
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {}, scrollTo: (x: number, y: number) => focusEvents.push([x, y]) }, document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
   await form.dispatch("submit");
   assert.deepEqual(navigation, ["push:/?draft=1", "write:DRAFT PAGE"]);
+  assert.deepEqual(focusEvents, [["tabindex", "-1"], { preventScroll: true }, [0, 0]]);
   await revise.dispatch("click");
   assert.deepEqual(navigation.slice(2), ["replace:/?prepare=1", "write:PREPARE PAGE"]);
 });
@@ -1162,4 +1190,89 @@ test("sparse and conflicting synthetic contexts remain explicit across account a
       }
     } finally { await running.close(); }
   }
+});
+
+test("Slice A displayed state fails closed and notes compare their saved baseline", async () => {
+  const ctx = await context();
+  const running = await harness({ name: "synthetic", generate: async () => candidate(ctx) });
+  try {
+    const browser = await browserSession(running);
+    const headers = { cookie: browser.cookie, origin: ORIGIN, "x-c3-csrf": browser.csrf, "content-type": "application/json" };
+    const post = (path: string, body: unknown) => requestTo(running, "POST", path, body, headers);
+    assert.equal((await post("/api/generate", meetingRequest)).status, 409);
+    const operation = { request: meetingRequest, operationId: "a".repeat(32), recordId: null, pendingRevisionToken: null };
+    const generated = await post("/api/generate", operation);
+    assert.equal(generated.status, 200);
+    const recordId = JSON.parse(generated.text).html.match(/data-record-id="([^"]+)"/)[1];
+    assert.equal((await post("/api/note", { recordId, note: "first", priorNote: "" })).status, 200);
+    assert.equal((await post("/api/note", { recordId, note: "lost update", priorNote: "" })).status, 409);
+    assert.equal((await post("/api/revise", { recordId, note: "lost revision", priorNote: "" })).status, 409);
+    assert.equal((await post("/api/note", { recordId, note: "missing" })).status, 409);
+    const revision = await post("/api/revise", { recordId, note: "new revision", priorNote: "first" });
+    assert.equal(revision.status, 200);
+    assert.equal((await post("/api/generate", { ...operation, operationId: "b".repeat(32), recordId })).status, 409);
+    assert.equal(running.status().generationAttempted, 1);
+  } finally { await running.close(); }
+});
+
+test("CS-04 cancellation owns one operation, fences early arrivals, and derives copy from metadata", async () => {
+  for (const executionMode of ["local", "external"] as const) {
+    const ctx = await context();
+    const signals: AbortSignal[] = [];
+    const running = await harness({ name: executionMode === "local" ? "operator-command" : "recorded-replay", executionMode,
+      generate: async (request, signal) => { assert.deepEqual(Object.keys(request.meetingRequest).sort(), Object.keys(meetingRequest).sort()); signals.push(signal); return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("stopped")))); } });
+    try {
+      const browser = await browserSession(running);
+      const operation = { request: meetingRequest, operationId: "e".repeat(32), recordId: null, pendingRevisionToken: null };
+      assert.equal((await browser.rawPost("/api/cancel", operation)).status, 200);
+      assert.equal((await browser.rawPost("/api/generate", operation)).status, 409);
+      assert.equal(running.status().generationAttempted, 0);
+      const current = { ...operation, operationId: "f".repeat(32) };
+      const pending = browser.rawPost("/api/generate", current);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal((await browser.rawPost("/api/cancel", { ...operation, request: { ...meetingRequest, audience: "Stale tab" } })).status, 409);
+      assert.equal(signals[0]!.aborted, false);
+      assert.equal((await browser.rawPost("/api/cancel", meetingRequest)).status, 409);
+      const cancelled = await browser.rawPost("/api/cancel", current);
+      assert.equal(cancelled.status, 200);
+      assert.equal((await pending).status, 409);
+      assert.equal(signals[0]!.aborted, true);
+      if (executionMode === "local") { assert.match(cancelled.text, /No remote model work/); assert.doesNotMatch(cancelled.text, /billed/); }
+      else assert.match(cancelled.text, /remote billed-work status may be unknown/);
+      assert.equal((await browser.rawPost("/api/cancel", current)).status, 409, "late cancel cannot change the form");
+      assert.equal(running.status().generationAttempted, 1);
+    } finally { await running.close(); }
+  }
+});
+
+test("CS-05 rendered textareas preserve a leading LF for note and planning no-change/clear roundtrips", async () => {
+  const { sectionNoteEditor, planningPage } = await import("../../src/c3/planning-render.ts");
+  const { newPlanningBrief } = await import("../../src/c3/planning.ts");
+  const ctx = await context();
+  const record = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), candidate(ctx), ctx);
+  const note = "\nLeading newline";
+  const html = renderC3Page(ctx, { page: "draft", record, correctionNote: note, sectionNotes: { Opening: note } }, "csrf");
+  assert.match(html, /data-correction-note[^>]*>\n\nLeading newline<\/textarea>/);
+  assert.match(sectionNoteEditor("Opening", record.recordId, { Opening: note }, false), />\n\nLeading newline<\/textarea>/);
+  const brief = newPlanningBrief("strategy");
+  const planning = planningPage(ctx, { ...brief, audience: note });
+  assert.match(planning, /name="audience"[^>]*>\n\nLeading newline<\/textarea>/);
+  // WHATWG textarea parsing consumes exactly the sentinel LF; remaining bytes form the baseline.
+  for (const value of [note, "\n\nTwo", "", "plain"]) assert.equal(("\n" + value).replace(/^\n/, ""), value);
+});
+
+test("CS-05 leading newline section note can reload, keep unchanged, then clear", async () => {
+  const ctx = await context(), running = await harness({ name: "local", executionMode: "local", generate: async () => candidate(ctx) });
+  try {
+    const browser = await browserSession(running);
+    const generated = JSON.parse((await browser.post("/api/generate", meetingRequest)).text);
+    const recordId = generated.html.match(/data-record-id="([^"]+)"/)[1];
+    const value = "\nSection note";
+    assert.equal((await browser.post("/api/section-note", { recordId, section: "Opening", priorText: "", text: value })).status, 200);
+    const reopened = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
+    const htmlText = reopened.text.match(/id="note-opening"[^>]*>\n([\s\S]*?)<\/textarea>/)?.[1];
+    assert.equal(htmlText, value);
+    assert.equal(JSON.parse((await browser.post("/api/section-note", { recordId, section: "Opening", priorText: htmlText, text: htmlText })).text).noChange, true);
+    assert.equal((await browser.post("/api/section-note", { recordId, section: "Opening", priorText: htmlText, text: "" })).status, 200);
+  } finally { await running.close(); }
 });

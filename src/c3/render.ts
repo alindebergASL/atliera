@@ -13,7 +13,7 @@ export type C3PageState = (
   | { readonly page: "planning"; readonly brief: PlanningBrief; readonly hasDraft?: boolean }
   | { readonly page: "home"; readonly hasDraft?: boolean }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
-      readonly correctionNote?: string }
+      readonly correctionNote?: string; readonly displayedRecordId?: string | null }
   | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState;
 
 export interface C3RenderOptions {
@@ -42,6 +42,8 @@ const SCRIPT = `
   let formCache = null;
   let cacheMayContainStale = false;
   let confirmDirtyNavigation = () => true;
+  let confirmLocalEditDeparture = () => true;
+  let resetLocalEditDeparture = () => {};
   const storageAccess = () => {
     try { return typeof window !== 'undefined' && window.sessionStorage && cacheKey ? window.sessionStorage : null; }
     catch { return null; }
@@ -85,11 +87,16 @@ const SCRIPT = `
     window.addEventListener('popstate', owner.handler);
   }
   const replacePage = (payload) => {
+    if (!confirmDirtyNavigation()) return;
     const allowed = ['/', '/?prepare=1', '/?draft=1'];
     if (allowed.includes(payload.location) && (payload.history === 'push' || payload.history === 'replace')) {
       history[payload.history === 'push' ? 'pushState' : 'replaceState'](null, '', payload.location);
     }
     document.open(); document.write(payload.html); document.close();
+    const heading = document.querySelector('main h1');
+    heading?.setAttribute('tabindex', '-1');
+    heading?.focus({ preventScroll: true });
+    window.scrollTo?.(0, 0);
   };
   const requestJson = async (url, body, signal) => {
     const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-c3-csrf': csrf }, body: JSON.stringify(body), signal });
@@ -121,6 +128,7 @@ const SCRIPT = `
   let controller = null;
   let requestToken = 0;
   let cancelPending = null;
+  let operationId = null;
   if (form) {
     const formRequest = () => { const data = new FormData(form); return { audience: data.get('audience'), intendedOutcome: data.get('intendedOutcome'), durationMinutes: Number(data.get('durationMinutes')), meetingDate: data.get('meetingDate') }; };
     const button = form.querySelector('button[type="submit"]');
@@ -168,9 +176,11 @@ const SCRIPT = `
     };
     const clearCachedForm = () => { const cleared = invalidateFormCache(); if (!cleared) unavailable(); return cleared; };
     const ready = (message) => { if (button) button.disabled = false; if (status) status.textContent = message; };
+    const operationRequest = () => ({ request: formRequest(), operationId, recordId: form.getAttribute('data-record-id') || null, pendingRevisionToken: form.getAttribute('data-pending-revision-token') || null });
     const cancellation = () => {
+      if (!operationId) return Promise.resolve({ status: 'No generation started in this page. Current inputs are kept.' });
       if (cancelPending) return cancelPending;
-      const pending = requestJson('/api/cancel', formRequest()).finally(() => {
+      const pending = requestJson('/api/cancel', operationRequest()).finally(() => {
         if (cancelPending === pending) cancelPending = null;
       });
       cancelPending = pending;
@@ -184,11 +194,12 @@ const SCRIPT = `
       cacheCurrentForm();
       if (cancelPending) await cancelPending.catch(() => undefined);
       if (token !== requestToken) return;
+      operationId = window.crypto.randomUUID().replaceAll('-', '');
       controller = new AbortController();
       if (button) button.disabled = true;
       if (status) status.textContent = recordedReplay ? 'Replaying the exact recorded response locally…' : 'Preparing a proposed draft…';
       try {
-        const payload = await requestJson('/api/generate', formRequest(), controller.signal);
+        const payload = await requestJson('/api/generate', operationRequest(), controller.signal);
         if (token === requestToken && typeof payload.html === 'string') {
           if (payload.location === '/?draft=1' && !clearCachedForm() && cacheMayContainStale) {
             ready('Draft prepared, but superseded reload recovery could not be cleared. Do not reload this form; open the session draft from Account Home after browser storage is available.');
@@ -207,7 +218,6 @@ const SCRIPT = `
       updateRecordedReset();
       if (controller) {
         const token = ++requestToken;
-        controller.abort();
         controller = null;
         ready('Stopping the previous local draft and keeping these edits…');
         const pending = cancellation();
@@ -230,7 +240,6 @@ const SCRIPT = `
     document.querySelector('[data-cancel]')?.addEventListener('click', async () => {
       const token = ++requestToken;
       cacheCurrentForm();
-      if (controller) controller.abort();
       controller = null;
       ready('Stopping the local draft and keeping current form text…');
       try {
@@ -249,10 +258,12 @@ const SCRIPT = `
   let reviewNavigationApproved = false;
   const noteIsDirty = () => Boolean(correctionNote && correctionNote.value !== savedNote);
   confirmDirtyNavigation = () => {
+    if (!confirmLocalEditDeparture()) return false;
     if (reviewNavigationApproved || !noteIsDirty()) return true;
-    if (typeof window.confirm !== 'function') return false;
+    if (typeof window.confirm !== 'function') { resetLocalEditDeparture(); return false; }
     const approved = window.confirm('Discard the unsaved correction note and leave this draft?');
     if (approved) reviewNavigationApproved = true;
+    else resetLocalEditDeparture();
     return approved;
   };
   if (typeof window !== 'undefined') window.addEventListener('beforeunload', (event) => {
@@ -260,7 +271,7 @@ const SCRIPT = `
   });
   document.addEventListener?.('click', (event) => {
     const link = event.target?.closest?.('a[href]');
-    if (!link || !noteIsDirty()) return;
+    if (!link) return;
     const href = link.getAttribute('href') || '';
     if (href.startsWith('#')) return;
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.hasAttribute('download') ||
@@ -273,9 +284,10 @@ const SCRIPT = `
     const token = ++reviewToken; const recordId = event.currentTarget.getAttribute('data-record-id') || '';
     const submittedNote = String(data.get('note') || '');
     try {
-      const payload = await requestJson('/api/note', { note: submittedNote, recordId });
+      const payload = await requestJson('/api/note', { note: submittedNote, recordId, priorNote: savedNote });
       if (token === reviewToken) {
-        savedNote = submittedNote;
+        if (payload.savedNote !== submittedNote || typeof payload.noChange !== 'boolean') throw new Error('Note save was not confirmed');
+        savedNote = payload.savedNote;
         reviewNavigationApproved = false;
         if (status) status.textContent = (payload.status || 'Note kept for this session. It is not approval or durable storage.') +
           (noteIsDirty() ? ' Newer edits in the textarea are still unsaved.' : '');
@@ -285,11 +297,11 @@ const SCRIPT = `
     finally { reviewBusy = false; }
   });
   document.querySelector('[data-revise]')?.addEventListener('click', async () => {
-    if (reviewBusy) return; reviewBusy = true;
+    if (reviewBusy || !confirmLocalEditDeparture()) return; reviewBusy = true;
     const note = document.querySelector('[data-correction-note]'); const status = document.querySelector('[data-review-status]');
     const token = ++reviewToken; const recordId = reviewForm?.getAttribute('data-record-id') || '';
     if (note) note.disabled = true;
-    try { const payload = await requestJson('/api/revise', { note: note?.value || '', recordId }); if (token === reviewToken && payload.noChange) { if (status) status.textContent = payload.status; return; } if (token === reviewToken && typeof payload.html === 'string') { if (!invalidateFormCache() && cacheMayContainStale) { if (status) status.textContent = 'Revision accepted, but superseded reload recovery could not be cleared. Do not reload this draft; return to Prepare after browser storage is available.'; return; } savedNote = note?.value || ''; reviewNavigationApproved = true; replacePage(payload); } }
+    try { const payload = await requestJson('/api/revise', { note: note?.value || '', recordId, priorNote: savedNote }); if (token === reviewToken && payload.noChange) { if (status) status.textContent = payload.status; return; } if (token === reviewToken && typeof payload.html === 'string') { if (!invalidateFormCache() && cacheMayContainStale) { if (status) status.textContent = 'Revision accepted, but superseded reload recovery could not be cleared. Do not reload this draft; return to Prepare after browser storage is available.'; return; } savedNote = note?.value || ''; reviewNavigationApproved = true; replacePage(payload); } }
     catch (error) { if (token === reviewToken && status) status.textContent = error instanceof Error ? error.message : 'Could not request revision'; }
     finally { reviewBusy = false; if (note) note.disabled = false; }
   });
@@ -304,6 +316,7 @@ const SCRIPT = `
     }
   });
   document.querySelector('[data-discard-revision]')?.addEventListener('click', async () => {
+    if (reviewBusy || !confirmDirtyNavigation()) return;
     const status = document.querySelector('[data-review-status]');
     const recordId = reviewForm?.getAttribute('data-record-id') || '';
     const pendingRevisionToken = document.querySelector('[data-discard-revision]')?.getAttribute('data-pending-revision-token') || '';
@@ -357,11 +370,12 @@ function sameMeetingRequest(left: C3MeetingFormState, right: C3MeetingFormState)
 }
 
 function prepare(context: FrozenC3AccountContext, request: C3MeetingFormState, error: string | undefined, hasDraft: boolean,
-  recorded: boolean, recordedRequest?: C3MeetingFormState, correctionNote?: string, revisionPending = false): string {
+  recorded: boolean, recordedRequest?: C3MeetingFormState, correctionNote?: string, revisionPending = false, displayedRecordId: string | null = null, pendingRevisionToken: string | null = null): string {
   const status = error ?? (recorded ? "Only the exact recorded request will replay. Edited inputs are refused; no live provider will be called." : "A model provider must be configured by the local server operator.");
   const pending = revisionPending && correctionNote !== undefined && correctionNote.length > 0 ? `<p class="warning"><strong>Revision pending — previous draft preserved.</strong> Cancel stops generation; reopen the draft to deliberately discard the revision.</p><details class="recorded-note"><summary>Correction included in this revision</summary><p>This exact correction note remains session-only. It is not approval or account truth. Cancel stops generation but does not discard the pending revision.</p><pre>${esc(correctionNote)}</pre></details>` : "";
   const reset = recordedRequest === undefined ? "" : `<button class="secondary" type="button" data-use-recorded-request data-audience="${esc(recordedRequest.audience)}" data-outcome="${esc(recordedRequest.intendedOutcome)}" data-duration="${String(recordedRequest.durationMinutes)}" data-meeting-date="${esc(recordedRequest.meetingDate)}"${sameMeetingRequest(request, recordedRequest) ? " hidden" : ""}>Use recorded request</button>`;
-  return `<main id="main" tabindex="-1"><p class="eyebrow">Prepare for…</p><h1>Prepare a meeting</h1>${workshopKinds("meeting")}<p class="lede">Tell Atliera who you’re meeting and what you want to learn or accomplish.</p>${hasDraft ? '<p><a class="button secondary" href="/?draft=1">Reopen session draft</a></p>' : ""}${pending}<form class="prepare" data-generate><div class="field"><label for="audience">Audience</label><input id="audience" name="audience" required maxlength="160" value="${esc(request.audience)}" placeholder="CISO"></div><div class="field"><label for="outcome">Intended outcome</label><textarea id="outcome" name="intendedOutcome" required maxlength="500" placeholder="Understand priorities and agree a useful next step">${esc(request.intendedOutcome)}</textarea></div><div class="option-grid"><div class="field"><label for="duration">Duration</label><select id="duration" name="durationMinutes">${[15,30,45,60].map((value) => `<option value="${String(value)}"${request.durationMinutes === value ? " selected" : ""}>${String(value)} minutes</option>`).join("")}</select></div><div class="field"><label for="meeting-date">Meeting date</label><input id="meeting-date" name="meetingDate" type="date" required value="${esc(request.meetingDate)}"></div></div><p class="status-line" data-status role="status" aria-live="polite">${esc(status)}</p><p class="boundary form-recovery" data-form-recovery aria-live="polite">Unsubmitted edits are not durably saved. This tab is checking whether it can keep them through reload.</p><div class="hero-actions"><button type="submit">${recorded ? "Replay exact recorded response" : "Prepare draft"}</button>${reset}<button class="secondary" type="button" data-cancel>Cancel</button></div></form><details class="technical-detail"><summary>How this draft is prepared</summary><p class="boundary">${recorded ? "Replay waiting is local request matching and validation, not live model timing. No arbitrary edit can manufacture a result." : "The model receives the complete versioned account context—not the compact Account Home projection. It may select evidence and write prose; it cannot assign approval, governance, or durable-save fields."}</p></details></main>`;
+  return `<main id="main" tabindex="-1"><p class="eyebrow">Prepare for…</p><h1>Prepare a meeting</h1>${workshopKinds("meeting")}<p class="lede">Tell Atliera who you’re meeting and what you want to learn or accomplish.</p>${hasDraft ? '<p><a class="button secondary" href="/?draft=1">Reopen session draft</a></p>' : ""}${pending}<form class="prepare" data-generate data-record-id="${esc(displayedRecordId ?? "")}" data-pending-revision-token="${esc(pendingRevisionToken ?? "")}"><div class="field"><label for="audience">Audience</label><input id="audience" name="audience" required maxlength="160" value="${esc(request.audience)}" placeholder="CISO"></div><div class="field"><label for="outcome">Intended outcome</label><textarea id="outcome" name="intendedOutcome" required maxlength="500" placeholder="Understand priorities and agree a useful next step">
+${esc(request.intendedOutcome)}</textarea></div><div class="option-grid"><div class="field"><label for="duration">Duration</label><select id="duration" name="durationMinutes">${[15,30,45,60].map((value) => `<option value="${String(value)}"${request.durationMinutes === value ? " selected" : ""}>${String(value)} minutes</option>`).join("")}</select></div><div class="field"><label for="meeting-date">Meeting date</label><input id="meeting-date" name="meetingDate" type="date" required value="${esc(request.meetingDate)}"></div></div><p class="status-line" data-status role="status" aria-live="polite">${esc(status)}</p><p class="boundary form-recovery" data-form-recovery aria-live="polite">Unsubmitted edits are not durably saved. This tab is checking whether it can keep them through reload.</p><div class="hero-actions"><button type="submit">${recorded ? "Replay exact recorded response" : "Prepare draft"}</button>${reset}<button class="secondary" type="button" data-cancel>Cancel</button></div></form><details class="technical-detail"><summary>How this draft is prepared</summary><p class="boundary">${recorded ? "Replay waiting is local request matching and validation, not live model timing. No arbitrary edit can manufacture a result." : "The model receives the complete versioned account context—not the compact Account Home projection. It may select evidence and write prose; it cannot assign approval, governance, or durable-save fields."}</p></details></main>`;
 }
 
 function supportLabel(item: C3SupportedText): string {
@@ -415,7 +429,8 @@ function draftPage(context: FrozenC3AccountContext, record: C3GenerationRecord, 
   const temporal = draft.temporalOutcome === "insufficient_context" ? "Context is insufficient. Treat this as a discovery agenda; the gaps below remain open." : draft.temporalOutcome === "no_material_change_established" ? "No material change established. This brief does not claim new account developments." : "Initial dated discovery. Source dates do not prove a change from an earlier account review.";
   const disabled = revisionPending ? " disabled" : "";
   const revisionDisabled = revisionPending || (recordedCorrection !== undefined && record.revision !== null) ? " disabled" : "";
-  return `<main id="main" tabindex="-1"><div class="draft-head"><p class="eyebrow">Meeting draft</p><h1>Your meeting brief</h1>${workshopKinds("meeting")}<dl class="meeting-context" aria-label="Meeting setup from this draft’s request"><div><dt>Audience</dt><dd>${esc(request.audience)}</dd></div><div><dt>When · Duration</dt><dd>${esc(humanDate(request.meetingDate))} · ${String(request.durationMinutes)} minutes</dd></div><div class="outcome"><dt>Intended outcome</dt><dd>${esc(request.intendedOutcome)}</dd></div></dl><details class="technical-detail"${draft.objective.supportCategory === "unknown" ? " open" : ""}><summary>Proposed objective</summary>${body(draft.objective)}<p class="support"><span>${esc(supportLabel(draft.objective))}</span>${evidenceLinks(draft.objective.evidenceRefs, numberById, sourceByEvidence, "Meeting objective")}</p></details><div class="hero-actions"><a class="button secondary" href="/?prepare=1">${recordedCorrection === undefined ? "Edit meeting setup" : "Return to recorded request"}</a><a class="button secondary" href="#review">${revisionPending ? "View session note" : "Add a correction"}</a></div></div>${notice ? `<p class="status-line" role="status">${esc(notice)}</p>` : ""}${initialWarning}${pending}<p class="meta">${esc(temporal)}</p><div class="draft-grid"><div>${supported("Situation for this audience", draft.audienceThesis)}${supported("Opening", draft.opening)}<section class="draft-section" aria-labelledby="questions-heading"><h2 id="questions-heading">Three questions, in order</h2><ol class="questions">${draft.questions.map((question, index) => `<li id="question-${String(index + 1)}"><strong>${esc(question.question)}</strong>${learning(question.intendedLearning)}<p class="support"><span>Open question · Related evidence context</span>${evidenceLinks(question.evidenceRefs, numberById, sourceByEvidence, `Question ${String(index + 1)}`)}</p></li>`).join("")}</ol>${sectionNoteEditor("Questions", record.recordId, sectionNotes, revisionPending)}</section>${supported("Useful close", draft.closeCriterion)}</div></div><section class="checks" aria-labelledby="checks-heading"><h2 id="checks-heading">Before relying on this brief</h2>${draft.risksUnknowns.map((item, index) => `${body(item)}<p class="support"><span>${esc(supportLabel(item))}</span>${evidenceLinks(item.evidenceRefs, numberById, sourceByEvidence, `Risk or unknown ${String(index + 1)}`)}</p>`).join("")}${draft.warnings.map((warning, index) => `<div class="warning">${esc(warning.message)}${warning.evidenceRefs.length === 0 ? "" : `<p class="support">${evidenceLinks(warning.evidenceRefs, numberById, sourceByEvidence, `Draft warning ${String(index + 1)}`)}</p>`}</div>`).join("")}</section>${contextChecks(context)}<section class="evidence-list" aria-labelledby="evidence-heading"><h2 id="evidence-heading">Evidence behind the brief</h2><p class="meta">Exact excerpts and source dates. References attached to an inference or question supply context, not direct proof.</p>${draft.selectedEvidenceRefs.map((id, index) => { const item = sourceByEvidence.get(id)!; return `<details id="evidence-${String(index+1)}"><summary>Evidence ${String(index+1)} · ${esc(item.source.title)}</summary><a class="evidence-return" data-evidence-return href="#questions-heading" hidden>Return to questions</a><blockquote>${esc(item.excerpt.exactExcerpt)}</blockquote>${sourceDetail(item.source)}${context.context.rendererAnnotations.filter((annotation) => annotation.sourceId === item.source.sourceId && (annotation.evidenceIds.length === 0 || annotation.evidenceIds.includes(id))).map((annotation) => `<p class="meta">${esc(annotation.text)}</p>`).join("")}${retained(item.source)}<p class="meta"><a href="#questions-heading">Back to questions</a></p></details>`; }).join("")}${draft.selectedEvidenceRefs.length === 0 ? '<p>No evidence selected by this draft. Do not treat the proposed content as established account fact.</p>' : ""}${otherSources.length === 0 ? "" : `<details><summary>Other retained account sources (${String(otherSources.length)})</summary>${otherSources.map((source) => `<h3>${esc(source.title)}</h3>${sourceDetail(source)}${retained(source)}`).join("")}</details>`}</section><section class="review" id="review" aria-labelledby="review-heading"><p class="review-label">Draft review</p><h2 id="review-heading">Suggest a correction</h2><p class="meta">Keep a session note, or include it in a revised draft. Notes are lost when this server session ends.</p>${recordedHelp}<form data-note-form data-record-id="${esc(record.recordId)}"><label for="correction-note">What should change?</label><textarea id="correction-note" data-correction-note name="note" maxlength="1000" placeholder="Describe what should change"${disabled}>${esc(note)}</textarea><p class="status-line" data-review-status role="status" aria-live="polite"></p><button type="submit"${disabled}>Keep note for this session</button><button class="secondary" type="button" data-revise${revisionDisabled}>Request revised draft</button></form></section><details class="technical-detail"><summary>Record and timing details</summary><p>Temporal outcome: ${esc(draft.temporalOutcome.replace(/_/gu," "))}. Model prose and raw response are retained unchanged; display grouping does not establish source truth.</p><p>Record: ${esc(record.recordId)}. Context: ${esc(record.contextSha256)}.</p></details></main>`;
+  return `<main id="main" tabindex="-1"><div class="draft-head"><p class="eyebrow">Meeting draft</p><h1>Your meeting brief</h1>${workshopKinds("meeting")}<dl class="meeting-context" aria-label="Meeting setup from this draft’s request"><div><dt>Audience</dt><dd>${esc(request.audience)}</dd></div><div><dt>When · Duration</dt><dd>${esc(humanDate(request.meetingDate))} · ${String(request.durationMinutes)} minutes</dd></div><div class="outcome"><dt>Intended outcome</dt><dd>${esc(request.intendedOutcome)}</dd></div></dl><details class="technical-detail"${draft.objective.supportCategory === "unknown" ? " open" : ""}><summary>Proposed objective</summary>${body(draft.objective)}<p class="support"><span>${esc(supportLabel(draft.objective))}</span>${evidenceLinks(draft.objective.evidenceRefs, numberById, sourceByEvidence, "Meeting objective")}</p></details><div class="hero-actions"><a class="button secondary" href="/?prepare=1">${recordedCorrection === undefined ? "Edit meeting setup" : "Return to recorded request"}</a><a class="button secondary" href="#review">${revisionPending ? "View session note" : "Add a correction"}</a></div></div>${notice ? `<p class="status-line" role="status">${esc(notice)}</p>` : ""}${initialWarning}${pending}<p class="meta">${esc(temporal)}</p><div class="draft-grid"><div>${supported("Situation for this audience", draft.audienceThesis)}${supported("Opening", draft.opening)}<section class="draft-section" aria-labelledby="questions-heading"><h2 id="questions-heading">Three questions, in order</h2><ol class="questions">${draft.questions.map((question, index) => `<li id="question-${String(index + 1)}"><strong>${esc(question.question)}</strong>${learning(question.intendedLearning)}<p class="support"><span>Open question · Related evidence context</span>${evidenceLinks(question.evidenceRefs, numberById, sourceByEvidence, `Question ${String(index + 1)}`)}</p></li>`).join("")}</ol>${sectionNoteEditor("Questions", record.recordId, sectionNotes, revisionPending)}</section>${supported("Useful close", draft.closeCriterion)}</div></div><section class="checks" aria-labelledby="checks-heading"><h2 id="checks-heading">Before relying on this brief</h2>${draft.risksUnknowns.map((item, index) => `${body(item)}<p class="support"><span>${esc(supportLabel(item))}</span>${evidenceLinks(item.evidenceRefs, numberById, sourceByEvidence, `Risk or unknown ${String(index + 1)}`)}</p>`).join("")}${draft.warnings.map((warning, index) => `<div class="warning">${esc(warning.message)}${warning.evidenceRefs.length === 0 ? "" : `<p class="support">${evidenceLinks(warning.evidenceRefs, numberById, sourceByEvidence, `Draft warning ${String(index + 1)}`)}</p>`}</div>`).join("")}</section>${contextChecks(context)}<section class="evidence-list" aria-labelledby="evidence-heading"><h2 id="evidence-heading">Evidence behind the brief</h2><p class="meta">Exact excerpts and source dates. References attached to an inference or question supply context, not direct proof.</p>${draft.selectedEvidenceRefs.map((id, index) => { const item = sourceByEvidence.get(id)!; return `<details id="evidence-${String(index+1)}"><summary>Evidence ${String(index+1)} · ${esc(item.source.title)}</summary><a class="evidence-return" data-evidence-return href="#questions-heading" hidden>Return to questions</a><blockquote>${esc(item.excerpt.exactExcerpt)}</blockquote>${sourceDetail(item.source)}${context.context.rendererAnnotations.filter((annotation) => annotation.sourceId === item.source.sourceId && (annotation.evidenceIds.length === 0 || annotation.evidenceIds.includes(id))).map((annotation) => `<p class="meta">${esc(annotation.text)}</p>`).join("")}${retained(item.source)}<p class="meta"><a href="#questions-heading">Back to questions</a></p></details>`; }).join("")}${draft.selectedEvidenceRefs.length === 0 ? '<p>No evidence selected by this draft. Do not treat the proposed content as established account fact.</p>' : ""}${otherSources.length === 0 ? "" : `<details><summary>Other retained account sources (${String(otherSources.length)})</summary>${otherSources.map((source) => `<h3>${esc(source.title)}</h3>${sourceDetail(source)}${retained(source)}`).join("")}</details>`}</section><section class="review" id="review" aria-labelledby="review-heading"><p class="review-label">Draft review</p><h2 id="review-heading">Suggest a correction</h2><p class="meta">Keep a session note, or include it in a revised draft. Notes are lost when this server session ends.</p>${recordedHelp}<form data-note-form data-record-id="${esc(record.recordId)}"><label for="correction-note">What should change?</label><textarea id="correction-note" data-correction-note name="note" maxlength="1000" placeholder="Describe what should change"${disabled}>
+${esc(note)}</textarea><p class="status-line" data-review-status role="status" aria-live="polite"></p><button type="submit"${disabled}>Keep note for this session</button><button class="secondary" type="button" data-revise${revisionDisabled}>Request revised draft</button></form></section><details class="technical-detail"><summary>Record and timing details</summary><p>Temporal outcome: ${esc(draft.temporalOutcome.replace(/_/gu," "))}. Model prose and raw response are retained unchanged; display grouping does not establish source truth.</p><p>Record: ${esc(record.recordId)}. Context: ${esc(record.contextSha256)}.</p></details></main>`;
 }
 
 function addAdmittedSourceSectionContext(context: FrozenC3AccountContext, record: C3GenerationRecord, page: string): string {
@@ -439,7 +454,7 @@ function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: s
   if (state.page === "home") return shell(context.context.account.accountName, home(context, state.hasDraft ?? false, recorded,
     state.revisionPending ?? false), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
   if (state.page === "prepare") return shell(`Prepare for ${context.context.account.accountName}`, prepare(context, state.request, state.error,
-    state.hasDraft ?? false, recorded, options?.initialRequest, state.correctionNote, state.revisionPending), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
+    state.hasDraft ?? false, recorded, options?.initialRequest, state.correctionNote, state.revisionPending, state.displayedRecordId, state.pendingRevisionToken), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview);
   const draft = draftPage(context, state.record, state.correctionNote, options?.correctionNote, state.revisionPending ?? false,
     state.pendingRevisionToken, state.notice, state.sectionNotes);
   return shell(`Draft for ${context.context.account.accountName}`, addAdmittedSourceSectionContext(context, state.record, draft),

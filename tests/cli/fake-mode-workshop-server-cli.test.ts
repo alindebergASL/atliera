@@ -45,7 +45,9 @@ async function runServerUntilExit(env: NodeJS.ProcessEnv): Promise<RunResult> {
   child.stdout.on("data", (chunk) => { stdout += chunk; });
   child.stderr.on("data", (chunk) => { stderr += chunk; });
 
-  const timeout = setTimeout(() => child.kill("SIGKILL"), 1_500);
+  // This bounds process startup, not the auth decision. Parallel full-suite
+  // load can exceed 1.5 seconds before tsx finishes loading the CLI.
+  const timeout = setTimeout(() => child.kill("SIGKILL"), 10_000);
   const code = await new Promise<number | null>((resolve) => child.on("exit", resolve));
   clearTimeout(timeout);
   return { code, stdout, stderr };

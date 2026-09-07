@@ -246,7 +246,13 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
     `MEETING REQUEST\n${canonicalJson(meetingRequest)}`,
     revision === null ? "REVISION CONTEXT\nnone" : `REVISION CONTEXT (session-only correction; does not mutate or ratify account truth; SHA-256 ${revisionSha256!})\n${canonicalJson(revision)}`,
     `OUTPUT SCHEMA\n${canonicalJson(schema)}`,
-    `FULL VERSIONED ACCOUNT CONTEXT (canonical SHA-256 ${context.sha256})\n${context.canonicalJson}`,
+    context.context.admittedSources.some((source) => source.untrustedInstructionsDetected) ?
+      `ELIGIBLE ACCOUNT CONTEXT PROJECTION (original context SHA-256 ${context.sha256}; hostile-instruction sources excluded from model evidence, original inspection record unchanged)\n${canonicalJson({ ...context.context,
+        admittedSources: context.context.admittedSources.filter((source) => !source.untrustedInstructionsDetected),
+        discoveryLineage: context.context.discoveryLineage.filter((discovery) => !context.context.admittedSources.some((source) =>
+          source.untrustedInstructionsDetected && (discovery.resultUrl === source.canonicalUrl || discovery.derivedRetrievalUrls.includes(source.canonicalUrl)))),
+        relevanceCandidates: context.context.relevanceCandidates.filter((item) => context.context.admittedSources.some((source) => !source.untrustedInstructionsDetected && source.sourceId === item.sourceId)) })}` :
+      `FULL VERSIONED ACCOUNT CONTEXT (canonical SHA-256 ${context.sha256})\n${context.canonicalJson}`,
   ].join("\n\n");
   return deepFreezeOwnData({ kind: C3_MODEL_REQUEST_KIND, schemaVersion: C3_MODEL_REQUEST_VERSION,
     contextSha256: context.sha256, meetingRequestSha256, meetingRequest, revision, revisionSha256, prompt });
@@ -331,6 +337,17 @@ function isBoundedCommercialNonAssumption(value: string, match: RegExpMatchArray
     scopedEvidenceLimitWithinMatch.test(match[0]) || scopedUnknown.test(after));
 }
 
+const COMMERCIAL_COMMITMENT = /\b(?:sign(?:s|ed|ing)?|execut(?:e[sd]?|ing))\s+(?:(?:a|the|an)\s+)?(?:[\w-]+\s+){0,3}(?:contract|agreement)\b|\b(?:purchased|bought|procured|acquired)\b|\b(?:your|the)\s+(?:[\w-]+\s+){0,4}(?:purchase|signed contract)\b/giu;
+function assertNoCommercialPresupposition(value: string, path: string): void {
+  for (const match of value.matchAll(COMMERCIAL_COMMITMENT)) {
+    const before = value.slice(0, match.index).split(/[.!?;]/u).at(-1) ?? "";
+    // Inquiry scopes only its own clause; a later assertion cannot borrow 'whether'.
+    if (/\b(?:whether|if)\b(?:(?!\b(?:but|however|then|and|which|that|you)\b)[^.!?;])*$/iu.test(before) ||
+        /\b(?:whether|if)\s+(?:you|they|the account)\s+(?:(?:have|has|ever|already|any)\s+)*$/iu.test(before)) continue;
+    throw new Error(`${path} introduces an unsupported commercial commitment or purchase presupposition`);
+  }
+}
+
 function assertNoUnsupportedAccountAssertion(value: string, category: C3SupportCategory, path: string): void {
   if (category === "direct_support") return;
   for (const match of value.matchAll(HIGH_RISK_ASSERTIONS)) {
@@ -338,6 +355,7 @@ function assertNoUnsupportedAccountAssertion(value: string, category: C3SupportC
       throw new Error(`${path} introduces a clearly unsupported incident, commercial assertion, vendor relationship, approval, or prescriptive purchase`);
     }
   }
+  assertNoCommercialPresupposition(value, path);
 }
 
 export function validateC3Candidate(rawText: string, context: FrozenC3AccountContext, meetingDate?: string): C3ProposedDraft {
@@ -346,7 +364,7 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
   try { parsed = JSON.parse(rawText); } catch { throw new Error("model response must be one strict JSON object"); }
   const root = object(parsed, "candidate");
   exactKeys(root, ["temporalOutcome", "objective", "audienceThesis", "opening", "questions", "risksUnknowns", "closeCriterion", "selectedEvidenceRefs"], "candidate");
-  const known = new Set(context.context.admittedSources.flatMap((source) => source.excerpts.map((item) => item.evidenceId)));
+  const known = new Set(context.context.admittedSources.filter((source) => !source.untrustedInstructionsDetected).flatMap((source) => source.excerpts.map((item) => item.evidenceId)));
   const temporalOutcome = enumValue(root.temporalOutcome, ["initial_dated_event_discovery", "change_against_prior_revision",
     "no_material_change_established", "insufficient_context"] as const, "candidate.temporalOutcome");
   if (temporalOutcome === "change_against_prior_revision" && context.context.priorRevision === null) {

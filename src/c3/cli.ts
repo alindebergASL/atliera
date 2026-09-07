@@ -2,7 +2,9 @@ import { mkdir, readFile, writeFile, realpath, readdir, stat } from "node:fs/pro
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { canonicalJson, loadC3AccountContext, type FrozenC3AccountContext } from "./context.ts";
+import { canonicalJson, loadC3AccountContext } from "./context.ts";
+import { loadCuratedC3Context } from "./curated-context.ts";
+import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import { assertReplayIdentity, createC3ModelRequest, createC3RevisionContext, createGenerationRecord,
   type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
 import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider } from "./provider.ts";
@@ -17,7 +19,13 @@ const PROPOSALS: Readonly<Record<string, string>> = Object.freeze({
   acc_fedex_corp: resolve(REPO, "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/fedex-validated-proposal.json"),
 });
 
+const CURATED_INPUTS: Readonly<Record<string, string>> = Object.freeze({
+  acc_university_of_missouri: resolve(REPO, "fixtures/account-intelligence/c3-curated/missouri.json"),
+});
+
 async function contextFor(accountId: string) {
+  const curated = CURATED_INPUTS[accountId];
+  if (curated !== undefined) return loadCuratedC3Context(curated, accountId);
   const proposalPath = PROPOSALS[accountId];
   if (proposalPath === undefined) throw new Error(`no configured validated C2 proposal for ${accountId}`);
   return loadC3AccountContext({ broadInputPath: BROAD, proposalPath, ownerDecisionPath: OWNER, accountId });
@@ -171,7 +179,7 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   if (args.length > 1) throw new Error("usage: serve [ACCOUNT_ID]");
   const frozen = await contextFor(accountId);
   const command = process.env.C3_MODEL_COMMAND;
-  const provider = command === undefined ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command });
+  const provider = command === undefined || isCuratedContext(frozen) ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command });
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
   const running = await startC3Server({ context: frozen, provider, port: Number(portText) });

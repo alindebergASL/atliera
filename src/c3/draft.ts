@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { deepFreezeOwnData } from "../authority/strict-json.ts";
-import { canonicalJson, type FrozenC3AccountContext } from "./context.ts";
+import { canonicalJson } from "./context.ts";
+import { assertC3GenerationContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 
 export const C3_MODEL_REQUEST_KIND = "atliera.c3.meeting-draft-model-request" as const;
 export const C3_MODEL_REQUEST_VERSION = "2" as const;
@@ -207,6 +208,7 @@ function audiencePriority(audience: string): string {
 
 export function createC3ModelRequest(context: FrozenC3AccountContext, requestInput: unknown,
   revision: C3RevisionContext | null = null): C3ModelRequest {
+  assertC3GenerationContext(context);
   const meetingRequest = snapshotMeetingRequest(requestInput);
   const meetingRequestSha256 = hash(canonicalJson(meetingRequest));
   const revisionSha256 = revision === null ? null : hash(canonicalJson(revision));
@@ -423,6 +425,7 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
 
 export function createGenerationRecord(modelRequest: C3ModelRequest, rawResponse: string,
   context: FrozenC3AccountContext): C3GenerationRecord {
+  assertC3GenerationContext(context);
   const rawResponseSha256 = hash(rawResponse);
   const modelRequestSha256 = hash(canonicalJson(modelRequest));
   const recordId = `c3_${hash(`${context.sha256}\n${modelRequestSha256}\n${rawResponseSha256}`).slice(0, 24)}`;
@@ -444,6 +447,7 @@ export function createGenerationRecord(modelRequest: C3ModelRequest, rawResponse
 }
 
 export function assertReplayIdentity(record: C3GenerationRecord, context: FrozenC3AccountContext): void {
+  assertC3GenerationContext(context);
   if (record.contextSha256 !== context.sha256 || record.meetingRequestSha256 !== hash(canonicalJson(record.meetingRequest)) ||
       record.rawResponseSha256 !== hash(record.rawResponse)) throw new Error("recorded generation identity mismatch");
   if (record.revisionSha256 !== (record.revision === null ? null : hash(canonicalJson(record.revision))) ||

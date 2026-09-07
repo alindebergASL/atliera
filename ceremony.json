@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-slice-a-state-trust-repairs",
+    "recordId": "c3-two-account-curated-context",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build and merge the authorized C3 Slice A state, evidence-trust and interaction repairs.",
-    "scope": "CS-01 through CS-06; SEC-01 and SEC-02; provider-aware cancellation feedback and route-change focus; synthetic regression tests and public engineering-reference documentation. No new provider routing, private-data acquisition, durable storage, identity or approval effect, deployment, customer availability, decision-to-actions expansion or live product generation.",
+    "decision": "Build and merge the authorized C3 two-account curated-context integration.",
+    "scope": "Shared read-only C3 account projection and session-only planning for historical Utah and curated University of Missouri public context; exact excerpt and user-text preservation; explicit campus versus system attribution; curated generation and replay refusal. No fabricated admission, owner disposition, human approval or model recording. No new research execution, live product model or retrieval activation, paid routes, deployment, migrations, durable product writes, sharing, approval or outreach. Structured proposed-action bridge and account switcher remain separate later work.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-07T04:00:58.038539Z",
-    "proposalDigest": "sha256:fadbe0b4a7080efbd9f404f5d8b53af53ca1aa7e3fd6ab897ae7ea2e1cd5d838"
+    "proposedAt": "2026-09-07T06:58:34.839573Z",
+    "proposalDigest": "sha256:e5177f4934b1bfc3dffdc45849dae1ffb25fe55cdd589403a80cedc8e7168cd4"
   }
 }

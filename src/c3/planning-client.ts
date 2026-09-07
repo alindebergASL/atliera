@@ -14,7 +14,7 @@ export const PLANNING_CLIENT_SCRIPT = `
     const identity = () => form.dataset.recordId || form.dataset.version;
     const state = { form, fields, values, status, key, saved: values(), cached: false };
     const cache = () => {
-      try { window.sessionStorage.setItem(key, JSON.stringify({ identity: identity(), values: values() })); state.cached = true; }
+      try { window.sessionStorage.setItem(key, JSON.stringify({ identity: identity(), saved: state.saved, values: values() })); state.cached = true; }
       catch { state.cached = false; status.textContent = 'Reload recovery unavailable. Keep this page open or copy unsaved text before leaving.'; }
     };
     const clear = () => { try { window.sessionStorage.removeItem(key); state.cached = false; return true; } catch { return false; } };
@@ -23,11 +23,11 @@ export const PLANNING_CLIENT_SCRIPT = `
       const raw = window.sessionStorage.getItem(key);
       if (raw) {
         const cached = JSON.parse(raw);
-        if (cached.identity === identity() && fields.every((field) => typeof cached.values?.[field.name] === 'string' && cached.values[field.name].length <= field.maxLength)) {
+        if (cached.identity === identity() && JSON.stringify(cached.saved) === JSON.stringify(state.saved) && fields.every((field) => typeof cached.values?.[field.name] === 'string' && cached.values[field.name].length <= field.maxLength)) {
           fields.forEach((field) => { field.value = cached.values[field.name]; });
           state.cached = true;
           if (JSON.stringify(values()) !== JSON.stringify(state.saved)) { form.closest('details').open = true; status.textContent = 'Unsubmitted edit restored in this tab. Keep it deliberately for this session.'; }
-        } else { status.textContent = 'An older unsubmitted edit exists for a different brief version. Copy it below before discarding; current saved content was kept.';
+        } else { status.textContent = 'An older unsubmitted edit exists for a different brief version or saved baseline. Copy it below before discarding; current saved content was kept.';
           const recovery = document.createElement('pre'); recovery.className = 'source-text'; recovery.textContent = JSON.stringify(cached.values, null, 2); status.after(recovery); form.closest('details').open = true; }
       }
     } catch { status.textContent = 'Reload recovery unavailable. Copy unsaved text before leaving.'; }
@@ -73,6 +73,16 @@ export const PLANNING_CLIENT_SCRIPT = `
     });
     return state;
   });
+  let departureApproved = false;
+  resetLocalEditDeparture = () => { departureApproved = false; };
+  const needsGuard = () => busy || states.some((state) => JSON.stringify(state.values()) !== JSON.stringify(state.saved));
+  confirmLocalEditDeparture = () => {
+    if (busy) { states[0].status.textContent = 'Wait for the session save to finish before leaving.'; return false; }
+    if (departureApproved || !needsGuard()) return true;
+    departureApproved = typeof window.confirm === 'function' && window.confirm('Leave with unsubmitted section edits? Copy or keep them first if you need them.');
+    return departureApproved;
+  };
+  forms.forEach((form) => form.addEventListener('input', () => { departureApproved = false; }));
   window.addEventListener('beforeunload', (event) => {
     if (busy || states.some((state) => !state.cached && JSON.stringify(state.values()) !== JSON.stringify(state.saved))) { event.preventDefault(); event.returnValue = ''; }
   });

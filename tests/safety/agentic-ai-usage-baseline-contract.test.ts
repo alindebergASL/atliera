@@ -180,9 +180,17 @@ test("agentic AI usage baseline records current runtime and validation boundarie
         customerAvailability: "local_prototype_only",
       });
 
+      const request = { audience: "CISO", intendedOutcome: "Understand priorities and agree a next step.",
+        durationMinutes: 15, meetingDate: "2026-09-12" };
+      const legacy = await c3Request(running, "POST", "/api/generate", request,
+        { cookie, origin: C3_ORIGIN, "x-c3-csrf": csrf, "content-type": "application/json" });
+      assert.equal(legacy.statusCode, 409);
+      assert.deepEqual(running.status(), {
+        provider: "disabled", ...zeroCounts, c2Implementation: "complete", ownerDisposition: "recorded",
+        customerAvailability: "local_prototype_only",
+      });
       const generated = await c3Request(running, "POST", "/api/generate",
-        { audience: "CISO", intendedOutcome: "Understand priorities and agree a next step.",
-          durationMinutes: 15, meetingDate: "2026-09-12" },
+        { request, operationId: "baseline_disabled_generation_operation_01", recordId: null, pendingRevisionToken: null },
         { cookie, origin: C3_ORIGIN, "x-c3-csrf": csrf, "content-type": "application/json" });
       const result = JSON.parse(generated.text()) as { error: string; html: string };
       assert.equal(generated.statusCode, 502);

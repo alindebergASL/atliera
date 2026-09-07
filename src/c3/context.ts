@@ -227,7 +227,7 @@ function relevanceCandidates(sources: readonly C3RetainedSource[], proposal: Acc
   corrections: readonly C3OwnerCorrection[]): C3RelevanceCandidate[] {
   const proposalEvidence = new Set(allStatements(proposal).flatMap((item) => item.evidenceIds));
   const priorities = corrections.filter((item) => item.kind === "content_priority").map((item) => item.text.toLowerCase());
-  return sources.flatMap((source) => source.excerpts.map((excerpt) => {
+  return sources.filter((source) => !source.untrustedInstructionsDetected).flatMap((source) => source.excerpts.map((excerpt) => {
     const reasons: string[] = [];
     const combined = `${source.title} ${excerpt.exactExcerpt}`.toLowerCase();
     if (priorities.some((priority) => /redtail|uhaiv/u.test(priority) && /redtail|uhaiv|ai vault/u.test(combined))) {

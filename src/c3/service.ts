@@ -25,7 +25,8 @@ interface Session {
   pendingRevisionToken: string | null;
   revisionNumber: number;
   sequence: number;
-  active?: { readonly controller: AbortController; readonly sequence: number; readonly settled: Promise<void> };
+  operations: Set<string>;
+  active?: { readonly operationId: string; readonly controller: AbortController; readonly sequence: number; readonly settled: Promise<void> };
 }
 
 export interface C3ServiceStatus {
@@ -100,7 +101,7 @@ function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session
   return { id: randomBytes(24).toString("base64url"), csrf: randomBytes(24).toString("base64url"),
     form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
     planning: { strategy: newPlanningBrief("strategy"), "next-steps": newPlanningBrief("next-steps") }, sectionNotes: {},
-    correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0 };
+    correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0, operations: new Set() };
 }
 
 function parseRequestTarget(rawTarget: string | undefined, expectedHost: string): URL {
@@ -156,7 +157,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
-  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state, csrf,
+  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
     options.recordedReplay === undefined ? undefined : { correctionNote: options.recordedReplay.correctionNote,
       initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
   let expectedHost = "";
@@ -243,19 +244,30 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       return;
     }
     if (url.pathname === "/api/cancel") {
-      try { session.form = snapshotMeetingFormState(body); } catch (error) {
-        json(res, 400, { error: error instanceof Error ? error.message : "invalid form state" }); return;
+      const operation = operationEnvelope(body);
+      if (operation === undefined || !matchesDisplayedState(session, operation)) {
+        json(res, 409, { error: "Displayed operation state is missing or stale. Current session work was kept." }); return;
       }
       const active = session.active;
+      if (active?.operationId !== operation.operationId) {
+        if (active !== undefined || session.operations.has(operation.operationId) || session.operations.size >= 256) {
+          json(res, 409, { error: "This page does not own the active operation. Current session work was kept." }); return;
+        }
+        // Remember cancellation arriving before generation; do not replace any session form.
+        session.operations.add(operation.operationId);
+        json(res, 200, { status: "No local work started for this operation. Current page inputs are kept." }); return;
+      }
+      let form: C3MeetingFormState;
+      try { form = snapshotMeetingFormState(operation.request); } catch {
+        json(res, 400, { error: "invalid form state" }); return;
+      }
+      session.form = form;
       session.sequence += 1;
-      if (active !== undefined) { active.controller.abort(); events.push({ kind: "cancelled", sequence: session.sequence }); await active.settled; }
-      const page = render({ page: "prepare", request: session.form,
-        error: "Local generation stopped and current form text was kept. Remote billed-work status may remain unknown in operator accounting.",
-        hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
-        ...pendingPageState(session) }, session.csrf);
-      json(res, 200, { html: page,
-        location: "/?prepare=1", history: "replace",
-        status: "Local generation stopped. Current form text is ready to edit or submit again; remote billed-work status may be unknown." }); return;
+      active.controller.abort(); events.push({ kind: "cancelled", sequence: session.sequence }); await active.settled;
+      const status = options.provider.executionMode === "local" ?
+        "Local generation stopped. Current form text is ready to edit or submit again. No remote model work was started." :
+        "Local generation stopped. Current form text is ready to edit or submit again; remote billed-work status may be unknown.";
+      json(res, 200, { status }); return;
     }
     if (url.pathname === "/api/note") {
       const displayedRecordId = submittedRecordId(body);
@@ -263,13 +275,16 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before keeping a note." }); return;
       }
+      if ((body as Record<string, unknown>).priorNote !== session.correctionNote) {
+        json(res, 409, { error: "Saved note baseline is missing or stale. Copy your typed text and reopen the current draft." }); return;
+      }
       let action: ReviewAction;
       try { action = reviewAction(body); } catch (error) {
         json(res, 400, { error: error instanceof Error ? error.message : "invalid correction note" }); return;
       }
       const noChange = session.correctionNote === action.note;
       session.correctionNote = action.note;
-      json(res, 200, { noChange, status: noChange ? "Note unchanged. Already kept for this session." :
+      json(res, 200, { noChange, savedNote: action.note, status: noChange ? "Note unchanged. Already kept for this session." :
         "Note kept for this session. It is not approval or durable storage.", html: render({ page: "draft", record: session.record,
         correctionNote: action.note, revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
@@ -294,6 +309,9 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null || session.record?.draft === undefined ||
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before requesting revision." }); return;
+      }
+      if ((body as Record<string, unknown>).priorNote !== session.correctionNote) {
+        json(res, 409, { error: "Saved note baseline is missing or stale. Copy your typed text and reopen the current draft." }); return;
       }
       let action: ReviewAction;
       try { action = reviewAction(body); } catch (error) {
@@ -326,13 +344,19 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         location: "/?prepare=1", history: "replace" }); return;
     }
     if (url.pathname !== "/api/generate") { json(res, 404, { error: "not found" }); return; }
+    const operation = operationEnvelope(body);
+    if (operation === undefined || !matchesDisplayedState(session, operation) ||
+        session.operations.has(operation.operationId) || session.operations.size >= 256) {
+      json(res, 409, { error: "Displayed generation state is missing, stale, or already used. Reopen Prepare before submitting." }); return;
+    }
     let request: C3MeetingRequest;
-    try { request = snapshotMeetingRequest(body); } catch (error) {
+    try { request = snapshotMeetingRequest(operation.request); } catch (error) {
       json(res, 400, { error: error instanceof Error ? error.message : "invalid meeting request" }); return;
     }
     if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
       json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
     }
+    session.operations.add(operation.operationId);
     // Reopening is an exact comparison against the current successful record, never a replay fallback.
     // Active work and pending corrections retain their existing cancellation/identity paths.
     if (session.active === undefined && session.pendingRevision === null && session.record?.draft !== undefined &&
@@ -354,13 +378,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const settled = new Promise<void>((resolve) => { resolveSettled = resolve; });
     const onResponseClose = (): void => { if (!res.writableEnded) controller.abort(); };
     res.once("close", onResponseClose);
+    session.active = { operationId: operation.operationId, controller, sequence, settled };
     try {
       if (previous !== undefined) { previous.controller.abort(); await previous.settled; }
       if (session.sequence !== sequence || controller.signal.aborted || res.destroyed) {
         if (!res.writableEnded && !res.destroyed) json(res, 409, { error: "stale generation discarded" });
         return;
       }
-      session.active = { controller, sequence, settled };
       events.push({ kind: "attempted", sequence });
       const revision = session.pendingRevision;
       const modelRequest = createC3ModelRequest(options.context, request, revision);
@@ -451,7 +475,7 @@ function submittedRecordId(value: unknown): string | undefined {
 function reviewAction(value: unknown): ReviewAction {
   if (value === null || Array.isArray(value) || typeof value !== "object") throw new Error("invalid request");
   const root = value as Record<string, unknown>;
-  if (Object.keys(root).length !== 2 || typeof root.note !== "string" || root.note.length > 1_000 ||
+  if (Object.keys(root).sort().join(",") !== "note,priorNote,recordId" || typeof root.note !== "string" || root.note.length > 1_000 ||
       /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(root.note) || submittedRecordId(root) === undefined) {
     throw new Error("invalid correction note");
   }
@@ -461,4 +485,18 @@ function reviewAction(value: unknown): ReviewAction {
 function sameMeetingRequest(left: C3MeetingRequest, right: C3MeetingRequest): boolean {
   return left.audience === right.audience && left.intendedOutcome === right.intendedOutcome &&
     left.durationMinutes === right.durationMinutes && left.meetingDate === right.meetingDate;
+}
+
+interface OperationEnvelope { readonly request: unknown; readonly operationId: string; readonly recordId: string | null; readonly pendingRevisionToken: string | null; }
+function operationEnvelope(value: unknown): OperationEnvelope | undefined {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const root = value as Record<string, unknown>;
+  if (Object.keys(root).sort().join(",") !== "operationId,pendingRevisionToken,recordId,request" ||
+      typeof root.operationId !== "string" || !/^[A-Za-z0-9_-]{32,64}$/u.test(root.operationId) ||
+      !(root.recordId === null || submittedRecordId(root) !== undefined) ||
+      !(root.pendingRevisionToken === null || submittedPendingRevisionToken(root) !== undefined)) return undefined;
+  return root as unknown as OperationEnvelope;
+}
+function matchesDisplayedState(session: Session, operation: OperationEnvelope): boolean {
+  return operation.recordId === (session.record?.recordId ?? null) && operation.pendingRevisionToken === session.pendingRevisionToken;
 }

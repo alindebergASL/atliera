@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { webcrypto } from "node:crypto";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -108,7 +109,7 @@ function runClient(options: ClientOptions) {
     write(html: string) { writes.push(html); },
     close() {},
   };
-  const window: Record<string, unknown> = { addEventListener() {}, location: { reload() {} } };
+  const window: Record<string, unknown> = { crypto: webcrypto, addEventListener() {}, location: { reload() {} } };
   if (options.storageUnavailable) {
     Object.defineProperty(window, "sessionStorage", { get() { throw new Error("storage blocked"); } });
   } else {
@@ -156,7 +157,7 @@ test("rapid in-flight edits cache the latest audience and outcome, send one canc
   form.fields.intendedOutcome!.value = "Edited goal while the previous generation is loading";
   await form.dispatch("input");
   assert.deepEqual(calls.map((call) => call.url), ["/api/generate", "/api/cancel"]);
-  assert.equal(calls[1]!.body.intendedOutcome, "");
+  assert.equal((calls[1]!.body.request as Record<string, unknown>).intendedOutcome, "");
 
   const secondSubmit = form.dispatch("submit");
   await new Promise((resolve) => setImmediate(resolve));
@@ -164,8 +165,8 @@ test("rapid in-flight edits cache the latest audience and outcome, send one canc
   resolveCancel({ ok: true, json: async () => ({ status: "cancelled" }) });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(calls.map((call) => call.url), ["/api/generate", "/api/cancel", "/api/generate"]);
-  assert.equal(calls[2]!.body.audience, "CIO and engineering leaders");
-  assert.equal(calls[2]!.body.intendedOutcome, "Edited goal while the previous generation is loading");
+  assert.equal((calls[2]!.body.request as Record<string, unknown>).audience, "CIO and engineering leaders");
+  assert.equal((calls[2]!.body.request as Record<string, unknown>).intendedOutcome, "Edited goal while the previous generation is loading");
   await secondSubmit;
   assert.match(client.status.textContent, /Failed to fetch/);
   resolveFirst({ ok: true, json: async () => ({ html: "STALE", location: "/?draft=1", history: "push" }) });
@@ -231,11 +232,11 @@ test("successful note save visibly confirms session-only non-approval state", as
     correctionNote: "Keep the outcome primary.",
     fetch: (url, init) => {
       calls.push({ url, body: JSON.parse(init.body) as Record<string, unknown> });
-      return response({ html: "UPDATED DRAFT", location: "/?draft=1", history: "replace" });
+      return response({ savedNote: "Keep the outcome primary.", noChange: false, html: "UPDATED DRAFT", location: "/?draft=1", history: "replace" });
     } });
   await client.noteForm!.dispatch("submit");
   assert.deepEqual(calls, [{ url: "/api/note", body: {
-    note: "Keep the outcome primary.", recordId: "c3_111111111111111111111111" } }]);
+    note: "Keep the outcome primary.", priorNote: "Keep the outcome primary.", recordId: "c3_111111111111111111111111" } }]);
   assert.deepEqual(client.navigation, [], "keeping a note preserves the current fragment and scroll position");
   assert.deepEqual(client.writes, [], "keeping a note preserves open evidence and the current textarea");
   assert.equal(client.reviewStatus.textContent, "Note kept for this session. It is not approval or durable storage.");
@@ -364,8 +365,8 @@ test("direct and repeated Cancel share the barrier before another generation", a
   await Promise.all([firstCancel, repeatedCancel]);
   await secondSubmit;
   assert.deepEqual(calls.map((call) => call.url), ["/api/generate", "/api/cancel", "/api/generate"]);
-  assert.equal(calls[2]!.body.audience, "CIO");
-  assert.equal(calls[2]!.body.intendedOutcome, "Second request after cancellation");
+  assert.equal((calls[2]!.body.request as Record<string, unknown>).audience, "CIO");
+  assert.equal((calls[2]!.body.request as Record<string, unknown>).intendedOutcome, "Second request after cancellation");
   assert.match(client.status.textContent, /retry failed/);
   resolveFirst({ ok: true, json: async () => ({ html: "STALE", location: "/?draft=1", history: "push" }) });
   await firstSubmit;
@@ -384,7 +385,7 @@ test("note save preserves newer typing and no-change revision leaves recovery an
   client.note.value = "Newer typing while save is pending";
   await client.revise.dispatch("click");
   assert.equal(calls, 1, "a concurrent revision cannot supersede an unsettled note action");
-  settle({ ok: true, json: async () => ({ status: "Note kept for this session." }) });
+  settle({ ok: true, json: async () => ({ status: "Note kept for this session.", savedNote: "Submitted note", noChange: false }) });
   await saving;
   assert.match(client.reviewStatus.textContent, /Newer edits.*still unsaved/);
   assert.deepEqual(client.writes, []);

@@ -1,6 +1,6 @@
 # C3 curated account preview
 
-This is a partial two-account input integration in the shared `src/c3` workflow. The legacy Utah path is unchanged. Missouri loads the public curated fixture at `fixtures/account-intelligence/c3-curated/missouri.json`.
+Utah and Missouri use the shared `src/c3` account-to-planning workflow. The legacy Utah path is unchanged. Missouri loads the public curated fixture at `fixtures/account-intelligence/c3-curated/missouri.json`.
 
 Build from the repository root, then start Missouri:
 
@@ -31,4 +31,4 @@ Manual strategy and next-step planning text is editable using session-only state
 
 Curated model generation and recorded replay are unavailable and refused before provider execution. This preview does not authorize provider activation, model recording, deployment, or other product effects.
 
-The shared interface now includes an [editable structured proposed-next-step bridge](c3-proposed-next-step.md). An in-app account switcher and full two-account sprint/persona acceptance remain later bounded work. Documentation alone grants no deployment, provider, or effects authority.
+The shared interface includes an [editable structured proposed-next-step bridge](c3-proposed-next-step.md). The [2026-09-07 integrated agent proof](../status/c3-two-account-product-proof-20260907.md) records completed two-account persona/browser verification and independent technical review; this is not customer or screen-reader acceptance. An in-app account switcher remains outside the delivered scope. Documentation alone grants no deployment, provider, or effects authority.

@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-calm-planning-presentation",
+    "recordId": "c3-two-account-product-proof-closeout",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Implement the authorized bounded C3 calm next-step presentation slice.",
-    "scope": "Shared Utah and Missouri next-step presentation: concise header and primary author/edit disclosure before optional kept details and read-only strategy suggestion; compact owner/date inputs with exact existing user text retained; numbered evidence labels linking to unchanged exact excerpts. Preserve session-only keep, no-change, cancellation, recovery, validation and refusal rules. No account switcher, new research, model or provider execution, private evidence acquisition, new spend, durable product writes, assignment, approval, sharing, outreach, deployment, migrations or protection changes. Full CI, two-account browser verification, independent reviews and publication remain integrator work; full persona/synthetic or customer acceptance is not claimed.",
+    "decision": "Reconcile the authorized C3 two-account sprint verification and local-preview handoff documentation.",
+    "scope": "Documentation and safety-test closeout only: reconcile two local preview guides, add the sanitized historical two-account implementation and verification status, and guard source counts and non-authorizing boundaries. Replace the previous-slice proposed build record with this scoped agent proposal. No runtime or fixture changes, new research, model or provider execution, private evidence acquisition, new spend, durable product writes, assignment, approval, sharing, outreach, deployment, migrations or protection changes. Reuse verified unchanged implementation proof; require exact-final-tree full CI, sequential independent spec and quality review, exact-head hosted checks and ordinary checked PR merge. Agent verification is not customer acceptance or human approval.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-07T08:47:26.376Z",
-    "proposalDigest": "sha256:74934cf38edc4817cd8dd6f37305ea9adeab30df21b65d8474c6a59924e67752"
+    "proposedAt": "2026-09-07T11:15:07.097Z",
+    "proposalDigest": "sha256:fb726856080d614014efd1b79c5de00a9b93b34399c8a40349176281e1bc5841"
   }
 }

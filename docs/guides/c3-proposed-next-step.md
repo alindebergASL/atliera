@@ -31,4 +31,4 @@ node --import tsx --test tests/c3/c3-service.test.ts
 npm run typecheck
 ```
 
-Presentation assertions check disclosure order, compact inputs, exact retained text and canonical evidence IDs; client checks cover input payloads, recovery, no-change, cancellation and delayed typing. They do not measure screen layout or establish customer acceptance. Independent source/evidence/security review and two-account desktop/mobile browser verification remain necessary for full sprint acceptance.
+Presentation assertions check disclosure order, compact inputs, exact retained text and canonical evidence IDs; client checks cover input payloads, recovery, no-change, cancellation and delayed typing. These source tests do not measure screen layout. Separate [integrated agent verification on 2026-09-07](../status/c3-two-account-product-proof-20260907.md) exercised both accounts at desktop, tablet and mobile sizes and received independent source/content/security review. This is not customer or screen-reader acceptance. Live product generation and durable product state remain outside this proof.

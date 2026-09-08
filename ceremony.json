@@ -2,13 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-integrated-design-327",
+    "recordId": "account-workshop-2030-333",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Implement the authorized issue 327 integrated Account to Prepare to Brief to Refine product design in shared C3.",
-    "scope": "Shared C3 presentation, contextual evidence and continuous revision with session-only note and stale-edit recovery, relevant regression tests and concise product direction and preview guide. Preserve both Utah and Missouri paths, source and raw-model identity, operation and record binding, honest recorded and unavailable modes. No new live product model calls, retrieval, new recording acquisition, provider or spend-route activation, durable product writes, assignment, sharing, content approval, outreach, deployment, migrations or protection changes. Require independent technical review, exact-tree full gates, exact-head hosted checks and ordinary checked merge. Agent verification is not customer acceptance or human approval.",
+    "decision": "Implement the authorized issue 333 Account-first intelligence workspace and connected Workshop successor in shared C3.",
+    "scope": "Shared source-bound Account readout, priorities, people and operating context, technology, discoveries, hypotheses and gaps; separate unreviewed inspection of four already-acquired public sources and nine exact excerpts; editorial responsive presentation and Account return position; tests and design guide. Preserve historical source and raw-response bytes, account scope/date distinctions and downstream recorded/manual-only behavior. No runtime acquisition or new product generation, provider or spend-route activation, durable product writes, assignment, sharing, content ratification, outreach, deployment, migration or protection changes. Prior bounded operator research is historical and separately authorized, not an effect enabled by this code. Require independent technical review, exact-head hosted checks and ordinary checked merge; no human approval or customer acceptance is inferred.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-08T01:46:24.000Z",
-    "proposalDigest": "sha256:deb0e3965c0643bd0ced0d0803501da2e985504f4ef7b17521961949d0696f84"
+    "proposedAt": "2026-09-08T08:03:05.000Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/issues/333",
+    "proposalDigest": "sha256:a62c944f4469e39981d3f827788bb0af5fb153c3dcc5cbe2aa2a10c325ae2028"
   }
 }

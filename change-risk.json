@@ -9,5 +9,7 @@
     "deployment": false,
     "customerEffect": false
   },
-  "guardWeakening": {}
+  "guardWeakening": {
+    "tests/safety/no-hardcoded-infrastructure.test.ts": "src/c3/account-research-catalog.ts"
+  }
 }

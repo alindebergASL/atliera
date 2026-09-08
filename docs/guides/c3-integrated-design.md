@@ -13,6 +13,77 @@ Implements the [issue #327 direction](https://github.com/alindebergASL/atliera/i
 
 ## Run the actual application
 
+### Account workspace successor — issue #333
+
+The Account workspace now extends the completed #327/#332 journey with an account-first
+reading in the same renderer. It does not require an audience, meeting outcome or Prepare
+action. The existing Prepare → Brief → notes/refine and manual worksheet contracts remain
+the bridge into Workshop; their provider-disabled and exact-recording limits still apply.
+
+- **Read and explore:** organization and context lead, followed by source-bound priorities,
+  people/functions and operating relationships, technology/services, dated discoveries,
+  unvalidated opportunity hypotheses and specific open questions. Topic links navigate real
+  sections. Priority, people and technology rows disclose their longer context and evidence;
+  an excerpt is reachable in two actions from a closed row. Open-question context links also
+  open the relevant row. The original proposal remains separately inspectable without
+  rewriting its meeting-oriented prose.
+- **Evidence and research:** the Account reuses the native evidence dialog and its
+  focus/scroll return behavior. **Open research** opens the retained source library, not a
+  live lookup. The separate public research layer described below uses native details.
+  Historical exact excerpts, source/entity scope, publication/event/current-through dates,
+  acquisition times and full supplied bounded text remain inspectable. Table rows retain
+  their exact header and original figures. Reading summaries are unreviewed interpretations
+  of retained material; evidence context is not direct proof of a paraphrase or hypothesis.
+- **Content boundary:** [the pure projection](../../src/c3/account-projection.ts) selects
+  authored reading notes through [exact retained anchors](../../src/c3/account-reading-anchors.ts).
+  Selection uses source/excerpt identity, excerpt bytes and source scope/date fingerprints,
+  never the account name. Changed or absent anchors suppress the affected notes; unmatched
+  material remains in source inspection. This is a presentation catalog, not a new admission
+  schema, model result or automatic summarizer. Adding future research requires deliberately
+  binding and reviewing its new reading notes. Neither the context loaders nor generation
+  inputs are extended by this projection. The separate Batch 02 catalog below does not use
+  these historical evidence anchors or extend their trust meaning.
+- **Two retained accounts:** Utah's reading distinguishes broad reinvestment, Responsible AI
+  workforce plans, Redtail's described HPE/NVIDIA platform and CHPC/statewide remit, planned
+  UHAIV partnership, academic-health relationships and FY2025 sponsored awards. Awards are
+  not spend or a solution budget. Missouri's reading covers Mizzou / Columbia strategy,
+  MizzouForward investment areas and separate UM System shared services. Its retained public
+  leadership and research-support passages are labeled **Exact source context · unreviewed**;
+  they have no new selected evidence IDs and do not enter the existing proposal. Current
+  role confirmation, deployed inventories, delivery stages, procurement and solution fit remain
+  explicit gaps; the separate research layer adds source-reported public roles and MU service scope. No prior account comparison, activity feed or account score is fabricated.
+- **New public research, separate inspection:** [the static Batch 02 catalog](../../src/c3/account-research-catalog.ts)
+  retains four public source records and nine exact excerpts acquired September 8, 2026,
+  outside the product before this integration. Its [Account-only projection](../../src/c3/account-research.ts)
+  selects by exact canonical account ID; unknown IDs receive no batch material. People and
+  Technology link to **Unreviewed research** within the research area. One native details
+  disclosure shows the exact excerpt, source URL, acquisition timestamp, unknown publication
+  date and unknown current-through date. No new modal or approval controls are added.
+  Utah lists Johansen as interim CIO, Long as interim CISO and Livingston as CTO. MU lists
+  Canlas with the explicitly MU CIO title, Fowler as CISO and Keeler's IT Research Support
+  Solutions role. These are attributed public roles, not buying owners or reporting lines.
+  MU DoIT service scope is not a deployed vendor inventory; AI evaluation is not a purchase,
+  deployment or funded project. Utah's `Last Updated: 6/30/26` is a page label only.
+  Technical source checks do not establish human approval, independent corroboration or
+  current roles. Research references are separate from selected evidence IDs and excluded
+  from approved facts, existing C3 contexts/proposals, Prepare, Brief, worksheets and model
+  requests. Historical sources and recorded requests/responses remain unchanged. The app
+  performs no source acquisition; source links navigate only on user activation. Public
+  source URLs are external-and-nonbinding evidence, not repository authority.
+- **Visual and return behavior:** ivory, serif readout, plum actions, sage/stone surfaces and
+  a shallow abstract tonal landscape are drawn locally in CSS. There are no remote fonts,
+  photos or generated campus imagery. Responsive rules cover desktop, intermediate and
+  narrow widths with reduced-motion handling. An optional tab-local position receipt
+  restores Account focus/scroll after Workshop; a deliberate topic/evidence fragment wins.
+  Storage refusal leaves native browser Back available. This receipt contains position and
+  navigation identity only and is not durable account memory.
+
+This successor's automated checks do not establish browser, accessibility or customer
+acceptance. The integrator must exercise the actual rebuilt application at 1440, 1280,
+1024, 390 and 320 pixels, review source meaning and responsive reading, verify downstream
+state safety, and supply independent review and delivery evidence. The historical execution
+record below belongs to #327/#332 and is not a new successor PASS.
+
 Use Node 22, install the locked dependencies with `npm ci` if needed, and run `npm run build` from the repository root. In separate terminals:
 
 ```sh
@@ -36,7 +107,7 @@ This accepts exact recorded requests only. Use the package's original audience/o
 2. **Recorded Utah:** prepare the exact retained meeting request; read the brief, open a contextual citation and dismiss it; add an Opening annotation, submit the exact recorded correction once, inspect computed changes, and reload. The verified final historical pair has three main questions in both versions. The in-app recorded label is consequential, not decorative.
 3. **Unavailable modes:** ordinary Utah has a disabled generation provider unless separately configured; Missouri deliberately offers manual templates and refuses generation/replay before provider access. Neither route implies arbitrary live generation. Synthetic sparse/conflict/failure fixtures support regression testing, not public-account facts or model-quality evidence.
 
-Utah/Missouri source and excerpt bytes are unchanged by this design. Missouri's retained extracted snapshots are not raw HTML or proof of original-source completeness. Acquisition time is not publication time or currentness; campus and system attribution remain distinct. Notes do not rewrite source quotations or historical raw responses.
+The historical Utah/Missouri context source and excerpt bytes are unchanged. The successor adds only the separately labeled public research catalog described above. Missouri's retained extracted snapshots are not raw HTML or proof of original-source completeness. Acquisition time is not publication time or currentness; campus and system attribution remain distinct. Notes do not rewrite source quotations or historical raw responses.
 
 ## Verification and delivery record
 
@@ -60,4 +131,4 @@ authorizes_deployment: false
 authorizes_sharing_or_approval: false
 ```
 
-Current session-only work is not durable workspace memory. This slice does not add C4 persistence, sharing, content approval, outreach, new product research or provider/spend-route activation. Those are separate consequential decisions, not implied follow-on work. Discretionary aesthetic polish does not reopen a verified bounded design milestone.
+Current session-only work is not durable workspace memory. The successor inspects newly acquired public research separately; it adds no runtime research acquisition, C4 persistence, sharing, content approval, outreach or provider/spend-route activation. Those are separate consequential decisions, not implied follow-on work. Discretionary aesthetic polish does not reopen a verified bounded design milestone.

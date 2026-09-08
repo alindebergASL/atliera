@@ -174,7 +174,7 @@ test("agentic AI usage baseline records current runtime and validation boundarie
       assert.match(homeHtml, /Account Home/);
       const prepare = await c3Request(running, "GET", "/?prepare=1", undefined, { cookie });
       assert.equal(prepare.statusCode, 200);
-      assert.match(prepare.text(), /Prepare for…/);
+      assert.match(prepare.text(), /<h1>Prepare a brief<\/h1>/);
       assert.deepEqual(running.status(), {
         provider: "disabled", ...zeroCounts, c2Implementation: "complete", ownerDisposition: "recorded",
         customerAvailability: "local_prototype_only",

@@ -1,3 +1,5 @@
+import { LocalWorkStore, newWorkDocumentId, type WorkingBrief, type WorkStoreOptions } from './work-store.ts';
+import { parseWorkspaceRoute } from "./workspace-route.ts";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
@@ -17,6 +19,14 @@ interface Session {
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
   correctionNote: string;
+  instruction: string;
+  proposal: C3GenerationRecord | null;
+  proposalStale: boolean;
+  records: C3GenerationRecord[];
+  documentId: string;
+  storageVersion: number;
+  workVersion: number;
+  savedWorkVersion: number;
   planning: Record<PlanningKind, PlanningBrief>;
   sectionNotes: Record<string, string>;
 
@@ -45,6 +55,7 @@ export interface C3ServerOptions {
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   readonly port?: number;
+  readonly workStore?: WorkStoreOptions;
   /** Labels hand-authored local fixtures; never changes request matching. */
   readonly syntheticPreview?: boolean;
   readonly now?: () => Date;
@@ -101,6 +112,7 @@ function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session
   return { id: randomBytes(24).toString("base64url"), csrf: randomBytes(24).toString("base64url"),
     form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
     planning: { strategy: newPlanningBrief("strategy"), "next-steps": newPlanningBrief("next-steps") }, sectionNotes: {},
+    instruction: "", proposal: null, proposalStale: false, records: [], documentId: newWorkDocumentId(), storageVersion: 0, workVersion: 0, savedWorkVersion: -1,
     correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0, operations: new Set() };
 }
 
@@ -154,11 +166,25 @@ function submittedPendingRevisionToken(value: unknown): string | undefined {
 
 export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
   if (isCuratedContext(options.context) && options.recordedReplay !== undefined) throw new Error("Agent-curated context cannot claim recorded replay");
+  const store = options.workStore ? new LocalWorkStore(options.workStore, options.context) : undefined;
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
-  const render = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
+  const generation = isCuratedContext(options.context) ? { available: false, explanation: "Fresh meeting generation is unavailable for this agent-curated context. Editable planning worksheets are available." } :
+    options.context.context.ownerCorrections.some(item => item.text.includes("not enabled")) ? { available: false, explanation: "Preparation held pending the recorded C2 revision." } :
+    options.provider.name === "disabled" ? { available: false, explanation: "Generation unavailable. This server has no configured model provider. Keep your setup or use a planning worksheet." } :
+    options.provider.name === "recorded-replay" ? { available: options.recordedReplay !== undefined, explanation: "Historical replay only. Only the exact recorded request is available; no fresh generation." } :
+    { available: true, explanation: options.provider.executionMode === "external" ? "Generation route configured. A provider request creates a proposed session draft." : options.provider.executionMode === "local" ? "Local generation route configured. Output remains proposed and session-only." : "Generation route configured. Output remains proposed and session-only." };
+  const render = (inputState: Parameters<typeof renderC3Page>[1], csrf: string): string => {
+    const session = [...sessions.values()].find(item => item.csrf === csrf);
+    let savedWorks: { documentId: string; version: number; audience: string }[] = [];
+    let storageError: string | undefined;
+    if (store && inputState.page === 'workshop') try { savedWorks = store.list().map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
+    const state = { ...inputState, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    return renderState(state, csrf);
+  };
+  const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
     options.recordedReplay === undefined ? undefined : { correctionNote: options.recordedReplay.correctionNote,
       initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
   let expectedHost = "";
@@ -183,6 +209,15 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (session === undefined) { json(res, 401, { error: "session required" }); return; }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
       const hasDraft = session.record?.draft !== undefined;
+      let route: ReturnType<typeof parseWorkspaceRoute>;
+      try { route = parseWorkspaceRoute(url.searchParams); }
+      catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "Invalid workspace location" }); return; }
+      if (route.destination === "research") {
+        html(res, 200, render({ page: "research", topic: route.topic, ...(route.reading ? { reading: route.reading } : {}), hasDraft, ...pendingPageState(session) }, session.csrf), C3_SCRIPT_SHA256); return;
+      }
+      if (route.destination === "workshop" && route.task === undefined) {
+        html(res, 200, render({ page: "workshop", worksheets: Object.values(session.planning), hasDraft, ...pendingPageState(session) }, session.csrf), C3_SCRIPT_SHA256); return;
+      }
       const kind = url.searchParams.get("kind");
       if (kind !== null) {
         if (kind !== "strategy" && kind !== "next-steps") { json(res, 400, { error: "Unknown brief kind" }); return; }
@@ -211,6 +246,62 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     let body: unknown;
     try { body = await readJson(req); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
+    if (store && session.record && url.pathname !== '/api/work-state' && req.headers['x-c3-document'] !== session.documentId) {
+      json(res,409,{error:'Displayed document is stale. Local work kept; reopen the intended document before editing or saving.'}); return;
+    }
+    if (url.pathname === '/api/work-state') {
+      json(res,200,{available:Boolean(store),recordId:session.record?.recordId ?? null, documentId:session.documentId, version:session.storageVersion, workVersion:session.workVersion, saved:Boolean(store && session.savedWorkVersion===session.workVersion), snapshot:{correctionNote:session.correctionNote,sectionNotes:session.sectionNotes,instruction:session.instruction,pendingRevisionToken:session.pendingRevisionToken,proposalId:session.proposal?.recordId ?? null,proposalStale:session.proposalStale}}); return;
+    }
+    if (url.pathname === '/api/save' || url.pathname === '/api/save-copy') {
+      if (!store) { json(res,409,{error:'Session only. No private work store is configured.'}); return; }
+      const value = body as Record<string,unknown>;
+      if (!value || session.active || !session.record?.draft || value.recordId !== session.record.recordId || value.documentId !== session.documentId || value.workVersion !== session.workVersion || value.expectedVersion !== session.storageVersion) {
+        json(res,409,{error:'Save conflict or newer work. Local text kept. Reopen the saved brief or Save a copy.'}); return;
+      }
+      const snapshot: WorkingBrief = {record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion};
+      try {
+        const copy=url.pathname === '/api/save-copy';
+        const saved=store.save(copy ? newWorkDocumentId() : session.documentId,copy ? 0 : session.storageVersion,snapshot);
+        session.documentId=saved.documentId; session.storageVersion=saved.version; session.savedWorkVersion=saved.work.workVersion;
+        json(res,200,{saved:true,documentId:saved.documentId,version:saved.version,workVersion:saved.work.workVersion,recordId:session.record.recordId});
+      } catch(error) { json(res,409,{error:error instanceof Error ? error.message : 'Save could not be confirmed. Local work kept; reopen or Save a copy.'}); }
+      return;
+    }
+    if (url.pathname === '/api/reopen') {
+      if (!store || session.active) { json(res,409,{error:'Saved work unavailable or generation active. Current work kept.'}); return; }
+      try {
+        const value=body as Record<string,unknown>;
+        if(session.record && session.savedWorkVersion!==session.workVersion && (value?.discardUnsaved!==true || value.workVersion!==session.workVersion)) {
+          json(res,409,{error:'Current brief has unsaved changes. Save a copy, or deliberately reopen the saved version from Workshop.'});return;
+        }
+        const saved=store.load(typeof value?.documentId === 'string' ? value.documentId : '');
+        const work=saved.work;
+        session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
+        session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
+        session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
+        session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
+        json(res,200,{reopened:true,recordId:work.record.recordId,documentId:saved.documentId,version:saved.version,location:'/?draft=1'});
+      } catch { json(res,409,{error:'Saved work could not be validated for this account and operator. Current work kept.'}); }
+      return;
+    }
+    if (url.pathname === '/api/revision-instruction') {
+      const value=body as Record<string,unknown>;
+      if (!value || value.recordId !== session.record?.recordId || !session.record || value.priorInstruction !== session.instruction) {json(res,409,{error:'Instruction baseline is stale. Newer work kept.'});return;}
+      try {
+        const instruction=boundedPlanningText(value.instruction,1000);
+        if(session.instruction!==instruction) { session.workVersion+=1; if(session.pendingRevision) session.proposalStale=true; }
+        session.instruction=instruction;
+        json(res,200,{instruction,recordId:session.record.recordId,workVersion:session.workVersion});
+      }catch{json(res,400,{error:'Invalid revision instruction'});}
+      return;
+    }
+    if (url.pathname === '/api/apply-revision') {
+      const value=body as Record<string,unknown>;
+      if(!value || session.active || !session.record || !session.proposal || session.proposalStale || !session.pendingRevision || value.recordId!==session.record.recordId || value.proposalId!==session.proposal.recordId || value.pendingRevisionToken!==session.pendingRevisionToken || value.instruction!==session.instruction || session.instruction!==session.pendingRevision.correctionNote || session.proposal.revision?.priorRecordId!==session.record.recordId) {json(res,409,{error:'Proposal is stale or unavailable. Current brief kept; regenerate from the current instruction.'});return;}
+      const previous=session.record; session.record=session.proposal; session.records.push(session.proposal);
+      session.proposal=null; session.pendingRevision=null; session.pendingRevisionToken=null; session.pendingPriorNote=null; session.instruction=''; session.workVersion+=1;
+      json(res,200,{applied:true,outcome:'succeeded',recordId:session.record.recordId,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changedSections(previous,session.record),html:render({page:'draft',record:session.record,correctionNote:session.correctionNote,revisionPending:false},session.csrf)});return;
+    }
     if (url.pathname.startsWith("/api/planning/")) {
       const kind = url.pathname.slice("/api/planning/".length);
       if (kind !== "strategy" && kind !== "next-steps") { json(res, 400, { error: "Unknown brief kind" }); return; }
@@ -231,7 +322,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     if (url.pathname === "/api/section-note") {
       const displayedRecordId = submittedRecordId(body);
-      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null ||
+      if (displayedRecordId === undefined ||
           session.record?.draft === undefined || session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft is stale or revision is pending. Reopen the current draft before keeping a section note." }); return;
       }
@@ -243,6 +334,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         const text = boundedPlanningText(value.text, 1000);
         const prior = session.sectionNotes[section] ?? "";
         if (value.priorText !== prior) throw new Error("Section note is stale. Copy your unsaved text and reopen the current draft.");
+        if (text !== prior) session.workVersion += 1;
         session.sectionNotes[section] = text;
         json(res, 200, { recordId: displayedRecordId, section, savedText: text, noChange: text === prior, status: text === prior ? "Note unchanged. Already kept for this session." :
           text === "" ? "Section note cleared. Recorded text unchanged." : "Section note kept for this session. Recorded text unchanged; no revision requested." });
@@ -277,7 +369,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     if (url.pathname === "/api/note") {
       const displayedRecordId = submittedRecordId(body);
-      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null || session.record?.draft === undefined ||
+      if (displayedRecordId === undefined || session.record?.draft === undefined ||
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before keeping a note." }); return;
       }
@@ -290,9 +382,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       const noChange = session.correctionNote === action.note;
       session.correctionNote = action.note;
+      if (!noChange) session.workVersion += 1;
       json(res, 200, { noChange, savedNote: action.note, status: noChange ? "Note unchanged. Already kept for this session." :
         "Note kept for this session. It is not approval or durable storage.", html: render({ page: "draft", record: session.record,
-        correctionNote: action.note, revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
+        correctionNote: action.note, ...pendingPageState(session) }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname === "/api/discard-revision") {
       const displayedRecordId = submittedRecordId(body);
@@ -305,14 +398,14 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       session.sequence += 1;
       session.pendingRevision = null;
       session.pendingRevisionToken = null;
-      session.correctionNote = session.pendingPriorNote ?? session.correctionNote;
+      session.proposal = null; session.instruction = ""; session.workVersion += 1;
       session.pendingPriorNote = null;
       json(res, 200, { discarded: true, recordId: session.record.recordId, pendingRevisionToken: null, savedNote: session.correctionNote, status: "Pending revision discarded. Previous brief and saved note restored.", html: render({ page: "draft", record: session.record, correctionNote: session.correctionNote,
         revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname === "/api/revise") {
       const displayedRecordId = submittedRecordId(body);
-      if (displayedRecordId === undefined || session.active !== undefined || session.pendingRevision !== null || session.record?.draft === undefined ||
+      if (displayedRecordId === undefined || session.active !== undefined || session.record?.draft === undefined ||
           session.record.recordId !== displayedRecordId) {
         json(res, 409, { error: "Displayed draft identity is missing or stale. Reopen the current session draft before requesting revision." }); return;
       }
@@ -342,16 +435,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       session.sequence += 1;
       session.revisionNumber = revisionNumber;
       session.pendingPriorNote = session.correctionNote;
-      session.correctionNote = action.note;
+      session.instruction = action.note;
+      session.proposal = null; session.proposalStale = false; session.workVersion += 1;
       session.pendingRevision = revision;
       const pendingRevisionToken = randomBytes(24).toString("base64url");
       session.pendingRevisionToken = pendingRevisionToken;
       session.form = prior.meetingRequest;
-      json(res, 200, { revisionReady: true, recordId: prior.recordId, pendingRevisionToken, request: prior.meetingRequest, savedNote: session.correctionNote, status: "Revision staged. Previous brief kept.", html: render({ page: "prepare", request: session.form,
-        error: `Revision ${String(session.revisionNumber)} will include the exact session correction and prior raw/draft identity.`,
-        correctionNote: session.correctionNote, hasDraft: true, revisionPending: true,
-        pendingRevisionToken }, session.csrf),
-        location: "/?prepare=1", history: "replace" }); return;
+      json(res, 200, { revisionReady: true, recordId: prior.recordId, pendingRevisionToken, request: prior.meetingRequest, savedNote: session.correctionNote, instruction: session.instruction, status: "Revision staged. Previous brief kept.", html: render({page:"draft",record:prior,correctionNote:session.correctionNote,...pendingPageState(session)},session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname !== "/api/generate") { json(res, 404, { error: "not found" }); return; }
     if (isCuratedContext(options.context)) {
@@ -363,7 +453,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       json(res, 409, { error: "Displayed generation state is missing, stale, or already used. Reopen Prepare before submitting." }); return;
     }
     let request: C3MeetingRequest;
-    try { request = snapshotMeetingRequest(operation.request); } catch (error) {
+    try {
+      const supplied=operation.request as Record<string,unknown>;
+      request = snapshotMeetingRequest(supplied?.meetingDate === '' && options.recordedReplay === undefined && session.pendingRevision === null ? {...supplied,meetingDate:nextMeetingDate(now())} : operation.request);
+    } catch (error) {
       json(res, 400, { error: error instanceof Error ? error.message : "invalid meeting request" }); return;
     }
     if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
@@ -412,25 +505,25 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       if (generation.outcome === "refused") {
         events.push({ kind: "refused", sequence });
-        const page = render({ page: "prepare", request,
+        const page = render(revision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:`Candidate refused without repair: ${generation.refusal!.message}`,...pendingPageState(session)} : { page: "prepare", request,
           error: `Candidate refused without repair: ${generation.refusal!.message}`,
           hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
           ...pendingPageState(session) }, session.csrf);
-        json(res, 422, { outcome: "refused", operation, error: generation.refusal!.message, html: page, location: "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
+        json(res, 422, { outcome: "refused", operation, error: generation.refusal!.message, html: page, location: revision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
-      const sections = { "Proposed objective": "objective", "Situation for this audience": "audienceThesis", Opening: "opening", Questions: "questions", "Useful close": "closeCriterion", "Risks and unknowns": "risksUnknowns", Warnings: "warnings", Evidence: "selectedEvidenceRefs", "Temporal outcome": "temporalOutcome" } as const;
-      const changedSections = revision?.priorDraft === undefined ? [] : Object.entries(sections).filter(([, key]) =>
-        JSON.stringify(revision.priorDraft![key]) !== JSON.stringify(generation.draft![key])).map(([label]) => label);
-      if (revision === null) session.sectionNotes = {};
-      session.record = generation;
-      session.correctionNote = revision?.correctionNote ?? "";
-      session.pendingRevision = null;
-      session.pendingRevisionToken = null;
-      session.pendingPriorNote = null;
+      const changed = revision && session.record ? changedSections(session.record,generation) : [];
+      if (revision !== null) {
+        session.proposal = generation; session.workVersion += 1;
+        events.push({kind:'succeeded',sequence});
+        json(res,200,{outcome:'succeeded',operation,proposalReady:true,stale:session.proposalStale,proposalId:generation.recordId,recordId:session.record!.recordId,instruction:revision.correctionNote,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changed,proposal:generation.draft,original:session.record!.draft,status:'Proposal ready. Current brief stays unchanged until Apply revision.',html:render({page:'draft',record:session.record!,correctionNote:session.correctionNote,...pendingPageState(session)},session.csrf)}); return;
+      }
+      session.sectionNotes = {}; session.record = generation; session.records = [generation];
+      session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
+      session.correctionNote = ''; session.instruction=''; session.proposal=null;
+      session.pendingRevision = null; session.pendingRevisionToken = null; session.pendingPriorNote = null;
       events.push({ kind: "succeeded", sequence });
-      json(res, 200, { outcome: "succeeded", operation, recordId: generation.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, changedSections, status: "Revised brief ready. Session notes kept.", html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,
-        revisionPending: false }, session.csrf),
-        location: "/?draft=1", history: "push" });
+      json(res, 200, { outcome: "succeeded", operation, recordId: generation.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, changedSections: changed, status: "Brief ready.", html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,
+        revisionPending: false }, session.csrf), location: "/?draft=1", history: "push" });
     } catch (error) {
       if (session.sequence !== sequence || controller.signal.aborted) {
         if (!res.writableEnded) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });
@@ -438,10 +531,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       events.push({ kind: "failed", sequence });
       const message = error instanceof Error ? error.message : "generation failed";
-      json(res, 502, { outcome: "failed", operation, html: render({ page: "prepare", request, error: message,
+      json(res, 502, { outcome: "failed", operation, html: render(session.pendingRevision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:message,...pendingPageState(session)} : { page: "prepare", request, error: message,
         hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
         ...pendingPageState(session) }, session.csrf),
-        location: "/?prepare=1", history: "replace", error: message });
+        location: session.pendingRevision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", error: message });
     } finally {
       res.off("close", onResponseClose);
       if (session.active?.sequence === sequence) session.active = undefined;
@@ -518,4 +611,9 @@ function operationEnvelope(value: unknown): OperationEnvelope | undefined {
 }
 function matchesDisplayedState(session: Session, operation: OperationEnvelope): boolean {
   return operation.recordId === (session.record?.recordId ?? null) && operation.pendingRevisionToken === session.pendingRevisionToken;
+}
+
+function changedSections(prior:C3GenerationRecord, next:C3GenerationRecord):string[] {
+  const sections = { "Proposed objective": "objective", "Situation for this audience": "audienceThesis", Opening: "opening", Questions: "questions", "Useful close": "closeCriterion", "Risks and unknowns": "risksUnknowns", Warnings: "warnings", Evidence: "selectedEvidenceRefs", "Temporal outcome": "temporalOutcome" } as const;
+  return Object.entries(sections).filter(([,key])=>JSON.stringify(prior.draft?.[key])!==JSON.stringify(next.draft?.[key])).map(([label])=>label);
 }

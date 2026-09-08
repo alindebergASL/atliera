@@ -108,7 +108,8 @@ async function browserSession(running: RunningC3Server) {
     }
     return result;
   };
-  return { cookie, csrf, page: response.text, post, rawPost };
+  const apply = (proposal: any) => post('/api/apply-revision', {recordId:proposal.recordId,proposalId:proposal.proposalId,instruction:proposal.instruction,pendingRevisionToken:proposal.operation.pendingRevisionToken});
+  return { cookie, csrf, page: response.text, post, rawPost, apply };
 }
 
 function pendingRevisionToken(html: string): string {
@@ -127,16 +128,14 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
   const running = await harness(new DisabledC3ModelProvider(), () => new Date("2026-09-05T00:00:00.000Z"));
   try {
     const browser = await browserSession(running);
-    assert.match(browser.page, /Prepare for…/);
-    assert.match(browser.page, /Proposed account orientation · not reviewed/);
-    assert.match(browser.page, /Related evidence context for this proposed thesis|Direct source support/);
+    assert.match(browser.page, /Prepare brief/);
+    assert.match(browser.page, /The sources suggest/);
     assert.match(browser.page, /<blockquote>/);
-    assert.match(browser.page, /Account readout/);
-    assert.match(browser.page, /Proposed next action/);
-    assert.ok(browser.page.indexOf('class="hero-actions"') < browser.page.indexOf('class="account-readout"'),
-      "optional preparation remains early while Account reading stands alone");
+    assert.match(browser.page, /class="account-readout"/);
+    assert.doesNotMatch(browser.page, /id="original-account-proposal"/);
+    assert.ok(browser.page.indexOf('>Prepare brief</a>') < browser.page.indexOf('class="account-readout"'));
     assert.match(browser.page, /@media\(max-width:700px\)/);
-    assert.match(browser.page, /server restart loses them/);
+    assert.match(browser.page, /server restart loses unsaved work/);
     assert.doesNotMatch(browser.page, /Private candidate preview|Recorded responses|No live generation/);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /value="2026-09-12"/);
@@ -172,12 +171,12 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     now: () => new Date("2031-01-01T00:00:00.000Z"), recordedReplay: { initialRequest, correctionNote } });
   try {
     const browser = await browserSession(running);
-    assert.match(browser.page, /Private candidate preview · Recorded responses · No live generation/);
-    assert.match(browser.page, /Proposed meeting drafts.*Session-only; no approval or durable save/);
+    assert.match(browser.page, /Recorded responses · No live generation/);
+    assert.match(browser.page, /Private document storage never changes account truth or approves content/);
     assert.doesNotMatch(browser.page, /Unmerged and proposed/);
-    assert.match(browser.page, />Prepare for…</);
+    assert.match(browser.page, />Prepare brief</);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
-    assert.match(prepare.text, /Private candidate preview · Recorded responses · No live generation/);
+    assert.match(prepare.text, /Recorded responses · No live generation/);
     assert.match(prepare.text, /value="CIO and engineering leaders"/);
     assert.match(prepare.text, /Understand priorities and agree a useful next step/);
     assert.match(prepare.text, /value="15" selected/);
@@ -190,14 +189,14 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const generated = await browser.post("/api/generate", initialRequest);
     assert.equal(generated.status, 200);
     const priorHtml = (JSON.parse(generated.text) as { html: string }).html;
-    assert.match(priorHtml, /Private candidate preview · Recorded responses · No live generation/);
+    assert.match(priorHtml, /Recorded responses · No live generation/);
     assert.match(priorHtml, new RegExp(`data-record-id="${priorRecord.recordId}"`));
     assert.match(priorHtml, /Exact correction available for the recorded revision/);
     assert.match(priorHtml, /data-use-recorded-note>Use exact recorded correction/);
     assert.match(priorHtml, /Recorded correction: keep the exact prior identity and allow no follow-up\./);
     assert.equal(priorHtml.match(/Recorded initial — before correction\./gu)?.length, 1);
     assert.ok(priorHtml.indexOf("Recorded initial — before correction.") < priorHtml.indexOf('class="draft-grid"'));
-    assert.match(C3_CLIENT_SCRIPT, /Exact recorded correction copied into the textarea/);
+    assert.match(C3_CLIENT_SCRIPT, /Exact recorded correction copied into the instruction/);
 
     const arbitrary = "Arbitrary owner note stays a note and has no matching recorded result.";
     const kept = await browser.post("/api/note", { note: arbitrary, recordId: priorRecord.recordId });
@@ -206,11 +205,12 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const revised = await browser.post("/api/revise", { note: correctionNote, recordId: priorRecord.recordId });
     assert.equal(revised.status, 200);
     const revisionPrepare = (JSON.parse(revised.text) as { html: string }).html;
-    assert.match(revisionPrepare, /Revision 1 will include the exact session correction and prior raw\/draft identity/);
-    assert.match(revisionPrepare, />Replay exact recorded response</);
+    assert.match(revisionPrepare, /data-revision-instruction/);
+    assert.match(revisionPrepare, /Propose revision/);
     const regenerated = await browser.post("/api/generate", initialRequest);
     assert.equal(regenerated.status, 200);
-    const revisionHtml = (JSON.parse(regenerated.text) as { html: string }).html;
+    const proposal = JSON.parse(regenerated.text); assert.equal(proposal.recordId, priorRecord.recordId); assert.equal(proposal.proposalId, revisionRecord.recordId);
+    const revisionHtml = JSON.parse((await browser.apply(proposal)).text).html;
     assert.match(revisionHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
     assert.match(revisionHtml, /Recorded revision.*No further recorded response exists/);
     assert.equal(running.status().provider, "recorded-replay");
@@ -248,7 +248,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const tokenA = pendingRevisionToken(pendingA.text);
     assert.equal((await retryBrowser.post("/api/discard-revision", { recordId: retryInitialId, pendingRevisionToken: tokenA })).status, 200);
     const exactRetry = await retryBrowser.post("/api/revise", { note: correctionNote, recordId: retryInitialId });
-    assert.match((JSON.parse(exactRetry.text) as { html: string }).html, /Revision 1 will include/);
+    assert.match((JSON.parse(exactRetry.text) as { html: string }).html, /data-revision-instruction/);
     const pendingB = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: retryBrowser.cookie });
     const tokenB = pendingRevisionToken(pendingB.text);
     assert.notEqual(tokenB, tokenA);
@@ -259,7 +259,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.equal((await retryBrowser.post("/api/revise", { note: correctionNote, recordId: retryInitialId })).status, 200);
     const retriedRevision = await retryBrowser.post("/api/generate", initialRequest);
     assert.equal(retriedRevision.status, 200);
-    const retriedHtml = (JSON.parse(retriedRevision.text) as { html: string }).html;
+    const retriedHtml = JSON.parse((await retryBrowser.apply(JSON.parse(retriedRevision.text))).text).html;
     assert.match(retriedHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
     const nextRevision = await retryBrowser.post("/api/revise", { note: "Next successful lineage", recordId: revisionRecord.recordId });
     assert.equal(nextRevision.status, 409);
@@ -320,7 +320,7 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     const browser = await browserSession(running);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.equal(prepare.status, 200);
-    assert.match(prepare.text, /Prepare a meeting/);
+    assert.match(prepare.text, /Prepare a brief/);
     const generated = await browser.post("/api/generate", meetingRequest);
     assert.equal(generated.status, 200);
     const payload = JSON.parse(generated.text) as { html: string; location: string; history: string };
@@ -330,10 +330,10 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     assert.doesNotMatch(payload.html, /evidence_[a-f0-9]+/);
     assert.deepEqual({ location: payload.location, history: payload.history }, { location: "/?draft=1", history: "push" });
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
-    assert.match(reloaded.text, /Meeting draft/);
+    assert.match(reloaded.text, /Your meeting brief/);
     const home = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
-    assert.match(home.text, /Account Intel/);
-    assert.match(home.text, /aria-current="page">Account Intel/);
+    assert.match(home.text, /Overview/);
+    assert.match(home.text, /id="journey-overview"[^>]*aria-current="page"/);
     assert.match(home.text, /href="\/\?draft=1"[^>]*>Reopen session draft/);
     assert.equal(running.status().generationSucceeded, 1);
   } finally { await running.close(); }
@@ -418,7 +418,7 @@ test("invalid model JSON is refused without repair; Host, Origin, session, and C
       assert.equal(malformed.status, 400, target);
     }
     assert.equal((await requestTo(running, "GET", "/healthz")).status, 200);
-    assert.match((await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie })).text, /Prepare for…/);
+    assert.match((await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie })).text, /Prepare a brief/);
     const noOrigin = await requestTo(running, "POST", "/api/generate", meetingRequest,
       { cookie: browser.cookie, "x-c3-csrf": browser.csrf, "content-type": "application/json" });
     assert.equal(noOrigin.status, 403);
@@ -638,21 +638,21 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     const revision = await browser.post("/api/revise", { note, recordId });
     assert.equal(revision.status, 200);
     const revisionPayload = JSON.parse(revision.text) as { html: string; location: string; history: string };
-    assert.match(revisionPayload.html, /Revision 1 will include/);
-    assert.deepEqual({ location: revisionPayload.location, history: revisionPayload.history }, { location: "/?prepare=1", history: "replace" });
+    assert.match(revisionPayload.html, /data-revision-instruction/);
+    assert.deepEqual({ location: revisionPayload.location, history: revisionPayload.history }, { location: "/?draft=1", history: "replace" });
     const preservedDraft = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.equal(preservedDraft.status, 200);
     assert.match(preservedDraft.text, new RegExp(`data-record-id="${recordId}"`));
     assert.match(preservedDraft.text, /Revision pending.*preserved previous draft/s);
-    assert.match(preservedDraft.text, /\.review\{[^}]*color:var\(--ink\)/,
+    assert.match(preservedDraft.text, /\.review\{[^}]*color:var\(--atl-ink\)/,
       "review uses a legible dark foreground on the light surface");
-    assert.match(preservedDraft.text, /Discard pending revision/);
+    assert.match(preservedDraft.text, /Keep original/);
     assert.doesNotMatch(preservedDraft.text, /<textarea[^>]* disabled>/, "pending revision keeps editors available for newer typing");
-    assert.match(preservedDraft.text, /<button type="submit" disabled>Add a note<\/button>/);
-    assert.match(preservedDraft.text, /data-revise disabled>Revise brief<\/button>/);
+    assert.match(preservedDraft.text, /<button type="submit" class="secondary">Keep note<\/button>/);
+    assert.match(preservedDraft.text, /data-revise>Propose revision<\/button>/);
     assert.doesNotMatch(preservedDraft.text, /data-discard-revision[^>]* disabled/);
-    assert.equal((await browser.post("/api/note", { note: "stale note", recordId })).status, 409);
-    assert.equal((await browser.post("/api/revise", { note: "second pending revision", recordId })).status, 409);
+    assert.equal((await browser.post("/api/note", { note: "Independent note", recordId })).status, 200);
+    assert.equal((await browser.rawPost("/api/revise", { note: "second pending revision", recordId, priorNote: "stale baseline" })).status, 409);
     assert.equal((await browser.post("/api/generate", meetingRequest)).status, 200);
     assert.equal(captured.length, 2);
     assert.equal(captured[0]!.revision, null);
@@ -950,7 +950,7 @@ test("rendered review handlers surface note and revise network errors and revise
   class FormDataStub { get(name: string): unknown { return name === "note" ? note.value : null; } }
   const calls: { url: string; body: string }[] = [];
   const document = { querySelector(selector: string): unknown { return ({ '[data-note-form]': noteForm, '[data-revise]': revise,
-    '[data-correction-note]': note, '[data-review-status]': reviewStatus, 'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
+    '[data-correction-note]': note, '[data-revision-instruction]': note, '[data-revision-status]': reviewStatus, '[data-review-status]': reviewStatus, 'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
     open() {}, write() {}, close() {} };
   const fetchStub = async (url: string, init: { body: string }): Promise<never> => { calls.push({ url, body: init.body }); throw new Error(`${url} network unavailable`); };
   vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
@@ -977,7 +977,7 @@ test("Prepare success uses native safe navigation without rewriting the page", a
   const heading = { setAttribute: (name: string, value: string) => focusEvents.push([name, value]), focus: (options: unknown) => focusEvents.push(JSON.parse(JSON.stringify(options))) };
   const writes: string[] = []; const navigation: string[] = [];
   const document = { querySelector(selector: string): unknown { return ({ 'main h1': heading, '[data-generate]': form, '[data-status]': status,
-    '[data-revise]': revise, '[data-correction-note]': note, '[data-review-status]': reviewStatus,
+    '[data-revise]': revise, '[data-correction-note]': note, '[data-revision-instruction]': note, '[data-revision-status]': reviewStatus, '[data-review-status]': reviewStatus,
     'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
     open() {}, write(html: string) { writes.push(html); navigation.push(`write:${html}`); }, close() {} };
   class FormDataStub { constructor(private readonly element: Element) {} get(name: string): unknown { return this.element.values[name]; } }
@@ -1060,7 +1060,8 @@ test("exact unchanged submissions retain draft and note, while each meeting deci
     // Saving before revising must still work: note equality is against the applied correction, not the saved note.
     await browser.post("/api/note", { recordId, note });
     await browser.post("/api/revise", { recordId, note });
-    const revised = JSON.parse((await browser.post("/api/generate", meetingRequest)).text) as { html: string };
+    const proposal = JSON.parse((await browser.post("/api/generate", meetingRequest)).text);
+    const revised = JSON.parse((await browser.apply(proposal)).text) as { html: string };
     const revisedId = revised.html.match(/data-record-id="([^"]+)"/)![1]!;
     assert.notEqual(revisedId, recordId);
     assert.equal(captured.length, 2);
@@ -1105,7 +1106,7 @@ test("brief exposes sparse and conflicting fixture context without inventing sup
   assert.match(html, /Unknown · not established/);
   assert.ok(html.includes(conflict));
   assert.ok(html.includes(gap));
-  assert.match(html, /Full retained source context/);
+  assert.match(html, /Full source context in Research/);
   assert.match(html, /Context is insufficient/);
   assert.equal(record.rawResponse, JSON.stringify(value));
   assert.doesNotMatch(html, /data-evidence-link data-context=/);
@@ -1119,9 +1120,10 @@ test("Account Intel and purpose-specific templates share injected context withou
     const running = await startC3Server({ context: ctx, provider: new DisabledC3ModelProvider(), listen: false, expectedHost: HOST });
     try {
       const browser = await browserSession(running);
-      assert.match(browser.page, /Account Intel/);
-      assert.match(browser.page, /Developments and priorities/);
-      assert.match(browser.page, /Stakeholders and relationships/);
+      assert.match(browser.page, /Overview/);
+      const research = await requestTo(running, "GET", "/?view=research&topic=initiatives", undefined, { cookie: browser.cookie });
+      assert.match(research.text, /Developments and priorities/);
+      assert.match(research.text, /Stakeholders and relationships/);
       assert.doesNotMatch(browser.page, account === "harbor" ? /Cedar Works/ : /Harbor Transit/);
       const strategy = await requestTo(running, "GET", "/?kind=strategy", undefined, { cookie: browser.cookie });
       assert.match(strategy.text, /Options and tradeoffs/);
@@ -1169,7 +1171,7 @@ test("in-place meeting notes retain raw response, bind displayed identity and pr
     assert.equal(record.rawResponse, raw);
     assert.equal((await browser.post("/api/section-note", { ...edit, priorText: edit.text, text: "" })).status, 200);
     assert.equal((await browser.post("/api/revise", { recordId: record.recordId, note: "A correction without any recorded response" })).status, 200);
-    assert.equal((await browser.post("/api/section-note", edit)).status, 409);
+    assert.equal((await browser.post("/api/section-note", edit)).status, 200);
     assert.equal((await browser.post("/api/planning/strategy", { version: 0, section: "decision", text: "Blocked while pending" })).status, 409);
     assert.equal((await browser.post("/api/planning/next-steps", { version: 0, proposedNextStep: { concern: "Question", action: "Investigate", owner: "", targetDate: "", questionOrBlocker: "", evidenceIds: [] } })).status, 409);
     assert.equal((await browser.post("/api/generate", syntheticMeetingRequest)).status, 502);
@@ -1187,7 +1189,7 @@ test("sparse and conflicting synthetic contexts remain explicit across account a
       const browser = await browserSession(running);
       for (const route of ["/", "/?kind=strategy", "/?kind=next-steps"]) {
         const page = await requestTo(running, "GET", route, undefined, { cookie: browser.cookie });
-        assert.match(page.text, mode === "sparse" ? /No admitted sources/ : /Conflicting context/);
+        assert.match(page.text, mode === "sparse" ? route === "/" ? /There is not enough matched evidence/ : /No admitted sources/ : /Conflicting context/);
       }
     } finally { await running.close(); }
   }
@@ -1355,13 +1357,13 @@ test("Refine stage and generation acknowledge owned continuous revision and comp
     assert.equal(first.outcome, "succeeded");
     const stage = JSON.parse((await browser.rawPost("/api/revise", { recordId: first.recordId, priorNote: "", note: "Improve the opening." })).text);
     assert.equal(stage.revisionReady, true); assert.deepEqual(stage.request, meetingRequest);
-    assert.equal(stage.recordId, first.recordId); assert.equal(stage.savedNote, "Improve the opening.");
+    assert.equal(stage.recordId, first.recordId); assert.equal(stage.savedNote, ""); assert.equal(stage.instruction, "Improve the opening.");
     const operation = { request: stage.request, recordId: stage.recordId, pendingRevisionToken: stage.pendingRevisionToken, operationId: randomBytes(24).toString("base64url") };
     const wrong = await browser.rawPost("/api/generate", { ...operation, request: { ...meetingRequest, audience: "Other audience" } });
     assert.equal(wrong.status, 409); assert.equal(calls, 1);
     const next = JSON.parse((await browser.rawPost("/api/generate", operation)).text);
     assert.equal(next.outcome, "succeeded"); assert.deepEqual(next.operation, operation);
-    assert.equal(next.savedNote, stage.savedNote); assert.notEqual(next.recordId, first.recordId);
+    assert.equal(next.savedNote, stage.savedNote); assert.equal(next.recordId, first.recordId); assert.notEqual(next.proposalId, first.recordId); assert.equal(next.proposalReady, true);
     assert.deepEqual(next.changedSections, ["Opening"]); assert.deepEqual(next.sectionNotes, {});
   } finally { await running.close(); }
 });
@@ -1370,4 +1372,27 @@ test("continuous Refine program has no document rewrite and uses explicit outcom
   assert.doesNotMatch(C3_CLIENT_SCRIPT, /document\.(?:open|write|close)\(/);
   assert.match(C3_CLIENT_SCRIPT, /revisionReady/); assert.match(C3_CLIENT_SCRIPT, /payload\.outcome/);
   assert.match(C3_CLIENT_SCRIPT, /rebindSectionNotes/);
+});
+
+test("workspace routes retain session identity and disabled generation is visible before submission", async () => {
+  const running = await startC3Server({ context: await context(), provider: new DisabledC3ModelProvider(), listen: false, expectedHost: HOST });
+  try {
+    const browser = await browserSession(running);
+    for (const [url, selected] of [["/", "overview"], ["/account?view=research&topic=people", "research"], ["/?view=research&topic=technology&reading=redtail-platform", "research"], ["/?view=workshop", "workshop"], ["/?prepare=1", "workshop"], ["/?kind=strategy", "workshop"]]) {
+      const response = await requestTo(running, "GET", url!, undefined, { cookie: browser.cookie });
+      assert.equal(response.status, 200, url);
+      assert.ok(response.text.includes(`id="journey-${selected}"`));
+      assert.match(response.text, new RegExp(`id="journey-${selected}"[^>]*aria-current="page"`));
+      assert.ok(response.text.includes(`name="c3-csrf" content="${browser.csrf}"`));
+      assert.equal(response.headers.has("set-cookie"), false);
+    }
+    const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
+    assert.match(prepare.text, /Generation unavailable\. This server has no configured model provider/);
+    assert.match(prepare.text, /data-generation-available="false"/);
+    assert.match(prepare.text, /<button type="submit" disabled>Prepare brief<\/button>/);
+    for (const query of ["view=unknown", "view=research&topic=unknown", "view=research&reading=%3Cscript%3E"]) {
+      assert.equal((await requestTo(running, "GET", `/?${query}`, undefined, { cookie: browser.cookie })).status, 400);
+    }
+    assert.equal(running.status().generationSucceeded, 0);
+  } finally { await running.close(); }
 });

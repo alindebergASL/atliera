@@ -72,16 +72,16 @@ test("Account identity never selects a school-specific reading and sparse/confli
   const html = renderC3Page(sparse, { page: "home" }, "test");
   assert.ok(html.includes("There is not enough matched evidence"));
   assert.ok(html.includes("Conflicting context."));
-  const technology = html.slice(html.indexOf('id="account-technology"'), html.indexOf('id="account-discoveries"'));
-  assert.ok(technology.includes('href="#account-research-technology"'), "Separate research remains inspectable with sparse historical context");
+  const technology = html.slice(html.indexOf('id="account-technology"'), html.indexOf('<section class="context-note"'));
+  assert.ok(technology.includes('href="/?view=research&amp;topic=technology"'), "Separate research remains inspectable with sparse historical context");
   assert.ok(!technology.includes('id="reading-'), "No technology reading is inferred from missing historical evidence");
   assert.ok(!html.includes('id="account-priorities"'));
-  assert.ok(html.includes("No earlier account review to compare"));
+  assert.ok(renderC3Page(sparse, { page: "research", topic: "initiatives" }, "test").includes("No earlier account review to compare"));
 });
 
 test("All Account contextual evidence links resolve to exact inspectable content with unique navigation IDs", async () => {
   for (const frozen of [await utah(), await missouri()]) {
-    const html = renderC3Page(frozen, { page: "home" }, "test");
+    const html = renderC3Page(frozen, { page: "research", topic: "sources" }, "test");
     const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]!);
     assert.equal(ids.length, new Set(ids).size, "duplicate IDs would break contextual return");
     for (const match of html.matchAll(/data-evidence-link[^>]+href="#([^"]+)"/gu)) assert.ok(ids.includes(match[1]!), match[1]);

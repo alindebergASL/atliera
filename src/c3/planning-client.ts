@@ -37,7 +37,7 @@ export const PLANNING_CLIENT_SCRIPT = `
         if (cached.identity === identity() && sameBaseline && fields.every((field) => valid(field, cached.values?.[field.name]))) {
           fields.forEach((field) => { write(field, cached.values[field.name]); });
           state.cached = true;
-          if (JSON.stringify(values()) !== JSON.stringify(state.saved)) { form.closest('details').open = true; status.textContent = 'Unsubmitted edit restored in this tab. Keep it deliberately for this session.'; }
+          if (JSON.stringify(values()) !== JSON.stringify(state.saved)) { if (form.dataset.recordId && typeof markWorkDirty === 'function') markWorkDirty(); form.closest('details').open = true; status.textContent = 'Unsubmitted edit restored in this tab. Keep it deliberately for this session.'; }
         } else { state.staleCache = true; status.textContent = 'An older unsubmitted edit exists for a different brief version or saved baseline. Copy it below before discarding; current saved content was kept.';
           recovery = document.createElement('pre'); recovery.className = 'source-text'; recovery.textContent = JSON.stringify(cached.values, null, 2); status.after(recovery); form.closest('details').open = true; }
       }
@@ -66,6 +66,7 @@ export const PLANNING_CLIENT_SCRIPT = `
               result.version !== Number(form.dataset.version) + (result.noChange ? 0 : 1))) {
           throw new Error('Session save was not confirmed by a valid response');
         }
+        if (form.dataset.recordId && state.saved.text !== submitted.text && typeof markWorkDirty === 'function') markWorkDirty();
         state.saved = submitted;
         const dirty = JSON.stringify(values()) !== JSON.stringify(submitted);
         if (result.version !== undefined) {
@@ -94,6 +95,18 @@ export const PLANNING_CLIENT_SCRIPT = `
     });
     return state;
   });
+  displayedSectionNotes = () => Object.fromEntries(states.filter(state=>state.form.dataset.recordId).map(state=>[state.form.dataset.section,state.values().text]));
+  flushSectionNotes = async () => {
+    if(busy) throw Error('A note update is still running. Retry Save after it settles.');
+    for(const state of states.filter(item=>item.form.dataset.recordId)) {
+      const submitted=state.values(); if(submitted.text===state.saved.text)continue;
+      const result=await requestJson('/api/section-note',{recordId:state.form.dataset.recordId,section:state.form.dataset.section,text:submitted.text,priorText:state.saved.text});
+      if(result.error || result.savedText!==submitted.text || result.recordId!==state.form.dataset.recordId)throw Error(result.error || 'Section note was not confirmed');
+      state.saved=submitted; if (typeof markWorkDirty === 'function') markWorkDirty();
+      const copy=state.form.closest('.draft-section')?.querySelector('[data-saved-copy]');if(copy){copy.textContent=submitted.text?'User note · '+submitted.text:'';copy.hidden=!submitted.text;}
+      if(state.values().text===submitted.text)state.clear();else state.cache();
+    }
+  };
   canStartRevision = () => !busy;
   setSectionRevisionPending = (pending) => {
     revisionPending = pending;

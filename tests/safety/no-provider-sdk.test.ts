@@ -10,6 +10,8 @@
 // The patterns themselves are stored as character-fragment arrays so
 // this test file does not itself match the patterns when scanned.
 
+import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
+import { assertC3ClientSurface } from '../helpers/c3-client-surface.ts';
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -121,7 +123,20 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
     const renderer = readFileSync(join(SRC_ROOT, "c3", "render.ts"), "utf8");
     assert.equal((renderer.match(/\bfetch\s*\(/g) ?? []).length, 1);
     assert.match(renderer, /fetch\(url, \{ method: 'POST'/);
-    const endpoints = [...renderer.matchAll(/requestJson\('(\/api\/[a-z]+)'/g)].map((match) => match[1]);
-    assert.deepEqual([...new Set(endpoints)].sort(), ["/api/cancel", "/api/generate", "/api/note", "/api/revise"]);
+    assertC3ClientSurface();
   });
+});
+
+
+it('composed browser inventory rejects new, dynamic, external and implicit save targets', () => {
+  for (const changed of [
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('/api/unexpected'"),
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('https://example.invalid/note'"),
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", 'requestJson(window.location.href'),
+    C3_CLIENT_SCRIPT.replace("copy?'/api/save-copy':'/api/save'", "copy?'/api/save':'/api/save-copy'"),
+    C3_CLIENT_SCRIPT.replace("'/api/planning/strategy', '/api/planning/next-steps', '/api/section-note'", "'/api/planning/strategy', '/api/planning/next-steps', '/api/section-note', '/api/unexpected'"),
+    C3_CLIENT_SCRIPT + "fetch('/api/note');",
+    C3_CLIENT_SCRIPT + "const escaped = requestJson; escaped(window.location.href, {});",
+    C3_CLIENT_SCRIPT + "requestJson.call(null, window.location.href, {});",
+  ]) assert.throws(() => assertC3ClientSurface(changed));
 });

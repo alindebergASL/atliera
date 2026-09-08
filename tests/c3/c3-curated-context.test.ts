@@ -47,7 +47,7 @@ test("curated labels preserve all provenance literals in exact source, excerpt a
     assertCuratedLabels(page);
     if (state.page === "home") {
       assert.ok(page.includes(`<p class="lede">${escapedCollisionText}</p>`));
-      assert.ok(page.includes('<strong>Agent-curated public context</strong>'));
+      assert.ok(page.includes('<strong>Sources used</strong>'));
       assert.ok(page.includes('<p class="boundary">This orientation uses agent-curated public excerpts, not admitted C2 evidence. It does not claim that the legacy “meaningfully changed” bucket proves temporal change, and no C2 owner disposition or generated C3 content exists.</p>'));
     }
   }
@@ -120,7 +120,7 @@ test("Utah canonical identity remains byte-for-byte historical", async () => {
   assert.ok(!("provenance" in frozen.context));
   const page = renderC3Page(frozen, { page: "home" }, "test");
   assert.ok(page.includes("<p>Proposed and unreviewed local content. Session-only;"));
-  assert.ok(page.includes("<strong>Admitted public context</strong>"));
+  assert.ok(page.includes("<strong>Sources used</strong>"));
   assert.ok(page.includes('<p class="boundary">This orientation reuses admitted C2 evidence. It does not claim that the legacy “meaningfully changed” bucket proves temporal change, and the C2 disposition does not approve generated C3 content.</p>'));
   assert.ok(page.includes('<p class="meta">Admitted entity relationships do not establish personal decision authority.</p>'));
   assert.doesNotMatch(page, /Agent-curated public context|Agent-curated proposed\/template context/);

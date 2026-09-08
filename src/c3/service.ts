@@ -244,7 +244,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         const prior = session.sectionNotes[section] ?? "";
         if (value.priorText !== prior) throw new Error("Section note is stale. Copy your unsaved text and reopen the current draft.");
         session.sectionNotes[section] = text;
-        json(res, 200, { noChange: text === prior, status: text === prior ? "Note unchanged. Already kept for this session." :
+        json(res, 200, { recordId: displayedRecordId, section, savedText: text, noChange: text === prior, status: text === prior ? "Note unchanged. Already kept for this session." :
           text === "" ? "Section note cleared. Recorded text unchanged." : "Section note kept for this session. Recorded text unchanged; no revision requested." });
       } catch (error) { json(res, 409, { error: error instanceof Error ? error.message : "Section note refused" }); }
       return;
@@ -307,7 +307,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       session.pendingRevisionToken = null;
       session.correctionNote = session.pendingPriorNote ?? session.correctionNote;
       session.pendingPriorNote = null;
-      json(res, 200, { html: render({ page: "draft", record: session.record, correctionNote: session.correctionNote,
+      json(res, 200, { discarded: true, recordId: session.record.recordId, pendingRevisionToken: null, savedNote: session.correctionNote, status: "Pending revision discarded. Previous brief and saved note restored.", html: render({ page: "draft", record: session.record, correctionNote: session.correctionNote,
         revisionPending: false }, session.csrf), location: "/?draft=1", history: "replace" }); return;
     }
     if (url.pathname === "/api/revise") {
@@ -329,6 +329,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           "No revision requested. Add a correction first; the current draft and note are unchanged." :
           "Correction unchanged from the one already used for this draft. No revision requested; draft and note kept." }); return;
       }
+      if (isCuratedContext(options.context) || (options.recordedReplay !== undefined &&
+          (action.note !== options.recordedReplay.correctionNote || prior.revision !== null))) {
+        json(res, 409, { error: "Local exact replay only: this correction has no recorded response. Previous brief and saved note kept; no revision staged or provider work started." }); return;
+      }
       const revisionNumber = (prior.revision?.revisionNumber ?? 0) + 1;
       let revision: C3RevisionContext;
       try { revision = createC3RevisionContext(prior, action.note, revisionNumber); }
@@ -343,7 +347,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const pendingRevisionToken = randomBytes(24).toString("base64url");
       session.pendingRevisionToken = pendingRevisionToken;
       session.form = prior.meetingRequest;
-      json(res, 200, { html: render({ page: "prepare", request: session.form,
+      json(res, 200, { revisionReady: true, recordId: prior.recordId, pendingRevisionToken, request: prior.meetingRequest, savedNote: session.correctionNote, status: "Revision staged. Previous brief kept.", html: render({ page: "prepare", request: session.form,
         error: `Revision ${String(session.revisionNumber)} will include the exact session correction and prior raw/draft identity.`,
         correctionNote: session.correctionNote, hasDraft: true, revisionPending: true,
         pendingRevisionToken }, session.csrf),
@@ -365,6 +369,9 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
       json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
     }
+    if (session.pendingRevision !== null && session.record !== undefined && !sameMeetingRequest(session.record.meetingRequest, request)) {
+      json(res, 409, { error: "Revision must use the unchanged original meeting setup.", operation, outcome: "refused" }); return;
+    }
     session.operations.add(operation.operationId);
     // Reopening is an exact comparison against the current successful record, never a replay fallback.
     // Active work and pending corrections retain their existing cancellation/identity paths.
@@ -372,7 +379,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         sameMeetingRequest(session.record.meetingRequest, request)) {
       session.form = request;
       const status = "Meeting inputs unchanged. Reopened the existing session draft; no new generation. Your note is kept.";
-      json(res, 200, { noChange: true, status, html: render({ page: "draft", record: session.record,
+      json(res, 200, { outcome: "succeeded", operation, recordId: session.record.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, noChange: true, status, html: render({ page: "draft", record: session.record,
         correctionNote: session.correctionNote, notice: status, revisionPending: false }, session.csrf),
         location: "/?draft=1", history: "push" }); return;
     }
@@ -391,7 +398,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     try {
       if (previous !== undefined) { previous.controller.abort(); await previous.settled; }
       if (session.sequence !== sequence || controller.signal.aborted || res.destroyed) {
-        if (!res.writableEnded && !res.destroyed) json(res, 409, { error: "stale generation discarded" });
+        if (!res.writableEnded && !res.destroyed) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });
         return;
       }
       events.push({ kind: "attempted", sequence });
@@ -400,7 +407,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const raw = await options.provider.generate(modelRequest, controller.signal);
       const generation = createGenerationRecord(modelRequest, raw, options.context);
       if (session.sequence !== sequence || controller.signal.aborted) {
-        if (!res.writableEnded) json(res, 409, { error: "stale generation discarded" });
+        if (!res.writableEnded) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });
         return;
       }
       if (generation.outcome === "refused") {
@@ -409,8 +416,11 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           error: `Candidate refused without repair: ${generation.refusal!.message}`,
           hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
           ...pendingPageState(session) }, session.csrf);
-        json(res, 422, { html: page, location: "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
+        json(res, 422, { outcome: "refused", operation, error: generation.refusal!.message, html: page, location: "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
+      const sections = { "Proposed objective": "objective", "Situation for this audience": "audienceThesis", Opening: "opening", Questions: "questions", "Useful close": "closeCriterion", "Risks and unknowns": "risksUnknowns", Warnings: "warnings", Evidence: "selectedEvidenceRefs", "Temporal outcome": "temporalOutcome" } as const;
+      const changedSections = revision?.priorDraft === undefined ? [] : Object.entries(sections).filter(([, key]) =>
+        JSON.stringify(revision.priorDraft![key]) !== JSON.stringify(generation.draft![key])).map(([label]) => label);
       if (revision === null) session.sectionNotes = {};
       session.record = generation;
       session.correctionNote = revision?.correctionNote ?? "";
@@ -418,17 +428,17 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       session.pendingRevisionToken = null;
       session.pendingPriorNote = null;
       events.push({ kind: "succeeded", sequence });
-      json(res, 200, { html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,
+      json(res, 200, { outcome: "succeeded", operation, recordId: generation.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, changedSections, status: "Revised brief ready. Session notes kept.", html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,
         revisionPending: false }, session.csrf),
         location: "/?draft=1", history: "push" });
     } catch (error) {
       if (session.sequence !== sequence || controller.signal.aborted) {
-        if (!res.writableEnded) json(res, 409, { error: "stale generation discarded" });
+        if (!res.writableEnded) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });
         return;
       }
       events.push({ kind: "failed", sequence });
       const message = error instanceof Error ? error.message : "generation failed";
-      json(res, 502, { html: render({ page: "prepare", request, error: message,
+      json(res, 502, { outcome: "failed", operation, html: render({ page: "prepare", request, error: message,
         hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
         ...pendingPageState(session) }, session.csrf),
         location: "/?prepare=1", history: "replace", error: message });

@@ -2,13 +2,13 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-two-account-product-proof-closeout",
+    "recordId": "c3-integrated-design-327",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Reconcile the authorized C3 two-account sprint verification and local-preview handoff documentation.",
-    "scope": "Documentation and safety-test closeout only: reconcile two local preview guides, add the sanitized historical two-account implementation and verification status, and guard source counts and non-authorizing boundaries. Replace the previous-slice proposed build record with this scoped agent proposal. No runtime or fixture changes, new research, model or provider execution, private evidence acquisition, new spend, durable product writes, assignment, approval, sharing, outreach, deployment, migrations or protection changes. Reuse verified unchanged implementation proof; require exact-final-tree full CI, sequential independent spec and quality review, exact-head hosted checks and ordinary checked PR merge. Agent verification is not customer acceptance or human approval.",
+    "decision": "Implement the authorized issue 327 integrated Account to Prepare to Brief to Refine product design in shared C3.",
+    "scope": "Shared C3 presentation, contextual evidence and continuous revision with session-only note and stale-edit recovery, relevant regression tests and concise product direction and preview guide. Preserve both Utah and Missouri paths, source and raw-model identity, operation and record binding, honest recorded and unavailable modes. No new live product model calls, retrieval, new recording acquisition, provider or spend-route activation, durable product writes, assignment, sharing, content approval, outreach, deployment, migrations or protection changes. Require independent technical review, exact-tree full gates, exact-head hosted checks and ordinary checked merge. Agent verification is not customer acceptance or human approval.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-07T11:15:07.097Z",
-    "proposalDigest": "sha256:fb726856080d614014efd1b79c5de00a9b93b34399c8a40349176281e1bc5841"
+    "proposedAt": "2026-09-08T01:46:24.000Z",
+    "proposalDigest": "sha256:deb0e3965c0643bd0ced0d0803501da2e985504f4ef7b17521961949d0696f84"
   }
 }

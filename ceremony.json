@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "account-workshop-2030-333",
+    "recordId": "modern-workspace-v2-335",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Implement the authorized issue 333 Account-first intelligence workspace and connected Workshop successor in shared C3.",
-    "scope": "Shared source-bound Account readout, priorities, people and operating context, technology, discoveries, hypotheses and gaps; separate unreviewed inspection of four already-acquired public sources and nine exact excerpts; editorial responsive presentation and Account return position; tests and design guide. Preserve historical source and raw-response bytes, account scope/date distinctions and downstream recorded/manual-only behavior. No runtime acquisition or new product generation, provider or spend-route activation, durable product writes, assignment, sharing, content ratification, outreach, deployment, migration or protection changes. Prior bounded operator research is historical and separately authorized, not an effect enabled by this code. Require independent technical review, exact-head hosted checks and ordinary checked merge; no human approval or customer acceptance is inferred.",
+    "decision": "Implement the authorized modern-workspace v2 account-to-brief journey and opt-in private local work-store seam.",
+    "scope": "Build the shared Overview, Research and Workshop shell, account-context preparation, explicit revision proposal and Apply, recovery and opt-in operator-local Save/reopen; preserve source, request and raw-response identities, qualifiers and account-truth versus draft distinctions. This source change does not configure or activate any provider, private customer data, outbound traffic, deployed store, recurrence, customer identity or public deployment. Local disposable tests and historical-response replay verify the seam; no new product inference or account research is performed. Sharing, approval, graph ratification, customer acceptance and production readiness remain outside scope. Existing separate operator preview authority is not created by this build proposal. Require independent technical evidence, exact-head checks and ordinary checked merge without protection changes.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-08T08:03:05.000Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/issues/333",
-    "proposalDigest": "sha256:a62c944f4469e39981d3f827788bb0af5fb153c3dcc5cbe2aa2a10c325ae2028"
+    "proposedAt": "2026-09-08T23:24:23.000Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/pull/335",
+    "proposalDigest": "sha256:ad24c1f5fa0f35a39d1804116f07d0384d72cb9a0d25b68858ee7dd0c2be3c22"
   }
 }

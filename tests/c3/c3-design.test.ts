@@ -6,13 +6,14 @@ import { renderC3Page } from "../../src/c3/render.ts";
 const request = { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 30 as const, meetingDate: "2026-09-12" };
 const load = () => loadC3AccountContext({ broadInputPath: "fixtures/account-intelligence/c2-01/broad-account-research-input.json", proposalPath: "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/university-of-utah-validated-proposal.json", ownerDecisionPath: "docs/decisions/c2-owner-disposition-record.json", accountId: "acc_university_of_utah" });
 const main = (html: string) => html.slice(html.indexOf('<main'), html.indexOf('</main>'));
-test("Account leads with intact insight and action, with deliberate evidence exploration", async () => {
+test("Account leads with organization and substantive topics without requiring a meeting", async () => {
   const context = await load();
   const html = main(renderC3Page(context, { page: "home" }, "test"));
-  assert.match(html, /<h1>What to explore<\/h1>/);
+  assert.ok(html.includes("<h1>University of Utah</h1>"), "Account identity should lead instead of What to explore");
   assert.match(html, />Prepare for…<\/a>/);
-  assert.ok(html.indexOf("Proposed next action") < html.indexOf("Full account context"));
-  assert.match(html, /<details class="evidence-list"><summary>Sources used<\/summary>/);
+  assert.match(html, /aria-label="Account topics"/);
+  for (const topic of ["Priorities &amp; initiatives", "People &amp; operating context", "Technology &amp; services", "Discoveries &amp; timing", "Opportunity hypotheses", "Worth understanding"]) assert.ok(html.includes(topic), topic);
+  assert.match(html, /Open research/);
   assert.match(html, /No earlier account review to compare/);
   assert.doesNotMatch(html, /class="account-overview"/);
 });
@@ -37,13 +38,15 @@ test("Missouri preparation remains unavailable and includes exact account contex
 });
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/gu, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-test("Account CTA precedes lengthy action copy while retaining all understanding", async () => {
+test("Account keeps one optional Prepare action early and retains the original proposal separately", async () => {
   for (const context of [await load(), await loadCuratedC3Context("fixtures/account-intelligence/c3-curated/missouri.json", "acc_university_of_missouri")]) {
     const html = main(renderC3Page(context, { page: "home" }, "test"));
-    const hero = html.slice(html.indexOf('class="account-hero"'), html.indexOf('</section>'));
+    const hero = html.slice(html.indexOf('class="account-hero"'), html.indexOf('id="account-topics"'));
     assert.equal((hero.match(/>Prepare for…<\/a>/g) ?? []).length, 1);
-    assert.ok(hero.indexOf('>Prepare for…</a>') < hero.indexOf(escapeHtml(context.context.proposal.recommendedNextMove.text)));
-    assert.ok(hero.includes(escapeHtml(context.context.proposal.accountThesis.text)));
+    assert.ok(!/Proposed next action|Who is this for|What outcome do you want/.test(hero), "Account opening must stand alone without meeting advice");
+    assert.ok(html.includes(escapeHtml(context.context.proposal.accountThesis.text)));
+    assert.ok(html.includes(escapeHtml(context.context.proposal.recommendedNextMove.text)));
+    assert.ok(html.indexOf('>Prepare for…</a>') < html.indexOf('id="account-priorities"'));
   }
 });
 test("Brief context labels thesis support and retains distinct exact evidence anchors", async () => {
@@ -62,13 +65,29 @@ test("Brief context labels thesis support and retains distinct exact evidence an
   const direct = { ...context, context: { ...context.context, proposal: { ...context.context.proposal, accountThesis: { ...context.context.proposal.accountThesis, state: 'source-backed fact' as const } } } };
   assert.match(briefContext(direct), /Direct supporting evidence/);
 });
-test("Account secondary context uses useful labels and omits duplicate implications", async () => {
+test("Account preserves exact evidence and source identity in shared research inspection", async () => {
   for (const context of [await load(), await loadCuratedC3Context("fixtures/account-intelligence/c3-curated/missouri.json", "acc_university_of_missouri")]) {
     const html = main(renderC3Page(context, { page: "home" }, "test"));
-    const strip = html.match(/<section class="context-strip">(.*?)<\/section>/s)![1]!;
-    assert.match(strip, /<strong>Sources used<\/strong>/);
-    assert.doesNotMatch(strip, /Admitted|Agent-curated|\d+ material gaps?/);
-    assert.ok((strip.match(/<div>/g) ?? []).length <= 3);
-    if (context.context.proposal.whyChangeMayMatter[0]?.text === context.context.proposal.accountThesis.text) assert.doesNotMatch(html, /Why this is worth checking/);
+    assert.ok(html.includes("<dialog data-evidence-dialog"), "Account evidence should use the working modal");
+    assert.match(html, /id="account-research"/);
+    for (const source of context.context.admittedSources) {
+      assert.ok(html.includes(`data-source-id="${source.sourceId}"`));
+      assert.ok(html.includes(escapeHtml(source.fullBoundedCleanText)));
+      for (const excerpt of source.excerpts) assert.ok(html.includes(`<blockquote>${escapeHtml(excerpt.exactExcerpt)}</blockquote>`), excerpt.evidenceId);
+    }
+    assert.doesNotMatch(html, /Last active|Engagement score|New this week|Changed since your last visit/);
   }
+});
+
+test("Shared Account reading covers initiative scope and specific unknowns for Utah and Missouri", async () => {
+  const utah = main(renderC3Page(await load(), { page: "home" }, "test"));
+  for (const text of ["Responsible AI workforce", "Strategic reinvestment", "Redtail", "HPE", "NVIDIA", "CHPC", "Health AI Vault", "sponsored awards", "current service catalog", "data-access", "Source summary · unreviewed"]) assert.ok(utah.includes(text), text);
+  const missouriContext = await loadCuratedC3Context("fixtures/account-intelligence/c3-curated/missouri.json", "acc_university_of_missouri");
+  const missouri = main(renderC3Page(missouriContext, { page: "home" }, "test"));
+  for (const text of ["Student success", "Research &amp; scholarship", "MizzouForward", "UM System", "Mun Choi", "Exact source context · unreviewed", "current service catalog", "September 2024"]) assert.ok(missouri.includes(text), text);
+  const renamed = { ...missouriContext, context: { ...missouriContext.context, account: { ...missouriContext.context.account, accountName: "Renamed account" } } };
+  const renamedHtml = main(renderC3Page(renamed, { page: "home" }, "test"));
+  assert.match(renamedHtml, /<h1>Renamed account<\/h1>/);
+  assert.ok(renamedHtml.includes("MizzouForward"));
+  assert.doesNotMatch(missouri, /Stanford|Account score|data-generate/);
 });

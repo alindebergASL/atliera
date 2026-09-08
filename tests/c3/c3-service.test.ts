@@ -131,10 +131,10 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
     assert.match(browser.page, /Proposed account orientation · not reviewed/);
     assert.match(browser.page, /Related evidence context for this proposed thesis|Direct source support/);
     assert.match(browser.page, /<blockquote>/);
-    assert.match(browser.page, /Why this is worth checking/);
+    assert.match(browser.page, /Account readout/);
     assert.match(browser.page, /Proposed next action/);
-    assert.ok(browser.page.indexOf('class="hero-actions"') < browser.page.indexOf('class="orientation"'),
-      "primary preparation action precedes the longer orientation rationale on narrow screens");
+    assert.ok(browser.page.indexOf('class="hero-actions"') < browser.page.indexOf('class="account-readout"'),
+      "optional preparation remains early while Account reading stands alone");
     assert.match(browser.page, /@media\(max-width:700px\)/);
     assert.match(browser.page, /server restart loses them/);
     assert.doesNotMatch(browser.page, /Private candidate preview|Recorded responses|No live generation/);

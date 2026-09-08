@@ -141,6 +141,15 @@ function isIntentionalAcquisitionPolicyLiteral(hit: {
   if (hit.file === "src/c3/service.ts" &&
       ((hit.kind === "literal IPv4 address" && hit.value === "127.0.0.1") ||
        (hit.kind === "protocol URL" && hit.value === "http://$"))) return true;
+  // These four immutable public citations are Account inspection data, not
+  // runtime endpoints. Only this file/kind/exact URL combination is exempt;
+  // other URLs, addresses and infrastructure assignments remain scanned.
+  if (hit.file === "src/c3/account-research-catalog.ts" && hit.kind === "protocol URL" && new Set([
+    "https://doit.missouri.edu/about/",
+    "https://doit.missouri.edu/services/",
+    "https://doit.missouri.edu/about/it-leadership-team/",
+    "https://it.utah.edu/cio/uit-leadership.php",
+  ]).has(hit.value)) return true;
   const acquisitionPolicyFiles = new Set([
     "src/capability/m4-target-policy.ts",
     "src/capability/public-http-fetch-policy.ts",
@@ -215,6 +224,29 @@ describe("safety: app/deploy files do not hardcode infrastructure locations", ()
     assert(hits.some((hit) => hit.kind === "server-local production path"));
     assert(!JSON.stringify(hits).includes("supersecret"));
     assert(!JSON.stringify(hits).includes("alsosecret"));
+  });
+
+  it("permits only the four exact public research citation URLs in the Account catalog", () => {
+    const file = "src/c3/account-research-catalog.ts";
+    const urls = [
+      "https://doit.missouri.edu/about/",
+      "https://doit.missouri.edu/services/",
+      "https://doit.missouri.edu/about/it-leadership-team/",
+      "https://it.utah.edu/cio/uit-leadership.php",
+    ];
+    for (const value of urls) {
+      assert.equal(isIntentionalAcquisitionPolicyLiteral({ file, kind: "protocol URL", value }), true);
+      assert.equal(isIntentionalAcquisitionPolicyLiteral({ file: "src/c3/service.ts", kind: "protocol URL", value }), false);
+      assert.equal(isIntentionalAcquisitionPolicyLiteral({ file, kind: "protocol URL", value: `${value}?endpoint=1` }), false);
+      assert.equal(isIntentionalAcquisitionPolicyLiteral({ file, kind: "database connection URL", value }), false);
+    }
+    for (const hit of findInfrastructureLiteralsInText(file, [
+      "https://other.example.com/",
+      "127.0.0.1",
+      "DATABASE_URL=postgres://db.example.com/account",
+      "MODEL_ENDPOINT=model.example.com",
+      "ARTIFACT_DIR=/var/lib/atliera/artifacts",
+    ].join("\n"))) assert.equal(isIntentionalAcquisitionPolicyLiteral(hit), false);
   });
 
   it("contains no hardcoded URLs, IPs, DB URLs, host assignments, DB paths, or Atliera server-local paths", () => {

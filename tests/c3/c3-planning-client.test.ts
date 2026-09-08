@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { C3_CLIENT_SCRIPT } from "../../src/c3/render.ts";
 import { PLANNING_CLIENT_SCRIPT } from "../../src/c3/planning-client.ts";
 
-function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean; proposal?: boolean; owner?: string; version?: string } = {}) {
+function client(options: { cache?: Map<string, string>; fetch?: (body: any) => Promise<any>; storageFails?: boolean; removeFails?: boolean; initial?: string; sectionNote?: boolean; confirm?: () => boolean; composed?: boolean; proposal?: boolean; owner?: string; version?: string } = {}) {
   const cache = options.cache ?? new Map<string, string>();
   const field = { name: "text", value: options.initial ?? "Saved section", maxLength: 4000 };
   const proposalFields = ["concern", "action", "owner", "targetDate", "questionOrBlocker"].map((name) => ({ name, value: name === "action" ? "Saved action" : name === "owner" ? options.owner ?? "" : "", maxLength: 4000 }));
@@ -13,7 +13,8 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   const projection = Object.fromEntries([...proposalFields.map((f) => f.name), "evidenceIds"].map((name) => [name, { textContent: "Not set" }]));
   const savedCopy = { textContent: "Saved section" };
   const authorship = { textContent: "Template-authored planning prompt" };
-  const status = { textContent: "", after() {} };
+  const recoveries: any[] = [];
+  const status = { textContent: "", after(node: any) { recoveries.push(node); } };
   const detail = { open: false };
   const listeners = new Map<string, (event: any) => any>();
   let cancel: () => void = () => {};
@@ -30,10 +31,10 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   let click: (event: any) => void = () => {};
   const document = { addEventListener: (name: string, fn: (event: any) => void) => { if (name === "click") click = fn; },
     querySelectorAll: () => [form], querySelector: (selector: string) => selector.startsWith("meta") ? ({ content: selector.includes("csrf") ? "session-one" : "account-one", getAttribute: () => "session-one" }) : selector === "[data-correction-note]" ? note : null,
-    createElement: () => ({ className: "", textContent: "" }) };
+    createElement: () => ({ className: "", textContent: "", remove() { recoveries.splice(recoveries.indexOf(this), 1); } }) };
   const window = { confirm: options.confirm ?? (() => false), sessionStorage: { getItem: (key: string) => cache.get(key),
     setItem(key: string, value: string) { if (options.storageFails) throw new Error("storage unavailable"); cache.set(key, value); },
-    removeItem(key: string) { if (options.storageFails) throw new Error("storage unavailable"); cache.delete(key); } },
+    removeItem(key: string) { if (options.storageFails || options.removeFails) throw new Error("storage unavailable"); cache.delete(key); } },
     addEventListener: (name: string, fn: (event: any) => void) => windowListeners.set(name, fn) };
   if (options.sectionNote) Object.assign(form.dataset, { recordId: "same-record", endpoint: "/api/section-note" });
   if (options.proposal) { Object.assign(form.dataset, { proposedNextStep: "", editKey: "next-steps-proposal", endpoint: "/api/planning/next-steps" }); delete (form.dataset as any).section; }
@@ -46,7 +47,7 @@ function client(options: { cache?: Map<string, string>; fetch?: (body: any) => P
   scope.fetch = async (_url: string, init: any) => options.fetch!(JSON.parse(init.body));
   vm.runInNewContext(options.composed ? C3_CLIENT_SCRIPT.replace("let confirmLocalEditDeparture = () => true;", "let confirmLocalEditDeparture = () => true; globalThis.localGuard = () => confirmLocalEditDeparture();") : PLANNING_CLIENT_SCRIPT, scope);
   return { note, navigate: () => { let prevented = false; click({ button: 0, target: { closest: () => ({ getAttribute: (name: string) => name === "href" ? "/?prepare=1" : null, hasAttribute: () => false }) }, preventDefault() { prevented = true; } }); return !prevented; },
-    proposalFields, evidence, projection, guard: () => options.composed ? scope.localGuard() : scope.confirmLocalEditDeparture(), field, savedCopy, authorship, status, cache, detail, buttons, form,
+    recoveries, proposalFields, evidence, projection, guard: () => options.composed ? scope.localGuard() : scope.confirmLocalEditDeparture(), field, savedCopy, authorship, status, cache, detail, buttons, form,
     input: () => listeners.get("input")!({}), cancel: () => cancel(),
     submit: () => listeners.get("submit")!({ preventDefault() {} }), windowListeners };
 }
@@ -161,7 +162,7 @@ test("CS-06 global veto resets local approval and blocks departure during the su
   const saving = ui.submit(); // Deliberately no typing after the veto.
   assert.equal(ui.guard(), false); assert.equal(ui.navigate(), false);
   assert.equal(confirmations, 4, "busy save refuses without discard prompts");
-  settle({ ok: true, json: async () => ({ status: "Kept", noChange: false }) }); await saving;
+  settle({ ok: true, json: async () => ({ status: "Kept", noChange: false, recordId: "same-record", section: "options", savedText: "Dirty section" }) }); await saving;
 });
 
 test("CS-06 explicit departure guards blocked storage, failed saves and in-flight typing", async () => {
@@ -289,5 +290,56 @@ test("saved baseline accepts old cache property order but requires identical key
     const stale = restore(saved);
     assert.equal(stale.proposalFields[1]!.value, "Saved action");
     assert.match(stale.status.textContent, /different brief version or saved baseline/);
+  }
+});
+
+for (const [label, invalid] of Object.entries({ missing: {}, missingId: { section: 'options', savedText: 'Submitted' },
+  missingSection: { recordId: 'same-record', savedText: 'Submitted' }, missingText: { recordId: 'same-record', section: 'options' },
+  wrongId: { recordId: 'other', section: 'options', savedText: 'Submitted' },
+  wrongSection: { recordId: 'same-record', section: 'opening', savedText: 'Submitted' },
+  wrongText: { recordId: 'same-record', section: 'options', savedText: 'Newer typing' },
+})) test('section save rejects malformed acknowledgement without advancing baseline: ' + label, async () => {
+  let finish!: (value: any) => void;
+  const ui = client({ sectionNote: true, fetch: async () => new Promise((resolve) => { finish = resolve; }) });
+  ui.field.value = 'Submitted'; const work = ui.submit(); ui.field.value = 'Newer typing'; ui.input();
+  finish({ ok: true, json: async () => ({ status: 'Kept', noChange: false, ...invalid }) }); await work;
+  assert.equal(ui.savedCopy.textContent, 'Saved section'); assert.equal(ui.field.value, 'Newer typing');
+  assert.match(ui.status.textContent, /not confirmed/); assert.equal(ui.form.dataset.version, '0');
+  assert.equal(JSON.parse([...ui.cache.values()][0]!).saved.text, 'Saved section');
+  ui.cancel(); assert.equal(ui.field.value, 'Saved section');
+});
+
+test('section save exact acknowledgement retains newer typing and advances only submitted baseline', async () => {
+  let finish!: (value: any) => void; let body: any;
+  const ui = client({ sectionNote: true, fetch: async (request) => { body = request; return new Promise((resolve) => { finish = resolve; }); } });
+  ui.field.value = 'Submitted'; const work = ui.submit(); ui.field.value = 'Newer typing'; ui.input();
+  assert.equal(body.priorText, 'Saved section');
+  finish({ ok: true, json: async () => ({ status: 'Kept', noChange: false, recordId: body.recordId, section: body.section, savedText: body.text }) }); await work;
+  assert.equal(ui.savedCopy.textContent, 'User note · Submitted'); assert.equal(ui.field.value, 'Newer typing');
+  assert.equal(JSON.parse([...ui.cache.values()][0]!).saved.text, 'Submitted');
+  ui.cancel(); assert.equal(ui.field.value, 'Submitted');
+});
+
+for (const removeFails of [false, true]) test('Cancel after baseline conflict preserves recovery correctly: removal fails=' + removeFails, () => {
+  const first = client({ sectionNote: true }); first.field.value = 'Old unsent note'; first.input();
+  const oldCache = [...first.cache.entries()];
+  const reopened = client({ sectionNote: true, cache: first.cache, initial: 'Changed saved baseline', removeFails });
+  assert.equal(reopened.recoveries.length, 1);
+  reopened.cancel();
+  assert.equal(reopened.field.value, 'Changed saved baseline');
+  reopened.field.value = 'Fresh text'; reopened.input();
+  if (removeFails) {
+    assert.deepEqual([...reopened.cache.entries()], oldCache);
+    assert.equal(reopened.recoveries.length, 1);
+    assert.match(reopened.status.textContent, /older recovery was kept/);
+    let prevented = false;
+    reopened.windowListeners.get('beforeunload')!({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+  } else {
+    const reloaded = client({ sectionNote: true, cache: reopened.cache, initial: 'Changed saved baseline' });
+    assert.equal(reloaded.field.value, 'Fresh text');
+    assert.equal(reopened.recoveries.length, 0);
+    assert.doesNotMatch(reopened.status.textContent, /older recovery/i);
+    assert.match(reloaded.status.textContent, /Unsubmitted edit restored/);
   }
 });

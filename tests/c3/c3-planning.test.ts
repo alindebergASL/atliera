@@ -41,18 +41,18 @@ test("preview provenance is one compact disclosure and draft navigation appears 
   assert.match(renderC3Page(ctx, { page: "home", hasDraft: true }, "test-csrf"), /href="\/\?draft=1">Meeting draft<\/a>/);
 });
 
-test("account overview precedes gaps; business labels disclose every exact raw gap", () => {
+test("account insight precedes disclosed details; business labels disclose every exact raw gap", () => {
   const ctx = syntheticWorkshopContext();
   const html = renderC3Page(ctx, { page: "home" }, "test-csrf");
   const main = html.match(/<main\b[\s\S]*?<\/main>/u)![0];
   const visible = closedView(main);
-  assert.ok(main.indexOf("Overall account context") < main.indexOf("Still to establish"));
-  assert.ok(visible.includes(escaped(ctx.context.proposal.establishedContext[0]!.text)));
+  assert.ok(main.indexOf("Proposed next action") < main.indexOf("Full account context and gaps"));
+  assert.ok(main.includes(escaped(ctx.context.proposal.establishedContext[0]!.text)));
   assert.match(visible, /Strategic direction not established in supplied evidence/);
   assert.doesNotMatch(visible, /controller-authorized|taxonomy:/);
   for (const raw of ctx.context.materialGaps) assert.ok(main.includes(`<p>${escaped(raw)}</p>`));
   assert.match(main, /<details class="technical-detail"><summary>Raw gap and conflict details/);
-  assert.match(visible, /Context requested .*request date, not evidence of freshness/);
+  assert.match(main, /Context requested .*Request date does not establish freshness/);
   assert.equal(businessGapLabel("Unexpected category: preserve this exact detail."), "Unexpected category: preserve this exact detail.");
 });
 

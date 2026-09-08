@@ -175,7 +175,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.match(browser.page, /Private candidate preview · Recorded responses · No live generation/);
     assert.match(browser.page, /Proposed meeting drafts.*Session-only; no approval or durable save/);
     assert.doesNotMatch(browser.page, /Unmerged and proposed/);
-    assert.match(browser.page, />Open Workshop · Prepare for…</);
+    assert.match(browser.page, />Prepare for…</);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Private candidate preview · Recorded responses · No live generation/);
     assert.match(prepare.text, /value="CIO and engineering leaders"/);
@@ -233,18 +233,17 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.equal(arbitraryId, priorRecord.recordId);
     const unmatchedNote = "Keep this arbitrary owner note exactly; do not substitute the recorded correction.";
     const unmatchedRevision = await arbitraryBrowser.post("/api/revise", { note: unmatchedNote, recordId: arbitraryId });
-    const unmatchedPrepare = (JSON.parse(unmatchedRevision.text) as { html: string }).html;
-    assert.match(unmatchedPrepare, /Revision pending — previous draft preserved/);
-    assert.match(unmatchedPrepare, new RegExp(unmatchedNote));
-    const unmatchedReplay = await arbitraryBrowser.post("/api/generate", initialRequest);
-    assert.equal(unmatchedReplay.status, 502);
-    assert.match((JSON.parse(unmatchedReplay.text) as { html: string }).html, new RegExp(unmatchedNote));
+    assert.equal(unmatchedRevision.status, 409);
+    assert.match(JSON.parse(unmatchedRevision.text).error, /Local exact replay only/);
+    const untouched = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: arbitraryBrowser.cookie });
+    assert.doesNotMatch(untouched.text, /data-pending-revision-token=/);
+    assert.doesNotMatch(untouched.text, new RegExp(unmatchedNote));
 
     const retryBrowser = await browserSession(running);
     const retryInitial = await retryBrowser.post("/api/generate", initialRequest);
     const retryInitialId = (JSON.parse(retryInitial.text) as { html: string }).html.match(/data-record-id="([^"]+)"/)?.[1];
     assert.equal(retryInitialId, priorRecord.recordId);
-    assert.equal((await retryBrowser.post("/api/revise", { note: "Discard this unmatched preparation", recordId: retryInitialId })).status, 200);
+    assert.equal((await retryBrowser.post("/api/revise", { note: correctionNote, recordId: retryInitialId })).status, 200);
     const pendingA = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: retryBrowser.cookie });
     const tokenA = pendingRevisionToken(pendingA.text);
     assert.equal((await retryBrowser.post("/api/discard-revision", { recordId: retryInitialId, pendingRevisionToken: tokenA })).status, 200);
@@ -263,8 +262,8 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const retriedHtml = (JSON.parse(retriedRevision.text) as { html: string }).html;
     assert.match(retriedHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
     const nextRevision = await retryBrowser.post("/api/revise", { note: "Next successful lineage", recordId: revisionRecord.recordId });
-    assert.equal(nextRevision.status, 200);
-    assert.match((JSON.parse(nextRevision.text) as { html: string }).html, /Revision 2 will include/);
+    assert.equal(nextRevision.status, 409);
+    assert.match(JSON.parse(nextRevision.text).error, /Local exact replay only/);
   } finally { await running.close(); }
 });
 
@@ -647,10 +646,10 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     assert.match(preservedDraft.text, /Revision pending.*preserved previous draft/s);
     assert.match(preservedDraft.text, /\.review\{[^}]*color:var\(--ink\)/,
       "review uses a legible dark foreground on the light surface");
-    assert.match(preservedDraft.text, /Discard pending revision and return to previous draft/);
-    assert.match(preservedDraft.text, /<textarea[^>]* disabled>/);
-    assert.match(preservedDraft.text, /<button type="submit" disabled>Keep note for this session<\/button>/);
-    assert.match(preservedDraft.text, /data-revise disabled>Request revised draft<\/button>/);
+    assert.match(preservedDraft.text, /Discard pending revision/);
+    assert.doesNotMatch(preservedDraft.text, /<textarea[^>]* disabled>/, "pending revision keeps editors available for newer typing");
+    assert.match(preservedDraft.text, /<button type="submit" disabled>Add a note<\/button>/);
+    assert.match(preservedDraft.text, /data-revise disabled>Revise brief<\/button>/);
     assert.doesNotMatch(preservedDraft.text, /data-discard-revision[^>]* disabled/);
     assert.equal((await browser.post("/api/note", { note: "stale note", recordId })).status, 409);
     assert.equal((await browser.post("/api/revise", { note: "second pending revision", recordId })).status, 409);
@@ -962,7 +961,7 @@ test("rendered review handlers surface note and revise network errors and revise
   assert.deepEqual(JSON.parse(calls[1]!.body), { note: "Current unsaved correction", recordId: "record-visible", priorNote: "Current unsaved correction" });
 });
 
-test("rendered client updates allowlisted history before draft replacement and revision returns to Prepare", async () => {
+test("Prepare success uses native safe navigation without rewriting the page", async () => {
   type Listener = (event: any) => unknown;
   class Element {
     readonly listeners = new Map<string, Listener[]>(); value = "Visible correction"; disabled = false; textContent = "";
@@ -987,14 +986,13 @@ test("rendered client updates allowlisted history before draft replacement and r
     replaceState(_state: unknown, _title: string, location: string) { navigation.push(`replace:${location}`); },
   };
   const fetchStub = async (url: string): Promise<any> => ({ ok: true, json: async () => url === "/api/generate"
-    ? ({ html: "DRAFT PAGE", location: "/?draft=1", history: "push" })
+    ? ({ outcome: "succeeded", html: "DRAFT PAGE", location: "/?draft=1", history: "push" })
     : ({ html: "PREPARE PAGE", location: "/?prepare=1", history: "replace" }) });
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {}, scrollTo: (x: number, y: number) => focusEvents.push([x, y]) }, document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { location: { assign: (url: string) => navigation.push(`native:${url}`) }, crypto: webcrypto, addEventListener() {}, scrollTo: (x: number, y: number) => focusEvents.push([x, y]) }, document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
   await form.dispatch("submit");
-  assert.deepEqual(navigation, ["push:/?draft=1", "write:DRAFT PAGE"]);
-  assert.deepEqual(focusEvents, [["tabindex", "-1"], { preventScroll: true }, [0, 0]]);
-  await revise.dispatch("click");
-  assert.deepEqual(navigation.slice(2), ["replace:/?prepare=1", "write:PREPARE PAGE"]);
+  assert.deepEqual(navigation, ["native:/?draft=1"]);
+  assert.deepEqual(writes, []);
+  assert.deepEqual(focusEvents, []);
 });
 
 test("server shutdown waits for active provider abort cleanup", async () => {
@@ -1308,4 +1306,68 @@ test("proposed step bridge is read-only and validates session, kind and frozen e
       assert.equal(running.status().generationAttempted, 0);
     } finally { await running.close(); }
   }
+});
+
+test("Brief contextual citations select support by originating statement and collapse collection", async () => {
+  const ctx = await context();
+  const value = JSON.parse(candidate(ctx));
+  const excerpt = ctx.context.admittedSources[0]!.excerpts[0]!;
+  value.opening = { text: excerpt.exactExcerpt, evidenceRefs: [excerpt.evidenceId], supportCategory: 'direct_support' };
+  const record = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), JSON.stringify(value), ctx);
+  const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '' }, 'csrf');
+  assert.match(html, /data-context="Opening" data-support="Direct supporting evidence"/);
+  assert.match(html, /data-context="Question 2" data-support="Related evidence context"/);
+  assert.match(html, /<details class="evidence-list"[^>]*><summary id="evidence-heading">Evidence behind the brief<\/summary>/);
+  assert.match(html, /<dialog[^>]*data-evidence-dialog/);
+  assert.doesNotMatch(html, /No user note for this section/);
+  assert.match(html, /data-saved-copy class="user-copy" hidden/);
+});
+test("Brief heading reflects actual question count without changing source or note phrases", async () => {
+  const ctx = await context();
+  const value = JSON.parse(candidate(ctx));
+  value.questions.push({ ...value.questions[0], question: 'What else should we learn?' });
+  const record = createGenerationRecord(createC3ModelRequest(ctx, { ...meetingRequest, durationMinutes: 30 }), JSON.stringify(value), ctx);
+  const note = 'Three questions, in order · No user note for this section.';
+  const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: note, sectionNotes: { Opening: note } }, 'csrf');
+  assert.match(html, /id="questions-heading">4 questions, in order/);
+  assert.ok(html.includes('User note · ' + note));
+});
+test("Responsible AI source heading is structural even when source title contains renderer phrases", async () => {
+  const ctx = structuredClone(await context());
+  const selectedId = 'evidence_2e20762caf4b11701059';
+  const source = ctx.context.admittedSources.find(s => s.excerpts.some(e => e.evidenceId === selectedId))!;
+  Object.assign(source, { title: 'Three questions, in order · No user note for this section.' });
+  const base = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), candidate(ctx), ctx);
+  const record = { ...base, draft: { ...base.draft!, selectedEvidenceRefs: [selectedId] } };
+  const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '' }, 'csrf');
+  assert.match(html, /data-evidence-content[^>]*>[\s\S]*?Source section:<\/strong> Responsible AI/);
+  assert.ok(html.includes(source.title));
+});
+
+test("Refine stage and generation acknowledge owned continuous revision and computed differences", async () => {
+  const ctx = await context(); let calls = 0;
+  const running = await harness({ name: "synthetic-refine", executionMode: "local", async generate() {
+    calls++; const raw = JSON.parse(candidate(ctx)); if (calls > 1) raw.opening.text = "Ask about the next decision."; return JSON.stringify(raw);
+  } });
+  try {
+    const browser = await browserSession(running);
+    const first = JSON.parse((await browser.post("/api/generate", meetingRequest)).text);
+    assert.equal(first.outcome, "succeeded");
+    const stage = JSON.parse((await browser.rawPost("/api/revise", { recordId: first.recordId, priorNote: "", note: "Improve the opening." })).text);
+    assert.equal(stage.revisionReady, true); assert.deepEqual(stage.request, meetingRequest);
+    assert.equal(stage.recordId, first.recordId); assert.equal(stage.savedNote, "Improve the opening.");
+    const operation = { request: stage.request, recordId: stage.recordId, pendingRevisionToken: stage.pendingRevisionToken, operationId: randomBytes(24).toString("base64url") };
+    const wrong = await browser.rawPost("/api/generate", { ...operation, request: { ...meetingRequest, audience: "Other audience" } });
+    assert.equal(wrong.status, 409); assert.equal(calls, 1);
+    const next = JSON.parse((await browser.rawPost("/api/generate", operation)).text);
+    assert.equal(next.outcome, "succeeded"); assert.deepEqual(next.operation, operation);
+    assert.equal(next.savedNote, stage.savedNote); assert.notEqual(next.recordId, first.recordId);
+    assert.deepEqual(next.changedSections, ["Opening"]); assert.deepEqual(next.sectionNotes, {});
+  } finally { await running.close(); }
+});
+
+test("continuous Refine program has no document rewrite and uses explicit outcome protocol", () => {
+  assert.doesNotMatch(C3_CLIENT_SCRIPT, /document\.(?:open|write|close)\(/);
+  assert.match(C3_CLIENT_SCRIPT, /revisionReady/); assert.match(C3_CLIENT_SCRIPT, /payload\.outcome/);
+  assert.match(C3_CLIENT_SCRIPT, /rebindSectionNotes/);
 });

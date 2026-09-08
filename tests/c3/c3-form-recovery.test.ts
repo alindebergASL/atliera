@@ -37,7 +37,7 @@ class Element {
   }
 
   getAttribute(name: string): string | null {
-    return name === "data-record-id" ? this.recordId : null;
+    return name === "data-record-id" ? this.recordId : name === "data-meeting-request" ? JSON.stringify({ audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" }) : null;
   }
 }
 
@@ -81,6 +81,7 @@ function runClient(options: ClientOptions) {
   const cancel = new Element();
   const status = new Element();
   const recovery = new Element();
+  const optionsSummary = new Element();
   const noteForm = options.recordId === undefined ? null : new Element({ note: options.correctionNote ?? "" }, options.recordId);
   const revise = new Element();
   const note = new Element();
@@ -97,6 +98,7 @@ function runClient(options: ClientOptions) {
         '[data-cancel]': cancel,
         '[data-status]': status,
         '[data-form-recovery]': recovery,
+        '[data-options-summary]': optionsSummary,
         '[data-note-form]': noteForm,
         '[data-revise]': options.recordId === undefined ? null : revise,
         '[data-correction-note]': options.recordId === undefined ? null : note,
@@ -109,7 +111,7 @@ function runClient(options: ClientOptions) {
     write(html: string) { writes.push(html); },
     close() {},
   };
-  const window: Record<string, unknown> = { crypto: webcrypto, addEventListener() {}, location: { reload() {} } };
+  const window: Record<string, unknown> = { crypto: webcrypto, addEventListener() {}, location: { reload() {}, assign(url: string) { navigation.push(`native:${url}`); } } };
   if (options.storageUnavailable) {
     Object.defineProperty(window, "sessionStorage", { get() { throw new Error("storage blocked"); } });
   } else {
@@ -121,7 +123,7 @@ function runClient(options: ClientOptions) {
   };
   vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history, FormData: FormDataStub, fetch: options.fetch,
     AbortController, Error, JSON, Number, String });
-  return { form, button, cancel, status, recovery, noteForm, note, revise, reviewStatus, writes, navigation };
+  return { form, button, cancel, status, recovery, optionsSummary, noteForm, note, revise, reviewStatus, writes, navigation };
 }
 
 function response(payload: unknown, ok = true): Promise<unknown> {
@@ -198,15 +200,15 @@ test("a new server session cannot restore stale form bytes from the prior sessio
   assert.equal([...storage.values.keys()].some((key) => key.includes("old-session")), false);
 });
 
-test("accepted generation and revision clear stale form recovery before the next Prepare view", async () => {
+test("accepted generation navigates natively and one-click revision invalidates stale Prepare recovery even on generation failure", async () => {
   const acceptedStorage = new TabStorage();
   const accepted = runClient({ csrf: "accepted-session", storage: acceptedStorage,
     form: { audience: "CISO", intendedOutcome: "Accepted request", durationMinutes: "15", meetingDate: "2026-09-12" },
-    fetch: () => response({ html: "DRAFT", location: "/?draft=1", history: "push" }) });
+    fetch: () => response({ outcome: "succeeded", html: "DRAFT", location: "/?draft=1", history: "push" }) });
   accepted.form!.fields.audience!.value = "Accepted audience";
   await accepted.form!.dispatch("input");
   await accepted.form!.dispatch("submit");
-  assert.deepEqual(accepted.navigation, ["push:/?draft=1"]);
+  assert.deepEqual(accepted.navigation, ["native:/?draft=1"]);
   assert.equal(acceptedStorage.values.size, 0);
 
   const revisionStorage = new TabStorage();
@@ -216,7 +218,7 @@ test("accepted generation and revision clear stale form recovery before the next
   await cached.form!.dispatch("input");
   const revision = runClient({ csrf: "revision-session", storage: revisionStorage, recordId: "c3_111111111111111111111111",
     correctionNote: "Revise the displayed draft",
-    fetch: () => response({ html: "PREPARE", location: "/?prepare=1", history: "replace" }) });
+    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
   await revision.revise.dispatch("click");
   assert.equal(revisionStorage.values.size, 0);
   const prepare = runClient({ csrf: "revision-session", storage: revisionStorage,
@@ -259,7 +261,7 @@ test("a populated cache is invalidated when a newer write fails, including accep
   const acceptedStorage = new TabStorage();
   const accepted = runClient({ csrf: "accepted-write-fault", storage: acceptedStorage,
     form: { audience: "Cached audience", intendedOutcome: "Cached outcome", durationMinutes: "15", meetingDate: "2026-09-12" },
-    fetch: () => response({ html: "DRAFT", location: "/?draft=1", history: "push" }) });
+    fetch: () => response({ outcome: "succeeded", html: "DRAFT", location: "/?draft=1", history: "push" }) });
   await accepted.form!.dispatch("input");
   acceptedStorage.setUnavailable = true;
   accepted.form!.fields.audience!.value = "Accepted newer audience";
@@ -278,7 +280,7 @@ test("a populated cache is invalidated when a newer write fails, including accep
   const refusedInvalidationStorage = new TabStorage();
   const refusedInvalidation = runClient({ csrf: "accepted-remove-fault", storage: refusedInvalidationStorage,
     form: { audience: "Cached audience", intendedOutcome: "Cached outcome", durationMinutes: "15", meetingDate: "2026-09-12" },
-    fetch: () => response({ html: "DRAFT", location: "/?draft=1", history: "push" }) });
+    fetch: () => response({ outcome: "succeeded", html: "DRAFT", location: "/?draft=1", history: "push" }) });
   await refusedInvalidation.form!.dispatch("input");
   refusedInvalidationStorage.setUnavailable = true;
   refusedInvalidationStorage.removeUnavailable = true;
@@ -298,7 +300,7 @@ test("a populated cache is invalidated when a newer write fails, including accep
   revisionStorage.removeUnavailable = true;
   const revision = runClient({ csrf: "revision-write-fault", storage: revisionStorage, recordId: "c3_111111111111111111111111",
     correctionNote: "Revise the displayed draft",
-    fetch: () => response({ html: "PREPARE", location: "/?prepare=1", history: "replace" }) });
+    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
   revisionStorage.setUnavailable = false;
   revisionStorage.removeUnavailable = false;
   await revision.revise.dispatch("click");
@@ -434,4 +436,52 @@ test("native question citations reveal exact evidence and return focus context w
   assert.equal(target.open, true, "native fragment Forward or direct fragment entry reveals evidence");
   listeners.get('popstate')!();
   assert.equal(reloads, 0);
+});
+
+
+test("invalid hidden meeting options are revealed without suppressing native validation or editing recovered values", () => {
+  const storage = new TabStorage();
+  storage.setItem("atliera.c3.unsent-form.v1:acc_university_of_utah:invalid", JSON.stringify({ audience: "CIO", intendedOutcome: "Learn", durationMinutes: 15, meetingDate: "" }));
+  const client = runClient({ csrf: "invalid", storage, form: { audience: "CISO", intendedOutcome: "Discuss", durationMinutes: "15", meetingDate: "2026-09-12" }, fetch: () => { throw new Error("No request on invalid input"); } });
+  const disclosure = { open: false };
+  const listeners = client.form!.listeners.get("invalid") ?? [];
+  assert.equal(listeners.length, 1);
+  for (const listener of listeners) listener({ target: { closest: () => disclosure }, preventDefault() { throw new Error("Keep native validation"); } } as never);
+  assert.equal(disclosure.open, true);
+  assert.equal(client.form!.fields.meetingDate!.value, "");
+  assert.equal(client.form!.fields.audience!.value, "CIO");
+});
+
+test("meeting options summary reflects recovered values and current select/date edits", async () => {
+  const storage = new TabStorage();
+  storage.setItem("atliera.c3.unsent-form.v1:acc_university_of_utah:summary", JSON.stringify({ audience: "CIO", intendedOutcome: "Learn", durationMinutes: 45, meetingDate: "2026-10-01" }));
+  const client = runClient({ csrf: "summary", storage, form: { audience: "CISO", intendedOutcome: "Discuss", durationMinutes: "15", meetingDate: "2026-09-12" }, fetch: () => response({}) });
+  assert.equal(client.optionsSummary.textContent, "2026-10-01 · 45 minutes");
+  client.form!.fields.durationMinutes!.value = "60";
+  await client.form!.dispatch("change");
+  assert.equal(client.optionsSummary.textContent, "2026-10-01 · 60 minutes");
+  client.form!.fields.meetingDate!.value = "";
+  await client.form!.dispatch("input");
+  assert.equal(client.optionsSummary.textContent, "Date not set · 60 minutes");
+});
+
+test("modal citation keeps dirty notes, targets one excerpt and restores focus and scroll", () => {
+  const clicks: Array<(event: any) => void> = [];
+  const events = new Map<string, () => void>();
+  const note = { value: 'Unsaved correction', addEventListener() {} };
+  const title = { textContent: '' }; const support = { textContent: '' };
+  let cloned: unknown; let focus = false; let scroll: number[] = []; let prevented = false;
+  const content = { cloneNode(deep: boolean) { assert.equal(deep, true); return 'exact targeted content'; } };
+  const panel = { replaceChildren(value: unknown) { cloned = value; } };
+  const dialog = { open: false, scrollTop: 99, showModal() { this.open = true; }, close() { this.open = false; events.get('close')!(); }, addEventListener(name: string, cb: () => void) { events.set(name, cb); }, querySelector(selector: string) { return selector === '[data-evidence-panel-body]' ? panel : selector === '#evidence-panel-title' ? title : selector === '[data-evidence-support]' ? support : null; } };
+  const target = { open: false, querySelector(selector: string) { return selector === '[data-evidence-content]' ? content : selector === 'summary' ? { textContent: 'Evidence 1 · Source title' } : null; } };
+  const citation = { focus(options: unknown) { assert.deepEqual(JSON.parse(JSON.stringify(options)), { preventScroll: true }); focus = true; }, getAttribute(name: string) { return name === 'href' ? '#evidence-1' : name === 'data-context' ? 'Question 2' : name === 'data-support' ? 'Related evidence context' : null; } };
+  const document = { body: { style: { overflow: '' } }, querySelector(selector: string) { return selector === '[data-evidence-dialog]' ? dialog : selector === '#evidence-1' ? target : selector === '[data-correction-note]' ? note : null; }, addEventListener(_name: string, cb: (event: any) => void) { clicks.push(cb); } };
+  const window = { location: { pathname: '/', search: '?draft=1', hash: '' }, scrollX: 0, scrollY: 640, scrollTo(...args: number[]) { scroll = args; }, addEventListener() {} };
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { document, window });
+  for (const cb of clicks) cb({ button: 0, target: { closest() { return citation; } }, preventDefault() { prevented = true; } });
+  assert.equal(prevented, true); assert.equal(dialog.open, true); assert.equal(target.open, false);
+  assert.equal(cloned, 'exact targeted content'); assert.equal(support.textContent, 'Related evidence context');
+  assert.equal(note.value, 'Unsaved correction'); assert.equal(document.body.style.overflow, 'hidden');
+  dialog.close(); assert.equal(focus, true); assert.deepEqual(scroll, [0, 640]); assert.equal(document.body.style.overflow, '');
 });

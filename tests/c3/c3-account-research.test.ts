@@ -21,7 +21,7 @@ const research = (html: string) => html.match(/<section id="account-unreviewed-r
 
 test("Account offers a separate unreviewed public research layer with nine exact inspections across two accounts", async () => {
   for (const [context, count] of [[await utah(), 3], [await missouri(), 6]] as const) {
-    const html = main(renderC3Page(context, { page: "home" }, "test"));
+    const html = main(renderC3Page(context, { page: "research", topic: "sources" }, "test"));
     const inspection = research(html);
     assert.ok(inspection, "Account needs a separate unreviewed research section");
     assert.equal((inspection.match(/data-research-excerpt=/gu) ?? []).length, count);
@@ -29,15 +29,13 @@ test("Account offers a separate unreviewed public research layer with nine exact
     assert.match(inspection, /No human approval or independent corroboration/);
     assert.match(inspection, /Excluded from approved facts, preparation, Brief and model inputs/);
     assert.doesNotMatch(inspection, /data-evidence-|data-source-id=|<form|<button|\bApprove\b|\bRatify\b/);
-    assert.ok(html.indexOf('id="account-overview"') < html.indexOf('id="account-unreviewed-research"'));
-    assert.match(html, />Prepare for…<\/a>/);
+    assert.match(html, /id="account-research"/);
+    assert.match(renderC3Page(context, { page: "home" }, "test"), />Prepare brief<\/a>/);
     assert.doesNotMatch(html, /no new research has run/);
-    const people = html.slice(html.indexOf('id="account-people"'), html.indexOf('id="account-discoveries"'));
-    assert.match(people, /href="#account-research-people"/);
-    if (count === 6) assert.match(people, /href="#account-research-technology"/);
     for (const match of inspection.matchAll(/<details\b[^>]*data-research-excerpt="([^"]+)"[\s\S]*?<\/details>/gu)) {
-      assert.equal((match[0].match(/<details\b/gu) ?? []).length, 1, "exact inspection requires one disclosure");
-      assert.match(match[0], /<summary>[\s\S]*Inspect exact excerpt &amp; source[\s\S]*<\/summary>[\s\S]*<blockquote>/);
+      assert.equal((match[0].match(/<details\b/gu) ?? []).length, 2, "exact excerpt inspection has a separate Source details disclosure");
+      assert.match(match[0], /<summary>Source details<\/summary>[\s\S]*Acquired/);
+      assert.match(match[0], /<summary>Exact excerpt and source details<\/summary>[\s\S]*<blockquote>/);
       assert.match(match[0], /Acquired <time datetime="2026-09-08T05:32:/);
       assert.match(match[0], /Publication date: Unknown/);
       assert.match(match[0], /Current through: Unknown/);
@@ -46,13 +44,13 @@ test("Account offers a separate unreviewed public research layer with nine exact
 });
 
 test("Public role qualifiers and MU service limitations stay with the attributed research", async () => {
-  const u = research(renderC3Page(await utah(), { page: "home" }, "test"));
+  const u = research(renderC3Page(await utah(), { page: "research", topic: "sources" }, "test"));
   for (const exact of ["Jake Johansen\nChief Information Officer (interim)", "Trevor Long\nChief Information Security Officer (interim)", "Jim Livingston\nChief Technology Officer"]) assert.ok(u.includes(`<blockquote>${esc(exact)}</blockquote>`), exact);
   assert.match(u, /interim Chief Information Officer/);
   assert.match(u, /interim Chief Information Security Officer/);
   assert.match(u, /Last Updated: 6\/30\/26/);
   assert.match(u, /Page label only; not an appointment date or current-through date/);
-  const m = research(renderC3Page(await missouri(), { page: "home" }, "test"));
+  const m = research(renderC3Page(await missouri(), { page: "research", topic: "sources" }, "test"));
   for (const exact of ["Benjamin Canlas\nVice President for IT and MU Chief Information Officer", "Rebecca Fowler\nChief Information Security Officer", "Matthew Keeler\nDirector of IT Research Support Solutions"]) assert.ok(m.includes(`<blockquote>${esc(exact)}</blockquote>`), exact);
   assert.match(m, /Service remit is not a deployed product inventory, spend total or contract opportunity/);
   assert.match(m, /Evaluation does not establish a purchase, funded project, deployed agent or product fit/);
@@ -63,12 +61,12 @@ test("Public role qualifiers and MU service limitations stay with the attributed
 test("Canonical account identity separates new research without account-name or alias heuristics", async () => {
   const context = await missouri();
   const renamed = { ...context, context: { ...context.context, account: { ...context.context.account, accountName: "University of Utah", knownAliases: ["Utah"] } } };
-  const html = research(renderC3Page(renamed, { page: "home" }, "test"));
+  const html = research(renderC3Page(renamed, { page: "research", topic: "sources" }, "test"));
   assert.match(html, /Benjamin Canlas/);
   assert.doesNotMatch(html, /Jake Johansen|Trevor Long|Jim Livingston|it.utah.edu/);
   for (const accountId of ["unknown", "acc_university_of_missouri ", "ACC_UNIVERSITY_OF_MISSOURI", "__proto__"]) {
     const unknown = { ...context, context: { ...context.context, account: { ...context.context.account, accountId } } };
-    assert.equal(research(renderC3Page(unknown, { page: "home" }, "test")), "");
+    assert.equal(research(renderC3Page(unknown, { page: "research", topic: "sources" }, "test")), "");
   }
 });
 
@@ -141,18 +139,17 @@ test("Inspection escapes every authored field and refuses unsafe source links wi
 test("New research stays available with sparse historical context and never leaks between canonical accounts", async () => {
   for (const context of [await utah(), await missouri()]) {
     const sparse = { ...context, context: { ...context.context, admittedSources: [], entities: [], declaredContradictions: ["Conflicting retained scope"] } };
-    const html = main(renderC3Page(sparse, { page: "home" }, "test"));
-    assert.match(html, /There is not enough matched evidence/);
+    const html = main(renderC3Page(sparse, { page: "research", topic: "sources" }, "test"));
+    assert.match(main(renderC3Page(sparse, { page: "home" }, "test")), /There is not enough matched evidence/);
     assert.match(html, /Conflicting retained scope/);
-    assert.match(html, /id="account-people"/);
-    assert.match(html, /href="#account-research-people"/);
+    assert.match(html, /id="account-research-people"/);
     const inspection = research(html);
     if (context.context.account.accountId === "acc_university_of_utah") {
       assert.match(inspection, /Jake Johansen/);
       assert.doesNotMatch(inspection, /Benjamin Canlas|doit.missouri.edu/);
     } else {
       assert.match(inspection, /Benjamin Canlas/);
-      assert.match(html, /id="account-technology"/);
+      assert.match(html, /id="account-research-technology"/);
       assert.doesNotMatch(inspection, /Jake Johansen|it.utah.edu/);
     }
     const ids = [...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]!);
@@ -170,7 +167,7 @@ test("Account inspection leaves versioned context, model request, raw response a
     const briefBefore = briefContext(context);
     const pages = [{ page: "prepare" as const, request: syntheticMeetingRequest }, { page: "planning" as const, brief: newPlanningBrief("strategy") }];
     const beforePages = pages.map(page => main(renderC3Page(context, page, "test")));
-    renderC3Page(context, { page: "home" }, "test");
+    renderC3Page(context, { page: "research", topic: "sources" }, "test");
     assert.equal(JSON.stringify(context), before);
     assert.equal(briefContext(context), briefBefore);
     assert.deepEqual(pages.map(page => main(renderC3Page(context, page, "test"))), beforePages);
@@ -188,11 +185,11 @@ test("Account inspection leaves versioned context, model request, raw response a
   const raw = syntheticMeetingCandidate(context); // Hand-authored test data, never an acquired recording.
   const record = createGenerationRecord(modelRequest, raw, context);
   const draftBefore = main(renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test"));
-  renderC3Page(context, { page: "home" }, "test");
+  renderC3Page(context, { page: "research", topic: "sources" }, "test");
   assert.deepEqual(createC3ModelRequest(context, syntheticMeetingRequest), modelRequest);
   assert.equal(record.rawResponse, raw);
   assert.equal(hash(JSON.stringify(record)), "8e3bd9887df8d03505e39e690eaeee53cf7f8e0bf15da6addb8271e36c8d2b53");
-  assert.equal(hash(draftBefore), "8157233571c18953415e2c398adb21cd9a36ab9c5ee000455ce21277b72d0040");
+  assert.match(draftBefore, /data-revision-panel/); // The revised UI is intentionally different; raw/request identities above stay historical.
   assert.equal(main(renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test")), draftBefore);
   assert.doesNotMatch(draftBefore, /Jake Johansen|research-excerpt-utah-it-/);
 });

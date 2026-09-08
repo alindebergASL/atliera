@@ -40,6 +40,23 @@ function rawCandidate(context: FrozenC3AccountContext, overrides: Record<string,
   });
 }
 
+test("working brief leads with Situation before secondary setup and objective controls", async () => {
+  const context = await load();
+  const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
+  const record = createGenerationRecord(request, rawCandidate(context), context);
+  assert.equal(record.outcome, "succeeded");
+  const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test");
+  const start = html.indexOf('<main');
+  const situation = html.indexOf('data-generated-region="Situation for this audience"', start);
+  assert.ok(situation > start);
+  for (const secondary of ['<summary>Proposed objective</summary>', '>Edit meeting setup</a>', '>Add note</a>']) {
+    assert.ok(html.indexOf(secondary, start) > situation, secondary);
+  }
+  const { WORKSPACE_CSS } = await import('../../src/c3/workspace-style.ts');
+  assert.ok(WORKSPACE_CSS.includes('[data-revision-differences]:empty{display:none}'));
+  assert.ok(html.includes(record.draft!.audienceThesis.text));
+});
+
 test("explicit tentatively wording is cautious without bypassing factual or commercial support", async () => {
   const context = await load();
   const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
@@ -226,12 +243,12 @@ test("draft review uses plain session-only copy and a high-contrast label withou
   const record = createGenerationRecord(request, rawCandidate(context), context);
   const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
   const review = html.slice(html.indexOf('<section class="review"'), html.indexOf("</main>"));
-  assert.match(review, /Draft review/);
+  assert.match(review, /Private annotation/);
   assert.match(html, /Proposed and unreviewed/);
-  assert.match(review, /Notes are lost when this server session ends/);
-  assert.match(html, /Nothing is shared, sent, approved, or saved to the account/);
+  assert.match(html, /Session only · no private store configured/);
+  assert.match(html, /Private document storage never changes account truth or approves content/);
   assert.doesNotMatch(review, /exact prior raw\/draft|authenticated approval\/C4 persistence|ratification/iu);
-  assert.match(html, /\.review-label\{[^}]*color:var\(--muted\)/);
+  assert.match(html, /\.review-label\{[^}]*color:var\(--atl-muted\)/);
   assert.match(html, /data-review-status role="status" aria-live="polite"/);
 });
 
@@ -372,7 +389,7 @@ test("every direct-support-permitted draft slot visibly quotes and attributes ex
   assert.match(html, new RegExp(`aria-label="Opening evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
   assert.match(html, new RegExp(`aria-label="Question 2 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
   assert.match(html, new RegExp(`aria-label="Risk or unknown 1 evidence 1: ${source.title.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}`));
-  assert.match(html, /\.support a,\.warning a[^}]*min-height:44px;max-width:100%/);
+  assert.match(html, /\.support a\{[^}]*min-height:44px;max-width:100%/);
 
   const inferred = JSON.parse(rawCandidate(context)) as any;
   const inferenceRecord = createGenerationRecord(request, JSON.stringify(inferred), context);

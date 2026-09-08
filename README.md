@@ -25,6 +25,8 @@ See `docs/architecture/atliera-product-architecture.md`, `docs/architecture/dura
 
 ## Current implementation surface
 
+The [modern workspace v2 status](docs/status/modern-workspace-v2-20260908.md) records the connected account shell, evidence, explicit revision and private local Save/reopen implementation, with live/replay/unavailable boundaries and verification limits. It does not establish customer acceptance or production readiness.
+
 The current codebase now extends beyond the original Phase 1 graph foundation while still preserving a no-spend/default-closed posture:
 
 - graph primitive types in `src/graph/types.ts`

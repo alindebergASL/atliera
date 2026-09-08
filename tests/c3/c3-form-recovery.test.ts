@@ -102,6 +102,8 @@ function runClient(options: ClientOptions) {
         '[data-note-form]': noteForm,
         '[data-revise]': options.recordId === undefined ? null : revise,
         '[data-correction-note]': options.recordId === undefined ? null : note,
+        '[data-revision-instruction]': options.recordId === undefined ? null : note,
+        '[data-revision-status]': options.recordId === undefined ? null : reviewStatus,
         '[data-review-status]': options.recordId === undefined ? null : reviewStatus,
         'meta[name="c3-csrf"]': csrfMeta,
         'meta[name="c3-account"]': accountMeta,
@@ -180,7 +182,7 @@ test("rapid in-flight edits cache the latest audience and outcome, send one canc
     fetch: async () => { throw new Error("offline"); } });
   assert.equal(reloaded.form!.fields.audience!.value, "CIO and engineering leaders");
   assert.equal(reloaded.form!.fields.intendedOutcome!.value, "Edited goal while the previous generation is loading");
-  assert.match(reloaded.recovery.textContent, /only in this tab.*live server session/);
+  assert.match(reloaded.recovery.textContent, /Meeting setup recovery is available in this tab/);
 });
 
 test("a new server session cannot restore stale form bytes from the prior session", () => {
@@ -218,7 +220,7 @@ test("accepted generation navigates natively and one-click revision invalidates 
   await cached.form!.dispatch("input");
   const revision = runClient({ csrf: "revision-session", storage: revisionStorage, recordId: "c3_111111111111111111111111",
     correctionNote: "Revise the displayed draft",
-    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
+    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, instruction: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
   await revision.revise.dispatch("click");
   assert.equal(revisionStorage.values.size, 0);
   const prepare = runClient({ csrf: "revision-session", storage: revisionStorage,
@@ -300,7 +302,7 @@ test("a populated cache is invalidated when a newer write fails, including accep
   revisionStorage.removeUnavailable = true;
   const revision = runClient({ csrf: "revision-write-fault", storage: revisionStorage, recordId: "c3_111111111111111111111111",
     correctionNote: "Revise the displayed draft",
-    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
+    fetch: (url, init) => { const body = JSON.parse(init.body); return url === "/api/revise" ? response({ revisionReady: true, recordId: body.recordId, pendingRevisionToken: "a".repeat(32), savedNote: body.note, instruction: body.note, request: { audience: "Original", intendedOutcome: "Original outcome", durationMinutes: 15, meetingDate: "2026-09-12" } }) : response({ outcome: "failed", operation: body, error: "Synthetic failure" }); } });
   revisionStorage.setUnavailable = false;
   revisionStorage.removeUnavailable = false;
   await revision.revise.dispatch("click");
@@ -394,7 +396,7 @@ test("note save preserves newer typing and no-change revision leaves recovery an
   assert.equal(client.note.value, "Newer typing while save is pending");
   client.note.value = "";
   await client.revise.dispatch("click");
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
   assert.match(client.reviewStatus.textContent, /No revision requested/);
   assert.deepEqual(client.writes, []);
   assert.deepEqual(client.navigation, []);
@@ -466,6 +468,7 @@ test("meeting options summary reflects recovered values and current select/date 
 });
 
 test("modal citation keeps dirty notes, targets one excerpt and restores focus and scroll", () => {
+  for (const contentSelector of ['[data-evidence-content]', '.research-inspection-body']) {
   const clicks: Array<(event: any) => void> = [];
   const events = new Map<string, () => void>();
   const note = { value: 'Unsaved correction', addEventListener() {} };
@@ -474,7 +477,7 @@ test("modal citation keeps dirty notes, targets one excerpt and restores focus a
   const content = { cloneNode(deep: boolean) { assert.equal(deep, true); return 'exact targeted content'; } };
   const panel = { replaceChildren(value: unknown) { cloned = value; } };
   const dialog = { open: false, scrollTop: 99, showModal() { this.open = true; }, close() { this.open = false; events.get('close')!(); }, addEventListener(name: string, cb: () => void) { events.set(name, cb); }, querySelector(selector: string) { return selector === '[data-evidence-panel-body]' ? panel : selector === '#evidence-panel-title' ? title : selector === '[data-evidence-support]' ? support : null; } };
-  const target = { open: false, querySelector(selector: string) { return selector === '[data-evidence-content]' ? content : selector === 'summary' ? { textContent: 'Evidence 1 · Source title' } : null; } };
+  const target = { open: false, querySelector(selector: string) { return selector === contentSelector ? content : selector === 'summary' ? { textContent: 'Evidence 1 · Source title' } : null; } };
   const citation = { focus(options: unknown) { assert.deepEqual(JSON.parse(JSON.stringify(options)), { preventScroll: true }); focus = true; }, getAttribute(name: string) { return name === 'href' ? '#evidence-1' : name === 'data-context' ? 'Question 2' : name === 'data-support' ? 'Related evidence context' : null; } };
   const document = { body: { style: { overflow: '' } }, querySelector(selector: string) { return selector === '[data-evidence-dialog]' ? dialog : selector === '#evidence-1' ? target : selector === '[data-correction-note]' ? note : null; }, addEventListener(_name: string, cb: (event: any) => void) { clicks.push(cb); } };
   const window = { location: { pathname: '/', search: '?draft=1', hash: '' }, scrollX: 0, scrollY: 640, scrollTo(...args: number[]) { scroll = args; }, addEventListener() {} };
@@ -484,4 +487,5 @@ test("modal citation keeps dirty notes, targets one excerpt and restores focus a
   assert.equal(cloned, 'exact targeted content'); assert.equal(support.textContent, 'Related evidence context');
   assert.equal(note.value, 'Unsaved correction'); assert.equal(document.body.style.overflow, 'hidden');
   dialog.close(); assert.equal(focus, true); assert.deepEqual(scroll, [0, 640]); assert.equal(document.body.style.overflow, '');
+  }
 });

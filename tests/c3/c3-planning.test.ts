@@ -31,19 +31,20 @@ test("preview provenance is one compact disclosure and draft navigation appears 
     const html = renderC3Page(ctx, state, "test-csrf", { syntheticPreview: true, initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection });
     const body = html.slice(html.indexOf("<body>"), html.indexOf("<script>"));
     assert.equal((body.match(/class="recorded-mode"/gu) ?? []).length, 1);
-    assert.match(body, /<details class="recorded-mode"><summary>Synthetic local preview · Session-only<\/summary>/);
+    assert.match(body, /<details class="recorded-mode"><summary>Synthetic local preview<\/summary>/);
     assert.match(body, /Hand-authored fixtures · No AI recordings/);
-    assert.doesNotMatch(closedView(body), /Every meeting response|server restart loses/);
-    const navigation = body.match(/<nav class="journey-nav"[\s\S]*?<\/nav>/u)![0];
-    assert.equal(navigation.includes("Meeting draft"), state.page === "draft");
+    assert.doesNotMatch(closedView(body), /Every meeting response/);
+    const navigation = body.match(/<nav class="workspace-nav"[\s\S]*?<\/nav>/u)![0];
+    assert.equal(navigation.includes("Meeting draft"), false);
+    assert.match(navigation, />Workshop<\/span>/);
     assert.doesNotMatch(body, /as of /iu);
   }
-  assert.match(renderC3Page(ctx, { page: "home", hasDraft: true }, "test-csrf"), /href="\/\?draft=1">Meeting draft<\/a>/);
+  assert.match(renderC3Page(ctx, { page: "home", hasDraft: true }, "test-csrf"), /href="\/\?draft=1">Reopen session draft<\/a>/);
 });
 
 test("account insight precedes disclosed details; business labels disclose every exact raw gap", () => {
   const ctx = syntheticWorkshopContext();
-  const html = renderC3Page(ctx, { page: "home" }, "test-csrf");
+  const html = renderC3Page(ctx, { page: "research", topic: "initiatives" }, "test-csrf");
   const main = html.match(/<main\b[\s\S]*?<\/main>/u)![0];
   const visible = closedView(main);
   assert.ok(main.indexOf("Proposed next action") < main.indexOf("Full account context and gaps"));
@@ -95,7 +96,7 @@ test("sparse and conflicting context stays visible with all disclosures closed",
     for (const state of [{ page: "home" }, ...(["strategy", "next-steps"] as const).map((kind) => ({ page: "planning", brief: newPlanningBrief(kind) }))] as C3PageState[]) {
       const html = renderC3Page(ctx, state, "test-csrf");
       const visible = closedView(html.match(/<main\b[\s\S]*?<\/main>/u)![0]);
-      assert.match(visible, mode === "sparse" ? /No admitted sources/ : /Conflicting context/);
+      assert.match(visible, mode === "sparse" ? state.page === "home" ? /There is not enough matched evidence/ : /No admitted sources/ : /Conflicting context/);
       if (mode === "conflict") for (const conflict of ctx.context.declaredContradictions) assert.ok(visible.includes(escaped(conflict)));
     }
   }
@@ -218,4 +219,18 @@ test("existing multiline owner text stays exact when reopening the compact edito
   const brief = updatePlanningBrief(newPlanningBrief("next-steps"), { version: 0, proposedNextStep: { concern: "Concern", action: "Action", owner, targetDate: "", questionOrBlocker: "", evidenceIds: [] } }).brief;
   const page = renderC3Page(ctx, { page: "planning", brief }, "test");
   assert.ok(page.includes(`<textarea id="proposal-owner" name="owner" maxlength="160" rows="1">\n${escaped(owner)}</textarea>`));
+});
+
+
+test("section note guidance is provider neutral and reserves durability for Save", () => {
+  const ctx = syntheticWorkshopContext();
+  const record = createGenerationRecord(createC3ModelRequest(ctx, syntheticMeetingRequest), syntheticMeetingCandidate(ctx), ctx);
+  for (const replay of [undefined, { syntheticPreview: true, initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection }]) {
+    const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '', revisionPending: false }, 'test', replay).split('<script>')[0]!;
+    assert.doesNotMatch(html, /Only the exact recorded correction in Draft review can replay a revision/);
+    assert.match(html, /Keep section note/);assert.match(html, /Save to retain/);
+    assert.match(html, /propose a revision.*Apply revision/i);
+    if(replay)assert.match(html, /Exact correction available for the recorded revision/);
+    else assert.doesNotMatch(html, /Exact correction available for the recorded revision/);
+  }
 });

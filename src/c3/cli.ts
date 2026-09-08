@@ -174,6 +174,14 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
     rawResponseSha256: record.rawResponseSha256, output: resolve(output, "draft.html") })}\n`);
 }
 
+function configuredWorkStore(): {root:string;principal:string} | undefined {
+  const root=process.env.C3_WORK_STORE_ROOT;
+  const principal=process.env.C3_OPERATOR_PRINCIPAL;
+  if(root===undefined && principal===undefined)return undefined;
+  if(!root || !principal)throw Error('C3_WORK_STORE_ROOT and C3_OPERATOR_PRINCIPAL must both be explicitly configured');
+  return {root,principal};
+}
+
 async function serveCommand(args: readonly string[]): Promise<void> {
   const [accountId = "acc_university_of_utah"] = args;
   if (args.length > 1) throw new Error("usage: serve [ACCOUNT_ID]");
@@ -182,7 +190,7 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   const provider = command === undefined || isCuratedContext(frozen) ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command });
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
-  const running = await startC3Server({ context: frozen, provider, port: Number(portText) });
+  const running = await startC3Server({ context: frozen, provider, workStore: configuredWorkStore(), port: Number(portText) });
   process.stdout.write(`${running.origin}\n`);
   const stop = (): void => { void running.close().then(() => process.exit(0)); };
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
@@ -196,7 +204,7 @@ async function serveRecordedCommand(args: readonly string[]): Promise<void> {
   const replay = await loadC3RecordedReplay(frozen, recordingDirectory);
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
-  const running = await startC3Server({ context: frozen, provider: replay.provider, port: Number(portText),
+  const running = await startC3Server({ context: frozen, provider: replay.provider, workStore: configuredWorkStore(), port: Number(portText),
     recordedReplay: { initialRequest: replay.initialRequest, correctionNote: replay.correctionNote } });
   process.stdout.write(`${running.origin}\n`);
   const stop = (): void => { void running.close().then(() => process.exit(0)); };

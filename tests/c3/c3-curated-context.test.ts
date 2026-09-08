@@ -34,20 +34,20 @@ async function collisionContext() {
   return parseCuratedC3Context(JSON.stringify(value), "acc_university_of_missouri");
 }
 function assertCuratedLabels(page: string) {
-  assert.ok(page.includes("<p>Agent-curated proposed/template context. No human approval, owner disposition, policy admission or model recording. Owner and date unassigned. Session-only;"));
+  assert.ok(page.includes("<p>Agent-curated proposed/template context. No human approval, owner disposition, policy admission or model recording. Owner and date unassigned."));
   assert.ok(page.includes('<p class="meta">Proposed entity relationships do not establish personal decision authority.</p>'));
 }
 test("curated labels preserve all provenance literals in exact source, excerpt and statement locations", async () => {
   const frozen = await collisionContext();
-  for (const state of [{ page: "home" } as const, { page: "planning", brief: newPlanningBrief("strategy") } as const]) {
+  for (const state of [{ page: "research", topic: "sources" } as const, { page: "planning", brief: newPlanningBrief("strategy") } as const]) {
     const page = renderC3Page(frozen, state, "test");
     assert.ok(page.includes(`<blockquote>${escapedCollisionText}</blockquote>`), `${state.page}: exact excerpt`);
     assert.ok(page.includes(`<pre class="source-text" tabindex="0">Retained prefix\n${escapedCollisionText}\nRetained suffix</pre>`), `${state.page}: full source`);
     assert.ok(page.includes(`<article><p>${escapedCollisionText}</p><p class="support">`), `${state.page}: quoted statement`);
     assertCuratedLabels(page);
-    if (state.page === "home") {
+    if (state.page === "research") {
       assert.ok(page.includes(`<p class="lede">${escapedCollisionText}</p>`));
-      assert.ok(page.includes('<strong>Sources used</strong>'));
+      assert.ok(page.includes('The retained source library'));
       assert.ok(page.includes('<p class="boundary">This orientation uses agent-curated public excerpts, not admitted C2 evidence. It does not claim that the legacy “meaningfully changed” bucket proves temporal change, and no C2 owner disposition or generated C3 content exists.</p>'));
     }
   }
@@ -85,7 +85,7 @@ test("curated Missouri retains exact evidence without owner, policy or model cla
       assert.equal(sha(e.exactExcerpt), e.exactExcerptSha256);
     }
   }
-  const page = renderC3Page(frozen, { page: "home" }, "test");
+  const page = renderC3Page(frozen, { page: "research", topic: "sources" }, "test");
   assert.match(page, /Agent-curated/);
   assert.match(page, /UM System/);
   assert.doesNotMatch(page, /Admitted public context|reuses admitted C2 evidence/);
@@ -118,9 +118,9 @@ test("Utah canonical identity remains byte-for-byte historical", async () => {
   const frozen = await loadC3AccountContext({ broadInputPath: "fixtures/account-intelligence/c2-01/broad-account-research-input.json", proposalPath: "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/university-of-utah-validated-proposal.json", ownerDecisionPath: "docs/decisions/c2-owner-disposition-record.json", accountId: "acc_university_of_utah" });
   assert.equal(frozen.sha256, "f1947ebb32991cebfcc7ae713bb201fe1ced275be79efeae3f1e6bc660761a6f");
   assert.ok(!("provenance" in frozen.context));
-  const page = renderC3Page(frozen, { page: "home" }, "test");
-  assert.ok(page.includes("<p>Proposed and unreviewed local content. Session-only;"));
-  assert.ok(page.includes("<strong>Sources used</strong>"));
+  const page = renderC3Page(frozen, { page: "research", topic: "sources" }, "test");
+  assert.ok(page.includes("<p>Proposed and unreviewed local content."));
+  assert.ok(page.includes("The retained source library"));
   assert.ok(page.includes('<p class="boundary">This orientation reuses admitted C2 evidence. It does not claim that the legacy “meaningfully changed” bucket proves temporal change, and the C2 disposition does not approve generated C3 content.</p>'));
   assert.ok(page.includes('<p class="meta">Admitted entity relationships do not establish personal decision authority.</p>'));
   assert.doesNotMatch(page, /Agent-curated public context|Agent-curated proposed\/template context/);

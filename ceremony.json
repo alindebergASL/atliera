@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "modern-c3-source-limit-wording",
+    "recordId": "coherent-c3-lexical-tuning-closure",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Recognize an explicit negated-source limit in C3 unknown wording without repairing model output or bypassing assertion checks.",
-    "scope": "Narrowly extend C3 unknown wording recognition for the opening No supplied source establishes construction. Add synthetic positive and negative regressions and retain downstream unsupported-account and commercial-presupposition checks, evidence identity and exact raw-response bytes. This is an intentional bounded acceptance correction, not a refactor-only claim or general natural-language proof. The source change executes no provider calls, retries, private evidence reads, network, durable writes or deployment and grants no product-effect authority. Preserve historical refusal outcomes; any separately authorized no-call revalidation must be identified separately. Require independent spec and safety/quality review, exact-head tests and ordinary checked merge with no protection bypass.",
+    "decision": "Close C3 lexical-tuning workstream with truthful docs/test closure; no fresh-generation, model output repair, provider call, deployment, or new effect authority.",
+    "scope": "Add 36 INITIAL/REVISION failure-class characterization tests and v5 source SHA-256 pins in tests/c3/c3-generation-emission.test.ts; new partial status doc docs/status/coherent-workspace-partial-20260909.md; update docs/runbooks/c3-generation-emission-v5.md closure section; new status assertion test tests/c3/c3-coherent-partial-status.test.ts. Source bytes unchanged. No private evidence, credentials, raw provider output, or new product effects. Independent spec review PASS and quality/safety review APPROVED on exact head. Ordinary checked merge with no protection bypass.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-09T00:14:21.000Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/tree/fix/modern-c3-source-limit-wording",
-    "proposalDigest": "sha256:3d1d14799ede495e877e762f0cfb8df07486a395578f1aecc18784898ffb9488"
+    "proposedAt": "2026-09-09T11:10:00.000Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/coherent-workspace-20260909",
+    "proposalDigest": "sha256:0b5603a60918555c368f841c08a910baeddffe617462e2cae6c19649d0838587"
   }
 }

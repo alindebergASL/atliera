@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +12,52 @@ import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/r
 import { createAccountIntelligencePrompt } from "../../src/account-intelligence/proposal.ts";
 import { loadC3AccountContext } from "../../src/c3/context.ts";
 import { createC3ModelRequest, createGenerationRecord, validateC3Candidate } from "../../src/c3/draft.ts";
+
+test("source-limit unknown accepts subject-negated supplied source without rewriting identity", () => {
+  const context = syntheticWorkshopContext();
+  const before = JSON.stringify(context);
+  const request = createC3ModelRequest(context, syntheticMeetingRequest);
+  const text = "No supplied source establishes the current capacity.";
+  for (const field of ["objective", "audienceThesis", "risksUnknowns", "closeCriterion"]) {
+    const candidate = JSON.parse(syntheticMeetingCandidate(context));
+    const item = { text, supportCategory: "unknown", evidenceRefs: candidate.selectedEvidenceRefs };
+    candidate[field] = field === "risksUnknowns" ? [item] : item;
+    const raw = JSON.stringify(candidate, null, 2);
+    const record = createGenerationRecord(request, raw, context);
+    assert.equal(record.outcome, "succeeded", `${field}: ${record.refusal?.message}`);
+    assert.equal(record.rawResponse, raw);
+    assert.equal(record.rawResponseSha256, createHash("sha256").update(raw).digest("hex"));
+    assert.equal(record.contextSha256, context.sha256);
+    assert.deepEqual(record.draft!.selectedEvidenceRefs, candidate.selectedEvidenceRefs);
+    assert.deepEqual(field === "risksUnknowns" ? record.draft!.risksUnknowns[0] :
+      record.draft![field as "objective" | "audienceThesis" | "closeCriterion"], item);
+  }
+  assert.equal(JSON.stringify(context), before);
+});
+
+for (const [text, refusal] of [
+  ["The supplied source establishes the current capacity.", /unknown must explicitly/],
+  ["No capacity is available.", /unknown must explicitly/],
+  ["Not only does the supplied source establish the current capacity, it confirms the owner.", /unknown must explicitly/],
+  ["No supplied source establishes only the current capacity; each also confirms the owner.", /unknown must explicitly/],
+  ["No supplied source no longer establishes the current capacity.", /unknown must explicitly/],
+  ["The supplied source no longer establishes the current capacity.", /unknown must explicitly/],
+  ["No supplied source establishes the current capacity. The account has an approved purchasing budget.", /unsupported/],
+  ["No supplied source establishes the current capacity, but the funds are available.", /unsupported/],
+  ["No supplied source establishes the current capacity; the account signed a contract.", /unsupported commercial/],
+  ["No supplied source establishes the current capacity. Plan implementation of your purchase.", /unsupported commercial/],
+  ["No supplied source establishes the current capacity. The account experienced a data breach.", /unsupported/],
+] as const) test(`source-limit unknown refuses unsafe wording: ${text}`, () => {
+  const context = syntheticWorkshopContext();
+  const candidate = JSON.parse(syntheticMeetingCandidate(context));
+  candidate.risksUnknowns[0].text = text;
+  const raw = JSON.stringify(candidate, null, 2);
+  const record = createGenerationRecord(createC3ModelRequest(context, syntheticMeetingRequest), raw, context);
+  assert.equal(record.outcome, "refused");
+  assert.match(record.refusal!.message, refusal);
+  assert.equal(record.rawResponse, raw);
+  assert.equal(record.rawResponseSha256, createHash("sha256").update(raw).digest("hex"));
+});
 
 test("SEC-01 real loader retains hostile source for inspection but excludes every candidate citation path", async () => {
   const directory = await mkdtemp(join(tmpdir(), "c3-hostile-regression-"));

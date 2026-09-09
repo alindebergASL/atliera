@@ -123,7 +123,7 @@ test('populated brief keeps exact content and evidence while grouping support an
   const { createC3ModelRequest, createGenerationRecord } = await import('../../src/c3/draft.ts');
   const context = syntheticWorkshopContext();
   const request = { ...syntheticMeetingRequest, intendedOutcome: 'Explore <constraints> & agree a useful next step' };
-  const record = createGenerationRecord(createC3ModelRequest(context, request), syntheticMeetingCandidate(context), context);
+  const record = createGenerationRecord(createC3ModelRequest(context, request, null, "5"), syntheticMeetingCandidate(context), context);
   assert.ok(record.draft);
   const html = main(renderC3Page(context, { page: 'draft', record, correctionNote: 'My exact general note', sectionNotes: { Opening: 'My exact opening note' }, work: { available: true, documentId: 'doc_' + '1'.repeat(24), version: 2, workVersion: 3, saved: true, savedWorks: [] } }, 'test'));
   assert.ok(html.includes(esc(request.intendedOutcome)), 'Full outcome remains in document details');

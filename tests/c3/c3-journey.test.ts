@@ -6,9 +6,15 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { canonicalJson, loadC3AccountContext, type FrozenC3AccountContext } from "../../src/c3/context.ts";
-import { assertReplayIdentity, createC3ModelRequest, createC3RevisionContext, createGenerationRecord, validateC3Candidate } from "../../src/c3/draft.ts";
+import { assertReplayIdentity, createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, validateC3Candidate as validateCurrentC3Candidate } from "../../src/c3/draft.ts";
 import { CommandC3ModelProvider } from "../../src/c3/provider.ts";
 import { renderC3Page } from "../../src/c3/render.ts";
+
+// These historical contract/render fixtures explicitly exercise issued v5.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = "5") =>
+  createCurrentC3ModelRequest(context, input, revision, version);
+const validateC3Candidate: typeof validateCurrentC3Candidate = (raw, context, date, version = "5", verification, request) =>
+  validateCurrentC3Candidate(raw, context, date, version, verification, request);
 
 const ROOT = process.cwd();
 const BROAD = resolve(ROOT, "fixtures/account-intelligence/c2-01/broad-account-research-input.json");

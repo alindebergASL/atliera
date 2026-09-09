@@ -3,8 +3,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import test from 'node:test';
 import { canonicalJson, type FrozenC3AccountContext } from '../../src/c3/context.ts';
-import { assertReplayIdentity, c3GenerationContractVersion, createC3ModelRequest, createC3RevisionContext,
+import { assertReplayIdentity, c3GenerationContractVersion, createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext,
   createGenerationRecord, reconstructC3ModelRequest, type C3GenerationRecord, type C3ModelRequest } from '../../src/c3/draft.ts';
+// These cases characterize issued v5; current v6 is covered by c3-generation-v6.test.ts.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 import { LocalWorkStore, type WorkingBrief } from '../../src/c3/work-store.ts';
 import { syntheticMeetingCandidate } from '../fixtures/c3-workshop.ts';
 
@@ -118,7 +121,7 @@ for (const savedFixture of [fixture, v3, v4]) test(`v${c3GenerationContractVersi
   } finally { rmSync(root, {recursive: true}); }
 });
 
-for (const savedFixture of [fixture, v3, v4]) test(`fresh requests use explicit contract; mixed v${c3GenerationContractVersion(savedFixture.initial)}→new history preserves original ancestor and saves`, () => {
+for (const savedFixture of [fixture, v3, v4]) test(`issued v5 requests use explicit contract; mixed v${c3GenerationContractVersion(savedFixture.initial)}→new history preserves original ancestor and saves`, () => {
   const fixture = savedFixture;
   const revision = createC3RevisionContext(fixture.revised, 'Clarify the close.', 2);
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest, revision);
@@ -138,7 +141,7 @@ for (const savedFixture of [fixture, v3, v4]) test(`fresh requests use explicit 
 test('unknown, removed, injected and downgraded versions never receive hash forgiveness', () => {
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest);
   const fresh = createGenerationRecord(request, fixture.initial.rawResponse, context);
-  for (const version of ['1', '6', '', null, 3, undefined]) {
+  for (const version of ['1', '7', '', null, 3, undefined]) {
     assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: version} as C3GenerationRecord, context), /contract version/);
     assert.throws(() => createGenerationRecord({...request, generationContractVersion: version} as C3ModelRequest, fresh.rawResponse, context), /contract version/);
   }
@@ -147,6 +150,7 @@ test('unknown, removed, injected and downgraded versions never receive hash forg
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '2'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '3'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '4'}, context));
+  assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '6'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '2'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '3'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, schemaVersion: '999'} as unknown as C3GenerationRecord, context));

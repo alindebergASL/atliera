@@ -178,7 +178,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     finally{reviewBusy=false;controls();}
   });
   document.querySelector('[data-use-recorded-note]')?.addEventListener('click',()=>{
-    const exact=document.querySelector('[data-recorded-note]');if(instruction && exact && !reviewBusy){if(pendingRevisionToken && instruction.value !== (exact.textContent || ''))proposalStale=true;instruction.value=exact.textContent || '';revisionStatus.textContent='Fixed recorded instruction selected. Replay uses its existing response.';markWorkDirty();syncInstruction().catch(error=>{revisionStatus.textContent=error.message;});openRevisionSheet(revisionSection, true);}
+    const exact=document.querySelector('[data-recorded-note]');if(instruction && exact && !reviewBusy){if(pendingRevisionToken && instruction.value !== (exact.textContent || ''))proposalStale=true;instruction.value=exact.textContent || '';revisionStatus.textContent='Fixed instruction selected. This preview uses its existing response.';markWorkDirty();syncInstruction().catch(error=>{revisionStatus.textContent=error.message;});openRevisionSheet(revisionSection, true);}
   });
   const flushGeneralNote = async () => {
     if(!correctionNote || correctionNote.value===savedNote)return;

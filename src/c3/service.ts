@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord, snapshotMeetingFormState, snapshotMeetingRequest,
   type C3GenerationRecord, type C3MeetingFormState, type C3MeetingRequest, type C3RevisionContext } from "./draft.ts";
-import type { C3ModelProvider } from "./provider.ts";
+import { generateVerifiedC3Record, type C3ModelProvider, type C3GenerationAudit } from "./provider.ts";
 import { boundedPlanningText, MEETING_NOTE_SECTIONS, newPlanningBrief, updatePlanningBrief, type PlanningBrief, type PlanningKind } from "./planning.ts";
 import { renderC3Page } from "./render.ts";
 
@@ -57,6 +57,8 @@ export interface C3ServiceStatus {
 export interface C3ServerOptions {
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
+  /** Private durable audit sink for original generator/verifier responses, including refusals. */
+  readonly generationAudit?: C3GenerationAudit;
   readonly port?: number;
   readonly workStore?: WorkStoreOptions;
   /** Labels hand-authored local fixtures; never changes request matching. */
@@ -192,7 +194,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const trusted=options.originReceipt?.(record) ?? options.workStore?.originReceipt?.(record);
     if(trusted){validateOriginReceipt(trusted,record);return structuredClone(trusted);}
     const exact=admitted.find(item=>item && canonicalJson(item)===canonicalJson(record));
-    return exact ? createRecordOriginReceipt(record,'historical-replay',`replay:${record.recordId}`) : undefined;
+    return exact ? createRecordOriginReceipt(record,options.syntheticPreview ? 'synthetic' : 'historical-replay',`replay:${record.recordId}`) : undefined;
   };
   const origin = (record:C3GenerationRecord|undefined):WorkOrigin => record ? originReceipt(record)?.origin ?? 'unknown' : 'unknown';
   const store = options.workStore ? new LocalWorkStore({...options.workStore, originReceipt, now:options.now ?? options.workStore.now}, options.context) : undefined;
@@ -204,6 +206,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     options.context.context.ownerCorrections.some(item => item.text.includes("not enabled")) ? { available: false, explanation: "Preparation held pending the recorded C2 revision." } :
     options.provider.name === "disabled" ? { available: false, explanation: "Generation unavailable. This server has no configured model provider. Keep your setup or use a planning worksheet." } :
     options.provider.name === "recorded-replay" ? { available: options.recordedReplay !== undefined, explanation: "Historical replay only. Only the exact recorded request is available; no fresh generation." } :
+    options.syntheticPreview === true && options.provider.executionMode === 'local' && admitted.length === 2 ?
+      { available: true, explanation: "Synthetic authored examples only. Only the exact admitted requests are available; no model recording or fresh generation." } :
+    !options.provider.verify || options.provider.executionMode === 'external' && !options.generationAudit ?
+      { available: false, explanation: "Fresh generation unavailable. The independent evidence check and private attempt retention must be configured." } :
     { available: true, explanation: options.provider.executionMode === "external" ? "Generation route configured. A provider request creates a proposed session draft." : options.provider.executionMode === "local" ? "Local generation route configured. Output remains proposed and session-only." : "Generation route configured. Output remains proposed and session-only." };
   const render = (inputState: Parameters<typeof renderC3Page>[1], csrf: string): string => {
     const session = [...sessions.values()].find(item => item.csrf === csrf);
@@ -214,7 +220,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
-    options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay") ? undefined : { correctionNote: options.recordedReplay.correctionNote,
+    options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
       initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
   let expectedHost = "";
 
@@ -563,8 +569,9 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const replayRecord=admitted.find(record=>record && canonicalJson(record.meetingRequest)===canonicalJson(request) && canonicalJson(record.revision)===canonicalJson(revision));
       if(admitted.length && !replayRecord) throw Error('Recorded replay refused: no response matches this exact request; no live generation was attempted.');
       const modelRequest = replayRecord ? reconstructC3ModelRequest(options.context,replayRecord) : createC3ModelRequest(options.context, request, revision);
-      const raw = await options.provider.generate(modelRequest, controller.signal);
-      const generation = createGenerationRecord(modelRequest, raw, options.context);
+      const generation = replayRecord
+        ? createGenerationRecord(modelRequest, await options.provider.generate(modelRequest, controller.signal), options.context, replayRecord.verification)
+        : await generateVerifiedC3Record(options.provider, modelRequest, options.context, controller.signal, options.generationAudit);
       if(replayRecord && canonicalJson(generation)!==canonicalJson(replayRecord)) throw Error('Recorded replay response identity mismatch');
       if (session.sequence !== sequence || controller.signal.aborted) {
         if (!res.writableEnded) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });

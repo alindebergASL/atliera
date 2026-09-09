@@ -11,7 +11,13 @@ import { createAccountResearchPlan } from "../../src/account-intelligence/resear
 import { snapshotAdmittedResearchPolicy } from "../../src/account-intelligence/research-policy.ts";
 import { createAccountIntelligencePrompt } from "../../src/account-intelligence/proposal.ts";
 import { loadC3AccountContext } from "../../src/c3/context.ts";
-import { createC3ModelRequest, createGenerationRecord, validateC3Candidate } from "../../src/c3/draft.ts";
+import { createC3ModelRequest as createCurrentC3ModelRequest, createGenerationRecord, validateC3Candidate as validateCurrentC3Candidate } from "../../src/c3/draft.ts";
+
+// These historical contract/render fixtures explicitly exercise issued v5.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = "5") =>
+  createCurrentC3ModelRequest(context, input, revision, version);
+const validateC3Candidate: typeof validateCurrentC3Candidate = (raw, context, date, version = "5", verification, request) =>
+  validateCurrentC3Candidate(raw, context, date, version, verification, request);
 
 test("source-limit unknown accepts subject-negated supplied source without rewriting identity", () => {
   const context = syntheticWorkshopContext();

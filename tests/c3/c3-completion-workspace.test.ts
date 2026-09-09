@@ -11,7 +11,8 @@ const main = (html:string) => html.slice(html.indexOf('<main'), html.indexOf('</
 const esc = (text:string) => text.replace(/[&<>"']/gu,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const ctx = syntheticWorkshopContext();
 const request = {...syntheticMeetingRequest,intendedOutcome:'Understand research priorities and agree a useful next step for the university'};
-const record = createGenerationRecord(createC3ModelRequest(ctx,request),syntheticMeetingCandidate(ctx),ctx);
+// This UI-only fixture preserves the historical v5 authored response.
+const record = createGenerationRecord(createC3ModelRequest(ctx,request,null,'5'),syntheticMeetingCandidate(ctx),ctx);
 const work:WorkDisplayState = {available:true,documentId:'doc_'+'1'.repeat(24),version:1,workVersion:1,saved:true,title:request.intendedOutcome,origin:'historical-replay',savedWorks:[]};
 
 test('expanded Detail organizes retained specifics across two accounts; Evidence keeps the entire original quotation',async()=>{
@@ -96,8 +97,9 @@ test('fixed replay instruction is read-only and disclosed before execution; fres
  const state={page:'draft' as const,record,correctionNote:'Exact separate note',instruction:'Previously kept instruction',work,generation:{available:true,explanation:'Isolated fixture'}};
  const replay=main(renderC3Page(ctx,state,'offline',{correctionNote:'Fixed retained instruction',initialRequest:request,syntheticPreview:true}));
  assert.match(replay,/<textarea[^>]+data-revision-instruction[^>]+readonly aria-describedby="replay-instruction-help"/);
- assert.match(replay,/only the fixed recorded instruction below has a response/);
- assert.ok(replay.indexOf('only the fixed recorded instruction')<replay.indexOf('data-revise'));
+ assert.match(replay,/only the fixed authored instruction below has a response/);
+ const disclosure=replay.indexOf('only the fixed authored instruction');const action=replay.indexOf('data-revise');
+ assert.ok(disclosure>=0 && action>disclosure);
  assert.match(replay,/data-recorded-note>Fixed retained instruction<\/pre>/);
  assert.match(replay,/Previously kept instruction<\/textarea>/,'Do not silently overwrite previously kept input');
  const fresh=main(renderC3Page(ctx,state,'offline'));

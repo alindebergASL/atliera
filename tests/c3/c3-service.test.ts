@@ -8,7 +8,12 @@ import vm from "node:vm";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { loadC3AccountContext, type FrozenC3AccountContext } from "../../src/c3/context.ts";
-import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, type C3ModelRequest } from "../../src/c3/draft.ts";
+import { createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, type C3ModelRequest } from "../../src/c3/draft.ts";
+import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract-v6.ts';
+import { scriptedFullCoverage } from './c3-generation-scripted.ts';
+// Rendering and replay fixtures characterize issued v5. Fresh HTTP operations below use explicit scripted v6 checks.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 import { DisabledC3ModelProvider, RecordedReplayC3ModelProvider, type C3ModelProvider } from "../../src/c3/provider.ts";
 import { C3_CLIENT_SCRIPT, renderC3Page } from "../../src/c3/render.ts";
 import { startC3Server, type RunningC3Server } from "../../src/c3/service.ts";
@@ -120,8 +125,49 @@ function pendingRevisionToken(html: string): string {
 
 const meetingRequest = { audience: "CISO", intendedOutcome: "Understand priorities and agree a next step.", durationMinutes: 15, meetingDate: "2026-09-12" };
 
+test("synthetic v5 replay readiness requires two exact admitted local records and preserves their bytes", async () => {
+  const ctx = await context();
+  const initial = createC3ModelRequest(ctx, meetingRequest);
+  const raw = candidate(ctx);
+  const priorRecord = createGenerationRecord(initial, raw, ctx);
+  const correctionNote = "Keep the exact authored questions.";
+  const revision = createC3ModelRequest(ctx, meetingRequest, createC3RevisionContext(priorRecord, correctionNote, 1));
+  const revisionRecord = createGenerationRecord(revision, raw, ctx);
+  for (const mode of ['admitted', 'unadmitted', 'external'] as const) {
+    let calls = 0;
+    const running = await startC3Server({ context: ctx, syntheticPreview: true, listen: false, expectedHost: HOST,
+      recordedReplay: { initialRequest: priorRecord.meetingRequest, correctionNote,
+        ...(mode === 'unadmitted' ? {} : { priorRecord, revisionRecord }) },
+      provider: { name: 'synthetic-authored-preview', executionMode: mode === 'external' ? 'external' : 'local',
+        async generate(request) { calls += 1; assert.equal(request.generationContractVersion, '5'); return raw; } } });
+    try {
+      const browser = await browserSession(running);
+      const prepare = await requestTo(running, 'GET', '/?prepare=1', undefined, { cookie: browser.cookie });
+      if (mode === 'admitted') {
+        assert.match(prepare.text, /Only the exact authored example request is available/);
+        assert.doesNotMatch(prepare.text, /Fresh generation unavailable/);
+        const response = await browser.post('/api/generate', meetingRequest);
+        assert.equal(response.status, 200);
+        assert.equal(JSON.parse(response.text).recordId, priorRecord.recordId);
+        assert.equal(calls, 1);
+      } else {
+        assert.match(prepare.text, /Fresh generation unavailable/);
+        assert.equal(calls, 0);
+      }
+    } finally { await running.close(); }
+  }
+  assert.equal(priorRecord.rawResponse, raw);
+});
+
 async function harness(provider: C3ModelProvider, now?: () => Date) {
-  return startC3Server({ context: await context(), provider, now, listen: false, expectedHost: HOST });
+  const scriptedProvider: C3ModelProvider = { name: provider.name, executionMode: provider.executionMode,
+    async generate(request, signal) {
+      const original = await provider.generate(request, signal);
+      if (request.generationContractVersion !== '6') return original;
+      try { return JSON.stringify({...JSON.parse(original), assertions: []}); } catch { return original; }
+    }, async verify(request, signal) { return provider.verify ? provider.verify(request, signal) : scriptedFullCoverage(request); } };
+  return startC3Server({ context: await context(), provider: scriptedProvider, now, listen: false, expectedHost: HOST,
+    generationAudit: { async retainCandidate() {}, async retainRecord() {}, async retainFailure() {} } });
 }
 
 test("HTTP handler renders discoverable responsive journey and disabled-provider failure preserves inputs", async () => {
@@ -196,7 +242,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.match(priorHtml, /Recorded correction: keep the exact prior identity and allow no follow-up\./);
     assert.equal(priorHtml.match(/Recorded initial — before correction\./gu)?.length, 1);
     assert.ok(priorHtml.indexOf("Recorded initial — before correction.") < priorHtml.indexOf('class="draft-grid"'));
-    assert.match(C3_CLIENT_SCRIPT, /Fixed recorded instruction selected/);
+    assert.match(C3_CLIENT_SCRIPT, /Fixed instruction selected/);
 
     const arbitrary = "Arbitrary owner note stays a note and has no matching recorded result.";
     const kept = await browser.post("/api/note", { note: arbitrary, recordId: priorRecord.recordId });
@@ -342,7 +388,8 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
 
 test("two local service ports retain independent browser-jar sessions and a restart invalidates only its session", async () => {
   const ctx = await context();
-  const provider: C3ModelProvider = { name: "shared-browser-jar", generate: async () => candidate(ctx) };
+  const provider: C3ModelProvider = { name: "shared-browser-jar", generate: async () => JSON.stringify({...JSON.parse(candidate(ctx)), assertions: []}),
+    async verify(request) { return scriptedFullCoverage(request); } };
   const cookieJar = new Map<string, string>();
   const cookieHeader = (): string => [...cookieJar].map(([name, value]) => `${name}=${value}`).join("; ");
   const rememberCookie = (response: ResponseResult): void => {
@@ -658,7 +705,7 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     assert.equal(captured.length, 2);
     assert.equal(captured[0]!.revision, null);
     assert.equal(captured[1]!.revision?.correctionNote, note);
-    assert.equal(captured[1]!.revision?.priorRawResponse, candidate(ctx));
+    assert.equal(captured[1]!.revision?.priorRawResponse, JSON.stringify({...JSON.parse(candidate(ctx)), assertions: []}));
     assert.ok(captured[1]!.revision?.priorDraft);
     assert.notEqual(captured[0]!.revisionSha256, captured[1]!.revisionSha256);
     assert.notEqual(JSON.stringify(captured[0]), JSON.stringify(captured[1]));
@@ -1156,10 +1203,13 @@ test("Account Intel and purpose-specific templates share injected context withou
 test("in-place meeting notes retain raw response, bind displayed identity and protect pending revisions", async () => {
   const { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } = await import("../fixtures/c3-workshop.ts");
   const ctx = syntheticWorkshopContext();
-  const raw = syntheticMeetingCandidate(ctx);
-  const exact = createC3ModelRequest(ctx, syntheticMeetingRequest);
-  const record = createGenerationRecord(exact, raw, ctx);
-  const running = await startC3Server({ context: ctx, provider: new RecordedReplayC3ModelProvider([{ request: exact, rawResponse: raw }]), listen: false, expectedHost: HOST });
+  const raw = JSON.stringify({...JSON.parse(syntheticMeetingCandidate(ctx)), assertions: []});
+  const exact = createCurrentC3ModelRequest(ctx, syntheticMeetingRequest);
+  const verificationRequest = createC3VerificationRequest(exact, raw, ctx);
+  const record = createGenerationRecord(exact, raw, ctx, retainC3Verification(verificationRequest, scriptedFullCoverage(verificationRequest)));
+  const replay = new RecordedReplayC3ModelProvider([{ request: exact, rawResponse: raw }]);
+  const running = await startC3Server({ context: ctx, provider: {name:replay.name,executionMode:'local',generate:replay.generate.bind(replay),
+    async verify(request) { return scriptedFullCoverage(request); }}, listen: false, expectedHost: HOST });
   try {
     const browser = await browserSession(running);
     assert.equal((await browser.post("/api/generate", syntheticMeetingRequest)).status, 200);
@@ -1412,4 +1462,44 @@ test('title route rejects hostile bodies, cross-origin/CSRF requests and oversiz
   assert.deepEqual(JSON.parse((await browser.rawPost('/api/work-state',{})).text),state);
   assert.equal((await browser.rawPost('/api/work/title',body)).status,200);
  }finally{await running.close();}
+});
+
+test('v6 verifier refusal leaves original, instruction and kept note intact; no proposal can be applied', async () => {
+  const ctx = await context(); let generations = 0, verifications = 0;
+  const running = await harness({name:'scripted-evidence-check',executionMode:'local',async generate(){generations++;return candidate(ctx);},
+    async verify(request) {
+      const result = JSON.parse(scriptedFullCoverage(request));
+      if (++verifications === 2) {
+        const finding = result.findings.find((item:any)=>item.path==='questions[1].question');
+        finding.verdict='insufficient';finding.reason='Scripted unsupported-presupposition fixture, not a semantic-model result.';
+      }
+      return JSON.stringify(result);
+    }});
+  try {
+    const browser = await browserSession(running);
+    const first = JSON.parse((await browser.post('/api/generate',meetingRequest)).text);
+    const recordId = first.recordId;
+    await browser.post('/api/note',{recordId,note:'Keep the original note.'});
+    const staged = JSON.parse((await browser.post('/api/revise',{recordId,note:'Explore whether the reported work matters.'})).text);
+    const refused = await browser.post('/api/generate',meetingRequest);
+    assert.equal(refused.status,422);
+    assert.match(JSON.parse(refused.text).error,/contradicted or insufficiently supported/);
+    const page = await requestTo(running,'GET','/?draft=1',undefined,{cookie:browser.cookie});
+    assert.ok(page.text.includes(recordId));assert.match(page.text,/Keep the original note/);
+    assert.match(page.text,/Explore whether the reported work matters/);
+    assert.equal((await browser.post('/api/apply-revision',{recordId,proposalId:recordId,instruction:'Explore whether the reported work matters.',pendingRevisionToken:staged.pendingRevisionToken})).status,409);
+    assert.equal(generations,2);assert.equal(verifications,2);assert.equal(running.status().generationRefused,1);
+  } finally {await running.close();}
+});
+
+test('unconfigured external verification/audit is visibly unavailable and cannot spend', async () => {
+  const ctx = await context();let calls=0;
+  const running = await startC3Server({context:ctx,provider:{name:'operator-command',executionMode:'external',async generate(){calls++;return candidate(ctx);}},listen:false,expectedHost:HOST});
+  try {
+    const browser = await browserSession(running);
+    const prepare=await requestTo(running,'GET','/?prepare=1',undefined,{cookie:browser.cookie});
+    assert.match(prepare.text,/Fresh generation unavailable/);
+    const response=await browser.post('/api/generate',meetingRequest);
+    assert.equal(response.status,502);assert.equal(calls,0);
+  } finally {await running.close();}
 });

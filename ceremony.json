@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "completion-v3-ui-20260909",
+    "recordId": "completion-v3-generation-20260909",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build the C3 completion-v3 UI-only improvements under existing standing development authority; no new effect permission.",
-    "scope": "Retained research details and exact evidence navigation; concise editable titles and saved previews; compact readable mobile layout; instruction-led revision and explicit Apply with selected-section preservation; inspector focus and control consistency; focused regressions and truthful status. No service/store, emission contract, product route, fresh generation, deployment or authorization changes.",
+    "decision": "Build the bounded C3 v6 integrity and independent evidence-check contract under existing standing development authority; preserve fresh-generation HOLD and existing preview release.",
+    "scope": "Freeze v2-v5 historical response behavior; add v6 full-display evidence coverage, original-response and failure retention, bounded evaluation plumbing, exact synthetic versus historical replay custody and focused regressions; record empirical false rejection, unsupported acceptance and failed fresh initial honestly. No actual provider dispatch, production write, deployment, route switch, retry permission or authorization is granted by this change.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-09T20:29:12.733Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/completion-v3-20260909",
-    "proposalDigest": "sha256:44af7e3ad9fbb72ff8c664a0842956545c2f279b6b2f909cc22a0b5511c02e83"
+    "proposedAt": "2026-09-09T23:32:27.547Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/completion-v3-generation-20260909",
+    "proposalDigest": "sha256:364cb8c5d02c4e8203027463af563ff23727d1d3f2f67337bcb3801202baa029"
   }
 }

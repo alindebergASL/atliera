@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assertC3ClaimSupport } from '../../src/c3/generation-claims.ts';
 import { assertC3ClaimSupport as assertV3ClaimSupport } from '../../src/c3/generation-claims-v3.ts';
-import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, assertReplayIdentity } from '../../src/c3/draft.ts';
+import { createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, assertReplayIdentity } from '../../src/c3/draft.ts';
+// These cases characterize issued v5; current v6 is covered by c3-generation-v6.test.ts.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } from '../fixtures/c3-workshop.ts';
 
 // Authored grammar controls, unrelated to private model wording or research.

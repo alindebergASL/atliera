@@ -112,9 +112,9 @@ test("Brief context labels thesis support and retains distinct exact evidence an
 test("Research preserves substantive initiative scope and specific unknowns across Utah and Missouri", async () => {
   const research = (context: Awaited<ReturnType<typeof load>> | Awaited<ReturnType<typeof missouri>>) => (['initiatives', 'people', 'technology', 'sources'] as const).map(topic => main(renderC3Page(context, { page: 'research', topic }, 'test'))).join('');
   const utah = research(await load());
-  for (const text of ['Responsible AI workforce', 'Strategic reinvestment', 'Redtail', 'HPE', 'NVIDIA', 'CHPC', 'Health AI Vault', 'sponsored awards', 'current service catalog', 'data-access', 'Source summary · unreviewed']) assert.ok(utah.includes(text), text);
+  for (const text of ['Responsible AI workforce', 'Strategic reinvestment', 'Redtail', 'HPE', 'NVIDIA', 'CHPC', 'Health AI Vault', 'sponsored awards', 'What research-computing services, support and data-governance arrangements are currently offered, if any?', 'data-access', 'Source summary · unreviewed']) assert.ok(utah.includes(text), text);
   const m = research(await missouri());
-  for (const text of ['Student success', 'Research &amp; scholarship', 'MizzouForward', 'UM System', 'Mun Choi', 'Exact source context · unreviewed', 'current service catalog', 'September 2024']) assert.ok(m.includes(text), text);
+  for (const text of ['Student success', 'Research &amp; scholarship', 'MizzouForward', 'UM System', 'Mun Choi', 'Exact source context · unreviewed', 'What research-computing services, support and data-governance arrangements are currently offered, if any?', 'September 2024']) assert.ok(m.includes(text), text);
   assert.doesNotMatch(m, /Stanford|Account score|data-generate/);
 });
 
@@ -126,8 +126,9 @@ test('populated brief keeps exact content and evidence while grouping support an
   const record = createGenerationRecord(createC3ModelRequest(context, request), syntheticMeetingCandidate(context), context);
   assert.ok(record.draft);
   const html = main(renderC3Page(context, { page: 'draft', record, correctionNote: 'My exact general note', sectionNotes: { Opening: 'My exact opening note' }, work: { available: true, documentId: 'doc_' + '1'.repeat(24), version: 2, workVersion: 3, saved: true, savedWorks: [] } }, 'test'));
-  assert.ok(html.includes(`<h1 data-work-title>${esc(request.intendedOutcome)}</h1>`));
-  const labels = ['>Situation</h2>', '>Opening</h2>', '>Three questions</h2>', '>Close</h2>'];
+  assert.ok(html.includes(esc(request.intendedOutcome)), 'Full outcome remains in document details');
+  assert.ok((html.match(/<h1 data-work-title>(.*?)<\/h1>/)?.[1] ?? '').length < esc(request.intendedOutcome).length, 'Suggested title is concise');
+  const labels = ['>Situation</h2>', '>Opening</h2>', '>Three questions</h2>', '>Useful close</h2>'];
   assert.deepEqual(labels.map(label => html.indexOf(label)), labels.map(label => html.indexOf(label)).sort((a,b) => a-b));
   for (const item of [record.draft.audienceThesis, record.draft.opening, record.draft.objective, record.draft.closeCriterion, ...record.draft.risksUnknowns]) assert.ok(html.includes(esc(item.text)));
   for (const q of record.draft.questions) assert.ok(html.includes(esc(q.question)));
@@ -144,6 +145,6 @@ test('Workshop groups saved and current work and suppresses only the derived-tit
  const html=main(renderC3Page(syntheticWorkshopContext(),{page:'workshop',hasDraft:true,work:{available:true,documentId:'doc_'+'1'.repeat(24),version:1,workVersion:1,saved:true,savedWorks:[
  {documentId:'doc_'+'1'.repeat(24),version:1,audience:'CIO',intendedOutcome:'Fallback outcome',meetingDate:'2026-09-12',origin:'unknown'},
  {documentId:'doc_'+'2'.repeat(24),version:2,audience:'Research team',title:'Distinct title',intendedOutcome:'Distinct outcome',savedAt:'2026-09-09T03:00:00.000Z',origin:'synthetic'}]}},'test'));
- assert.equal((html.match(/Fallback outcome/g)??[]).length,1);for(const text of ['Distinct title','Distinct outcome','CIO','Sep 12, 2026','Research team','Last saved','Origin not established','Synthetic example','Reopen session draft'])assert.ok(html.includes(text),text);
- assert.match(html,/class="workshop-groups"/);assert.equal((html.match(/class="workshop-list summary-section"/g)??[]).length,2);
+ assert.equal((html.match(/Fallback outcome/g)??[]).length,1);for(const text of ['Distinct title','Distinct outcome','CIO','Sep 12, 2026','Research team','Last saved','Origin not established','Synthetic example','Current brief'])assert.ok(html.includes(text),text);
+ assert.match(html,/class="workshop-groups"/);assert.equal((html.match(/class="workshop-list"/g)??[]).length,1);assert.ok(!html.includes('Continue working'), 'Saved current record is not duplicated');
 });

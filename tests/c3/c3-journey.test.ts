@@ -52,7 +52,7 @@ test("working brief leads with Situation and discloses secondary setup outside t
   for (const secondary of ['<summary>Proposed objective</summary>']) {
     assert.ok(html.indexOf(secondary, start) > situation, secondary);
   }
-  assert.match(html, /<details class="brief-setup"><summary>Meeting details<\/summary>[\s\S]*?Edit meeting setup<\/a>/);
+  assert.match(html, /<details class="brief-setup"><summary>Document details<\/summary>[\s\S]*?Edit meeting setup<\/a>/);
   const { WORKSPACE_CSS } = await import('../../src/c3/workspace-style.ts');
   assert.ok(WORKSPACE_CSS.includes('[data-revision-differences]:empty{display:none}'));
   assert.ok(html.includes(record.draft!.audienceThesis.text));

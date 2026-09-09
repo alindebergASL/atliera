@@ -64,12 +64,23 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     return instructionQueue;
   };
   instruction?.addEventListener('input', () => { if(pendingRevisionToken)proposalStale=true; controls(); syncInstruction().catch(error => { revisionStatus.textContent = error.message + ' Typed instruction kept here.'; }); });
+  let revisionSection = 'Brief';
+  const refreshRevisionOriginal = () => {
+    const originals = JSON.parse(revisionPanel.getAttribute('data-original-sections') || '{}');
+    const key = revisionSection === 'Brief' ? 'Opening' : revisionSection;
+    const original = document.querySelector('[data-revision-original]');
+    const heading = document.querySelector('[data-original-heading]');
+    if(original && typeof originals[key] === 'string') original.textContent = originals[key];
+    if(heading) heading.textContent = 'Original ' + (key === 'Situation for this audience' ? 'situation' : key.toLowerCase());
+  };
   const openRevisionSheet = (section, restore = false, origin = null) => {
     if(!revisionPanel || !evidenceDialog) return;
     retainInspectorView(); presentInspector(origin); revisionVisited = true; inspectorMode = 'revision';
+    if(!restore) revisionSection = section; else section = revisionSection;
     evidenceDialog.querySelector('[data-evidence-panel-body]').hidden = true;
     evidenceDialog.querySelector('[data-evidence-support]').hidden = true;
-    evidenceDialog.querySelector('#evidence-panel-title').textContent = section === 'Opening' ? 'Revise opening' : 'Revise brief';
+    evidenceDialog.querySelector('#evidence-panel-title').textContent = 'Revise ' + (section === 'Situation for this audience' ? 'situation' : section.toLowerCase());
+    if(!restore) refreshRevisionOriginal();
     revisionPanel.hidden = false; revisionPanel.scrollTop = restore ? revisionScroll : 0;
     instruction?.focus?.({preventScroll:restore}); controls(); inspectorRoutes();
   };
@@ -146,7 +157,8 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
       reviewForm.setAttribute('data-record-id',result.recordId);reviewForm.setAttribute('data-revised','true');
       pendingRevisionToken=null;proposalId=null;proposalStale=false;proposalNoteSnapshot=null;syncedInstruction='';
       if(instruction.value===submitted)instruction.value='';else await syncInstruction();
-      const original=document.querySelector('[data-revision-original]'); const nextOriginal=parsed.querySelector('[data-revision-original]'); if(original && nextOriginal)original.textContent=nextOriginal.textContent;
+      const nextSections = parsed.querySelector('[data-revision-panel]')?.getAttribute('data-original-sections'); if(nextSections) revisionPanel.setAttribute('data-original-sections',nextSections);
+      refreshRevisionOriginal();
       document.querySelector('[data-proposal-comparison]').hidden=true;
       revisionStatus.textContent='Revision applied. Notes kept. Save to retain this version.';markWorkDirty();
     }catch(error){showFailure(revisionStatus,error,'Revision was not applied. Current brief and local typing kept.');}
@@ -166,7 +178,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     finally{reviewBusy=false;controls();}
   });
   document.querySelector('[data-use-recorded-note]')?.addEventListener('click',()=>{
-    const exact=document.querySelector('[data-recorded-note]');if(instruction && exact && !reviewBusy){instruction.value=exact.textContent || '';revisionStatus.textContent='Exact recorded correction copied into the instruction.';markWorkDirty();syncInstruction().catch(error=>{revisionStatus.textContent=error.message;});openRevisionSheet('Opening');}
+    const exact=document.querySelector('[data-recorded-note]');if(instruction && exact && !reviewBusy){if(pendingRevisionToken && instruction.value !== (exact.textContent || ''))proposalStale=true;instruction.value=exact.textContent || '';revisionStatus.textContent='Fixed recorded instruction selected. Replay uses its existing response.';markWorkDirty();syncInstruction().catch(error=>{revisionStatus.textContent=error.message;});openRevisionSheet(revisionSection, true);}
   });
   const flushGeneralNote = async () => {
     if(!correctionNote || correctionNote.value===savedNote)return;
@@ -192,6 +204,11 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const heading = document.querySelector('[data-work-title]'); if(heading) heading.textContent = submitted;
     titleForm.setAttribute('data-work-version', String(result.workVersion)); markWorkDirty();
   };
+  document.querySelector('[data-use-title-suggestion]')?.addEventListener('click', event => {
+    if(!titleInput || titleBusy || saveBusy || reviewBusy) return;
+    titleInput.value = event.currentTarget.getAttribute('data-title-suggestion');
+    markWorkDirty(); titleInput.focus?.();
+  });
   titleForm?.addEventListener('submit', async event => {
     event.preventDefault(); if(titleBusy || saveBusy || reviewBusy) return;
     titleBusy = true; const status = document.querySelector('[data-title-status]');
@@ -203,7 +220,9 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const target = document.querySelector('[data-last-saved]');
     if(!target) return;
     if(typeof value !== 'string' || !Number.isFinite(Date.parse(value))) { target.textContent = ''; return; }
-    target.textContent = 'Last saved ' + new Intl.DateTimeFormat('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC',timeZoneName:'short'}).format(new Date(value));
+    const age = Date.now() - Date.parse(value);
+    target.textContent = age >= 0 && age < 60000 ? 'Saved just now' : age >= 60000 && age < 3600000 ? 'Saved ' + Math.floor(age/60000) + ' min ago' : age >= 3600000 && age < 86400000 ? 'Saved ' + Math.floor(age/3600000) + ' hr ago' : 'Saved ' + new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).format(new Date(value));
+    const details = document.querySelector('[data-saved-timestamp]'); if(details) details.textContent = 'Last saved ' + new Intl.DateTimeFormat('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC',timeZoneName:'short'}).format(new Date(value));
   };
   const saveWork = async(copy=false)=>{
     if(saveBusy || titleBusy || reviewBusy || !canStartRevision())return;saveBusy=true;if(workStatus)workStatus.textContent='Saving…';
@@ -231,7 +250,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
       }
       const result=await requestJson(copy?'/api/save-copy':'/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion});
       if(result.saved!==true || result.workVersion!==state.workVersion || result.recordId!==currentRecord() || !/^doc_[a-f0-9]{24}$/.test(result.documentId) || result.version!==(copy?1:state.version+1) || !copy && result.documentId!==state.documentId)throw Error(result.error || 'Durable save was not confirmed');
-      workDocumentId=result.documentId; proposalStale=proposalStale || displayed.proposalStale; controls(); showSavedTime(result.savedAt);
+      workDocumentId=result.documentId; proposalStale=proposalStale || displayed.proposalStale; controls(); showSavedTime(result.savedAt); const savedVersion = document.querySelector('[data-saved-version]'); if(savedVersion) savedVersion.textContent = 'Saved version ' + result.version;
       if(epoch===workEpoch){workDirty=false;workStatus.textContent='Saved';const save=document.querySelector('[data-save-work]');if(save)save.hidden=true;}else workStatus.textContent='Newer edits are unsaved. Save again to retain them.';
       document.querySelector('[data-save-copy]').hidden=true;
     }catch(error){showFailure(workStatus,error,'Save was not confirmed. Local work is kept.');document.querySelector('[data-save-copy]').hidden=!(error.status===409 && error.route==='/api/save');}

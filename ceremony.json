@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "coherent-c3-lexical-tuning-closure",
+    "recordId": "completion-v3-ui-20260909",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Close C3 lexical-tuning workstream with truthful docs/test closure; no fresh-generation, model output repair, provider call, deployment, or new effect authority.",
-    "scope": "Add 36 INITIAL/REVISION failure-class characterization tests and v5 source SHA-256 pins in tests/c3/c3-generation-emission.test.ts; new partial status doc docs/status/coherent-workspace-partial-20260909.md; update docs/runbooks/c3-generation-emission-v5.md closure section; new status assertion test tests/c3/c3-coherent-partial-status.test.ts. Source bytes unchanged. No private evidence, credentials, raw provider output, or new product effects. Independent spec review PASS and quality/safety review APPROVED on exact head. Ordinary checked merge with no protection bypass.",
+    "decision": "Build the C3 completion-v3 UI-only improvements under existing standing development authority; no new effect permission.",
+    "scope": "Retained research details and exact evidence navigation; concise editable titles and saved previews; compact readable mobile layout; instruction-led revision and explicit Apply with selected-section preservation; inspector focus and control consistency; focused regressions and truthful status. No service/store, emission contract, product route, fresh generation, deployment or authorization changes.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-09T11:10:00.000Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/coherent-workspace-20260909",
-    "proposalDigest": "sha256:0b5603a60918555c368f841c08a910baeddffe617462e2cae6c19649d0838587"
+    "proposedAt": "2026-09-09T20:29:12.733Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/completion-v3-20260909",
+    "proposalDigest": "sha256:44af7e3ad9fbb72ff8c664a0842956545c2f279b6b2f909cc22a0b5511c02e83"
   }
 }

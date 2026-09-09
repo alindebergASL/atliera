@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import * as originalContract from "./generation-contract-v2.ts";
-import * as v3Contract from "./generation-contract-v3.ts";
-import { assertC3ClaimSupport, C3_CLAIM_CONTRACT_INSTRUCTIONS } from "./generation-claims.ts";
+import { assertC3ClaimSupport, C3_CLAIM_CONTRACT_INSTRUCTIONS } from "./generation-claims-v3.ts";
 
 import { deepFreezeOwnData } from "../authority/strict-json.ts";
 import { canonicalJson } from "./context.ts";
@@ -11,11 +10,11 @@ export const C3_MODEL_REQUEST_KIND = "atliera.c3.meeting-draft-model-request" as
 export const C3_MODEL_REQUEST_VERSION = "2" as const;
 
 /** Missing markers identify the original contract, never the runtime/provider mode. */
-export type C3GenerationContractVersion = "2" | "3" | "4";
-export const CURRENT_C3_GENERATION_CONTRACT_VERSION = "4" as const;
+export type C3GenerationContractVersion = "2" | "3";
+export const CURRENT_C3_GENERATION_CONTRACT_VERSION = "3" as const;
 export function c3GenerationContractVersion(value: { readonly generationContractVersion?: C3GenerationContractVersion }): C3GenerationContractVersion {
   if (!Object.hasOwn(value, "generationContractVersion")) return "2";
-  if (value.generationContractVersion !== "2" && value.generationContractVersion !== "3" && value.generationContractVersion !== "4") {
+  if (value.generationContractVersion !== "2" && value.generationContractVersion !== "3") {
     throw new Error("unsupported generation contract version");
   }
   return value.generationContractVersion;
@@ -228,7 +227,6 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
   c3GenerationContractVersion({ generationContractVersion });
   if (generationContractVersion === "2") return deepFreezeOwnData({
     ...originalContract.createC3ModelRequest(context, requestInput, revision), generationContractVersion });
-  if (generationContractVersion === "3") return v3Contract.createC3ModelRequest(context, requestInput, revision, "3");
   assertC3GenerationContext(context);
   const meetingRequest = snapshotMeetingRequest(requestInput);
   const meetingRequestSha256 = hash(canonicalJson(meetingRequest));
@@ -378,7 +376,6 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
   generationContractVersion: C3GenerationContractVersion = CURRENT_C3_GENERATION_CONTRACT_VERSION): C3ProposedDraft {
   c3GenerationContractVersion({ generationContractVersion });
   if (generationContractVersion === "2") return originalContract.validateC3Candidate(rawText, context, meetingDate);
-  if (generationContractVersion === "3") return v3Contract.validateC3Candidate(rawText, context, meetingDate, "3");
   if (Buffer.byteLength(rawText, "utf8") > 256 * 1024) throw new Error("model response exceeds output bound");
   let parsed: unknown;
   try { parsed = JSON.parse(rawText); } catch { throw new Error("model response must be one strict JSON object"); }
@@ -461,7 +458,7 @@ export function createGenerationRecord(modelRequest: C3ModelRequest, rawResponse
   const modelRequestSha256 = hash(canonicalJson(modelRequest));
   const recordId = `c3_${hash(`${context.sha256}\n${modelRequestSha256}\n${rawResponseSha256}`).slice(0, 24)}`;
   try {
-    const draft = validateC3Candidate(rawResponse, context, modelRequest.meetingRequest.meetingDate, generationContractVersion);
+    const draft = validateC3Candidate(rawResponse, context, modelRequest.meetingRequest.meetingDate);
     return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", ...marker, recordId,
       contextSha256: context.sha256, meetingRequest: modelRequest.meetingRequest,
       meetingRequestSha256: modelRequest.meetingRequestSha256, revision: modelRequest.revision,

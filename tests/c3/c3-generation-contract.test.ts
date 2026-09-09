@@ -16,6 +16,38 @@ const fixture = JSON.parse(readFileSync(new URL('../fixtures/c3-old-contract.jso
 };
 const context = fixture.context;
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
+const v3 = JSON.parse(readFileSync(new URL('../fixtures/c3-v3-contract.json', import.meta.url), 'utf8')) as typeof fixture & {
+  provenance: {claimsSourceSha256: string; synthetic: boolean};
+};
+
+test('issued v3 prompt, validator, request hashes and synthetic outcomes are frozen', () => {
+  assert.equal(v3.provenance.serializedByRevision, '9d986cd2548d6c6c562116fa3937413ee0672653');
+  assert.equal(v3.provenance.synthetic, true);
+  // The only relocation in the frozen draft is its import of the frozen claims module.
+  const source = readFileSync(new URL('../../src/c3/generation-contract-v3.ts', import.meta.url), 'utf8');
+  assert.equal(hash(source.replace('"./generation-claims-v3.ts"', '"./generation-claims.ts"')), v3.provenance.draftSourceSha256);
+  assert.equal(hash(readFileSync(new URL('../../src/c3/generation-claims-v3.ts', import.meta.url), 'utf8')), v3.provenance.claimsSourceSha256);
+  for (const [record, request] of [[v3.initial, v3.initialRequest], [v3.revised, v3.revisedRequest]] as const) {
+    assert.equal(c3GenerationContractVersion(record), '3');
+    assert.deepEqual(reconstructC3ModelRequest(v3.context, record), request);
+    assert.equal(hash(canonicalJson(request)), record.modelRequestSha256);
+    assertReplayIdentity(record, v3.context);
+  }
+  assert.equal(v3.refusal.outcome, 'refused');
+  assertReplayIdentity(v3.refusal, v3.context);
+  assert.equal(v3.refusal.refusal!.message, 'candidate.opening cautious_inference requires scoped caution, source attribution, or an invitation in each claim');
+  assert.deepEqual(createGenerationRecord(v3.initialRequest, v3.refusal.rawResponse, v3.context), v3.refusal);
+  const hypothetical = createGenerationRecord(createC3ModelRequest(v3.context, v3.initial.meetingRequest), v3.refusal.rawResponse, v3.context);
+  assert.equal(hypothetical.outcome, 'succeeded');
+  assert.notEqual(hypothetical.recordId, v3.refusal.recordId);
+  assert.equal(hypothetical.rawResponseSha256, v3.refusal.rawResponseSha256);
+  assertReplayIdentity(v3.refusal, v3.context);
+  for (const generationContractVersion of ['2', '4', undefined]) {
+    const changed = {...v3.initial, generationContractVersion} as C3GenerationRecord;
+    if (generationContractVersion === undefined) delete (changed as {generationContractVersion?: string}).generationContractVersion;
+    assert.throws(() => assertReplayIdentity(changed, v3.context));
+  }
+});
 
 test('fixture was serialized by exact OLD main; frozen implementation and old request bytes remain exact', () => {
   assert.equal(fixture.provenance.serializedByRevision, '041ec13be1bb5cf8e0e1219a1ec997cf5a58aaf8');
@@ -31,7 +63,8 @@ test('fixture was serialized by exact OLD main; frozen implementation and old re
   assert.equal(fixture.refusal.refusal!.message, 'candidate.opening cautious_inference must be explicitly tentative');
 });
 
-test('oldsave → newloader preserves exact files, sources, notes, applied history and pending recovery', () => {
+for (const savedFixture of [fixture, v3]) test(`v${c3GenerationContractVersion(savedFixture.initial)} oldsave → newloader preserves exact files, sources, notes, applied history and pending recovery`, () => {
+  const fixture = savedFixture;
   const root = mkdtempSync('/tmp/c3-old-new-proof-');
   try {
     for (const file of fixture.files) writeFileSync(`${root}/${file.name}`, file.bytes, {mode: 0o600});
@@ -54,10 +87,11 @@ test('oldsave → newloader preserves exact files, sources, notes, applied histo
   } finally { rmSync(root, {recursive: true}); }
 });
 
-test('fresh requests use explicit contract; mixed old→new history preserves original ancestor and saves', () => {
+for (const savedFixture of [fixture, v3]) test(`fresh requests use explicit contract; mixed v${c3GenerationContractVersion(savedFixture.initial)}→new history preserves original ancestor and saves`, () => {
+  const fixture = savedFixture;
   const revision = createC3RevisionContext(fixture.revised, 'Clarify the close.', 2);
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest, revision);
-  assert.equal(request.generationContractVersion, '3');
+  assert.equal(request.generationContractVersion, '4');
   const record = createGenerationRecord(request, syntheticMeetingCandidate(context, true), context);
   assert.equal(record.outcome, 'succeeded'); assertReplayIdentity(record, context);
   assert.equal(record.revision!.priorRawResponse, fixture.revised.rawResponse);
@@ -73,13 +107,14 @@ test('fresh requests use explicit contract; mixed old→new history preserves or
 test('unknown, removed, injected and downgraded versions never receive hash forgiveness', () => {
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest);
   const fresh = createGenerationRecord(request, fixture.initial.rawResponse, context);
-  for (const version of ['1', '4', '', null, 3, undefined]) {
+  for (const version of ['1', '5', '', null, 3, undefined]) {
     assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: version} as C3GenerationRecord, context), /contract version/);
     assert.throws(() => createGenerationRecord({...request, generationContractVersion: version} as C3ModelRequest, fresh.rawResponse, context), /contract version/);
   }
   const removed = structuredClone(fresh); delete (removed as {generationContractVersion?: string}).generationContractVersion;
   assert.throws(() => assertReplayIdentity(removed, context));
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '2'}, context));
+  assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '3'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '2'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '3'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, schemaVersion: '999'} as unknown as C3GenerationRecord, context));
@@ -150,7 +185,7 @@ test('initial and revision contracts share positive framing, exact quotes and ad
   const excerpt = context.context.admittedSources.flatMap(s => s.excerpts).find(e => e.evidenceId === refs[0])!.exactExcerpt;
   const alternate = context.context.admittedSources.flatMap(s => s.excerpts).find(e => e.evidenceId !== refs[0])!.evidenceId;
   for (const request of requests) {
-    assert.match(request.prompt, /GENERATION CONTRACT 3/);
+    assert.match(request.prompt, /GENERATION CONTRACT 4/);
     assert.match(request.prompt, /applies identically to initial and revised output/);
     assert.match(request.prompt, /Each independent assertion needs its own support or uncertainty/);
     assert.notEqual(request.prompt, fixture.initialRequest.prompt);

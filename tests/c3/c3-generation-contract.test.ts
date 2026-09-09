@@ -20,6 +20,37 @@ const v3 = JSON.parse(readFileSync(new URL('../fixtures/c3-v3-contract.json', im
   provenance: {claimsSourceSha256: string; synthetic: boolean};
 };
 
+const v4 = JSON.parse(readFileSync(new URL('../fixtures/c3-v4-contract.json', import.meta.url), 'utf8')) as typeof v3;
+
+test('issued v4 prompt, validator, requests, outcomes and refusal remain frozen at initial HEAD', () => {
+  assert.equal(v4.provenance.serializedByRevision, '094b0ea1340b1fdf1fea57b92fdbff89708c6050');
+  assert.equal(v4.provenance.synthetic, true);
+  const source = readFileSync(new URL('../../src/c3/generation-contract-v4.ts', import.meta.url), 'utf8');
+  assert.equal(hash(source.replace('"./generation-claims-v4.ts"', '"./generation-claims.ts"')), v4.provenance.draftSourceSha256);
+  assert.equal(hash(readFileSync(new URL('../../src/c3/generation-claims-v4.ts', import.meta.url), 'utf8')), v4.provenance.claimsSourceSha256);
+  assert.equal(hash(readFileSync(new URL('../../src/c3/generation-claims.ts', import.meta.url), 'utf8')), v4.provenance.claimsSourceSha256);
+  for (const [record, request] of [[v4.initial, v4.initialRequest], [v4.revised, v4.revisedRequest]] as const) {
+    assert.equal(c3GenerationContractVersion(record), '4');
+    assert.deepEqual(reconstructC3ModelRequest(v4.context, record), request);
+    assert.equal(hash(canonicalJson(request)), record.modelRequestSha256);
+    assert.deepEqual(createGenerationRecord(request, record.rawResponse, v4.context), record);
+    assertReplayIdentity(record, v4.context);
+    assert.doesNotMatch(request.prompt, /EMISSION FORMS|GENERATION CONTRACT 5/);
+  }
+  assert.equal(v4.refusal.outcome, 'refused');
+  assertReplayIdentity(v4.refusal, v4.context);
+  assert.deepEqual(createGenerationRecord(v4.initialRequest, v4.refusal.rawResponse, v4.context), v4.refusal);
+  const hypothetical = createGenerationRecord(createC3ModelRequest(v4.context, v4.initial.meetingRequest), v4.refusal.rawResponse, v4.context);
+  assert.equal(hypothetical.outcome, 'refused');
+  assert.equal(hypothetical.rawResponseSha256, v4.refusal.rawResponseSha256);
+  assert.notEqual(hypothetical.recordId, v4.refusal.recordId);
+  for (const generationContractVersion of ['2', '3', '5', undefined]) {
+    const changed = {...v4.initial, generationContractVersion} as C3GenerationRecord;
+    if (generationContractVersion === undefined) delete (changed as {generationContractVersion?: string}).generationContractVersion;
+    assert.throws(() => assertReplayIdentity(changed, v4.context));
+  }
+});
+
 test('issued v3 prompt, validator, request hashes and synthetic outcomes are frozen', () => {
   assert.equal(v3.provenance.serializedByRevision, '9d986cd2548d6c6c562116fa3937413ee0672653');
   assert.equal(v3.provenance.synthetic, true);
@@ -42,7 +73,7 @@ test('issued v3 prompt, validator, request hashes and synthetic outcomes are fro
   assert.notEqual(hypothetical.recordId, v3.refusal.recordId);
   assert.equal(hypothetical.rawResponseSha256, v3.refusal.rawResponseSha256);
   assertReplayIdentity(v3.refusal, v3.context);
-  for (const generationContractVersion of ['2', '4', undefined]) {
+  for (const generationContractVersion of ['2', '4', '5', undefined]) {
     const changed = {...v3.initial, generationContractVersion} as C3GenerationRecord;
     if (generationContractVersion === undefined) delete (changed as {generationContractVersion?: string}).generationContractVersion;
     assert.throws(() => assertReplayIdentity(changed, v3.context));
@@ -63,7 +94,7 @@ test('fixture was serialized by exact OLD main; frozen implementation and old re
   assert.equal(fixture.refusal.refusal!.message, 'candidate.opening cautious_inference must be explicitly tentative');
 });
 
-for (const savedFixture of [fixture, v3]) test(`v${c3GenerationContractVersion(savedFixture.initial)} oldsave → newloader preserves exact files, sources, notes, applied history and pending recovery`, () => {
+for (const savedFixture of [fixture, v3, v4]) test(`v${c3GenerationContractVersion(savedFixture.initial)} oldsave → newloader preserves exact files, sources, notes, applied history and pending recovery`, () => {
   const fixture = savedFixture;
   const root = mkdtempSync('/tmp/c3-old-new-proof-');
   try {
@@ -87,11 +118,11 @@ for (const savedFixture of [fixture, v3]) test(`v${c3GenerationContractVersion(s
   } finally { rmSync(root, {recursive: true}); }
 });
 
-for (const savedFixture of [fixture, v3]) test(`fresh requests use explicit contract; mixed v${c3GenerationContractVersion(savedFixture.initial)}→new history preserves original ancestor and saves`, () => {
+for (const savedFixture of [fixture, v3, v4]) test(`fresh requests use explicit contract; mixed v${c3GenerationContractVersion(savedFixture.initial)}→new history preserves original ancestor and saves`, () => {
   const fixture = savedFixture;
   const revision = createC3RevisionContext(fixture.revised, 'Clarify the close.', 2);
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest, revision);
-  assert.equal(request.generationContractVersion, '4');
+  assert.equal(request.generationContractVersion, '5');
   const record = createGenerationRecord(request, syntheticMeetingCandidate(context, true), context);
   assert.equal(record.outcome, 'succeeded'); assertReplayIdentity(record, context);
   assert.equal(record.revision!.priorRawResponse, fixture.revised.rawResponse);
@@ -107,7 +138,7 @@ for (const savedFixture of [fixture, v3]) test(`fresh requests use explicit cont
 test('unknown, removed, injected and downgraded versions never receive hash forgiveness', () => {
   const request = createC3ModelRequest(context, fixture.initial.meetingRequest);
   const fresh = createGenerationRecord(request, fixture.initial.rawResponse, context);
-  for (const version of ['1', '5', '', null, 3, undefined]) {
+  for (const version of ['1', '6', '', null, 3, undefined]) {
     assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: version} as C3GenerationRecord, context), /contract version/);
     assert.throws(() => createGenerationRecord({...request, generationContractVersion: version} as C3ModelRequest, fresh.rawResponse, context), /contract version/);
   }
@@ -115,6 +146,7 @@ test('unknown, removed, injected and downgraded versions never receive hash forg
   assert.throws(() => assertReplayIdentity(removed, context));
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '2'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '3'}, context));
+  assert.throws(() => assertReplayIdentity({...fresh, generationContractVersion: '4'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '2'}, context));
   assert.throws(() => assertReplayIdentity({...fixture.initial, generationContractVersion: '3'}, context));
   assert.throws(() => assertReplayIdentity({...fresh, schemaVersion: '999'} as unknown as C3GenerationRecord, context));
@@ -185,7 +217,7 @@ test('initial and revision contracts share positive framing, exact quotes and ad
   const excerpt = context.context.admittedSources.flatMap(s => s.excerpts).find(e => e.evidenceId === refs[0])!.exactExcerpt;
   const alternate = context.context.admittedSources.flatMap(s => s.excerpts).find(e => e.evidenceId !== refs[0])!.evidenceId;
   for (const request of requests) {
-    assert.match(request.prompt, /GENERATION CONTRACT 4/);
+    assert.match(request.prompt, /GENERATION CONTRACT 5/);
     assert.match(request.prompt, /applies identically to initial and revised output/);
     assert.match(request.prompt, /Each independent assertion needs its own support or uncertainty/);
     assert.notEqual(request.prompt, fixture.initialRequest.prompt);

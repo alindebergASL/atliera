@@ -272,10 +272,10 @@ test('work-state binds same-session annotations and instruction to CAS without e
   }finally{await running.close();await rm(root,{recursive:true,force:true});}
  });
 
-const oldFixture=async(version: 2 | 3 = 2)=>JSON.parse(await readFile(new URL(version === 2 ? '../fixtures/c3-old-contract.json' : '../fixtures/c3-v3-contract.json',import.meta.url),'utf8'));
+const oldFixture=async(version: 2 | 3 | 4 = 2)=>JSON.parse(await readFile(new URL(version === 2 ? '../fixtures/c3-old-contract.json' : version === 3 ? '../fixtures/c3-v3-contract.json' : '../fixtures/c3-v4-contract.json',import.meta.url),'utf8'));
 const oldReplay=(old:Awaited<ReturnType<typeof oldFixture>>)=>({initialRequest:old.initial.meetingRequest,correctionNote:old.revised.revision.correctionNote,priorRecord:old.initial,revisionRecord:old.revised});
 const oldProvider=(old:Awaited<ReturnType<typeof oldFixture>>)=>new RecordedReplayC3ModelProvider([{request:old.initialRequest,rawResponse:old.initial.rawResponse},{request:old.revisedRequest,rawResponse:old.revised.rawResponse}]);
-for (const version of [2, 3] as const) test(`exact v${version} recorded service initial→revision→Apply→note→Save→restart→new browser keeps old identities`,async()=>{
+for (const version of [2, 3, 4] as const) test(`exact v${version} recorded service initial→revision→Apply→note→Save→restart→new browser keeps old identities`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-service-'));
  const options={context:old.context,provider:oldProvider(old),recordedReplay:oldReplay(old),listen:false,workStore:{root,principal:'synthetic-operator'},now:()=>new Date('2026-09-09T10:00:00Z')};
  let running=await startC3Server(options);
@@ -300,7 +300,7 @@ for (const version of [2, 3] as const) test(`exact v${version} recorded service 
   await fresh.call('/?draft=1');assert.equal(running.status().generationAttempted,0);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
 });
-for (const version of [2, 3] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v4`,async()=>{
+for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v5`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-pending-'));
  for(const file of old.files)await writeFile(join(root,file.name),file.bytes,{mode:0o600});
  const captures:ReturnType<typeof createC3ModelRequest>[]=[];
@@ -313,7 +313,7 @@ for (const version of [2, 3] as const) test(`v${version} pending work opens with
   assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:old.revised.recordId,instruction:pending.work.instruction,pendingRevisionToken:pending.work.pendingRevisionToken})).status,200);
   const stage=(await b.call('/api/revise',{recordId:old.revised.recordId,note:'Clarify next steps.',priorNote:pending.work.correctionNote})).json();
   const generated=await b.call('/api/generate',{...envelope(old.revised.recordId,stage.pendingRevisionToken),request:old.revised.meetingRequest});
-  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'4');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
+  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'5');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
   for(const file of old.files)assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const awaiting=JSON.parse(old.files.find((file:any)=>{const w=JSON.parse(file.bytes).work;return w.pendingRevision && !w.proposal;}).bytes);
   const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:awaiting.documentId})).status,200);

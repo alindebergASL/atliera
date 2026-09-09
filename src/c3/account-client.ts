@@ -1,6 +1,12 @@
 /** Tab-local reading position only. No account content, worksheet, or request is persisted here. */
 export const ACCOUNT_READING_CLIENT_SCRIPT = `
 (() => {
+  document.querySelector('[data-research-topic]')?.addEventListener('change', event => {
+    const route = event.target.value;
+    if (['initiatives','people','technology','sources'].some(topic => route === '/?view=research&topic=' + topic)) window.location.assign(route);
+  });
+  const selected = document.querySelector('[data-selected="true"]');
+  if(selected && !window.location?.hash) window.requestAnimationFrame?.(() => { selected.scrollIntoView?.({block:'nearest'}); selected.focus({preventScroll:true}); });
   if (!document.querySelector('.account-workspace')) return;
   const accountId = document.querySelector('meta[name="c3-account"]')?.getAttribute('content');
   const sessionId = document.querySelector('meta[name="c3-csrf"]')?.getAttribute('content');

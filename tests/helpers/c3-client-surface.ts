@@ -8,8 +8,8 @@ import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 // note/section-note and planning manage session text; work-state/save/save-copy/reopen
 // inspect or explicitly retain private local work. No arbitrary request target is admitted.
 const fixed = ['/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate',
-  '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/save',
-  '/api/save-copy', '/api/section-note', '/api/work-state'];
+  '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/revision-invalidate', '/api/save',
+  '/api/save-copy', '/api/section-note', '/api/work-state', '/api/work/title'];
 const planning = ['/api/planning/strategy', '/api/planning/next-steps', '/api/section-note'];
 
 export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {

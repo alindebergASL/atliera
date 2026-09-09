@@ -32,7 +32,7 @@ test("shared frame has one account identity and three destinations with exact se
     assert.match(html, /<header class="workspace-header"><span class="account-identity">University of Utah<\/span>/);
     assert.doesNotMatch(html, /Georgia|parchment|account-atmosphere|linear-gradient|>Settings</);
   }
-  for (const token of ['--atl-canvas: #f6f7f9', '--atl-ink: #171a1f', '--atl-muted: #626b78', '--atl-accent: #6652c6', '--atl-sidebar: 208px', '--atl-inspector: 360px']) assert.ok(WORKSPACE_CSS.includes(token));
+  for (const token of ['--atl-canvas: #f6f7f9', '--atl-ink: #171a1f', '--atl-muted: #626b78', '--atl-accent: #6652c6', '--atl-sidebar: 208px', '--atl-inspector: 420px']) assert.ok(WORKSPACE_CSS.includes(token));
   assert.match(WORKSPACE_CSS, /background:var\(--atl-question-surface\);color:var\(--atl-question-ink\)/);
   assert.match(WORKSPACE_CSS, /safe-area-inset-bottom/);
   assert.match(WORKSPACE_CSS, /focus-visible/);
@@ -73,7 +73,7 @@ test("Prepare retains editable inputs, disclosed options and context, with unava
   assert.match(html, /for="audience">Who is this for\?/);
   assert.match(html, /<details class="meeting-options">/);
   assert.match(html, /Generation unavailable/);
-  assert.match(html, /<button type="submit" disabled>Prepare brief<\/button>/);
+  assert.match(html, /<button type="submit" disabled hidden>Prepare brief<\/button>/);
   assert.ok(html.indexOf('type="submit"') < html.indexOf('class="brief-context"'));
   assert.match(html, /Context for this brief/);
   const available = main(renderC3Page(context, { page: 'prepare', request, generation: { available: true, explanation: 'Configured provider route.' } }, 'test'));
@@ -116,4 +116,34 @@ test("Research preserves substantive initiative scope and specific unknowns acro
   const m = research(await missouri());
   for (const text of ['Student success', 'Research &amp; scholarship', 'MizzouForward', 'UM System', 'Mun Choi', 'Exact source context · unreviewed', 'current service catalog', 'September 2024']) assert.ok(m.includes(text), text);
   assert.doesNotMatch(m, /Stanford|Account score|data-generate/);
+});
+
+test('populated brief keeps exact content and evidence while grouping support and annotation controls', async () => {
+  const { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } = await import('../fixtures/c3-workshop.ts');
+  const { createC3ModelRequest, createGenerationRecord } = await import('../../src/c3/draft.ts');
+  const context = syntheticWorkshopContext();
+  const request = { ...syntheticMeetingRequest, intendedOutcome: 'Explore <constraints> & agree a useful next step' };
+  const record = createGenerationRecord(createC3ModelRequest(context, request), syntheticMeetingCandidate(context), context);
+  assert.ok(record.draft);
+  const html = main(renderC3Page(context, { page: 'draft', record, correctionNote: 'My exact general note', sectionNotes: { Opening: 'My exact opening note' }, work: { available: true, documentId: 'doc_' + '1'.repeat(24), version: 2, workVersion: 3, saved: true, savedWorks: [] } }, 'test'));
+  assert.ok(html.includes(`<h1 data-work-title>${esc(request.intendedOutcome)}</h1>`));
+  const labels = ['>Situation</h2>', '>Opening</h2>', '>Three questions</h2>', '>Close</h2>'];
+  assert.deepEqual(labels.map(label => html.indexOf(label)), labels.map(label => html.indexOf(label)).sort((a,b) => a-b));
+  for (const item of [record.draft.audienceThesis, record.draft.opening, record.draft.objective, record.draft.closeCriterion, ...record.draft.risksUnknowns]) assert.ok(html.includes(esc(item.text)));
+  for (const q of record.draft.questions) assert.ok(html.includes(esc(q.question)));
+  for (const warning of record.draft.warnings) assert.ok(html.includes(esc(warning.message)));
+  for (const label of ['Situation for this audience', 'Opening', 'Questions', 'Useful close']) assert.ok(html.includes(`data-section="${label}"`), 'Historical annotation keys remain stable');
+  assert.match(html, /My exact general note/); assert.match(html, /My exact opening note/);
+  assert.match(html, /data-save-work hidden>Save/);
+  assert.doesNotMatch(html, /Refine this section|Refine these questions|Note or correction|>Source [0-9]+<|Your meeting brief/);
+  for (const link of html.matchAll(/data-evidence-link[^>]+href="#([^"]+)"/gu)) assert.ok(html.includes(`id="${link[1]}"`));
+});
+
+test('Workshop groups saved and current work and suppresses only the derived-title outcome duplicate',async()=>{
+ const {syntheticWorkshopContext}=await import('../fixtures/c3-workshop.ts');
+ const html=main(renderC3Page(syntheticWorkshopContext(),{page:'workshop',hasDraft:true,work:{available:true,documentId:'doc_'+'1'.repeat(24),version:1,workVersion:1,saved:true,savedWorks:[
+ {documentId:'doc_'+'1'.repeat(24),version:1,audience:'CIO',intendedOutcome:'Fallback outcome',meetingDate:'2026-09-12',origin:'unknown'},
+ {documentId:'doc_'+'2'.repeat(24),version:2,audience:'Research team',title:'Distinct title',intendedOutcome:'Distinct outcome',savedAt:'2026-09-09T03:00:00.000Z',origin:'synthetic'}]}},'test'));
+ assert.equal((html.match(/Fallback outcome/g)??[]).length,1);for(const text of ['Distinct title','Distinct outcome','CIO','Sep 12, 2026','Research team','Last saved','Origin not established','Synthetic example','Reopen session draft'])assert.ok(html.includes(text),text);
+ assert.match(html,/class="workshop-groups"/);assert.equal((html.match(/class="workshop-list summary-section"/g)??[]).length,2);
 });

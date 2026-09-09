@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalJson, loadC3AccountContext } from "./context.ts";
 import { loadCuratedC3Context } from "./curated-context.ts";
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
-import { assertReplayIdentity, createC3ModelRequest, createC3RevisionContext, createGenerationRecord,
+import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord,
   type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
 import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider } from "./provider.ts";
 import { renderC3Page } from "./render.ts";
@@ -106,7 +106,7 @@ async function loadRecording(context: FrozenC3AccountContext, directory: string,
   let value: unknown;
   try { value = JSON.parse(requestText); } catch { throw new Error(`${label} model request must be strict JSON`); }
   const supplied = recordedRequest(value);
-  const expected = createC3ModelRequest(context, supplied.meetingRequest, supplied.revision);
+  const expected = reconstructC3ModelRequest(context, supplied);
   if (canonicalJson(supplied) !== canonicalJson(expected)) throw new Error(`${label} recorded model request identity or prompt mismatch`);
   const rawResponse = fatalText(await boundedFile(rawPath, 256 * 1024, `${label} raw response`), `${label} raw response`, true);
   const record = createGenerationRecord(expected, rawResponse, context);
@@ -132,7 +132,7 @@ export async function loadC3RecordedReplay(context: FrozenC3AccountContext, reco
   if (revision.request.revision === null) throw new Error("revision recording must include revision context");
   const linkedRevision = createC3RevisionContext(prior.record, revision.request.revision.correctionNote,
     revision.request.revision.revisionNumber);
-  const exactRevisionRequest = createC3ModelRequest(context, prior.request.meetingRequest, linkedRevision);
+  const exactRevisionRequest = reconstructC3ModelRequest(context, {...revision.request, meetingRequest: prior.request.meetingRequest, revision: linkedRevision});
   if (canonicalJson(revision.request) !== canonicalJson(exactRevisionRequest)) {
     throw new Error("revision recording does not exactly bind the supplied correction to the supplied prior response and draft identity");
   }
@@ -156,7 +156,7 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
   }
   const frozen = await contextFor(accountId!);
   const supplied = recordedRequest(JSON.parse(await readFile(resolve(requestPath!), "utf8")));
-  const expected = createC3ModelRequest(frozen, supplied.meetingRequest, supplied.revision);
+  const expected = reconstructC3ModelRequest(frozen, supplied);
   if (JSON.stringify(supplied) !== JSON.stringify(expected)) throw new Error("recorded model request identity or prompt mismatch");
   const rawResponse = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await readFile(resolve(rawResponsePath!)));
   const record = createGenerationRecord(expected, rawResponse, frozen);
@@ -205,7 +205,7 @@ async function serveRecordedCommand(args: readonly string[]): Promise<void> {
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
   const running = await startC3Server({ context: frozen, provider: replay.provider, workStore: configuredWorkStore(), port: Number(portText),
-    recordedReplay: { initialRequest: replay.initialRequest, correctionNote: replay.correctionNote } });
+    recordedReplay: { initialRequest: replay.initialRequest, correctionNote: replay.correctionNote, priorRecord: replay.priorRecord, revisionRecord: replay.revisionRecord } });
   process.stdout.write(`${running.origin}\n`);
   const stop = (): void => { void running.close().then(() => process.exit(0)); };
   process.once("SIGINT", stop); process.once("SIGTERM", stop);

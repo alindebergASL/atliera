@@ -172,7 +172,7 @@ test("rapid in-flight edits cache the latest audience and outcome, send one canc
   assert.equal((calls[2]!.body.request as Record<string, unknown>).audience, "CIO and engineering leaders");
   assert.equal((calls[2]!.body.request as Record<string, unknown>).intendedOutcome, "Edited goal while the previous generation is loading");
   await secondSubmit;
-  assert.match(client.status.textContent, /Failed to fetch/);
+  assert.match(client.status.textContent, /could not be prepared.*inputs are kept/);
   resolveFirst({ ok: true, json: async () => ({ html: "STALE", location: "/?draft=1", history: "push" }) });
   await firstSubmit;
   assert.deepEqual(client.writes, []);
@@ -371,7 +371,7 @@ test("direct and repeated Cancel share the barrier before another generation", a
   assert.deepEqual(calls.map((call) => call.url), ["/api/generate", "/api/cancel", "/api/generate"]);
   assert.equal((calls[2]!.body.request as Record<string, unknown>).audience, "CIO");
   assert.equal((calls[2]!.body.request as Record<string, unknown>).intendedOutcome, "Second request after cancellation");
-  assert.match(client.status.textContent, /retry failed/);
+  assert.match(client.status.textContent, /could not be prepared.*inputs are kept/);
   resolveFirst({ ok: true, json: async () => ({ html: "STALE", location: "/?draft=1", history: "push" }) });
   await firstSubmit;
   assert.deepEqual(client.writes, []);

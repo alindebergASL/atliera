@@ -40,7 +40,7 @@ function rawCandidate(context: FrozenC3AccountContext, overrides: Record<string,
   });
 }
 
-test("working brief leads with Situation before secondary setup and objective controls", async () => {
+test("working brief leads with Situation and discloses secondary setup outside the prose", async () => {
   const context = await load();
   const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities", durationMinutes: 15, meetingDate: "2026-09-12" });
   const record = createGenerationRecord(request, rawCandidate(context), context);
@@ -49,9 +49,10 @@ test("working brief leads with Situation before secondary setup and objective co
   const start = html.indexOf('<main');
   const situation = html.indexOf('data-generated-region="Situation for this audience"', start);
   assert.ok(situation > start);
-  for (const secondary of ['<summary>Proposed objective</summary>', '>Edit meeting setup</a>', '>Add note</a>']) {
+  for (const secondary of ['<summary>Proposed objective</summary>']) {
     assert.ok(html.indexOf(secondary, start) > situation, secondary);
   }
+  assert.match(html, /<details class="brief-setup"><summary>Meeting details<\/summary>[\s\S]*?Edit meeting setup<\/a>/);
   const { WORKSPACE_CSS } = await import('../../src/c3/workspace-style.ts');
   assert.ok(WORKSPACE_CSS.includes('[data-revision-differences]:empty{display:none}'));
   assert.ok(html.includes(record.draft!.audienceThesis.text));
@@ -242,10 +243,10 @@ test("draft review uses plain session-only copy and a high-contrast label withou
   const request = createC3ModelRequest(context, { audience: "CIO", intendedOutcome: "Learn priorities.", durationMinutes: 15, meetingDate: "2026-09-12" });
   const record = createGenerationRecord(request, rawCandidate(context), context);
   const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
-  const review = html.slice(html.indexOf('<section class="review"'), html.indexOf("</main>"));
-  assert.match(review, /Private annotation/);
+  const review = html.slice(html.indexOf('<details class="review"'), html.indexOf("</main>"));
+  assert.match(review, /Your note/);
   assert.match(html, /Proposed and unreviewed/);
-  assert.match(html, /Session only · no private store configured/);
+  assert.match(html, /Session only/);
   assert.match(html, /Private document storage never changes account truth or approves content/);
   assert.doesNotMatch(review, /exact prior raw\/draft|authenticated approval\/C4 persistence|ratification/iu);
   assert.match(html, /\.review-label\{[^}]*color:var\(--atl-muted\)/);
@@ -378,7 +379,7 @@ test("every direct-support-permitted draft slot visibly quotes and attributes ex
   const html = renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test-csrf");
   const escapedExcerpt = evidence.exactExcerpt.replace(/[&<>"']/gu,
     (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]!);
-  for (const title of ["Situation for this audience", "Opening", "Before relying on this brief"]) {
+  for (const title of ["Situation", "Opening", "Before relying on this brief"]) {
     const start = html.indexOf(`>${title}<`);
     assert.notEqual(start, -1, title);
     const section = html.slice(start, html.indexOf("</section>", start));
@@ -394,7 +395,7 @@ test("every direct-support-permitted draft slot visibly quotes and attributes ex
   const inferred = JSON.parse(rawCandidate(context)) as any;
   const inferenceRecord = createGenerationRecord(request, JSON.stringify(inferred), context);
   const inferredHtml = renderC3Page(context, { page: "draft", record: inferenceRecord, correctionNote: "" }, "test-csrf");
-  const inferenceStart = inferredHtml.indexOf(">Situation for this audience<");
+  const inferenceStart = inferredHtml.indexOf(">Situation<");
   const inferenceSection = inferredHtml.slice(inferenceStart, inferredHtml.indexOf("</section>", inferenceStart));
   assert.doesNotMatch(inferenceSection, /<blockquote/);
 });

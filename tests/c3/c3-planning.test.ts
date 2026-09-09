@@ -31,7 +31,7 @@ test("preview provenance is one compact disclosure and draft navigation appears 
     const html = renderC3Page(ctx, state, "test-csrf", { syntheticPreview: true, initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection });
     const body = html.slice(html.indexOf("<body>"), html.indexOf("<script>"));
     assert.equal((body.match(/class="recorded-mode"/gu) ?? []).length, 1);
-    assert.match(body, /<details class="recorded-mode"><summary>Synthetic local preview<\/summary>/);
+    assert.match(body, /<details class="recorded-mode"><summary>Content and storage details<\/summary>/);
     assert.match(body, /Hand-authored fixtures · No AI recordings/);
     assert.doesNotMatch(closedView(body), /Every meeting response/);
     const navigation = body.match(/<nav class="workspace-nav"[\s\S]*?<\/nav>/u)![0];
@@ -228,8 +228,8 @@ test("section note guidance is provider neutral and reserves durability for Save
   for (const replay of [undefined, { syntheticPreview: true, initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection }]) {
     const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '', revisionPending: false }, 'test', replay).split('<script>')[0]!;
     assert.doesNotMatch(html, /Only the exact recorded correction in Draft review can replay a revision/);
-    assert.match(html, /Keep section note/);assert.match(html, /Save to retain/);
-    assert.match(html, /propose a revision.*Apply revision/i);
+    assert.match(html, /Add note/);assert.match(html, /This note lasts for this session/);
+    assert.match(html, /The current brief stays unchanged until you apply/);assert.match(html, /Apply revision<\/button>/);
     if(replay)assert.match(html, /Exact correction available for the recorded revision/);
     else assert.doesNotMatch(html, /Exact correction available for the recorded revision/);
   }

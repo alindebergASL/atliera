@@ -168,7 +168,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     { request: priorRequest, rawResponse: priorRaw }, { request: revisionRequest, rawResponse: revisionRaw },
   ]);
   const running = await startC3Server({ context: ctx, provider, listen: false, expectedHost: HOST,
-    now: () => new Date("2031-01-01T00:00:00.000Z"), recordedReplay: { initialRequest, correctionNote } });
+    now: () => new Date("2031-01-01T00:00:00.000Z"), recordedReplay: { initialRequest, correctionNote, priorRecord, revisionRecord } });
   try {
     const browser = await browserSession(running);
     assert.match(browser.page, /Recorded responses · No live generation/);
@@ -206,7 +206,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.equal(revised.status, 200);
     const revisionPrepare = (JSON.parse(revised.text) as { html: string }).html;
     assert.match(revisionPrepare, /data-revision-instruction/);
-    assert.match(revisionPrepare, /Propose revision/);
+    assert.match(revisionPrepare, /data-revise>Revise/);
     const regenerated = await browser.post("/api/generate", initialRequest);
     assert.equal(regenerated.status, 200);
     const proposal = JSON.parse(regenerated.text); assert.equal(proposal.recordId, priorRecord.recordId); assert.equal(proposal.proposalId, revisionRecord.recordId);
@@ -307,7 +307,7 @@ test("draft hierarchy preserves generated question text and separates only a lit
   const rendered = renderC3Page(ctx, { page: "draft", record, correctionNote: "" }, "csrf");
   assert.match(rendered, /<ol class="questions">/);
   assert.ok(rendered.includes(`<strong>${exactQuestion}</strong>`));
-  assert.ok(rendered.includes(`Learn: ${exactPrefix}</p>`));
+  assert.ok(rendered.includes(`<p class="learning">${exactPrefix}</p>`));
   assert.ok(rendered.includes(`<p>${exactSuffix}</p>`));
   assert.equal(rendered.match(/Optional probe — only if relevant/gu)?.length, 1);
   assert.match(rendered, /data-evidence-link data-context="Question 2"/);
@@ -327,10 +327,11 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     assert.match(payload.html, /Proposed and unreviewed/);
     assert.match(payload.html, /related evidence context/i);
     assert.match(payload.html, /Evidence behind the brief/);
-    assert.doesNotMatch(payload.html, /evidence_[a-f0-9]+/);
+    const generatedBrief = payload.html.split('<div class="draft-grid">')[1]!.split('<section data-generated-region="checks"')[0]!;
+    assert.doesNotMatch(generatedBrief.replace(/<[^>]*>/gu, ''), /evidence_[a-f0-9]+/);
     assert.deepEqual({ location: payload.location, history: payload.history }, { location: "/?draft=1", history: "push" });
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
-    assert.match(reloaded.text, /Your meeting brief/);
+    assert.match(reloaded.text, /Workshop \/ Meeting brief/);
     const home = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
     assert.match(home.text, /Overview/);
     assert.match(home.text, /id="journey-overview"[^>]*aria-current="page"/);
@@ -648,8 +649,8 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
       "review uses a legible dark foreground on the light surface");
     assert.match(preservedDraft.text, /Keep original/);
     assert.doesNotMatch(preservedDraft.text, /<textarea[^>]* disabled>/, "pending revision keeps editors available for newer typing");
-    assert.match(preservedDraft.text, /<button type="submit" class="secondary">Keep note<\/button>/);
-    assert.match(preservedDraft.text, /data-revise>Propose revision<\/button>/);
+    assert.match(preservedDraft.text, /<button type="submit" class="secondary">Add note<\/button>/);
+    assert.match(preservedDraft.text, /data-revise>Revise<\/button>/);
     assert.doesNotMatch(preservedDraft.text, /data-discard-revision[^>]* disabled/);
     assert.equal((await browser.post("/api/note", { note: "Independent note", recordId })).status, 200);
     assert.equal((await browser.rawPost("/api/revise", { note: "second pending revision", recordId, priorNote: "stale baseline" })).status, 409);
@@ -957,7 +958,7 @@ test("rendered review handlers surface note and revise network errors and revise
   await noteForm.dispatch("submit");
   assert.match(reviewStatus.textContent, /\/api\/note network unavailable/);
   await revise.dispatch("click");
-  assert.match(reviewStatus.textContent, /\/api\/revise network unavailable/);
+  assert.match(reviewStatus.textContent, /Revision could not be prepared\. Current brief and typing kept/);
   assert.deepEqual(JSON.parse(calls[1]!.body), { note: "Current unsaved correction", recordId: "record-visible", priorNote: "Current unsaved correction" });
 });
 
@@ -1078,7 +1079,7 @@ test("exact unchanged submissions retain draft and note, while each meeting deci
       const last = captured.at(-1)!;
       assert.deepEqual(last.meetingRequest, current);
       assert.equal(last.contextSha256, captured[0]!.contextSha256);
-      const setup = result.html.match(/<dl class="meeting-context"[\s\S]*?<\/dl>/)![0];
+      const setup = result.html.match(/<header class="draft-head"[\s\S]*?<\/header>/)![0];
       assert.ok(setup.includes(current.audience));
       assert.ok(setup.includes(current.intendedOutcome));
       assert.ok(setup.includes(`${current.durationMinutes} minutes`));
@@ -1109,7 +1110,8 @@ test("brief exposes sparse and conflicting fixture context without inventing sup
   assert.match(html, /Full source context in Research/);
   assert.match(html, /Context is insufficient/);
   assert.equal(record.rawResponse, JSON.stringify(value));
-  assert.doesNotMatch(html, /data-evidence-link data-context=/);
+  const generatedBrief = html.split('<div class="draft-grid">')[1]!.split('<section data-generated-region="checks"')[0]!;
+  assert.doesNotMatch(generatedBrief, /data-evidence-link data-context=/);
 });
 
 // Sprint regressions use authored synthetic context; no retained private research or provider calls.
@@ -1331,7 +1333,7 @@ test("Brief heading reflects actual question count without changing source or no
   const record = createGenerationRecord(createC3ModelRequest(ctx, { ...meetingRequest, durationMinutes: 30 }), JSON.stringify(value), ctx);
   const note = 'Three questions, in order · No user note for this section.';
   const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: note, sectionNotes: { Opening: note } }, 'csrf');
-  assert.match(html, /id="questions-heading">4 questions, in order/);
+  assert.match(html, /id="questions-heading">4 questions/);
   assert.ok(html.includes('User note · ' + note));
 });
 test("Responsible AI source heading is structural even when source title contains renderer phrases", async () => {
@@ -1389,10 +1391,25 @@ test("workspace routes retain session identity and disabled generation is visibl
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Generation unavailable\. This server has no configured model provider/);
     assert.match(prepare.text, /data-generation-available="false"/);
-    assert.match(prepare.text, /<button type="submit" disabled>Prepare brief<\/button>/);
+    assert.match(prepare.text, /<button type="submit" disabled hidden>Prepare brief<\/button>/);
     for (const query of ["view=unknown", "view=research&topic=unknown", "view=research&reading=%3Cscript%3E"]) {
       assert.equal((await requestTo(running, "GET", `/?${query}`, undefined, { cookie: browser.cookie })).status, 400);
     }
     assert.equal(running.status().generationSucceeded, 0);
   } finally { await running.close(); }
+});
+
+test('title route rejects hostile bodies, cross-origin/CSRF requests and oversized input without changing work', async()=>{
+ const ctx=await context();const running=await harness({name:'external-label-only',executionMode:'external',async generate(){return candidate(ctx);}});
+ try{
+  const browser=await browserSession(running);const first=JSON.parse((await browser.post('/api/generate',meetingRequest)).text);
+  const state=JSON.parse((await browser.rawPost('/api/work-state',{})).text);
+  assert.equal(state.origin,'unknown');
+  const body={recordId:first.recordId,workVersion:state.workVersion,title:'New title'};
+  const deniedHeaders:Record<string,string>[]=[{origin:'http://evil.example'},{'x-c3-csrf':'wrong'},{'content-type':'text/plain'}];
+  for(const headers of deniedHeaders)assert.equal((await browser.rawPost('/api/work/title',body,headers)).status,403);
+  for(const hostile of [null,[],{...body,origin:'live'},{...body,generationContractVersion:'3'},{...body,title:'\u0000'},Buffer.from('{not-json'),Buffer.from('x'.repeat(17000))])assert.equal((await browser.rawPost('/api/work/title',hostile)).status,400);
+  assert.deepEqual(JSON.parse((await browser.rawPost('/api/work-state',{})).text),state);
+  assert.equal((await browser.rawPost('/api/work/title',body)).status,200);
+ }finally{await running.close();}
 });

@@ -1,6 +1,4 @@
 import { createHash } from "node:crypto";
-import * as originalContract from "./generation-contract-v2.ts";
-import { assertC3ClaimSupport, C3_CLAIM_CONTRACT_INSTRUCTIONS } from "./generation-claims.ts";
 
 import { deepFreezeOwnData } from "../authority/strict-json.ts";
 import { canonicalJson } from "./context.ts";
@@ -8,17 +6,6 @@ import { assertC3GenerationContext, type FrozenC3ViewContext as FrozenC3AccountC
 
 export const C3_MODEL_REQUEST_KIND = "atliera.c3.meeting-draft-model-request" as const;
 export const C3_MODEL_REQUEST_VERSION = "2" as const;
-
-/** Missing markers identify the original contract, never the runtime/provider mode. */
-export type C3GenerationContractVersion = "2" | "3";
-export const CURRENT_C3_GENERATION_CONTRACT_VERSION = "3" as const;
-export function c3GenerationContractVersion(value: { readonly generationContractVersion?: C3GenerationContractVersion }): C3GenerationContractVersion {
-  if (!Object.hasOwn(value, "generationContractVersion")) return "2";
-  if (value.generationContractVersion !== "2" && value.generationContractVersion !== "3") {
-    throw new Error("unsupported generation contract version");
-  }
-  return value.generationContractVersion;
-}
 
 export type C3TemporalOutcome = "initial_dated_event_discovery" | "change_against_prior_revision" |
   "no_material_change_established" | "insufficient_context";
@@ -76,7 +63,6 @@ export interface C3ProposedDraft extends C3MeetingDraftCandidate {
 }
 
 export interface C3ModelRequest {
-  readonly generationContractVersion?: C3GenerationContractVersion;
   readonly kind: typeof C3_MODEL_REQUEST_KIND;
   readonly schemaVersion: typeof C3_MODEL_REQUEST_VERSION;
   readonly contextSha256: string;
@@ -102,7 +88,6 @@ export interface C3RevisionContext {
 }
 
 export interface C3GenerationRecord {
-  readonly generationContractVersion?: C3GenerationContractVersion;
   readonly kind: "atliera.c3.generation-record";
   readonly schemaVersion: "2";
   readonly recordId: string;
@@ -222,11 +207,7 @@ function audiencePriority(audience: string): string {
 }
 
 export function createC3ModelRequest(context: FrozenC3AccountContext, requestInput: unknown,
-  revision: C3RevisionContext | null = null,
-  generationContractVersion: C3GenerationContractVersion = CURRENT_C3_GENERATION_CONTRACT_VERSION): C3ModelRequest {
-  c3GenerationContractVersion({ generationContractVersion });
-  if (generationContractVersion === "2") return deepFreezeOwnData({
-    ...originalContract.createC3ModelRequest(context, requestInput, revision), generationContractVersion });
+  revision: C3RevisionContext | null = null): C3ModelRequest {
   assertC3GenerationContext(context);
   const meetingRequest = snapshotMeetingRequest(requestInput);
   const meetingRequestSha256 = hash(canonicalJson(meetingRequest));
@@ -257,13 +238,12 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
     "Return exactly one JSON object matching the supplied schema, with no markdown and no additional fields.",
     "You select meaningful evidence and write the prose. Do not merely repeat the relevance candidates; they are candidates with reasons, not conclusions.",
     "Preserve facts, entity boundaries, declared contradictions, material gaps, owner corrections, source dates, and renderer annotations.",
-    "NO-NEW-ACCOUNT-FACT CONTRACT: direct_support is a source fact and the entire text field must equal one cited exactExcerpt byte-for-byte. cautious_inference must use the per-claim framing rules below, cite related evidence, and must not invent or extend an account fact. recommendation is an action to consider, not a claim about the account. open_question is only for questions and their learning goals; it must not smuggle a factual presupposition. unknown must explicitly say what is unknown or not established.",
+    "NO-NEW-ACCOUNT-FACT CONTRACT: direct_support is a source fact and the entire text field must equal one cited exactExcerpt byte-for-byte. cautious_inference must be explicitly tentative, cite related evidence, and must not state a new incident, commercial status, vendor selection, or other account fact. recommendation is an action to consider, not a claim about the account. open_question is only for questions and their learning goals; it must not smuggle a factual presupposition. unknown must explicitly say what is unknown or not established.",
     "Never assert available purchasing budget, procurement status, buying intent, urgency, vendor preference, approval, a security incident, or a named vendor relationship unless the whole field is direct_support and exactly equals its cited excerpt. Explicit uncertainty such as 'The retained funding statements do not establish an available purchasing budget; use the meeting to learn constraints.' is appropriate.",
     "A dated event found in initial research is not a change against a prior revision. No prior revision exists here, so change_against_prior_revision is invalid.",
     "Use no_material_change_established for a useful steady-state agenda and insufficient_context when evidence cannot support useful preparation.",
-    "A valid direct_support example copies one exactExcerpt as the whole text field. A mixed source summary plus proposed discussion is NOT direct_support; represent it as source-attributed related-context framing under cautious_inference with local caution on implications, or split it into an exact fact and a recommendation. Questions always use open_question even when evidenceRefs provide related context.",
+    "A valid direct_support example copies one exactExcerpt as the whole text field. A mixed source summary plus proposed discussion is NOT direct_support; represent it as an explicitly tentative cautious_inference or split it into an exact fact and a recommendation. Questions always use open_question even when evidenceRefs provide related context.",
     "Ask 3-7 ordered questions, subject to the exactly-three rule for a 15-minute meeting. Keep the thesis concise. Cite only supplied evidence IDs and include every cited ID once in selectedEvidenceRefs.",
-    C3_CLAIM_CONTRACT_INSTRUCTIONS,
     audiencePriority(meetingRequest.audience),
     `MEETING REQUEST\n${canonicalJson(meetingRequest)}`,
     revision === null ? "REVISION CONTEXT\nnone" : `REVISION CONTEXT (session-only correction; does not mutate or ratify account truth; SHA-256 ${revisionSha256!})\n${canonicalJson(revision)}`,
@@ -276,7 +256,7 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
         relevanceCandidates: context.context.relevanceCandidates.filter((item) => context.context.admittedSources.some((source) => !source.untrustedInstructionsDetected && source.sourceId === item.sourceId)) })}` :
       `FULL VERSIONED ACCOUNT CONTEXT (canonical SHA-256 ${context.sha256})\n${context.canonicalJson}`,
   ].join("\n\n");
-  return deepFreezeOwnData({ kind: C3_MODEL_REQUEST_KIND, schemaVersion: C3_MODEL_REQUEST_VERSION, generationContractVersion,
+  return deepFreezeOwnData({ kind: C3_MODEL_REQUEST_KIND, schemaVersion: C3_MODEL_REQUEST_VERSION,
     contextSha256: context.sha256, meetingRequestSha256, meetingRequest, revision, revisionSha256, prompt });
 }
 
@@ -293,6 +273,15 @@ function supportedText(value: unknown, path: string, known: Set<string>, allowed
   const refs = evidenceRefs(root.evidenceRefs, `${path}.evidenceRefs`, known,
     supportCategory === "direct_support" || supportCategory === "cautious_inference" ? 1 : 0);
   const valueText = text(root.text, `${path}.text`);
+  if (supportCategory === "cautious_inference" &&
+      !/\b(?:may|might|could|suggests?|appears?|hypothesis|potential|possible|tentative(?:ly)?|worth (?:asking|clarifying|exploring)|to explore)\b/iu.test(valueText)) {
+    throw new Error(`${path} cautious_inference must be explicitly tentative`);
+  }
+  if (supportCategory === "unknown" &&
+      !/\b(?:unknown|unclear|not established|not known|insufficient|remains? (?:open|to be learned|unverified)|cannot establish|(?:does|do) not establish)\b/iu.test(valueText) &&
+      !/^no supplied source establishes\b(?!\s+(?:only|not only|no longer)\b)/iu.test(valueText)) {
+    throw new Error(`${path} unknown must explicitly identify an unknown or limit`);
+  }
   return { text: valueText, evidenceRefs: refs, supportCategory };
 }
 
@@ -372,10 +361,7 @@ function assertNoUnsupportedAccountAssertion(value: string, category: C3SupportC
   assertNoCommercialPresupposition(value, path);
 }
 
-export function validateC3Candidate(rawText: string, context: FrozenC3AccountContext, meetingDate?: string,
-  generationContractVersion: C3GenerationContractVersion = CURRENT_C3_GENERATION_CONTRACT_VERSION): C3ProposedDraft {
-  c3GenerationContractVersion({ generationContractVersion });
-  if (generationContractVersion === "2") return originalContract.validateC3Candidate(rawText, context, meetingDate);
+export function validateC3Candidate(rawText: string, context: FrozenC3AccountContext, meetingDate?: string): C3ProposedDraft {
   if (Buffer.byteLength(rawText, "utf8") > 256 * 1024) throw new Error("model response exceeds output bound");
   let parsed: unknown;
   try { parsed = JSON.parse(rawText); } catch { throw new Error("model response must be one strict JSON object"); }
@@ -433,13 +419,6 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
       throw new Error(`${path} direct_support requires whole-field verbatim equality with one cited exact excerpt`);
     }
     assertNoUnsupportedAccountAssertion(item.text, item.supportCategory, path);
-    const excerpts = item.evidenceRefs.flatMap(id => evidenceSource.get(id)?.excerpts.filter(excerpt => excerpt.evidenceId === id).map(excerpt => excerpt.exactExcerpt) ?? []);
-    assertC3ClaimSupport(item.text, item.supportCategory, excerpts, path);
-  }
-  for (const [index, question] of questions.entries()) {
-    const excerpts = question.evidenceRefs.flatMap(id => evidenceSource.get(id)?.excerpts.filter(excerpt => excerpt.evidenceId === id).map(excerpt => excerpt.exactExcerpt) ?? []);
-    assertC3ClaimSupport(question.question, "open_question", excerpts, `candidate.questions[${index}].question`);
-    assertC3ClaimSupport(question.intendedLearning, "open_question", excerpts, `candidate.questions[${index}].intendedLearning`);
   }
   return deepFreezeOwnData({ ...candidate, status: "proposed_unreviewed", durablySaved: false,
     warnings: draftWarnings(candidate, context, evidenceSource, meetingDate) });
@@ -448,24 +427,18 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
 export function createGenerationRecord(modelRequest: C3ModelRequest, rawResponse: string,
   context: FrozenC3AccountContext): C3GenerationRecord {
   assertC3GenerationContext(context);
-  const generationContractVersion = c3GenerationContractVersion(modelRequest);
-  const expectedRequest = reconstructC3ModelRequest(context, modelRequest);
-  if (canonicalJson(expectedRequest) !== canonicalJson(modelRequest)) throw new Error("model request identity or prompt mismatch");
-  const marker = Object.hasOwn(modelRequest, "generationContractVersion") ? { generationContractVersion } : {};
-  if (generationContractVersion === "2") return deepFreezeOwnData({
-    ...originalContract.createGenerationRecord(modelRequest, rawResponse, context), ...marker });
   const rawResponseSha256 = hash(rawResponse);
   const modelRequestSha256 = hash(canonicalJson(modelRequest));
   const recordId = `c3_${hash(`${context.sha256}\n${modelRequestSha256}\n${rawResponseSha256}`).slice(0, 24)}`;
   try {
     const draft = validateC3Candidate(rawResponse, context, modelRequest.meetingRequest.meetingDate);
-    return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", ...marker, recordId,
+    return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", recordId,
       contextSha256: context.sha256, meetingRequest: modelRequest.meetingRequest,
       meetingRequestSha256: modelRequest.meetingRequestSha256, revision: modelRequest.revision,
       revisionSha256: modelRequest.revisionSha256, modelRequestSha256,
       rawResponse, rawResponseSha256, outcome: "succeeded", draft });
   } catch (error) {
-    return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", ...marker, recordId,
+    return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", recordId,
       contextSha256: context.sha256, meetingRequest: modelRequest.meetingRequest,
       meetingRequestSha256: modelRequest.meetingRequestSha256, revision: modelRequest.revision,
       revisionSha256: modelRequest.revisionSha256, modelRequestSha256,
@@ -482,16 +455,10 @@ export function assertReplayIdentity(record: C3GenerationRecord, context: Frozen
       (record.revision !== null && record.revision.priorRawResponseSha256 !== hash(record.revision.priorRawResponse))) {
     throw new Error("recorded revision identity mismatch");
   }
-  const rebuilt = createGenerationRecord(reconstructC3ModelRequest(context, record), record.rawResponse, context);
-  if (canonicalJson(rebuilt) !== canonicalJson(record)) throw new Error("recorded generation replay mismatch");
-}
-
-/** Reconstruct exact saved request bytes. Never default a historical record to today's prompt. */
-export function reconstructC3ModelRequest(context: FrozenC3AccountContext,
-  saved: Pick<C3GenerationRecord, "meetingRequest" | "revision" | "generationContractVersion">): C3ModelRequest {
-  const version = c3GenerationContractVersion(saved);
-  if (!Object.hasOwn(saved, "generationContractVersion")) {
-    return originalContract.createC3ModelRequest(context, saved.meetingRequest, saved.revision);
+  const rebuilt = createGenerationRecord(createC3ModelRequest(context, record.meetingRequest, record.revision), record.rawResponse, context);
+  if (rebuilt.modelRequestSha256 !== record.modelRequestSha256 || rebuilt.recordId !== record.recordId || rebuilt.outcome !== record.outcome ||
+      canonicalJson(rebuilt.draft ?? null) !== canonicalJson(record.draft ?? null) ||
+      canonicalJson(rebuilt.refusal ?? null) !== canonicalJson(record.refusal ?? null)) {
+    throw new Error("recorded generation replay mismatch");
   }
-  return createC3ModelRequest(context, saved.meetingRequest, saved.revision, version);
 }

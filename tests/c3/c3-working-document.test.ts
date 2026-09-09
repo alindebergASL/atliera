@@ -8,8 +8,9 @@ import { PassThrough } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } from '../fixtures/c3-workshop.ts';
 import { startC3Server, type RunningC3Server } from '../../src/c3/service.ts';
-import { createC3ModelRequest, createGenerationRecord } from '../../src/c3/draft.ts';
-import { LocalWorkStore } from '../../src/c3/work-store.ts';
+import { createC3ModelRequest, createGenerationRecord, type C3GenerationRecord } from '../../src/c3/draft.ts';
+import { createRecordOriginReceipt, type RecordOriginReceipt, LocalWorkStore } from '../../src/c3/work-store.ts';
+import { RecordedReplayC3ModelProvider } from '../../src/c3/provider.ts';
 const ctx = syntheticWorkshopContext();
 const request = syntheticMeetingRequest;
 class Response extends EventEmitter {
@@ -22,9 +23,9 @@ class Response extends EventEmitter {
 }
 async function browser(server:RunningC3Server) {
   let cookie='',csrf='',documentId='';
-  const call = async (path:string, body?:unknown, displayedDocument?:string) => {
+  const call = async (path:string, body?:unknown, displayedDocument?:string, headerOverrides:Record<string,string|undefined>={}) => {
     const req = new PassThrough() as unknown as IncomingMessage;
-    Object.assign(req,{ method:body === undefined?'GET':'POST',url:path,headers:{host:'127.0.0.1:4317',cookie,origin:server.origin,'content-type':'application/json','x-c3-csrf':csrf,'x-c3-document':displayedDocument ?? documentId} });
+    Object.assign(req,{ method:body === undefined?'GET':'POST',url:path,headers:{host:'127.0.0.1:4317',cookie,origin:server.origin,'content-type':'application/json','x-c3-csrf':csrf,'x-c3-document':displayedDocument ?? documentId,...headerOverrides} });
     const res = new Response(); server.server.emit('request',req,res as unknown as ServerResponse);
     (req as unknown as PassThrough).end(body === undefined?undefined:JSON.stringify(body)); await res.done;
     if(res.status<300){const meta=res.text.match(/name="c3-document" content="([^"]+)"/);if(meta)documentId=meta[1]!;if(body!==undefined){const result=JSON.parse(res.text);if(result.documentId)documentId=result.documentId;else if(result.html){const rendered=result.html.match(/name="c3-document" content="([^"]+)"/);if(rendered)documentId=rendered[1]!;}}}
@@ -110,6 +111,47 @@ test('notes and newer instruction survive a running revision; stale result never
   const page=(await b.call('/?draft=1')).text;assert.match(page,/Note during generation/);assert.match(page,/Newer typing during generation/);
  }finally{await running.close();}
 });
+
+for (const kind of ['general', 'section'] as const) for (const timing of ['running', 'returned'] as const) {
+ test(`${kind} note change ${timing} revision invalidates Apply across Save and restart; no-change stays current`, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'c3-note-stale-'));
+  let release!: (raw: string) => void;
+  const options = { context: ctx, listen: false, workStore: { root, principal: 'operator-one' },
+   provider: { name: 'synthetic', executionMode: 'local' as const, async generate(model: ReturnType<typeof createC3ModelRequest>) {
+    if (!model.revision || timing === 'returned') return syntheticMeetingCandidate(ctx);
+    return new Promise<string>(resolve => { release = resolve; });
+   } } };
+  let server = await startC3Server(options);
+  try {
+   const b = await browser(server);
+   const first = (await b.call('/api/generate', envelope())).json();
+   const stage = (await b.call('/api/revise', { recordId: first.recordId, note: 'Improve opening', priorNote: '' })).json();
+   const generating = b.call('/api/generate', envelope(first.recordId, stage.pendingRevisionToken));
+   await new Promise(resolve => setImmediate(resolve));
+   let proposed = timing === 'returned' ? (await generating).json() : undefined;
+   const note = (text: string, prior: string) => kind === 'general'
+    ? b.call('/api/note', { recordId: first.recordId, note: text, priorNote: prior })
+    : b.call('/api/section-note', { recordId: first.recordId, section: 'Opening', text, priorText: prior });
+   assert.equal((await note('', '')).json().noChange, true);
+   assert.equal((await b.call('/api/work-state', {})).json().snapshot.proposalStale, false);
+   assert.equal((await note('Changed in another tab', '')).status, 200);
+   assert.equal((await b.call('/api/work-state', {})).json().snapshot.proposalStale, true);
+   // Reverting text never revives a proposal generated before the edit.
+   assert.equal((await note('', 'Changed in another tab')).status, 200);
+   if (timing === 'running') { release(syntheticMeetingCandidate(ctx)); proposed = (await generating).json(); }
+   assert.equal((await b.call('/api/work-state', {})).json().snapshot.proposalStale, true);
+   const apply = { recordId: first.recordId, proposalId: proposed.proposalId, instruction: 'Improve opening', pendingRevisionToken: stage.pendingRevisionToken };
+   assert.equal((await b.call('/api/apply-revision', apply)).status, 409);
+   const state = (await b.call('/api/work-state', {})).json();
+   assert.equal((await b.call('/api/save', { recordId: first.recordId, documentId: state.documentId, expectedVersion: 0, workVersion: state.workVersion })).status, 200);
+   await server.close(); server = await startC3Server(options);
+   const fresh = await browser(server);
+   assert.equal((await fresh.call('/api/reopen', { documentId: state.documentId })).status, 200);
+   assert.equal((await fresh.call('/api/work-state', {})).json().snapshot.proposalStale, true);
+   assert.equal((await fresh.call('/api/apply-revision', apply)).status, 409);
+  } finally { release?.(syntheticMeetingCandidate(ctx)); await server.close(); await rm(root, { recursive: true, force: true }); }
+ });
+}
 
 test('pending proposal and separate notes reopen after restart; acknowledgement failure never claims Saved',async()=>{
  const root=await mkdtemp(join(tmpdir(),'c3-proposal-recovery-'));let fail=false;
@@ -203,4 +245,159 @@ test('work-state binds same-session annotations and instruction to CAS without e
   assert.equal((await tabs.call('/api/save',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);
   assert.equal((await tabs.call('/api/save-copy',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
+});
+
+ test('title uses bounded CAS, preserves pending work, and Save supplies durable metadata',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'c3-title-'));
+  const options={context:ctx,provider,listen:false,now:()=>new Date('2026-09-09T08:30:00.000Z'),workStore:{root,principal:'operator-one'}};
+  let running=await startC3Server(options);
+  try{
+    const b=await browser(running);const first=(await b.call('/api/generate',envelope())).json();
+    await b.call('/api/note',{recordId:first.recordId,note:'Retain note',priorNote:''});
+    const stage=(await b.call('/api/revise',{recordId:first.recordId,note:'Improve opening',priorNote:'Retain note'})).json();
+    await b.call('/api/generate',envelope(first.recordId,stage.pendingRevisionToken));
+    const before=(await b.call('/api/work-state',{})).json();
+    assert.equal(before.title,request.intendedOutcome);assert.equal(before.origin,'unknown');assert.equal(before.savedAt,undefined);
+    const title={recordId:first.recordId,title:'Leadership preparation',workVersion:before.workVersion};
+    const edited=await b.call('/api/work/title',title);assert.equal(edited.status,200);assert.deepEqual(edited.json(),{title:title.title,workVersion:before.workVersion+1});
+    assert.equal((await b.call('/api/work/title',title)).status,409);
+    for(const value of ['', ' ', 'x'.repeat(161), 'bad\nline', 1, null]) assert.equal((await b.call('/api/work/title',{...title,title:value,workVersion:before.workVersion+1})).status,400);
+    assert.equal((await b.call('/api/work/title',{...title,origin:'live',workVersion:before.workVersion+1})).status,400);
+    const after=(await b.call('/api/work-state',{})).json();assert.deepEqual(after.snapshot,before.snapshot);assert.equal(after.saved,false);
+    const save=await b.call('/api/save',{recordId:first.recordId,documentId:after.documentId,expectedVersion:0,workVersion:after.workVersion});
+    assert.equal(save.status,200);assert.equal(save.json().savedAt,'2026-09-09T08:30:00.000Z');assert.equal(save.json().origin,'unknown');
+    await running.close();running=await startC3Server(options);
+    const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:after.documentId})).status,200);
+    const reopened=(await fresh.call('/api/work-state',{})).json();assert.equal(reopened.title,title.title);assert.equal(reopened.savedAt,save.json().savedAt);assert.deepEqual(reopened.snapshot,before.snapshot);
+  }finally{await running.close();await rm(root,{recursive:true,force:true});}
+ });
+
+const oldFixture=async()=>JSON.parse(await readFile(new URL('../fixtures/c3-old-contract.json',import.meta.url),'utf8'));
+const oldReplay=(old:Awaited<ReturnType<typeof oldFixture>>)=>({initialRequest:old.initial.meetingRequest,correctionNote:old.revised.revision.correctionNote,priorRecord:old.initial,revisionRecord:old.revised});
+const oldProvider=(old:Awaited<ReturnType<typeof oldFixture>>)=>new RecordedReplayC3ModelProvider([{request:old.initialRequest,rawResponse:old.initial.rawResponse},{request:old.revisedRequest,rawResponse:old.revised.rawResponse}]);
+test('exact old recorded service initial→revision→Apply→note→Save→restart→new browser keeps old identities',async()=>{
+ const old=await oldFixture();const root=await mkdtemp(join(tmpdir(),'c3-old-service-'));
+ const options={context:old.context,provider:oldProvider(old),recordedReplay:oldReplay(old),listen:false,workStore:{root,principal:'synthetic-operator'},now:()=>new Date('2026-09-09T10:00:00Z')};
+ let running=await startC3Server(options);
+ try{
+  const b=await browser(running);const first=await b.call('/api/generate',{...envelope(),request:old.initial.meetingRequest});
+  assert.equal(first.status,200);assert.equal(first.json().recordId,old.initial.recordId);
+  assert.equal((await b.call('/api/work-state',{})).json().origin,'historical-replay');
+  const stage=(await b.call('/api/revise',{recordId:old.initial.recordId,note:old.revised.revision.correctionNote,priorNote:''})).json();
+  const proposal=(await b.call('/api/generate',{...envelope(old.initial.recordId,stage.pendingRevisionToken),request:old.initial.meetingRequest})).json();
+  assert.equal(proposal.proposalId,old.revised.recordId);assert.equal(proposal.recordId,old.initial.recordId);
+  assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:proposal.proposalId,instruction:old.revised.revision.correctionNote,pendingRevisionToken:stage.pendingRevisionToken})).status,200);
+  await b.call('/api/note',{recordId:old.revised.recordId,note:'Retained after Apply',priorNote:''});
+  const state=(await b.call('/api/work-state',{})).json();
+  const saved=(await b.call('/api/save',{recordId:state.recordId,documentId:state.documentId,workVersion:state.workVersion,expectedVersion:0})).json();
+  assert.equal(saved.origin,'historical-replay');assert.equal(saved.savedAt,'2026-09-09T10:00:00.000Z');
+  const stored=JSON.parse(await readFile(join(root,(await readdir(root)).find(name=>name.endsWith('.json'))!),'utf8'));
+  assert.deepEqual(stored.work.records,[old.initial,old.revised]);assert.equal(stored.metadata.origins.length,2);
+  await running.close();running=await startC3Server(options);
+  const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:state.documentId})).status,200);
+  assert.equal((await fresh.call('/api/work-state',{})).json().snapshot.correctionNote,'Retained after Apply');
+  assert.equal((await fresh.call('/api/work-state',{})).json().recordId,old.revised.recordId);
+  await fresh.call('/?draft=1');assert.equal(running.status().generationAttempted,0);
+ }finally{await running.close();await rm(root,{recursive:true,force:true});}
+});
+test('old pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v3',async()=>{
+ const old=await oldFixture();const root=await mkdtemp(join(tmpdir(),'c3-old-pending-'));
+ for(const file of old.files)await writeFile(join(root,file.name),file.bytes,{mode:0o600});
+ const captures:ReturnType<typeof createC3ModelRequest>[]=[];
+ const running=await startC3Server({context:old.context,listen:false,provider:{name:'recorded-replay',executionMode:'external',async generate(model){captures.push(model);return syntheticMeetingCandidate(old.context,true);}},workStore:{root,principal:'synthetic-operator'}});
+ try{
+  const b=await browser(running);const pending=JSON.parse(old.files.find((file:any)=>JSON.parse(file.bytes).work.proposal!==null).bytes);
+  assert.equal((await b.call('/api/reopen',{documentId:pending.documentId})).status,200);
+  const before=(await b.call('/api/work-state',{})).json();assert.equal(before.origin,'unknown');assert.equal(before.savedAt,undefined);assert.equal(before.title,pending.work.record.meetingRequest.intendedOutcome);
+  await b.call('/?draft=1');assert.equal(captures.length,0);
+  assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:old.revised.recordId,instruction:pending.work.instruction,pendingRevisionToken:pending.work.pendingRevisionToken})).status,200);
+  const stage=(await b.call('/api/revise',{recordId:old.revised.recordId,note:'Clarify next steps.',priorNote:pending.work.correctionNote})).json();
+  const generated=await b.call('/api/generate',{...envelope(old.revised.recordId,stage.pendingRevisionToken),request:old.revised.meetingRequest});
+  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'3');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
+  for(const file of old.files)assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
+  const awaiting=JSON.parse(old.files.find((file:any)=>{const w=JSON.parse(file.bytes).work;return w.pendingRevision && !w.proposal;}).bytes);
+  const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:awaiting.documentId})).status,200);
+  const state=(await fresh.call('/api/work-state',{})).json();assert.equal(state.snapshot.pendingRevisionToken,awaiting.work.pendingRevisionToken);assert.equal(state.snapshot.proposalId,null);
+ }finally{await running.close();await rm(root,{recursive:true,force:true});}
+});
+test('versioned metadata verifies exact trusted custody, rejects forged origin, and leaves legacy bytes untouched',async()=>{
+ const old=await oldFixture();const root=await mkdtemp(join(tmpdir(),'c3-origin-store-'));
+ try{
+  const file=old.files[2];await writeFile(join(root,file.name),file.bytes,{mode:0o600});const legacy=JSON.parse(file.bytes);
+  const admitted=new Map<string,RecordOriginReceipt>([old.initial,old.revised].map((record:C3GenerationRecord)=>[record.recordId,createRecordOriginReceipt(record,'historical-replay',`admitted:${record.recordId}`)]));
+  const originReceipt=(record:C3GenerationRecord)=>admitted.get(record.recordId);
+  const store=new LocalWorkStore({root,principal:'synthetic-operator',originReceipt,now:()=>new Date('2026-09-09T12:00:00Z')},old.context);
+  assert.deepEqual(store.load(legacy.documentId),legacy);assert.equal(store.origin(legacy.work.record),'historical-replay');
+  assert.equal(new LocalWorkStore({root,principal:'synthetic-operator'},old.context).origin(legacy.work.record),'unknown');
+  const saved=store.save(legacy.documentId,legacy.version,legacy.work,{title:'Preparation title'});assert.equal(saved.schemaVersion,'2');
+  assert.deepEqual(saved.work,legacy.work);assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
+  const path=join(root,(await readdir(root)).find(name=>name!==file.name)!);const bytes=await readFile(path,'utf8');
+  for(const patch of [{origin:'live'},{recordId:'c3_'+'0'.repeat(24)},{contextSha256:'0'.repeat(64)},{modelRequestSha256:'0'.repeat(64)},{rawResponseSha256:'0'.repeat(64)},{recordSha256:'0'.repeat(64)},{custodyReceiptId:'forged'}]){
+   const changed=JSON.parse(bytes);Object.assign(changed.metadata.origins[0],patch);await writeFile(path,JSON.stringify(changed));assert.throws(()=>store.load(saved.documentId));
+  }
+  for(const metadata of [{title:''},{savedAt:'yesterday'},{origin:'live'},{origins:[saved.metadata!.origins[0],saved.metadata!.origins[0]]}]){
+   const changed=JSON.parse(bytes);Object.assign(changed.metadata,metadata);await writeFile(path,JSON.stringify(changed));assert.throws(()=>store.load(saved.documentId));
+  }
+  await writeFile(path,bytes);assert.equal(store.load(saved.documentId).metadata!.title,'Preparation title');
+  assert.throws(()=>new LocalWorkStore({root,principal:'synthetic-operator'},old.context).load(saved.documentId),/custody/);
+  assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test('fresh receipt origin survives Save/restart and Apply retains prior custody; runtime names grant nothing',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'c3-live-receipt-'));const receipts=new Map<string,RecordOriginReceipt>();
+ const trustedProvider={name:'deterministic-provider',executionMode:'external' as const,async generate(model:ReturnType<typeof createC3ModelRequest>){
+  const raw=syntheticMeetingCandidate(ctx,model.revision!==null);const record=createGenerationRecord(model,raw,ctx);
+  receipts.set(record.recordId,createRecordOriginReceipt(record,'live',`test-custody:${record.recordId}`));return raw;
+ }};
+ const options={context:ctx,provider:trustedProvider,listen:false,originReceipt:(record:C3GenerationRecord)=>receipts.get(record.recordId),workStore:{root,principal:'operator-one'}};
+ let running=await startC3Server(options);
+ try{
+  const b=await browser(running);const first=(await b.call('/api/generate',envelope())).json();assert.equal((await b.call('/api/work-state',{})).json().origin,'live');
+  const stage=(await b.call('/api/revise',{recordId:first.recordId,note:'Improve opening',priorNote:''})).json();
+  const proposal=(await b.call('/api/generate',envelope(first.recordId,stage.pendingRevisionToken))).json();
+  await b.call('/api/apply-revision',{recordId:first.recordId,proposalId:proposal.proposalId,instruction:'Improve opening',pendingRevisionToken:stage.pendingRevisionToken});
+  const state=(await b.call('/api/work-state',{})).json();assert.equal(state.origin,'live');
+  assert.equal((await b.call('/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:0,workVersion:state.workVersion})).json().origin,'live');
+  await running.close();running=await startC3Server(options);const fresh=await browser(running);
+  assert.equal((await fresh.call('/api/reopen',{documentId:state.documentId})).status,200);assert.equal((await fresh.call('/api/work-state',{})).json().origin,'live');
+  const loaded=new LocalWorkStore({...options.workStore,originReceipt:options.originReceipt},ctx).load(state.documentId);
+  assert.equal(loaded.metadata!.origins.length,2);assert.deepEqual(loaded.metadata!.origins.map(r=>r.recordId),loaded.work.records.map(r=>r.recordId));
+ }finally{await running.close();await rm(root,{recursive:true,force:true});}
+});
+
+test('an admitted historical bundle and runtime preview flags cannot relabel unrelated saved records',async()=>{
+ const old=await oldFixture();const root=await mkdtemp(join(tmpdir(),'c3-unrelated-origin-'));
+ const record=createGenerationRecord(createC3ModelRequest(old.context,old.initial.meetingRequest),old.initial.rawResponse,old.context);
+ const prior=JSON.parse(old.files[2].bytes).work;
+ const store=new LocalWorkStore({root,principal:'synthetic-operator'},old.context);
+ const saved=store.save('doc_555555555555555555555555',0,{...prior,record,records:[record],proposal:null,pendingRevision:null,pendingRevisionToken:null});
+ const filename=(await readdir(root))[0]!;const bytes=await readFile(join(root,filename),'utf8');
+ const running=await startC3Server({context:old.context,provider:oldProvider(old),recordedReplay:oldReplay(old),syntheticPreview:true,listen:false,workStore:{root,principal:'synthetic-operator'}});
+ try{
+  const b=await browser(running);assert.equal((await b.call('/api/reopen',{documentId:saved.documentId})).status,200);
+  const state=(await b.call('/api/work-state',{})).json();assert.equal(state.origin,'unknown');
+  const page=(await b.call('/?draft=1')).text;assert.doesNotMatch(page,/Recorded initial — before correction|Recorded revised — after correction|Synthetic initial/);
+  assert.equal(running.status().generationAttempted,0);assert.equal(await readFile(join(root,filename),'utf8'),bytes);
+ }finally{await running.close();await rm(root,{recursive:true,force:true});}
+});
+
+test('explicit invalidation validates identity and CAS, leaves notes untouched, and survives Save and restart',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'c3-unsent-invalidation-'));const options={context:ctx,provider,listen:false,workStore:{root,principal:'operator-one'}};let server=await startC3Server(options);
+ try{
+  const b=await browser(server);const first=(await b.call('/api/generate',envelope())).json();
+  const stage=(await b.call('/api/revise',{recordId:first.recordId,note:'Improve opening',priorNote:''})).json();
+  const proposal=(await b.call('/api/generate',envelope(first.recordId,stage.pendingRevisionToken))).json();
+  const state=(await b.call('/api/work-state',{})).json();const invalidation={recordId:first.recordId,pendingRevisionToken:stage.pendingRevisionToken,proposalId:proposal.proposalId,workVersion:state.workVersion};
+  for(const change of [{recordId:'c3_'+'f'.repeat(24)},{pendingRevisionToken:'z'.repeat(32)},{proposalId:null},{workVersion:state.workVersion-1},{note:'Must not submit typing'}, {proposalStale:false}])assert.equal((await b.call('/api/revision-invalidate',{...invalidation,...change})).status,409);
+  assert.equal((await b.call('/api/revision-invalidate',invalidation,'doc_'+'f'.repeat(24))).status,409);
+  for(const headers of [{'x-c3-csrf':'invalid'},{origin:'http://untrusted.invalid'},{'content-type':'text/plain'}])assert.equal((await b.call('/api/revision-invalidate',invalidation,undefined,headers)).status,403);
+  assert.equal((await b.call('/api/work-state',{})).json().snapshot.proposalStale,false);
+  const result=await b.call('/api/revision-invalidate',invalidation);assert.equal(result.status,200);assert.equal(result.json().workVersion,state.workVersion+1);
+  const next=(await b.call('/api/work-state',{})).json();assert.equal(next.snapshot.proposalStale,true);assert.equal(next.snapshot.correctionNote,'');assert.deepEqual(next.snapshot.sectionNotes,{});assert.equal((await readdir(root)).length,0,'session invalidation alone never saves');
+  assert.equal((await b.call('/api/revision-invalidate',{...invalidation,workVersion:next.workVersion})).json().workVersion,next.workVersion,'idempotent at current version');
+  assert.equal((await b.call('/api/save',{recordId:first.recordId,documentId:state.documentId,expectedVersion:0,workVersion:next.workVersion})).status,200);
+  await server.close();server=await startC3Server(options);const fresh=await browser(server);assert.equal((await fresh.call('/api/reopen',{documentId:state.documentId})).status,200);
+  assert.equal((await fresh.call('/api/work-state',{})).json().snapshot.proposalStale,true);assert.match((await fresh.call('/?draft=1')).text,/data-proposal-stale="true"/);
+  assert.equal((await fresh.call('/api/apply-revision',{...invalidation,instruction:'Improve opening'})).status,409);
+ }finally{await server.close();await rm(root,{recursive:true,force:true});}
 });

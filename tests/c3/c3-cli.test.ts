@@ -7,12 +7,12 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { loadC3RecordedReplay, main } from "../../src/c3/cli.ts";
 import { loadC3AccountContext } from "../../src/c3/context.ts";
-import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord } from "../../src/c3/draft.ts";
+import { reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord } from "../../src/c3/draft.ts";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const absent = (error: unknown): boolean => (error as NodeJS.ErrnoException).code === "ENOENT";
 
-async function recordingPackage(root: string) {
+async function recordingPackage(root: string, historical = false) {
   const context = await loadC3AccountContext({
     broadInputPath: resolve(repo, "fixtures/account-intelligence/c2-01/broad-account-research-input.json"),
     proposalPath: resolve(repo, "docs/ux/c2-governed-account-intelligence-refresh/data/fresh/university-of-utah-validated-proposal.json"),
@@ -31,11 +31,12 @@ async function recordingPackage(root: string) {
       { question: "What follow-up helps?", intendedLearning: "A useful next step.", evidenceRefs: [], supportCategory: "open_question" },
     ], risksUnknowns: [{ text: "Current audience priorities remain unknown.", evidenceRefs: [], supportCategory: "unknown" }],
     closeCriterion: { text: "Agree whether and how to continue.", evidenceRefs: [], supportCategory: "recommendation" }, selectedEvidenceRefs: [evidence] });
-  const priorRequest = createC3ModelRequest(context, meetingRequest);
+  const priorRequest = historical ? reconstructC3ModelRequest(context, {meetingRequest, revision:null}) : createC3ModelRequest(context, meetingRequest);
   const priorRecord = createGenerationRecord(priorRequest, raw, context);
   assert.equal(priorRecord.outcome, "succeeded");
   const correctionNote = "Use the exact recorded correction and preserve the prior draft identity.";
-  const revisionRequest = createC3ModelRequest(context, meetingRequest, createC3RevisionContext(priorRecord, correctionNote, 1));
+  const revision = createC3RevisionContext(priorRecord, correctionNote, 1);
+  const revisionRequest = historical ? reconstructC3ModelRequest(context, {meetingRequest, revision}) : createC3ModelRequest(context, meetingRequest, revision);
   const revisionRecord = createGenerationRecord(revisionRequest, raw, context);
   assert.equal(revisionRecord.outcome, "succeeded");
   for (const [name, request] of [["prior", priorRequest], ["revision", revisionRequest]] as const) {
@@ -136,3 +137,20 @@ test("serve-recorded preflight refuses corrupt raw response instead of binding a
     await assert.rejects(() => loadC3RecordedReplay(expected.context, scratch), /prior recorded candidate refused without repair/u);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 });
+
+ test("historical CLI links and renders exact absent-marker recordings; hostile markers refuse", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "c3-old-cli-"));
+  try {
+    const old = await recordingPackage(root, true);
+    const replay = await loadC3RecordedReplay(old.context, root);
+    assert.deepEqual(replay.priorRecord, old.priorRecord);
+    assert.deepEqual(replay.revisionRecord, old.revisionRecord);
+    await main(["render-recorded-draft", "acc_university_of_utah", resolve(root,"prior/model-request.json"), resolve(root,"prior/raw-response.txt"), resolve(root,"rendered")]);
+    assert.deepEqual(JSON.parse(await readFile(resolve(root,"rendered/generation-record.json"),"utf8")),old.priorRecord);
+    const path = resolve(root,"prior/model-request.json");
+    for (const marker of ["3","999",null,3]) {
+      await writeFile(path,JSON.stringify({...old.priorRequest,generationContractVersion:marker}));
+      await assert.rejects(()=>loadC3RecordedReplay(old.context,root));
+    }
+  } finally {await rm(root,{recursive:true,force:true});}
+ });

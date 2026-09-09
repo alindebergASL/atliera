@@ -24,7 +24,18 @@ export interface AccountSourcePassage {
   readonly exactText: string;
   readonly limit: string;
 }
+export interface AccountDetailSection {
+  readonly title: string;
+  readonly evidenceId: string;
+  readonly sourceId: string;
+  readonly exactText: string;
+}
+export interface AccountDetail {
+  readonly readingId: string;
+  readonly sections: readonly AccountDetailSection[];
+}
 export interface AccountProjection {
+  readonly details: readonly AccountDetail[];
   readonly readings: readonly AccountReading[];
   readonly passages: readonly AccountSourcePassage[];
   readonly unmatchedSourceIds: readonly string[];
@@ -135,6 +146,52 @@ const PASSAGES = [
     exactText: "- Support for proposal development, including pre-award and post-award services.",
     limit: "A described support area in MizzouForward, outside the selected proposal; staffing, service availability and owners remain unverified." },
 ] as const;
+// Presentation selections from immutable evidence anchors. These add retained scope,
+// milestones and roles; they do not create new claim notes or source identities.
+type DetailSelection = readonly [title: string, evidenceId: string, from?: string, until?: string];
+const DETAIL_SELECTIONS: Readonly<Record<string, readonly DetailSelection[]>> = {
+  'strategic-reinvestment': [
+    ['Program allocations over three years', 'evidence_a9d8e80afbb470e3a5a3'],
+    ['Reallocation milestones', 'evidence_1022aa3b977809d3004e'],
+    ['Recorded approval', 'evidence_8598ede0df66bb13f65d'],
+  ],
+  'redtail-access': [
+    ['Who the resource is for', 'evidence_ac0312bff8c47c1fdd71'],
+    ['Management and investment period', 'evidence_bf6c043eac847f7183e3'],
+    ['Described model-computing scope', 'evidence_ea94995bdcd28e1409d3'],
+  ],
+  'chpc': [
+    ['Management and investment period', 'evidence_bf6c043eac847f7183e3'],
+    ['Organizations served', 'evidence_ac0312bff8c47c1fdd71'],
+    ['Health-data partnership', 'evidence_580385fbb8754676fa3d'],
+  ],
+  'redtail-platform': [
+    ['Platform and partnership', 'evidence_91e8773cb89195d27431'],
+    ['Multi-server and GPU scope', 'evidence_ea94995bdcd28e1409d3'],
+    ['Management and investment period', 'evidence_bf6c043eac847f7183e3'],
+  ],
+  'health-data-partners': [
+    ['Partner roles and planned system', 'evidence_580385fbb8754676fa3d'],
+    ['Separate infrastructure investment', 'evidence_5c9bdebcc492d29c0154'],
+  ],
+  'public-presidency': [
+    ['Addressees and reporting period', 'evidence_623311c9e376816166e4', 'To the Board of Trustees', ' In our opinion,'],
+    ['University and related reporting scope', 'evidence_623311c9e376816166e4', 'We did not audit', ' Those statements were audited'],
+  ],
+  'academic-health': [
+    ['Department and component units', 'evidence_623311c9e376816166e4', 'We did not audit', ' Those statements were audited'],
+    ['Audit responsibility', 'evidence_623311c9e376816166e4', 'Those statements were audited', ' These reports represent'],
+  ],
+  'mizzouforward': [
+    ['Ten-year effort and focus areas', 'mu_evidence_4_1'],
+    ['Research facilities and support', 'mu_evidence_4_2'],
+    ['Student learning investments', 'mu_evidence_4_3'],
+  ],
+  'research-infrastructure': [
+    ['Research facilities and support', 'mu_evidence_4_2'],
+    ['Research and scholarship objectives', 'mu_evidence_3_3'],
+  ],
+};
 const hash = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex");
 
 /** Fail closed on changed/missing anchors. A source label alone can never activate authored prose. */
@@ -146,15 +203,27 @@ export function projectAccount(frozen: FrozenC3ViewContext): AccountProjection {
   ]))] as const));
   const byEvidence = new Map(sources.filter(source => !source.untrustedInstructionsDetected).flatMap(source =>
     source.excerpts.map(excerpt => [excerpt.evidenceId, { source, excerpt }] as const)));
-  const readings = NOTES.filter(note => note.evidenceIds.every(id => {
+  const boundEvidence = (id: string): boolean => {
     const binding = ACCOUNT_READING_ANCHORS[id];
     const retained = byEvidence.get(id);
-    return binding && retained && retained.source.sourceId === binding.sourceId &&
+    return !!binding && !!retained && retained.source.sourceId === binding.sourceId &&
       fingerprints.get(binding.sourceId) === binding.sourceFingerprint &&
       retained.excerpt.sourceId === binding.sourceId && retained.excerpt.exactExcerptSha256 === binding.sha256 &&
       hash(retained.excerpt.exactExcerpt) === binding.sha256 &&
       retained.source.fullBoundedCleanText.slice(retained.excerpt.sourceCharStart, retained.excerpt.sourceCharEnd) === retained.excerpt.exactExcerpt;
-  }));
+  };
+  const readings = NOTES.filter(note => note.evidenceIds.every(boundEvidence));
+  const details = readings.map(note => ({ readingId: note.id, sections: (DETAIL_SELECTIONS[note.id] ?? note.evidenceIds.map(id => ["Retained source passage", id] as const)).flatMap(selection => {
+    const [title, id, from, until] = selection as DetailSelection;
+    if (!boundEvidence(id)) return [];
+    const {source, excerpt} = byEvidence.get(id)!;
+    const start = from ? excerpt.exactExcerpt.indexOf(from) : 0;
+    const end = until ? excerpt.exactExcerpt.indexOf(until, Math.max(start, 0)) : excerpt.exactExcerpt.length;
+    if (start < 0 || end <= start) return [];
+    const exactText = excerpt.exactExcerpt.slice(start, end);
+    // Standalone heading anchors stay with the full evidence, not as empty detail sections.
+    return exactText.length < 35 ? [] : [{ title, evidenceId: id, sourceId: source.sourceId, exactText }];
+  }) }));
   const passages = PASSAGES.flatMap(passage => {
     const source = sources.find(item => item.sourceId === passage.sourceId && !item.untrustedInstructionsDetected &&
       Object.values(ACCOUNT_READING_ANCHORS).some(anchor => anchor.sourceId === item.sourceId && anchor.sourceFingerprint === fingerprints.get(item.sourceId)) &&
@@ -163,6 +232,6 @@ export function projectAccount(frozen: FrozenC3ViewContext): AccountProjection {
   });
   const used = new Set(readings.flatMap(note => note.evidenceIds.map(id => byEvidence.get(id)!.source.sourceId)));
   passages.forEach(passage => used.add(passage.source.sourceId));
-  return deepFreezeOwnData({ readings: readings.map(note => ({ ...note, evidenceIds: [...note.evidenceIds] })), passages,
+  return deepFreezeOwnData({ details, readings: readings.map(note => ({ ...note, evidenceIds: [...note.evidenceIds] })), passages,
     unmatchedSourceIds: sources.filter(source => !used.has(source.sourceId)).map(source => source.sourceId) });
 }

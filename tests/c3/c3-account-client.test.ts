@@ -13,7 +13,7 @@ function browser(options: { stored?: unknown; account?: string; csrf?: string; h
   const link = { id: "account-prepare", getAttribute: () => "/?prepare=1", focus: (args: unknown) => actions.push(["focus", args]) };
   const storage = { getItem: (k: string) => { if (options.unavailable) throw Error("unavailable"); return values.get(k) ?? null; },
     setItem: (k: string, v: string) => { if (options.unavailable) throw Error("unavailable"); values.set(k, v); }, removeItem: (k: string) => values.delete(k) };
-  const document = { querySelector: (selector: string) => selector === '.account-workspace' ? (options.home === false ? null : {}) :
+  const document = { querySelector: (selector: string) => ['[data-research-topic]', '[data-selected="true"]'].includes(selector) ? null : selector === '.account-workspace' ? (options.home === false ? null : {}) :
     selector.includes('meta[name="c3-account"]') ? { getAttribute: () => options.account ?? "a" } : selector.includes('meta[name="c3-csrf"]') ? { getAttribute: () => options.csrf ?? "s" } : link,
     getElementById: () => link, addEventListener: (name: string, handler: (event: any) => void) => handlers.set(name, handler) };
   const window = { sessionStorage: storage, location: { hash: options.hash ?? "" }, scrollY: 860,

@@ -1,8 +1,6 @@
 import { createHash } from "node:crypto";
 import * as originalContract from "./generation-contract-v2.ts";
-import * as v3Contract from "./generation-contract-v3.ts";
-import * as v4Contract from "./generation-contract-v4.ts";
-import { assertC3ClaimSupport, C3_CLAIM_CONTRACT_INSTRUCTIONS } from "./generation-claims.ts";
+import { assertC3ClaimSupport, C3_CLAIM_CONTRACT_INSTRUCTIONS } from "./generation-claims-v3.ts";
 
 import { deepFreezeOwnData } from "../authority/strict-json.ts";
 import { canonicalJson } from "./context.ts";
@@ -12,11 +10,11 @@ export const C3_MODEL_REQUEST_KIND = "atliera.c3.meeting-draft-model-request" as
 export const C3_MODEL_REQUEST_VERSION = "2" as const;
 
 /** Missing markers identify the original contract, never the runtime/provider mode. */
-export type C3GenerationContractVersion = "2" | "3" | "4" | "5";
-export const CURRENT_C3_GENERATION_CONTRACT_VERSION = "5" as const;
+export type C3GenerationContractVersion = "2" | "3";
+export const CURRENT_C3_GENERATION_CONTRACT_VERSION = "3" as const;
 export function c3GenerationContractVersion(value: { readonly generationContractVersion?: C3GenerationContractVersion }): C3GenerationContractVersion {
   if (!Object.hasOwn(value, "generationContractVersion")) return "2";
-  if (value.generationContractVersion !== "2" && value.generationContractVersion !== "3" && value.generationContractVersion !== "4" && value.generationContractVersion !== "5") {
+  if (value.generationContractVersion !== "2" && value.generationContractVersion !== "3") {
     throw new Error("unsupported generation contract version");
   }
   return value.generationContractVersion;
@@ -229,8 +227,6 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
   c3GenerationContractVersion({ generationContractVersion });
   if (generationContractVersion === "2") return deepFreezeOwnData({
     ...originalContract.createC3ModelRequest(context, requestInput, revision), generationContractVersion });
-  if (generationContractVersion === "3") return v3Contract.createC3ModelRequest(context, requestInput, revision, "3");
-  if (generationContractVersion === "4") return v4Contract.createC3ModelRequest(context, requestInput, revision, "4");
   assertC3GenerationContext(context);
   const meetingRequest = snapshotMeetingRequest(requestInput);
   const meetingRequestSha256 = hash(canonicalJson(meetingRequest));
@@ -246,24 +242,28 @@ export function createC3ModelRequest(context: FrozenC3AccountContext, requestInp
     selectedEvidenceRefs: ["evidenceId"],
   };
   const prompt = [
-    "Rank the draft outcome-first: intended outcome, owner priorities, strongest relevant evidence/roles, then audience lens; never narrow by title alone.",
-    "ownerCorrections content_priority is a meaningful selection directive; use relevanceCandidates reasons, not as conclusions. Unless the specific meeting request and admitted evidence provide an evidenced reason otherwise, it must visibly affect selectedEvidenceRefs and thesis, opening or main questions, not only risksUnknowns. Keep content_caveat as limits.",
-    "For 15 minutes: exactly three MAIN must-ask questions, ordered by current outcome; its owner/binding constraint; whether a next step helps and what it accomplishes. Avoid stock wording: at least one MAIN question must earn its wording from a selected evidence anchor to ask whether/how it matters to the chosen outcome. It must not presume that anchor is today's priority. insufficient_context may stay generic. Longer meetings: 3-7 ordered questions.",
-    "Include one or two—and no more—unmistakably optional follow-up probes for 15 minutes: opening/intendedLearning, one short sentence beginning exactly 'Optional probe:', conditional on a relevant answer. An optional probe is not a fourth MAIN question, mandatory discovery or menu.",
-    "Ground thesis and natural spoken opening in one or two concrete evidence anchors or known reported roles. The opening limit is not a cap on useful material across the brief: retain distinct material anchors (plans, resourcing lead time, enabling scope, named boundaries) in main questions/probes/risks. There is no evidence-count quota and no license for a broad source-summary dump.",
-    "Credit and source-attribute roles already reported by the evidence; ask only if they still apply and which boundary matters now. Keep initiative, operating-unit, and institution-wide boundaries distinct. Staffing, data, infrastructure, architecture, security and governance are possible enabling constraints, not assumed dependencies. Ground probes conditionally; preserve flexibility for a CIO or engineering audience to name a different priority.",
-    "Use plain seller-facing prose (sources, priorities, what to confirm), no governance/session/approval explanations or instruction jargon. Unknowns concern account/evidence, not app states. Bridge quotes to cautious hypotheses/invitations. Never imply unsupported current status, a pilot, vendor activity, an incident, budget availability, or a purchase.",
-    "Preserve facts, entities, owner corrections, source dates, renderer annotations, contradictions, material gaps and consequential warnings. risksUnknowns: consequential source/date/entity/funding limits tied to evidence/learning; avoid repetition. closeCriterion must allow a useful next step or no follow-up is warranted. Do not require a technical dependency, follow-up owner, format, or date unless established useful in conversation.",
-    "Return one JSON object matching OUTPUT SCHEMA, no markdown/extra fields/post-receipt repair. Cite only supplied eligible IDs, each once in selectedEvidenceRefs. Questions/intendedLearning use open_question. Procurement, buying intent, urgency and vendor preference also require whole-field direct_support.",
-    C3_CLAIM_CONTRACT_INSTRUCTIONS.replace("GENERATION CONTRACT 4", "GENERATION CONTRACT 5"),
-    "EMISSION FORMS: Every claim must remain semantically faithful to cited sources; adapt examples only where facts/relevance are supported.",
-    "Source report: 'The source describes ...' or 'The sources describe ...'; supported institution names, roles, plans, technical detail and scope follow the lead with matching evidenceRefs, never prefix it. Do not extend roles to current ownership/authority.",
-    "Relevance: qualify each implication before its predicate: 'The sources describe planned platform work; this planned work may be a useful topic to confirm.' Never use categorical 'are useful anchors' or another clause's caution.",
-    "Compact inquiry: 'Ask whether the reported role still applies to the chosen outcome.' Or 'Could we explore whether the reported role still applies to your chosen outcome?' Apply to every question/intendedLearning clause, including punctuation/conjunctions; never confirm unestablished facts.",
-    "Separate organizational unknowns: 'Current ownership is not established by the sources. Decision authority is not established by the sources.' No long lists sharing one negative predicate or erased reported roles/boundaries.",
-    "Source-led financial limits: 'The sources do not establish available purchasing budget, remaining amounts, eligible uses, procurement status, or buying intent.' Use applicable limits; separate exact funding facts/conditions. Proposals, awards, staffing allocations and matching amounts do not imply purchasing availability.",
-    "Conditional probe: 'Optional probe: If staffing matters to the chosen outcome, ask whether the reported lead time is relevant.' Use only cited, supported detail.",
-    "Temporal: initial_dated_event_discovery requires selected eligible admitted eventDate, not publication/retrieval/meeting/current-through dates alone. Use no_material_change_established for useful steady-state preparation, insufficient_context otherwise. change_against_prior_revision requires a supported change against an actual account priorRevision, never a meeting revision; none exists here.",
+    "Prepare a small, useful meeting draft from the supplied admitted account context.",
+    "Rank the draft outcome-first: start with the meeting request's intended outcome, then applicable owner content-priority corrections, then the strongest relevant account evidence and known reported roles, and only then the audience lens. Audience keywords must not prematurely narrow the outcome to a technical, security, or other functional agenda.",
+    "Treat each ownerCorrections content_priority as a meaningful selection directive, not merely a caveat. Use the relevanceCandidates reasons to connect it to evidence. Unless the specific meeting request and admitted evidence provide an evidenced reason otherwise, that evidence must visibly affect selectedEvidenceRefs and at least one of the thesis, opening, or must-ask questions—not only risksUnknowns; an audience title alone is not a reason to depart. Preserve content_caveat items as limits rather than converting them into priorities.",
+    "For a 15-minute meeting, return exactly three MAIN must-ask questions. Preserve these three conversational jobs, in order: identify the outcome that matters now; learn the selected outcome's current owner or binding constraint without re-asking already reported roles; and determine whether any next step would be useful and what it should accomplish. Do not copy those jobs as universal stock wording. Whenever the admitted context can responsibly support account-specific preparation, at least one MAIN question must earn its wording from a selected evidence anchor—such as planned work, a reported role, resourcing lead time, enabling scope, or a named organizational boundary—while asking whether or how it matters to the outcome the audience selected. It must not presume that anchor is today's priority. An honest insufficient_context result may stay generic rather than inventing specificity.",
+    "For a 15-minute meeting, include one or two—and no more—unmistakably optional follow-up probes only where a relevant answer would make them useful. Put each in the opening or intendedLearning as one short sentence beginning exactly 'Optional probe:' and state the condition that makes it relevant. An optional probe is not a fourth MAIN question: do not hide required discovery in it, make it mandatory, or turn it into a menu. Longer meetings may use more MAIN questions.",
+    "Use plain seller-facing language: say sources, current priorities, and what to confirm—not retained material, admitted context, controller authorization, excerpt-level support, or schema. Keep governance/session/approval explanations out of the meeting content; the application displays those states separately. An unknown field must identify an actual account or evidence unknown, not explain the application.",
+    "Keep the draft concise but substantive. Ground the audience thesis and natural spoken opening in one or two concrete evidence anchors or known reported roles most relevant to the intended outcome. That opening limit is not a cap on useful material across the brief: when the evidence is rich, use distinct selected anchors in the account-specific MAIN question, optional probes, and risks so a material execution signal—such as planned work, resourcing lead time, enabling scope, or a named boundary—is not dropped merely because the opening already has anchors. There is no evidence-count quota, especially for sparse context, and no license for a broad source-summary dump.",
+    "Credit and source-attribute roles already reported by the evidence. Ask only whether a reported or planned role still applies to the audience's selected outcome and what boundary matters now; do not present the role itself as unknown or ask the audience to rediscover it. Keep initiative, operating-unit, and institution-wide boundaries distinct, and do not extend a role into decision authority or current ownership beyond the cited excerpt.",
+    "Treat staffing, data, infrastructure, architecture, security, and governance detail as possible enabling constraints, not assumed dependencies. Use a relevant answer and grounded evidence to make any such probe conditional; preserve flexibility for a CIO or engineering audience to name a different priority.",
+    "Prefer an invitation to confirm or a cautious hypothesis over an isolated literal quotation with no conversational bridge. Keep source facts exact under the support contract; do not turn a paraphrase into direct_support or imply unsupported current status, a pilot, vendor activity, an incident, budget availability, or a purchase.",
+    "Avoid repeating the same generic caveat in every field. In risksUnknowns, keep the few consequential source/date/entity/funding uncertainties, tied to their affected evidence and the learning decision. Neither brevity nor conversational wording permits dropping a known contradiction or consequential warning.",
+    "Make closeCriterion genuinely non-presumptive: it must allow agreement on a useful next step or a clear conclusion that no follow-up is warranted. Do not require a technical dependency, follow-up owner, format, or date unless the conversation establishes one as useful.",
+    "Return exactly one JSON object matching the supplied schema, with no markdown and no additional fields.",
+    "You select meaningful evidence and write the prose. Do not merely repeat the relevance candidates; they are candidates with reasons, not conclusions.",
+    "Preserve facts, entity boundaries, declared contradictions, material gaps, owner corrections, source dates, and renderer annotations.",
+    "NO-NEW-ACCOUNT-FACT CONTRACT: direct_support is a source fact and the entire text field must equal one cited exactExcerpt byte-for-byte. cautious_inference must use the per-claim framing rules below, cite related evidence, and must not invent or extend an account fact. recommendation is an action to consider, not a claim about the account. open_question is only for questions and their learning goals; it must not smuggle a factual presupposition. unknown must explicitly say what is unknown or not established.",
+    "Never assert available purchasing budget, procurement status, buying intent, urgency, vendor preference, approval, a security incident, or a named vendor relationship unless the whole field is direct_support and exactly equals its cited excerpt. Explicit uncertainty such as 'The retained funding statements do not establish an available purchasing budget; use the meeting to learn constraints.' is appropriate.",
+    "A dated event found in initial research is not a change against a prior revision. No prior revision exists here, so change_against_prior_revision is invalid.",
+    "Use no_material_change_established for a useful steady-state agenda and insufficient_context when evidence cannot support useful preparation.",
+    "A valid direct_support example copies one exactExcerpt as the whole text field. A mixed source summary plus proposed discussion is NOT direct_support; represent it as source-attributed related-context framing under cautious_inference with local caution on implications, or split it into an exact fact and a recommendation. Questions always use open_question even when evidenceRefs provide related context.",
+    "Ask 3-7 ordered questions, subject to the exactly-three rule for a 15-minute meeting. Keep the thesis concise. Cite only supplied evidence IDs and include every cited ID once in selectedEvidenceRefs.",
+    C3_CLAIM_CONTRACT_INSTRUCTIONS,
     audiencePriority(meetingRequest.audience),
     `MEETING REQUEST\n${canonicalJson(meetingRequest)}`,
     revision === null ? "REVISION CONTEXT\nnone" : `REVISION CONTEXT (session-only correction; does not mutate or ratify account truth; SHA-256 ${revisionSha256!})\n${canonicalJson(revision)}`,
@@ -376,8 +376,6 @@ export function validateC3Candidate(rawText: string, context: FrozenC3AccountCon
   generationContractVersion: C3GenerationContractVersion = CURRENT_C3_GENERATION_CONTRACT_VERSION): C3ProposedDraft {
   c3GenerationContractVersion({ generationContractVersion });
   if (generationContractVersion === "2") return originalContract.validateC3Candidate(rawText, context, meetingDate);
-  if (generationContractVersion === "3") return v3Contract.validateC3Candidate(rawText, context, meetingDate, "3");
-  if (generationContractVersion === "4") return v4Contract.validateC3Candidate(rawText, context, meetingDate, "4");
   if (Buffer.byteLength(rawText, "utf8") > 256 * 1024) throw new Error("model response exceeds output bound");
   let parsed: unknown;
   try { parsed = JSON.parse(rawText); } catch { throw new Error("model response must be one strict JSON object"); }
@@ -460,7 +458,7 @@ export function createGenerationRecord(modelRequest: C3ModelRequest, rawResponse
   const modelRequestSha256 = hash(canonicalJson(modelRequest));
   const recordId = `c3_${hash(`${context.sha256}\n${modelRequestSha256}\n${rawResponseSha256}`).slice(0, 24)}`;
   try {
-    const draft = validateC3Candidate(rawResponse, context, modelRequest.meetingRequest.meetingDate, generationContractVersion);
+    const draft = validateC3Candidate(rawResponse, context, modelRequest.meetingRequest.meetingDate);
     return deepFreezeOwnData({ kind: "atliera.c3.generation-record", schemaVersion: "2", ...marker, recordId,
       contextSha256: context.sha256, meetingRequest: modelRequest.meetingRequest,
       meetingRequestSha256: modelRequest.meetingRequestSha256, revision: modelRequest.revision,

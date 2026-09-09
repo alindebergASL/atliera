@@ -3,7 +3,7 @@ import { resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomBytes } from 'node:crypto';
 import { canonicalJson } from './context.ts';
-import { assertReplayIdentity, createC3RevisionContext, createC3ModelRequest, createGenerationRecord, type C3GenerationRecord, type C3RevisionContext } from './draft.ts';
+import { assertReplayIdentity, createC3RevisionContext, type C3GenerationRecord, type C3RevisionContext } from './draft.ts';
 import { boundedPlanningText, MEETING_NOTE_SECTIONS } from './planning.ts';
 import type { FrozenC3ViewContext } from './view-context.ts';
 
@@ -23,18 +23,54 @@ export interface WorkStoreOptions {
   readonly root: string;
   /** Operator configuration only. Never taken from cookies, headers or request bodies. */
   readonly principal: string;
+  /** Trusted operator custody lookup. It must use exact admitted identities, never runtime labels.
+   * Supply the same custody authority after restart to validate persisted origin receipts. */
+  readonly originReceipt?: (record: C3GenerationRecord) => RecordOriginReceipt | undefined;
+  readonly now?: () => Date;
   /** Deterministic filesystem failure seam; not exposed by CLI or HTTP. */
   readonly fault?: (stage: 'before-publish' | 'after-publish') => void;
 }
-export interface StoredBrief { readonly kind: 'atliera.c3.private-work'; readonly schemaVersion: '1'; readonly principal: string; readonly accountId: string; readonly contextSha256: string; readonly documentId: string; readonly version: number; readonly work: WorkingBrief; }
+export interface StoredBrief { readonly kind: 'atliera.c3.private-work'; readonly schemaVersion: '1' | '2'; readonly principal: string; readonly accountId: string; readonly contextSha256: string; readonly documentId: string; readonly version: number; readonly work: WorkingBrief; readonly metadata?: WorkMetadata; }
+export type WorkOrigin = 'live' | 'historical-replay' | 'synthetic' | 'unknown';
+export interface RecordOriginReceipt {
+  readonly recordId: string;
+  readonly contextSha256: string;
+  readonly modelRequestSha256: string;
+  readonly rawResponseSha256: string;
+  readonly recordSha256: string;
+  readonly origin: Exclude<WorkOrigin, 'unknown'>;
+  readonly custodyReceiptId: string;
+}
+export interface WorkMetadata {
+  readonly title?: string;
+  readonly savedAt: string;
+  readonly origins: readonly RecordOriginReceipt[];
+}
+/** Creates an identity binding, not an authorization. Only an operator custody lookup admits it. */
+export function createRecordOriginReceipt(record: C3GenerationRecord, origin: RecordOriginReceipt['origin'], custodyReceiptId: string): RecordOriginReceipt {
+  return {recordId:record.recordId,contextSha256:record.contextSha256,modelRequestSha256:record.modelRequestSha256,
+    rawResponseSha256:record.rawResponseSha256,recordSha256:createHash('sha256').update(canonicalJson(record)).digest('hex'),origin,custodyReceiptId};
+}
+export function workTitle(value: unknown): string {
+  if(typeof value !== 'string' || value.length > 160 || value.trim().length === 0 || /[\u0000-\u001f\u007f]/u.test(value)) throw Error('Title must contain 1–160 characters on one line');
+  return value;
+}
+export function defaultWorkTitle(record: C3GenerationRecord): string {
+  return workTitle(record.meetingRequest.intendedOutcome.replace(/[\u0000-\u001f\u007f]/gu,' ').trim().slice(0,160));
+}
+export function validateOriginReceipt(receipt: RecordOriginReceipt, record: C3GenerationRecord): void {
+  if (!receipt || !['live','historical-replay','synthetic'].includes(receipt.origin) || typeof receipt.custodyReceiptId !== 'string' ||
+      !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/u.test(receipt.custodyReceiptId) ||
+      canonicalJson(receipt) !== canonicalJson(createRecordOriginReceipt(record,receipt.origin,receipt.custodyReceiptId))) throw Error('Origin receipt identity mismatch');
+}
+
 export const newWorkDocumentId = (): string => `doc_${randomBytes(12).toString('hex')}`;
 const safeDocument = (id: string): string => { if (!/^doc_[a-f0-9]{24}$/u.test(id)) throw Error('Invalid document identifier'); return id; };
 const MAX_BYTES = 8 * 1024 * 1024;
 const repo = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
 function exactRecord(record: C3GenerationRecord, context: FrozenC3ViewContext): void {
   assertReplayIdentity(record, context);
-  const rebuilt = createGenerationRecord(createC3ModelRequest(context, record.meetingRequest, record.revision), record.rawResponse, context);
-  if (canonicalJson(rebuilt) !== canonicalJson(record) || record.outcome !== 'succeeded') throw Error('Stored generation is not canonical successful content');
+  if (record.outcome !== 'succeeded') throw Error('Stored generation is not canonical successful content');
 }
 export function validateWorkingBrief(work: WorkingBrief, context: FrozenC3ViewContext): void {
   if (!work || typeof work.proposalStale !== 'boolean' || !Number.isSafeInteger(work.workVersion) || work.workVersion < 1 || !Array.isArray(work.records) || work.records.length < 1 || work.records.length > 21) throw Error('Invalid work history');
@@ -109,9 +145,35 @@ export class LocalWorkStore {
       if(size!==stat.size || after.size!==stat.size || after.mtimeMs!==stat.mtimeMs) throw Error('Work record changed during bounded read');
       const bytes=buffer.subarray(0,size);
       const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)) as StoredBrief;
-      if(value.kind !== 'atliera.c3.private-work' || value.schemaVersion !== '1' || value.principal !== this.options.principal || value.accountId !== this.context.context.account.accountId || value.contextSha256 !== this.context.sha256 || !Number.isSafeInteger(value.version) || value.version<1 || value.version>999999 || name !== this.filename(value.documentId,value.version)) throw Error('Work account, principal or version mismatch');
-      validateWorkingBrief(value.work,this.context); return value;
+      if(value.kind !== 'atliera.c3.private-work' || !['1','2'].includes(value.schemaVersion) || value.principal !== this.options.principal || value.accountId !== this.context.context.account.accountId || value.contextSha256 !== this.context.sha256 || !Number.isSafeInteger(value.version) || value.version<1 || value.version>999999 || name !== this.filename(value.documentId,value.version)) throw Error('Work account, principal or version mismatch');
+      validateWorkingBrief(value.work,this.context);
+      if (value.schemaVersion === '1') {
+        if (Object.hasOwn(value,'metadata')) throw Error('Legacy work cannot claim versioned metadata');
+      } else this.validateMetadata(value.metadata,value.work);
+      return value;
     } finally {closeSync(fd);}
+  }
+  private validateMetadata(metadata: WorkMetadata | undefined, work: WorkingBrief): void {
+    if (!metadata || Object.keys(metadata).some(key=>!['title','savedAt','origins'].includes(key)) ||
+        typeof metadata.savedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(metadata.savedAt) ||
+        !Number.isFinite(Date.parse(metadata.savedAt)) || new Date(metadata.savedAt).toISOString() !== metadata.savedAt ||
+        !Array.isArray(metadata.origins) || metadata.origins.length > 22) throw Error('Invalid saved work metadata');
+    if(Object.hasOwn(metadata,'title')) workTitle(metadata.title);
+    const records=[...work.records,...(work.proposal?[work.proposal]:[])];
+    const seen=new Set<string>();
+    for(const receipt of metadata.origins) {
+      const record=records.find(item=>item.recordId===receipt?.recordId);
+      if(!record || seen.has(record.recordId)) throw Error('Origin receipt does not belong to work');
+      validateOriginReceipt(receipt,record); seen.add(record.recordId);
+      const trusted=this.options.originReceipt?.(record);
+      if(!trusted || canonicalJson(trusted)!==canonicalJson(receipt)) throw Error('Origin receipt is not admitted by operator custody');
+    }
+  }
+  /** Resolves only explicitly trusted custody. No provider name, contract marker or stored label grants origin. */
+  origin(record: C3GenerationRecord): WorkOrigin {
+    const receipt=this.options.originReceipt?.(record);
+    if(!receipt)return 'unknown';
+    validateOriginReceipt(receipt,record); return receipt.origin;
   }
   private filename(id:string,version:number):string { return `${this.prefix}${safeDocument(id)}.v${String(version).padStart(6,'0')}.json`; }
   load(id:string):StoredBrief { const names=this.versions(id); if(!names.length) throw Error('Saved work unavailable for this account and operator'); return this.read(names.at(-1)!); }
@@ -120,7 +182,7 @@ export class LocalWorkStore {
     if(ids.size>100) throw Error('Private work document limit reached');
     return [...ids].map(id=>this.load(id));
   }
-  save(id:string,expectedVersion:number,work:WorkingBrief):StoredBrief {
+  save(id:string,expectedVersion:number,work:WorkingBrief,metadata?: Pick<WorkMetadata,'title'>):StoredBrief {
     safeDocument(id); validateWorkingBrief(work,this.context); this.assertRoot();
     if(!Number.isSafeInteger(expectedVersion) || expectedVersion<0 || expectedVersion>=999999) throw Error('Invalid storage version');
     const lock=resolve(this.root,'.write-lock');
@@ -131,7 +193,11 @@ export class LocalWorkStore {
       const names=this.versions(id); const prior=names.length?this.read(names.at(-1)!):undefined;
       if((prior?.version ?? 0)!==expectedVersion) throw Error('Save conflict. Local work kept. Reopen the saved brief or Save a copy.');
       if(this.files().length>=4090) throw Error('Private work store entry limit reached');
-      const value:StoredBrief={kind:'atliera.c3.private-work',schemaVersion:'1',principal:this.options.principal,accountId:this.context.context.account.accountId,contextSha256:this.context.sha256,documentId:id,version:expectedVersion+1,work};
+      const records=[...work.records,...(work.proposal?[work.proposal]:[])];
+      const origins=records.flatMap(record=>{const receipt=this.options.originReceipt?.(record);return receipt?[receipt]:[];});
+      const savedMetadata:WorkMetadata={title:workTitle(metadata?.title ?? prior?.metadata?.title ?? defaultWorkTitle(work.record)),savedAt:(this.options.now?.() ?? new Date()).toISOString(),origins};
+      this.validateMetadata(savedMetadata,work);
+      const value:StoredBrief={kind:'atliera.c3.private-work',schemaVersion:'2' ,principal:this.options.principal,accountId:this.context.context.account.accountId,contextSha256:this.context.sha256,documentId:id,version:expectedVersion+1,work,metadata:savedMetadata};
       const bytes=canonicalJson(value)+'\n'; if(Buffer.byteLength(bytes)>MAX_BYTES) throw Error('Work record exceeds private storage limit');
       temp=resolve(this.root,`.pending-${randomBytes(16).toString('hex')}`);
       const fd=openSync(temp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);

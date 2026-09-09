@@ -4,7 +4,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { ACCOUNT_RESEARCH_CATALOG } from "../../src/c3/account-research-catalog.ts";
 import { projectAccountResearch, renderAccountResearch, type AccountResearchInspection } from "../../src/c3/account-research.ts";
-import { createC3ModelRequest, createGenerationRecord } from "../../src/c3/draft.ts";
+import { createC3ModelRequest, createGenerationRecord, reconstructC3ModelRequest } from "../../src/c3/draft.ts";
 import { briefContext } from "../../src/c3/planning-render.ts";
 import { newPlanningBrief } from "../../src/c3/planning.ts";
 import { syntheticMeetingCandidate, syntheticMeetingRequest } from "../fixtures/c3-workshop.ts";
@@ -180,13 +180,18 @@ test("Account inspection leaves versioned context, model request, raw response a
     }
   }
   const context = contexts[0];
-  const modelRequest = createC3ModelRequest(context, syntheticMeetingRequest);
+  // Keep the pre-upgrade golden identities under their ORIGINAL absent-marker contract.
+  const historicalInput = { meetingRequest: syntheticMeetingRequest, revision: null };
+  const modelRequest = reconstructC3ModelRequest(context, historicalInput);
+  const freshRequest = createC3ModelRequest(context, syntheticMeetingRequest);
+  assert.equal(freshRequest.generationContractVersion, "5");
   assert.equal(hash(JSON.stringify(modelRequest)), "5b295d01635cef3816f6c1c0d815a9eb9c1bf0c5e565b0df32ac7abdc09a1b3b", "baseline request bytes passed to a provider, without calling one");
   const raw = syntheticMeetingCandidate(context); // Hand-authored test data, never an acquired recording.
   const record = createGenerationRecord(modelRequest, raw, context);
   const draftBefore = main(renderC3Page(context, { page: "draft", record, correctionNote: "" }, "test"));
   renderC3Page(context, { page: "research", topic: "sources" }, "test");
-  assert.deepEqual(createC3ModelRequest(context, syntheticMeetingRequest), modelRequest);
+  assert.deepEqual(reconstructC3ModelRequest(context, historicalInput), modelRequest);
+  assert.deepEqual(createC3ModelRequest(context, syntheticMeetingRequest), freshRequest);
   assert.equal(record.rawResponse, raw);
   assert.equal(hash(JSON.stringify(record)), "8e3bd9887df8d03505e39e690eaeee53cf7f8e0bf15da6addb8271e36c8d2b53");
   assert.match(draftBefore, /data-revision-panel/); // The revised UI is intentionally different; raw/request identities above stay historical.

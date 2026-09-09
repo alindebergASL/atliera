@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "modern-workspace-v2-335",
+    "recordId": "modern-c3-source-limit-wording",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Implement the authorized modern-workspace v2 account-to-brief journey and opt-in private local work-store seam.",
-    "scope": "Build the shared Overview, Research and Workshop shell, account-context preparation, explicit revision proposal and Apply, recovery and opt-in operator-local Save/reopen; preserve source, request and raw-response identities, qualifiers and account-truth versus draft distinctions. This source change does not configure or activate any provider, private customer data, outbound traffic, deployed store, recurrence, customer identity or public deployment. Local disposable tests and historical-response replay verify the seam; no new product inference or account research is performed. Sharing, approval, graph ratification, customer acceptance and production readiness remain outside scope. Existing separate operator preview authority is not created by this build proposal. Require independent technical evidence, exact-head checks and ordinary checked merge without protection changes.",
+    "decision": "Recognize an explicit negated-source limit in C3 unknown wording without repairing model output or bypassing assertion checks.",
+    "scope": "Narrowly extend C3 unknown wording recognition for the opening No supplied source establishes construction. Add synthetic positive and negative regressions and retain downstream unsupported-account and commercial-presupposition checks, evidence identity and exact raw-response bytes. This is an intentional bounded acceptance correction, not a refactor-only claim or general natural-language proof. The source change executes no provider calls, retries, private evidence reads, network, durable writes or deployment and grants no product-effect authority. Preserve historical refusal outcomes; any separately authorized no-call revalidation must be identified separately. Require independent spec and safety/quality review, exact-head tests and ordinary checked merge with no protection bypass.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-08T23:24:23.000Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/pull/335",
-    "proposalDigest": "sha256:ad24c1f5fa0f35a39d1804116f07d0384d72cb9a0d25b68858ee7dd0c2be3c22"
+    "proposedAt": "2026-09-09T00:14:21.000Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/tree/fix/modern-c3-source-limit-wording",
+    "proposalDigest": "sha256:3d1d14799ede495e877e762f0cfb8df07486a395578f1aecc18784898ffb9488"
   }
 }

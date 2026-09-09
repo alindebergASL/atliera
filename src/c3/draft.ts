@@ -278,7 +278,8 @@ function supportedText(value: unknown, path: string, known: Set<string>, allowed
     throw new Error(`${path} cautious_inference must be explicitly tentative`);
   }
   if (supportCategory === "unknown" &&
-      !/\b(?:unknown|unclear|not established|not known|insufficient|remains? (?:open|to be learned|unverified)|cannot establish|(?:does|do) not establish)\b/iu.test(valueText)) {
+      !/\b(?:unknown|unclear|not established|not known|insufficient|remains? (?:open|to be learned|unverified)|cannot establish|(?:does|do) not establish)\b/iu.test(valueText) &&
+      !/^no supplied source establishes\b(?!\s+(?:only|not only|no longer)\b)/iu.test(valueText)) {
     throw new Error(`${path} unknown must explicitly identify an unknown or limit`);
   }
   return { text: valueText, evidenceRefs: refs, supportCategory };

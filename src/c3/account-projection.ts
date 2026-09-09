@@ -29,6 +29,8 @@ export interface AccountDetailSection {
   readonly evidenceId: string;
   readonly sourceId: string;
   readonly exactText: string;
+  /** Bound presentation summary, distinct from the immutable quotation. */
+  readonly summary?: string;
 }
 export interface AccountDetail {
   readonly readingId: string;
@@ -76,7 +78,8 @@ const NOTES: readonly AccountReading[] = [
     "The plan aims to increase research expenditures, support graduate student research funding and prioritize MizzouForward for faculty development and scholarship.", ["mu_evidence_3_3"],
     { kind: "source-summary", limit: "Stated objectives do not establish expenditure levels or completion status." }),
   reading("priorities", "meaningful-engagement", "Meaningful engagement",
-    "The plan sets goals for agricultural and economic programs through sustainability, education and rural medicine expansion.", ["mu_evidence_3_4"]),
+    "The plan sets goals for Missouri’s agricultural and economic programs through sustainability, education and rural medicine expansion.", ["mu_evidence_3_4"],
+    { kind: "source-summary", limit: "Stated goals in an undated strategy page; delivery, funding and current status are not established." }),
   reading("priorities", "mizzouforward", "MizzouForward",
     "A described 10-year effort combines faculty development and recruitment with research spaces, instrumentation and student success. Faculty excellence, infrastructure growth and student success are its stated focus areas.", ["mu_evidence_4_1"],
     { kind: "source-summary", limit: "The retained description does not establish start/end dates, current milestones or funds remaining.", question: "Which MizzouForward investments are in delivery, and what are their current milestones and responsibilities?" }),
@@ -100,13 +103,13 @@ const NOTES: readonly AccountReading[] = [
     { kind: "source-summary", limit: "Systemwide services are related context; they do not establish campus procurement or decision authority.", question: "How are campus and UM System service responsibilities divided, and which public roles are current?" }),
   reading("technology", "redtail-platform", "Redtail · HPE & NVIDIA",
     "The public-private partnership description names HPE supercomputing infrastructure and NVIDIA technologies. The operating source describes high-end GPU computing managed by CHPC.", ["evidence_91e8773cb89195d27431", "evidence_bf6c043eac847f7183e3"],
-    { kind: "source-summary", limit: "Undated retained material. This establishes a described platform, not current capacity, vendor preference or the whole campus technology estate.", question: "What does the current service catalog cover beyond research computing, including support and data governance?" }),
+    { kind: "source-summary", limit: "Undated retained material. This establishes a described platform, not current capacity, vendor preference or the whole campus technology estate.", question: "What research-computing services, support and data-governance arrangements are currently offered, if any?" }),
   reading("technology", "health-data-system", "Health-data system & infrastructure",
     "The planned UHAIV system concerns data in the Utah Population Database and health research expertise. The accompanying data-center and broader AI ecosystem investment is described separately.", ["evidence_580385fbb8754676fa3d", "evidence_5c9bdebcc492d29c0154"],
     { kind: "source-summary", limit: "No current clinical deployment, data-access entitlement or complete technology inventory is established." }),
   reading("technology", "research-infrastructure", "Research infrastructure",
     "MizzouForward lists core facility upgrades, high-performance computing and clinical research support as infrastructure investment areas.", ["mu_evidence_4_1", "mu_evidence_4_2"],
-    { kind: "source-summary", limit: "Investment areas, not a confirmed installed platform or live service capacity.", question: "What does the current service catalog establish about research-computing platforms, support, access and data governance?" }),
+    { kind: "source-summary", limit: "Investment areas, not a confirmed installed platform or live service capacity.", question: "What research-computing services, support and data-governance arrangements are currently offered, if any?" }),
   reading("technology", "learning-environments", "Classrooms, labs & learning software",
     "MizzouForward includes classroom and laboratory upgrades and new software intended to enhance classroom experiences and student learning.", ["mu_evidence_4_3"],
     { kind: "source-summary", limit: "No software products, incumbent stack, rollout dates or campus-wide coverage are established." }),
@@ -150,8 +153,18 @@ const PASSAGES = [
 // milestones and roles; they do not create new claim notes or source identities.
 type DetailSelection = readonly [title: string, evidenceId: string, from?: string, until?: string];
 const DETAIL_SELECTIONS: Readonly<Record<string, readonly DetailSelection[]>> = {
+  'responsible-ai-workforce': [['Training scope','evidence_aa06c442d08aad5c8cb8'],['Hiring cycle and early use of funds','evidence_2e20762caf4b11701059']],
+  'health-ai-vault': [['Planned system and partners','evidence_580385fbb8754676fa3d'],['Separate infrastructure investment','evidence_5c9bdebcc492d29c0154']],
+  'health-data-system': [['Planned system and partners','evidence_580385fbb8754676fa3d'],['Separate infrastructure investment','evidence_5c9bdebcc492d29c0154']],
+  'student-success': [['Stated goals','mu_evidence_3_2'],['Named learning investments','mu_evidence_4_3']],
+  'research-scholarship': [['Research objectives','mu_evidence_3_3'],['Named infrastructure areas','mu_evidence_4_2']],
+  'meaningful-engagement': [['Outreach and engagement goals','mu_evidence_3_4']],
+  'system-shared-services': [['System scope','mu_evidence_5_1'],['Centralized functions','mu_evidence_5_2']],
+  'learning-environments': [['Named learning investments','mu_evidence_4_3']],
+  'public-governance': [['Recorded participation','evidence_3f23e25a0705202a9dde'],['Approval motion','evidence_8598ede0df66bb13f65d']],
   'strategic-reinvestment': [
     ['Program allocations over three years', 'evidence_a9d8e80afbb470e3a5a3'],
+    ['Legislative requirement and share', 'evidence_57ea55e4883fc4627b20'],
     ['Reallocation milestones', 'evidence_1022aa3b977809d3004e'],
     ['Recorded approval', 'evidence_8598ede0df66bb13f65d'],
   ],
@@ -188,9 +201,42 @@ const DETAIL_SELECTIONS: Readonly<Record<string, readonly DetailSelection[]>> = 
     ['Student learning investments', 'mu_evidence_4_3'],
   ],
   'research-infrastructure': [
+    ['Ten-year effort and focus areas', 'mu_evidence_4_1'],
     ['Research facilities and support', 'mu_evidence_4_2'],
     ['Research and scholarship objectives', 'mu_evidence_3_3'],
   ],
+};
+// These summaries activate only after the same exact evidence/source/date/scope bindings
+// as the retained passage. They are presentation notes, never admitted claims or model inputs.
+const DETAIL_SUMMARIES: Readonly<Record<string, string>> = {
+  evidence_aa06c442d08aad5c8cb8: 'The training plan names AI, machine learning, cybersecurity, healthcare and autonomous systems, framed around technology, ethics and innovation. It describes workforce preparation rather than measured delivery outcomes.',
+  evidence_2e20762caf4b11701059: 'The report describes a roughly twelve-month faculty hiring cycle. Early funds supported one-time AI teaching and productivity resources, while competition for AI talent refined the staffing plan. It does not give a current staffed capacity.',
+  evidence_3f23e25a0705202a9dde: 'Tony Wagner presented the plan and answered Board questions, including questions about AI. This establishes participation at that meeting, not a current operating role or buying authority.',
+  evidence_dfb5413c39af688b6fbf: 'The reported measure is new sponsored-activity award funding for the fiscal year ending June 30, 2025: $781.9 million, up 13% from the preceding year. The passage supplies no remaining balance or expenditure measure.',
+  mu_evidence_3_1: 'The page reports Board of Curators approval and a September 2024 launch. It organizes the strategy around student success, research and scholarship, and meaningful engagement; the launch date does not date current progress.',
+  mu_evidence_3_2: 'Nine stated goals cover graduation and retention, career outcomes, participation in high-impact practices, and applications for awards and fellowships. The passage names measurement areas but provides no achieved values.',
+  mu_evidence_3_4: 'Eight stated goals concern Missouri agricultural and economic programs through sustainability, education and rural medicine expansion. Delivery status, responsible teams and funding are not specified in this passage.',
+  mu_evidence_5_1: 'The system includes Columbia, Kansas City, Missouri S&T and St. Louis campuses alongside statewide health care, research parks, agricultural research and extension networks. This is system scope, not a list of campus-owned services.',
+  mu_evidence_5_2: 'The central office names payroll, benefits management and IT support as centralized functions. Its stated aim is to reduce service duplication and free campus resources for teaching and research; it does not assign individual decision rights.',
+  evidence_a9d8e80afbb470e3a5a3: 'The three-year allocations include $4.95 million for engineering, $4.94 million for AI and $3.5 million for behavioral health, alongside civic engagement education, biotechnology, nursing and simulation. These are separate program allocations.',
+  evidence_1022aa3b977809d3004e: 'USHE requires degree-granting institutions to reallocate at least 30% of the equivalent funding in FY 2026, 70% in FY 2027 and 100% in FY 2028 to recover set-aside funds. These are system requirements applying to the U, not confirmation of completion.',
+  evidence_8598ede0df66bb13f65d: 'The retained minutes record approval of the Year Two plan: Chair Covington moved approval, Vice Chair Cox seconded, and members present voted unanimously. This records a decision, not subsequent delivery.',
+  evidence_ac0312bff8c47c1fdd71: 'The described audience spans Utah higher education, state organizations and the commercial sector. Computing access, training and support are named together; present eligibility and availability are not confirmed.',
+  evidence_bf6c043eac847f7183e3: 'The source assigns future management to the University of Utah’s Center for High Performance Computing. It describes $50 million of public and private investment over five years; this is an investment period, not an available purchasing balance.',
+  evidence_ea94995bdcd28e1409d3: 'The named partners are the State of Utah, the university and Huntsman Family Foundation. The described computing scope includes training, applying and scaling large AI models across multiple servers and GPUs.',
+  evidence_91e8773cb89195d27431: 'The @theU article describes a $50 million public-private partnership using HPE supercomputing infrastructure and NVIDIA technologies, including an HPE Cray system. The passage does not establish current service access or procurement needs. Both retained Redtail passages describe a $50 million total; the retained text does not establish that these are separate amounts.',
+  evidence_580385fbb8754676fa3d: 'The planned UHAIV system links Huntsman Cancer Institute, the Utah Population Database and CHPC at the university. The source reports $18.6 million under a 2026 funding bill and describes development and hosting in future tense.',
+  evidence_5c9bdebcc492d29c0154: 'A separate $15 million is described for a new data center and the broader AI ecosystem. Keep this infrastructure allocation distinct from the UHAIV system funding.',
+  mu_evidence_4_1: 'The stated ten-year effort covers faculty and staff development, faculty recruitment, research spaces and instrumentation, among others. Its three focus areas are faculty excellence, infrastructure growth and student success; current milestones are not supplied.',
+  mu_evidence_4_2: 'Named infrastructure areas are core facilities, high-performance computing and clinical research support. The short passage supplies no platform inventory, delivery timetable or operating owner.',
+  mu_evidence_4_3: 'The student-learning scope names classroom and lab upgrades and software for classroom experiences. It does not name products, budgets or a rollout stage.',
+  mu_evidence_3_3: 'The strategic objective connects higher research expenditures and graduate research funding with MizzouForward faculty development and scholarship. These are goals; achieved expenditure or delivery levels are not given.',
+};
+const AUDIT_DETAIL_SUMMARIES: Readonly<Record<string, string>> = {
+  'Addressees and reporting period': 'The FY2025 report addresses the Board of Trustees, Audit Committee and Dr. Taylor R. Randall as university president. These are the report’s historical addressees, not a current-role verification.',
+  'University and related reporting scope': 'The audit distinguishes the university from University of Utah Health (Hospitals and Clinics) and named blended component units whose statements were audited separately. Reporting scope does not establish operational or purchasing authority.',
+  'Department and component units': 'The report calls University of Utah Health (Hospitals and Clinics) a university department and separately lists ARUP, the research foundation, health insurance plans, Community Nursing Service and the medical-school endowment among blended component units.',
+  'Audit responsibility': 'Other auditors audited those financial statements. The report distinguishes that audit responsibility from its own; it does not describe a common procurement owner.',
 };
 const hash = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex");
 
@@ -222,7 +268,7 @@ export function projectAccount(frozen: FrozenC3ViewContext): AccountProjection {
     if (start < 0 || end <= start) return [];
     const exactText = excerpt.exactExcerpt.slice(start, end);
     // Standalone heading anchors stay with the full evidence, not as empty detail sections.
-    return exactText.length < 35 ? [] : [{ title, evidenceId: id, sourceId: source.sourceId, exactText }];
+    return exactText.length < 35 ? [] : [{ title, evidenceId: id, sourceId: source.sourceId, exactText, ...(id === 'evidence_623311c9e376816166e4' && AUDIT_DETAIL_SUMMARIES[title] ? {summary:AUDIT_DETAIL_SUMMARIES[title]} : !from && !until && DETAIL_SUMMARIES[id] ? { summary: DETAIL_SUMMARIES[id] } : {}) }];
   }) }));
   const passages = PASSAGES.flatMap(passage => {
     const source = sources.find(item => item.sourceId === passage.sourceId && !item.untrustedInstructionsDetected &&
@@ -232,6 +278,7 @@ export function projectAccount(frozen: FrozenC3ViewContext): AccountProjection {
   });
   const used = new Set(readings.flatMap(note => note.evidenceIds.map(id => byEvidence.get(id)!.source.sourceId)));
   passages.forEach(passage => used.add(passage.source.sourceId));
+  details.forEach(detail => detail.sections.forEach(section => used.add(section.sourceId)));
   return deepFreezeOwnData({ details, readings: readings.map(note => ({ ...note, evidenceIds: [...note.evidenceIds] })), passages,
     unmatchedSourceIds: sources.filter(source => !used.has(source.sourceId)).map(source => source.sourceId) });
 }

@@ -17,7 +17,7 @@ class Element {
  click(){return this.listeners.get('click')?.({preventDefault(){},currentTarget:this});}
  input(){return this.listeners.get('input')?.({target:this});}
 }
-function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: Map<string,string>; section?: string; title?: string } = {}){
+function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: Map<string,string>; section?: string; title?: string; inspector?: boolean } = {}){
  const form=new Element();form.attrs={'data-record-id':priorId,'data-meeting-request':JSON.stringify(request)};
  const note=new Element();note.value='Separate annotation';const instruction=new Element();instruction.value='Improve opening';
  const revise=new Element(),stop=new Element(),apply=new Element(),discard=new Element(),status=new Element(),comparison=new Element(),panel=new Element();panel.attrs={'data-generation-available':'true'};
@@ -30,26 +30,70 @@ function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: 
  const sectionForm=new Element();Object.assign(sectionForm,{dataset:{recordId:priorId,section:'Opening',editKey:'meeting-opening',endpoint:'/api/section-note'},
  querySelectorAll:(s:string)=>s==='textarea'?[section]:[],querySelector:(s:string)=>s==='[data-local-status]'?sectionStatus:sectionCancel,
  closest:()=>({open:false,querySelector:()=>sectionCopy})});
- const titleInput=new Element(),titleForm=new Element(),titleStatus=new Element(),titleHeading=new Element(),lastSaved=new Element();titleInput.value=options.title??'';
- if(options.title!==undefined)Object.assign(selectors,{'[data-title-input]':titleInput,'[data-title-form]':titleForm,'[data-title-status]':titleStatus,'[data-work-title]':titleHeading,'[data-last-saved]':lastSaved});
+ const titleInput=new Element(),titleForm=new Element(),titleStatus=new Element(),titleHeading=new Element(),lastSaved=new Element(),savedTimestamp=new Element();titleInput.value=options.title??'';
+ if(options.title!==undefined)Object.assign(selectors,{'[data-title-input]':titleInput,'[data-title-form]':titleForm,'[data-title-status]':titleStatus,'[data-work-title]':titleHeading,'[data-last-saved]':lastSaved,'[data-saved-timestamp]':savedTimestamp});
  const cache=options.cache??new Map<string,string>();
  workStatus.textContent='Saved · private local version 1';
  const events=new Map<string,((event:any)=>void)[]>();
  const calls:{url:string;body:any}[]=[];
+ const dialog=new Element(),evidenceBody=new Element(),evidenceSupport=new Element(),inspectorTitle=new Element(),returnRevision=new Element(),original=new Element(),originalHeading=new Element();
+ const selectQuestions=new Element(),evidenceLink=new Element(),evidence=new Element(),evidenceContent=new Element(),useRecorded=new Element(),recordedNote=new Element();
+ if(options.inspector){
+  panel.attrs['data-original-sections']=JSON.stringify({Opening:'Original opening',Questions:'Original questions'});
+  panel.hidden=true;original.textContent='Original opening';originalHeading.textContent='Original opening';
+  const inspectorNodes:Record<string,Element>={'[data-evidence-panel-body]':evidenceBody,'[data-evidence-support]':evidenceSupport,'#evidence-panel-title':inspectorTitle,'[data-return-revision]':returnRevision,'[data-revision-panel]':panel};
+  Object.assign(dialog,{open:false,showModal(){this.open=true;},querySelector:(s:string)=>inspectorNodes[s]??null});
+  Object.assign(selectQuestions,{closest:(s:string)=>s==='[data-refine-section]'?selectQuestions:null});selectQuestions.attrs={'data-refine-section':'Questions'};
+  Object.assign(evidenceLink,{closest:(s:string)=>s==='a[data-evidence-link], a[data-research-link]'?evidenceLink:null});evidenceLink.attrs={href:'#evidence-1','data-context':'Questions'};
+  evidenceContent.textContent='Exact retained evidence';Object.assign(evidenceContent,{cloneNode:()=>evidenceContent});
+  Object.assign(evidence,{querySelector:(s:string)=>s==='[data-evidence-content]'?evidenceContent:null});
+  recordedNote.textContent='Improve opening';
+  Object.assign(selectors,{'[data-evidence-dialog]':dialog,'[data-revision-original]':original,'[data-original-heading]':originalHeading,'#evidence-1':evidence,'[data-use-recorded-note]':useRecorded,'[data-recorded-note]':recordedNote});
+ }
+ const clickEntry=(target:Element)=>{const event={target,button:0,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};for(const fn of events.get('click')??[])fn(event);};
  let active:any=null;const notes=new Element();Object.assign(notes,{open:false});const addNote=new Element();selectors['#review']=notes;selectors['[data-add-note]']=addNote;Object.assign(note,{focus:()=>{active=note;}});
  const document={querySelector:(s:string)=>selectors[s]??null,querySelectorAll:(s:string)=>s==='[data-generated-region]'?[region]:s==='[data-local-edit]'&&options.section!==undefined?[sectionForm]:[],addEventListener(name:string,fn:(event:any)=>void){events.set(name,[...(events.get(name)??[]),fn]);},createElement:()=>new Element()};
  class Parser {parseFromString(html:string){
   const forms=Array.from(html.matchAll(/<form\b([^>]*)>/g),([,attrs])=>{const f=new Element();for(const [,name,value]of attrs!.matchAll(/(data-[\w-]+)(?:="([^"]*)")?/g))f.attrs[name!]=value??'';return f;});
-  return {querySelector:(s:string)=>s==='[data-note-form]'?forms.find(f=>f.getAttribute('data-note-form')!==null)??null:s.startsWith('[data-generated-region=')&&html.includes('data-generated-region')?{childNodes:['Revised brief']}:null,querySelectorAll:()=>forms.filter(f=>f.getAttribute('data-local-edit')!==null)};
+  const nextPanel=new Element(),nextOriginal=new Element();
+  const sections=html.match(/data-original-sections="([^"]*)"/)?.[1];
+  if(sections!==undefined)nextPanel.attrs['data-original-sections']=sections.replaceAll('&quot;','"').replaceAll('&amp;','&');
+  nextOriginal.textContent=html.match(/<p data-revision-original>([^<]*)<\/p>/)?.[1]??'';
+  return {querySelector:(s:string)=>s==='[data-note-form]'?forms.find(f=>f.getAttribute('data-note-form')!==null)??null:s==='[data-revision-panel]'&&sections!==undefined?nextPanel:s==='[data-revision-original]'&&sections!==undefined?nextOriginal:s.startsWith('[data-generated-region=')&&html.includes('data-generated-region')?{childNodes:['Revised brief']}:null,querySelectorAll:()=>forms.filter(f=>f.getAttribute('data-local-edit')!==null)};
  }}
  vm.runInNewContext(C3_CLIENT_SCRIPT,{document,window:{crypto:webcrypto,addEventListener(){},sessionStorage:{getItem:(key:string)=>cache.get(key),setItem:(key:string,value:string)=>cache.set(key,value),removeItem:(key:string)=>cache.delete(key)}},DOMParser:Parser,fetch:async(url:string,init:any)=>{const body=JSON.parse(init.body);calls.push({url,body});const payload=url==='/api/revision-instruction'?{instruction:body.instruction}:await fetcher(url,body);return {ok:true,json:async()=>payload};},Error,JSON,Number,String});
- return {notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
+ return {useRecorded,panel,original,originalHeading,inspectorTitle,evidenceBody,returnRevision,selectQuestions:()=>clickEntry(selectQuestions),openEvidence:()=>clickEntry(evidenceLink),notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,savedTimestamp,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
 }
 const snapshot=()=>({correctionNote:'Separate annotation',sectionNotes:{},instruction:'Improve opening',pendingRevisionToken:null,proposalId:null,proposalStale:false});
 const staged=(body:any)=>({revisionReady:true,recordId:body.recordId,request,savedNote:'Separate annotation',instruction:body.note,pendingRevisionToken:'a'.repeat(32)});
 const proposed=(body:any)=>({outcome:'succeeded',operation:body,proposalReady:true,proposalId:nextId,recordId:priorId,instruction:'Improve opening',stale:false,proposal:{opening:{text:'Revised opening'}},original:{opening:{text:'Original opening'}}});
 const returnedHtml=(recordId=nextId,sectionId=recordId)=>`<section data-generated-region="opening">Revised brief</section><form data-note-form data-record-id="${recordId}"></form><form data-local-edit data-section="Opening" data-record-id="${sectionId}"></form>`;
 const success=()=>({applied:true,outcome:'succeeded',recordId:nextId,savedNote:'Separate annotation',sectionNotes:{},changedSections:['Opening'],html:returnedHtml()});
+test('selected Questions → revision → Apply → Evidence → Return to revision preserves the heading and applied questions',async()=>{
+ const appliedQuestions='Applied question one?\nLearning one\n\nApplied question two?\nLearning two';
+ const sections=JSON.stringify({Opening:'Applied opening',Questions:appliedQuestions});
+ let rawProposal:any,rawBefore='';
+ const ui=client(async(url,body)=>{
+  if(url==='/api/revise')return staged(body);
+  if(url==='/api/generate'){
+   rawProposal={...proposed(body),proposal:{opening:{text:'Applied opening'},questions:[{question:'Applied question one?',intendedLearning:'Learning one'},{question:'Applied question two?',intendedLearning:'Learning two'}]},original:{opening:{text:'Original opening'},questions:[{question:'Original questions',intendedLearning:'Original learning'}]}};
+   rawBefore=JSON.stringify(rawProposal);return rawProposal;
+  }
+  assert.equal(url,'/api/apply-revision');
+  assert.deepEqual(body,{recordId:priorId,proposalId:nextId,pendingRevisionToken:'a'.repeat(32),instruction:'Improve opening'});
+  return {...success(),sectionNotes:{Opening:'Retained section note'},changedSections:['Opening','Questions'],html:returnedHtml()+`<div data-revision-panel data-original-sections="${sections.replaceAll('&','&amp;').replaceAll('"','&quot;')}"><p data-revision-original>Applied opening</p></div>`};
+ },{inspector:true,section:'Retained section note'});
+ ui.selectQuestions();assert.equal(ui.inspectorTitle.textContent,'Revise questions');assert.equal(ui.originalHeading.textContent,'Original questions');assert.equal(ui.original.textContent,'Original questions');
+ ui.useRecorded.click();assert.equal(ui.instruction.value,'Improve opening');assert.equal(ui.inspectorTitle.textContent,'Revise questions');assert.equal(ui.originalHeading.textContent,'Original questions');assert.equal(ui.original.textContent,'Original questions');
+ await ui.revise.click();assert.equal(ui.apply.disabled,false);assert.equal(ui.generated(),'Prior brief');assert.equal(ui.original.textContent,'Original questions');
+ await ui.apply.click();assert.match(ui.status.textContent,/Revision applied/);assert.equal(ui.generated(),'Revised brief');assert.equal(ui.form.getAttribute('data-record-id'),nextId);
+ const checkPreview=()=>{assert.equal(ui.inspectorTitle.textContent,'Revise questions');assert.equal(ui.originalHeading.textContent,'Original questions');assert.equal(ui.original.textContent,appliedQuestions);assert.equal(ui.panel.hidden,false);};
+ checkPreview();ui.openEvidence();assert.equal(ui.inspectorTitle.textContent,'Evidence');assert.equal(ui.panel.hidden,true);assert.equal(ui.evidenceBody.childNodes[0].textContent,'Exact retained evidence');assert.equal(ui.returnRevision.hidden,false);
+ ui.returnRevision.click();checkPreview();assert.equal(ui.evidenceBody.hidden,true);assert.equal(ui.returnRevision.hidden,true);
+ assert.equal(ui.note.value,'Separate annotation');assert.equal(ui.section.value,'Retained section note');assert.equal(ui.instruction.value,'');assert.equal(ui.apply.disabled,true);assert.equal(ui.comparison.hidden,true);assert.equal(ui.workStatus.textContent,'Unsaved changes');
+ assert.equal(JSON.stringify(rawProposal),rawBefore,'display updates must preserve the exact returned proposal and original');
+ assert.deepEqual(ui.calls.map(call=>call.url),['/api/revise','/api/generate','/api/apply-revision']);
+});
 test('note changes during generation keep the proposal unapplied and preserve typing',async()=>{
  let finish!:(payload:any)=>void;
  const ui=client(async(url,body)=>url==='/api/revise'?staged(body):url==='/api/apply-revision'?success():new Promise(resolve=>{finish=resolve;}));
@@ -179,7 +223,7 @@ test('title contract uses exact record and workVersion, keeps dirty state and di
  },{title:'Existing title'});
  ui.titleInput.value='Focused meeting title';await ui.keepTitle();assert.equal(ui.titleHeading.textContent,'Focused meeting title');
  assert.equal(ui.workStatus.textContent,'Unsaved changes');assert.equal(ui.lastSaved.textContent,'');
- await ui.save.click();assert.equal(ui.workStatus.textContent,'Saved');assert.match(ui.lastSaved.textContent,/Sep 9, 2026/);assert.match(ui.lastSaved.textContent,/10:30/);
+ await ui.save.click();assert.equal(ui.workStatus.textContent,'Saved');assert.match(ui.lastSaved.textContent,/Saved/);assert.match(ui.savedTimestamp.textContent,/Sep 9, 2026/);assert.match(ui.savedTimestamp.textContent,/10:30/);
 });
 test('title conflict or missing acknowledgement never replaces visible title or reports success',async()=>{
  const documentId='doc_'+'3'.repeat(24);
@@ -326,4 +370,19 @@ for(const kind of ['section','general'] as const) test(`repeat revision accepts 
  await ui.apply.click();assert.equal(ui.generated(),'Revised brief');assert.equal(ui.form.getAttribute('data-record-id'),nextId);assert.equal(field.value,'Newer unsent B');
  assert.equal(ui.calls.filter(c=>c.url==='/api/apply-revision').length,1);
  assert.equal(proposals.length,2);for(const {payload,exact} of proposals)assert.equal(JSON.stringify(payload),exact,'exact proposal response must remain unchanged');
+});
+
+
+test('section revision shows that section’s original and retains its title on return from evidence',()=>{
+ const start=C3_CLIENT_SCRIPT.indexOf("  let revisionSection = 'Brief';");
+ const end=C3_CLIENT_SCRIPT.indexOf('  const sameOperation',start);
+ const original={textContent:''},heading={textContent:''},title={textContent:''};
+ const sections={'Opening':'Exact original opening','Situation for this audience':'Exact original situation','Questions':'First question\nPurpose kept','Useful close':'Exact original close'};
+ const revisionPanel={hidden:true,scrollTop:0,getAttribute:()=>JSON.stringify(sections)};
+ const panel={hidden:false},support={hidden:false};
+ const scope:any={revisionPanel,evidenceDialog:{querySelector:(s:string)=>s==='[data-evidence-panel-body]'?panel:s==='[data-evidence-support]'?support:title},document:{querySelector:(s:string)=>s==='[data-revision-original]'?original:s==='[data-original-heading]'?heading:null},retainInspectorView(){},presentInspector(){},controls(){},inspectorRoutes(){},instruction:{focus(){}},revisionScroll:135};
+ vm.runInNewContext(C3_CLIENT_SCRIPT.slice(start,end)+';globalThis.openRevision=openRevisionSheet;',scope);
+ scope.openRevision('Questions');assert.equal(original.textContent,sections.Questions);assert.equal(heading.textContent,'Original questions');assert.equal(title.textContent,'Revise questions');
+ scope.openRevision('Brief',true);assert.equal(title.textContent,'Revise questions');assert.equal(revisionPanel.scrollTop,135);
+ scope.openRevision('Situation for this audience');assert.equal(original.textContent,sections['Situation for this audience']);assert.equal(title.textContent,'Revise situation');
 });

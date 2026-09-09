@@ -191,12 +191,12 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const priorHtml = (JSON.parse(generated.text) as { html: string }).html;
     assert.match(priorHtml, /Recorded responses · No live generation/);
     assert.match(priorHtml, new RegExp(`data-record-id="${priorRecord.recordId}"`));
-    assert.match(priorHtml, /Exact correction available for the recorded revision/);
-    assert.match(priorHtml, /data-use-recorded-note>Use exact recorded correction/);
+    assert.match(priorHtml, /only the fixed recorded instruction below has a response/);
+    assert.match(priorHtml, /data-use-recorded-note>Use recorded instruction/);
     assert.match(priorHtml, /Recorded correction: keep the exact prior identity and allow no follow-up\./);
     assert.equal(priorHtml.match(/Recorded initial — before correction\./gu)?.length, 1);
     assert.ok(priorHtml.indexOf("Recorded initial — before correction.") < priorHtml.indexOf('class="draft-grid"'));
-    assert.match(C3_CLIENT_SCRIPT, /Exact recorded correction copied into the instruction/);
+    assert.match(C3_CLIENT_SCRIPT, /Fixed recorded instruction selected/);
 
     const arbitrary = "Arbitrary owner note stays a note and has no matching recorded result.";
     const kept = await browser.post("/api/note", { note: arbitrary, recordId: priorRecord.recordId });
@@ -212,7 +212,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     const proposal = JSON.parse(regenerated.text); assert.equal(proposal.recordId, priorRecord.recordId); assert.equal(proposal.proposalId, revisionRecord.recordId);
     const revisionHtml = JSON.parse((await browser.apply(proposal)).text).html;
     assert.match(revisionHtml, new RegExp(`data-record-id="${revisionRecord.recordId}"`));
-    assert.match(revisionHtml, /Recorded revision.*No further recorded response exists/);
+    assert.match(revisionHtml, /this is the recorded revision\. No further recorded response is available/);
     assert.equal(running.status().provider, "recorded-replay");
     assert.equal(running.status().generationSucceeded, 2);
 
@@ -331,7 +331,7 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     assert.doesNotMatch(generatedBrief.replace(/<[^>]*>/gu, ''), /evidence_[a-f0-9]+/);
     assert.deepEqual({ location: payload.location, history: payload.history }, { location: "/?draft=1", history: "push" });
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
-    assert.match(reloaded.text, /Workshop \/ Meeting brief/);
+    assert.match(reloaded.text, /<h1 data-work-title>/);
     const home = await requestTo(running, "GET", "/", undefined, { cookie: browser.cookie });
     assert.match(home.text, /Overview/);
     assert.match(home.text, /id="journey-overview"[^>]*aria-current="page"/);
@@ -644,7 +644,7 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     const preservedDraft = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.equal(preservedDraft.status, 200);
     assert.match(preservedDraft.text, new RegExp(`data-record-id="${recordId}"`));
-    assert.match(preservedDraft.text, /Revision pending.*preserved previous draft/s);
+    assert.match(preservedDraft.text, /Revision pending · original unchanged until Apply\./);
     assert.match(preservedDraft.text, /\.review\{[^}]*color:var\(--atl-ink\)/,
       "review uses a legible dark foreground on the light surface");
     assert.match(preservedDraft.text, /Keep original/);
@@ -1082,7 +1082,7 @@ test("exact unchanged submissions retain draft and note, while each meeting deci
       const setup = result.html.match(/<header class="draft-head"[\s\S]*?<\/header>/)![0];
       assert.ok(setup.includes(current.audience));
       assert.ok(setup.includes(current.intendedOutcome));
-      assert.ok(setup.includes(`${current.durationMinutes} minutes`));
+      assert.ok(setup.includes(`${current.durationMinutes} min`));
     }
     assert.equal(captured.length, 7);
     assert.equal((await browser.post("/api/generate", { ...current, audience: current.audience + " " })).status, 400, "invalid whitespace is refused, never normalized into a replay");

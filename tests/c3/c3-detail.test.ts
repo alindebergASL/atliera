@@ -46,7 +46,7 @@ test('sparse Missouri detail admits only retained context and preserves conflict
 test('saved rows use explicit metadata and never infer replay from rendering mode',async()=>{
  const context=await utah();const work={available:true,documentId:'doc_'+'1'.repeat(24),version:2,workVersion:3,saved:true,savedWorks:[{documentId:'doc_'+'1'.repeat(24),version:2,audience:'CIO',title:'Plan research access',intendedOutcome:'Confirm scope',meetingDate:'2026-09-12',savedAt:'2026-09-09T10:30:00.000Z',origin:'unknown' as const}]};
  const html=renderC3Page(context,{page:'workshop',work},'ui02');
- assert.match(html,/<h3>Plan research access<\/h3>/);assert.match(html,/Confirm scope/);assert.match(html,/Last saved/);assert.match(html,/Origin not established/);
+ assert.match(html,/class="saved-title"[^>]*>Plan research access<\/button>/);assert.match(html,/Confirm scope/);assert.match(html,/Last saved/);assert.match(html,/Origin not established/);
  const replay=renderC3Page(context,{page:'workshop',work:{...work,savedWorks:[{...work.savedWorks[0]!,origin:'historical-replay'}]}},'ui02');assert.match(replay,/Historical replay/);
 });
 

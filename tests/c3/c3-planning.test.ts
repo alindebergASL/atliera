@@ -230,7 +230,7 @@ test("section note guidance is provider neutral and reserves durability for Save
     assert.doesNotMatch(html, /Only the exact recorded correction in Draft review can replay a revision/);
     assert.match(html, /Add note/);assert.match(html, /This note lasts for this session/);
     assert.match(html, /The current brief stays unchanged until you apply/);assert.match(html, /Apply revision<\/button>/);
-    if(replay)assert.match(html, /Exact correction available for the recorded revision/);
-    else assert.doesNotMatch(html, /Exact correction available for the recorded revision/);
+    if(replay)assert.match(html, /only the fixed recorded instruction below has a response/);
+    else assert.doesNotMatch(html, /only the fixed recorded instruction below has a response/);
   }
 });

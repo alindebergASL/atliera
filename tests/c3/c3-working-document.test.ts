@@ -89,7 +89,7 @@ test('save and reopen survive restart plus fresh browser and stale save is refus
   const saved=await a.call('/api/save',{recordId:generated.recordId,documentId:state.documentId,expectedVersion:0,workVersion:state.workVersion});
   assert.equal(saved.status,200); assert.equal(saved.json().saved,true);
   await server.close(); server=await startC3Server(options);
-  const b=await browser(server); assert.match((await b.call('/?view=workshop')).text,/Reopen saved brief/);
+  const b=await browser(server); assert.ok((await b.call('/?view=workshop')).text.includes(`data-reopen-work="${state.documentId}"`));
   const reopened=await b.call('/api/reopen',{documentId:state.documentId}); assert.equal(reopened.status,200);
   assert.equal((await b.call('/api/work-state',{})).json().recordId,generated.recordId);
   assert.equal((await b.call('/api/save',{recordId:generated.recordId,documentId:state.documentId,expectedVersion:0,workVersion:state.workVersion})).status,409);
@@ -206,7 +206,7 @@ test('two browser sessions use CAS; conflict keeps local notes and Save a copy o
   const keptNote=attempts[0]!.status===409?'First editor note':'Second editor note';
   assert.equal((await loser.call('/api/note',{recordId:first.recordId,note:'Wrong document edit',priorNote:keptNote},state.documentId)).status,409,'same generation record cannot authorize edits to a different work document');
   assert.equal((await loser.call('/api/work-state',{})).json().saved,true);
-  const fresh=await browser(running);assert.equal(((await fresh.call('/?view=workshop')).text.match(/>Reopen saved brief</g)??[]).length,2);
+  const fresh=await browser(running);assert.equal(((await fresh.call('/?view=workshop')).text.match(/data-reopen-work="doc_[a-f0-9]{24}"/g)??[]).length,2);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
 });
 

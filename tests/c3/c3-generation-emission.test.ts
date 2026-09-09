@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { canonicalJson } from '../../src/c3/context.ts';
 import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, assertReplayIdentity } from '../../src/c3/draft.ts';
@@ -7,9 +8,8 @@ import { syntheticWorkshopContext, syntheticMeetingCandidate, syntheticMeetingRe
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 // Authored public-in-repo fiction, with matching excerpt bytes and citations. No model recording.
-function emissionContext(eventDate: string | null = '2026-07-01') {
+function emissionContext(eventDate: string | null = '2026-07-01', exactExcerpt = 'Harbor Transit describes planned platform work. Morgan Vale is the reported planning lead for Cedar Renewal. The plan describes storage integration and a twelve-month staffing lead time.') {
   const context = structuredClone(syntheticWorkshopContext().context);
-  const exactExcerpt = 'Harbor Transit describes planned platform work. Morgan Vale is the reported planning lead for Cedar Renewal. The plan describes storage integration and a twelve-month staffing lead time.';
   const source = context.admittedSources[0]!;
   const excerpt = {...source.excerpts[0]!, exactExcerpt, exactExcerptSha256: hash(exactExcerpt), sourceCharStart: 0, sourceCharEnd: exactExcerpt.length};
   const otherText = 'The Harbor Transit funding proposal remains subject to approval.';
@@ -62,6 +62,92 @@ test('future initial and revision prompts select v5 controlled emission explicit
     assert.match(request.prompt, /GENERATION CONTRACT 5/);
   }
 });
+
+test('v5 request composition and validation source bytes require explicit preservation before a future version', () => {
+  // Current v5 at 0c18437abdff24432882394773d10012169ad381. When a real successor
+  // exists, preserve/version these semantics first; do not simply refresh hashes.
+  // No duplicate source modules are needed for this characterization closure.
+  for (const [file, expected] of [
+    ['draft.ts', '1669101e2eafd0d0cd1f6ea3fad47e004847237ce46f3c40cb0ad5e28e869afb'],
+    ['generation-claims.ts', 'f0f8792dd9a9e5ce18b2536656572c7d2cf7d24dceaca0682c06a1e9dc8f8518'],
+  ]) assert.equal(hash(readFileSync(new URL(`../../src/c3/${file}`, import.meta.url), 'utf8')), expected,
+    'Preserve the issued v5 request/validation contract before changing semantics.');
+});
+
+// Synthetic failure-class characterization, not private provider output or a
+// proposed wording repair. Every row goes through both complete validators.
+const closureContext = emissionContext('2026-07-01',
+  'The institute describes planned platform work that Harbor was expected to manage. A July 2026 hiring report describes a twelve-month staffing lead time.');
+const closureCases = [
+  {name: 'action lexical false refusal', field: 'audienceThesis', category: 'cautious_inference',
+    text: 'Lead with the outcome participants name.', outcome: 'refused', error: /cautious_inference requires scoped caution/},
+  {name: 'recognized action control', field: 'audienceThesis', category: 'cautious_inference',
+    text: 'Ask which outcome participants name.', outcome: 'succeeded'},
+  {name: 'personal attribution and relative-clause false refusal', field: 'opening', category: 'cautious_inference',
+    text: 'I saw institute sources describe planned platform work that Harbor was expected to manage.', outcome: 'refused', error: /cautious_inference requires scoped caution/},
+  {name: 'recognized prefix alone still leaves the relative-clause refusal', field: 'opening', category: 'cautious_inference',
+    text: 'The sources describe planned platform work that Harbor was expected to manage.', outcome: 'refused', error: /cautious_inference requires scoped caution/},
+  {name: 'recognized source report control', field: 'opening', category: 'cautious_inference',
+    text: 'The sources describe planned platform work.', outcome: 'succeeded'},
+  {name: 'dated hiring report then applicability uncertainty false refusal', field: 'risksUnknowns', category: 'unknown',
+    text: 'A July 2026 hiring report describes a twelve-month staffing lead time. Current applicability is not established by the sources.', outcome: 'refused', error: /unknown must explicitly identify a limit in each asserted claim/},
+  {name: 'recognized hiring report and local applicability limit control', field: 'risksUnknowns', category: 'unknown',
+    text: 'The source describes a twelve-month staffing lead time. Current applicability is not established by the sources.', outcome: 'succeeded'},
+  {name: 'evidence-absence lexical false refusal', field: 'risksUnknowns', category: 'unknown',
+    text: 'No admitted excerpt establishes current ownership.', outcome: 'refused', error: /unknown must explicitly identify an unknown or limit/},
+  {name: 'recognized evidence-absence control', field: 'risksUnknowns', category: 'unknown',
+    text: 'No supplied source establishes current ownership.', outcome: 'succeeded'},
+  {name: 'independent ownership assertion negative control', field: 'opening', category: 'cautious_inference',
+    text: 'The sources describe planned platform work; Harbor owns the platform.', outcome: 'refused'},
+  {name: 'affirmative action complement negative control', field: 'objective', category: 'recommendation',
+    text: 'Confirm Harbor owns the platform.', outcome: 'refused'},
+  {name: 'current-status negative control', field: 'opening', category: 'cautious_inference',
+    text: 'The sources describe planned work; the platform is operational.', outcome: 'refused'},
+  {name: 'commercial assertion negative control', field: 'opening', category: 'cautious_inference',
+    text: 'The sources report an approved purchasing budget.', outcome: 'refused'},
+  {name: 'fabricated quotation negative control', field: 'opening', category: 'cautious_inference',
+    text: 'The source states "Harbor has completed the rollout".', outcome: 'refused'},
+  {name: 'exact direct-support positive control', field: 'opening', category: 'direct_support',
+    text: closureContext.context.admittedSources[0]!.excerpts[0]!.exactExcerpt, outcome: 'succeeded'},
+  {name: 'altered direct-support excerpt negative control', field: 'opening', category: 'direct_support',
+    text: closureContext.context.admittedSources[0]!.excerpts[0]!.exactExcerpt.replace('twelve-month', 'six-month'), outcome: 'refused'},
+  {name: 'KNOWN LIMITATION: unsupported recommendation acceptance is not safe successful support', field: 'objective', category: 'recommendation',
+    text: 'Harbor controls Cedar.', outcome: 'succeeded'},
+  {name: 'KNOWN LIMITATION: source attribution is not entailment', field: 'opening', category: 'cautious_inference',
+    text: 'The sources describe a lunar observatory.', outcome: 'succeeded'},
+] as const;
+
+for (const mode of ['INITIAL', 'REVISION'] as const) for (const control of closureCases) {
+  test(`v5 closure ${mode}: ${control.name}`, () => {
+    const firstRequest = createC3ModelRequest(closureContext, meeting, null, '5');
+    const prior = createGenerationRecord(firstRequest, syntheticMeetingCandidate(closureContext), closureContext);
+    assert.equal(prior.outcome, 'succeeded', prior.refusal?.message);
+    const request = mode === 'INITIAL' ? firstRequest : createC3ModelRequest(closureContext, meeting,
+      createC3RevisionContext(prior, 'Clarify the proposed meeting plan.', 1), '5');
+    assert.equal(request.revision === null, mode === 'INITIAL');
+    const candidate = JSON.parse(syntheticMeetingCandidate(closureContext));
+    const value = {text: control.text, supportCategory: control.category, evidenceRefs: candidate.selectedEvidenceRefs};
+    if (control.field === 'risksUnknowns') candidate.risksUnknowns = [value];
+    else candidate[control.field] = value;
+    const raw = JSON.stringify(candidate, null, 2) + '\n\n';
+    const record = createGenerationRecord(request, raw, closureContext);
+    assert.equal(record.outcome, control.outcome, record.refusal?.message);
+    if ('error' in control) assert.match(record.refusal!.message, control.error);
+    if (control.outcome === 'refused') assert.equal(record.refusal!.code, 'invalid_model_candidate');
+    assert.equal(record.rawResponse, raw);
+    assert.equal(record.rawResponseSha256, hash(raw));
+    assert.equal(record.modelRequestSha256, hash(canonicalJson(request)));
+    assert.deepEqual(createGenerationRecord(request, raw, closureContext), record);
+    assertReplayIdentity(record, closureContext);
+    if (request.revision) {
+      assert.equal(record.revision!.priorRawResponse, prior.rawResponse);
+      assert.equal(record.revision!.priorRawResponseSha256, prior.rawResponseSha256);
+    }
+    assert.throws(() => assertReplayIdentity({...record, rawResponse: raw + ' '}, closureContext));
+    assert.throws(() => assertReplayIdentity({...record,
+      outcome: record.outcome === 'succeeded' ? 'refused' : 'succeeded'}, closureContext));
+  });
+}
 
 test('future prompts carry source-faithful financial and emission instructions', () => {
   for (const request of requests()) {

@@ -6,11 +6,31 @@ import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } from '../fixtures/c3-workshop.ts';
-import { startC3Server, type RunningC3Server } from '../../src/c3/service.ts';
-import { createC3ModelRequest, createGenerationRecord, type C3GenerationRecord } from '../../src/c3/draft.ts';
+import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate as issuedMeetingCandidate } from '../fixtures/c3-workshop.ts';
+import { startC3Server as startProductionC3Server, type RunningC3Server } from '../../src/c3/service.ts';
+import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord as createOriginalGenerationRecord, type C3GenerationRecord } from '../../src/c3/draft.ts';
 import { createRecordOriginReceipt, type RecordOriginReceipt, LocalWorkStore } from '../../src/c3/work-store.ts';
 import { RecordedReplayC3ModelProvider } from '../../src/c3/provider.ts';
+import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract-v6.ts';
+import { scriptedFullCoverage } from './c3-generation-scripted.ts';
+
+// Authored fresh-operation fixtures: scripted checks exercise custody and Apply, not evidence semantics.
+const syntheticMeetingCandidate: typeof issuedMeetingCandidate = (...args) =>
+  JSON.stringify({ ...JSON.parse(issuedMeetingCandidate(...args)), assertions: [] });
+const createGenerationRecord: typeof createOriginalGenerationRecord = (model, raw, context, verification) => {
+  if (model.generationContractVersion === '6' && !verification) {
+    const check = createC3VerificationRequest(model, raw, context);
+    verification = retainC3Verification(check, scriptedFullCoverage(check));
+  }
+  return createOriginalGenerationRecord(model, raw, context, verification);
+};
+const startC3Server: typeof startProductionC3Server = options => startProductionC3Server({
+  ...options,
+  provider: { name: options.provider.name, executionMode: options.provider.executionMode,
+    generate: (request, signal) => options.provider.generate(request, signal),
+    verify: (request, signal) => options.provider.verify ? options.provider.verify(request, signal) : Promise.resolve(scriptedFullCoverage(request)) },
+  generationAudit: options.generationAudit ?? { async retainCandidate() {}, async retainRecord() {}, async retainFailure() {} },
+});
 const ctx = syntheticWorkshopContext();
 const request = syntheticMeetingRequest;
 class Response extends EventEmitter {
@@ -61,6 +81,25 @@ test('revision is a proposal; stale instruction/base cannot apply; annotations s
     assert.equal((await b.call('/api/discard-revision',{recordId:applied.json().recordId,pendingRevisionToken:second.pendingRevisionToken})).status,200);
     assert.match((await b.call('/?draft=1')).text,/Separate annotation/);
   } finally {await server.close();}
+});
+test('explicit authored replay custody stays synthetic through proposal, Apply, save and restart',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'c3-authored-origin-'));
+ const initial=createOriginalGenerationRecord(createC3ModelRequest(ctx,request,undefined,'5'),issuedMeetingCandidate(ctx),ctx);
+ const correction='Use the authored revised opening.';
+ const revision=createOriginalGenerationRecord(createC3ModelRequest(ctx,request,createC3RevisionContext(initial,correction,1),'5'),issuedMeetingCandidate(ctx,true),ctx);
+ const options={context:ctx,syntheticPreview:true,listen:false,provider:{name:'synthetic-authored-preview',executionMode:'local' as const,async generate(model:ReturnType<typeof createC3ModelRequest>){return model.revision?revision.rawResponse:initial.rawResponse;}},recordedReplay:{initialRequest:request,correctionNote:correction,priorRecord:initial,revisionRecord:revision},workStore:{root,principal:'synthetic-operator'}};
+ let server=await startProductionC3Server(options);
+ try{
+  const b=await browser(server);const setup=await b.call('/?prepare=1');assert.match(setup.text,/Open exact authored example/);assert.match(setup.text,/Only the exact authored example request is available/);assert.doesNotMatch(setup.text,/Replay exact recorded response/);const generated=await b.call('/api/generate',envelope());assert.equal(generated.status,200);
+  const check=(html:string)=>{assert.match(html,/>Synthetic example<\/span>/);assert.match(html,/Hand-authored fixtures/);assert.doesNotMatch(html,/>Historical replay<\/span>/);assert.doesNotMatch(html,/Recorded instruction/);};
+  check(generated.json().html);
+  const stage=(await b.call('/api/revise',{recordId:initial.recordId,note:correction,priorNote:''})).json();
+  const proposed=(await b.call('/api/generate',envelope(initial.recordId,stage.pendingRevisionToken))).json();assert.equal(proposed.proposalReady,true);assert.equal(proposed.proposalId,revision.recordId);
+  const applied=await b.call('/api/apply-revision',{recordId:initial.recordId,proposalId:revision.recordId,instruction:correction,pendingRevisionToken:stage.pendingRevisionToken});assert.equal(applied.status,200);check(applied.json().html);
+  const state=(await b.call('/api/work-state',{})).json();const saved=await b.call('/api/save',{recordId:revision.recordId,documentId:state.documentId,expectedVersion:0,workVersion:state.workVersion});assert.equal(saved.status,200);
+  const stored=JSON.parse(await readFile(join(root,(await readdir(root)).find(f=>f.endsWith('.json'))!),'utf8'));assert.deepEqual(stored.metadata.origins.map((receipt:RecordOriginReceipt)=>receipt.origin),['synthetic','synthetic']);
+  await server.close();server=await startProductionC3Server(options);const fresh=await browser(server);const reopened=await fresh.call('/api/reopen',{documentId:state.documentId});assert.equal(reopened.status,200);check((await fresh.call('/?draft=1')).text);
+ }finally{await server.close();await rm(root,{recursive:true,force:true});}
 });
 const work = () => { const record=createGenerationRecord(createC3ModelRequest(ctx,request),syntheticMeetingCandidate(ctx),ctx); return {record,records:[record],correctionNote:'Private note',sectionNotes:{Opening:'Note'},instruction:'',pendingRevision:null,pendingRevisionToken:null,proposal:null,proposalStale:false,workVersion:1}; };
 test('private store validates identities, CAS, corruption, and failed acknowledgement without overwriting good history',async()=>{
@@ -300,7 +339,7 @@ for (const version of [2, 3, 4] as const) test(`exact v${version} recorded servi
   await fresh.call('/?draft=1');assert.equal(running.status().generationAttempted,0);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
 });
-for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v5`,async()=>{
+for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v6`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-pending-'));
  for(const file of old.files)await writeFile(join(root,file.name),file.bytes,{mode:0o600});
  const captures:ReturnType<typeof createC3ModelRequest>[]=[];
@@ -313,7 +352,7 @@ for (const version of [2, 3, 4] as const) test(`v${version} pending work opens w
   assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:old.revised.recordId,instruction:pending.work.instruction,pendingRevisionToken:pending.work.pendingRevisionToken})).status,200);
   const stage=(await b.call('/api/revise',{recordId:old.revised.recordId,note:'Clarify next steps.',priorNote:pending.work.correctionNote})).json();
   const generated=await b.call('/api/generate',{...envelope(old.revised.recordId,stage.pendingRevisionToken),request:old.revised.meetingRequest});
-  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'5');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
+  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'6');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
   for(const file of old.files)assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const awaiting=JSON.parse(old.files.find((file:any)=>{const w=JSON.parse(file.bytes).work;return w.pendingRevision && !w.proposal;}).bytes);
   const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:awaiting.documentId})).status,200);
@@ -367,7 +406,7 @@ test('fresh receipt origin survives Save/restart and Apply retains prior custody
 
 test('an admitted historical bundle and runtime preview flags cannot relabel unrelated saved records',async()=>{
  const old=await oldFixture();const root=await mkdtemp(join(tmpdir(),'c3-unrelated-origin-'));
- const record=createGenerationRecord(createC3ModelRequest(old.context,old.initial.meetingRequest),old.initial.rawResponse,old.context);
+ const record=createGenerationRecord(createC3ModelRequest(old.context,old.initial.meetingRequest,null,"5"),old.initial.rawResponse,old.context);
  const prior=JSON.parse(old.files[2].bytes).work;
  const store=new LocalWorkStore({root,principal:'synthetic-operator'},old.context);
  const saved=store.save('doc_555555555555555555555555',0,{...prior,record,records:[record],proposal:null,pendingRevision:null,pendingRevisionToken:null});

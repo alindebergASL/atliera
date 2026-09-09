@@ -3,8 +3,12 @@ import test from "node:test";
 import { newPlanningBrief, updatePlanningBrief } from "../../src/c3/planning.ts";
 import { businessGapLabel } from "../../src/c3/planning-render.ts";
 import { renderC3Page, type C3PageState } from "../../src/c3/render.ts";
-import { createC3ModelRequest, createGenerationRecord } from "../../src/c3/draft.ts";
+import { createC3ModelRequest as createCurrentC3ModelRequest, createGenerationRecord } from "../../src/c3/draft.ts";
 import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate, syntheticCorrection } from "../fixtures/c3-workshop.ts";
+
+// These historical contract/render fixtures explicitly exercise issued v5.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = "5") =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 
 const escaped = (text: string) => text.replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -230,7 +234,7 @@ test("section note guidance is provider neutral and reserves durability for Save
     assert.doesNotMatch(html, /Only the exact recorded correction in Draft review can replay a revision/);
     assert.match(html, /Add note/);assert.match(html, /This note lasts for this session/);
     assert.match(html, /The current brief stays unchanged until you apply/);assert.match(html, /Apply revision<\/button>/);
-    if(replay)assert.match(html, /only the fixed recorded instruction below has a response/);
-    else assert.doesNotMatch(html, /only the fixed recorded instruction below has a response/);
+    if(replay)assert.match(html, /only the fixed authored instruction below has a response/);
+    else assert.doesNotMatch(html, /only the fixed (?:recorded|authored) instruction below has a response/);
   }
 });

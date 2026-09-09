@@ -3,13 +3,17 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { C3ModelRequest } from "./draft.ts";
+import { createGenerationRecord, type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
+import { createC3VerificationRequest, retainC3Verification, type C3VerificationRequest, type C3Verification } from "./generation-contract-v6.ts";
+import type { FrozenC3ViewContext } from "./view-context.ts";
 import { canonicalJson } from "./context.ts";
 
 export interface C3ModelProvider {
   readonly name: string;
   readonly executionMode?: "local" | "external";
   generate(request: C3ModelRequest, signal: AbortSignal): Promise<string>;
+  /** Independent completion through the SAME admitted route and budget wrapper. No prior conversation. */
+  verify?(request: C3VerificationRequest, signal: AbortSignal): Promise<string>;
 }
 
 export class DisabledC3ModelProvider implements C3ModelProvider {
@@ -64,6 +68,25 @@ export interface CommandC3ModelProviderOptions {
 
 class CommandCleanupError extends Error { readonly cleanupConfirmed = false; }
 
+export interface C3TransportFailure {
+  readonly kind: 'atliera.c3.transport-failure';
+  readonly rawResponseBase64: string;
+  readonly receivedBytes: number;
+  readonly retainedBytes: number;
+  readonly truncated: boolean;
+  readonly completion: 'failed';
+  readonly message: string;
+}
+export class C3CommandResponseError extends Error {
+  constructor(message: string, readonly receipt: C3TransportFailure, readonly cleanupConfirmed = true) { super(message); }
+}
+/** Arbitrary adapters cannot supply invented original bytes through their error message. */
+export function c3TransportFailure(error: unknown): C3TransportFailure {
+  if (error instanceof C3CommandResponseError) return error.receipt;
+  return {kind:'atliera.c3.transport-failure',rawResponseBase64:'',receivedBytes:0,retainedBytes:0,truncated:false,
+    completion:'failed',message:'Provider failed without a transport-byte receipt.'};
+}
+
 export class CommandC3ModelProvider implements C3ModelProvider {
   readonly name = "operator-command";
   readonly executionMode = "external" as const;
@@ -95,6 +118,14 @@ export class CommandC3ModelProvider implements C3ModelProvider {
   }
 
   async generate(request: C3ModelRequest, signal: AbortSignal): Promise<string> {
+    return this.#execute(request, signal);
+  }
+
+  async verify(request: C3VerificationRequest, signal: AbortSignal): Promise<string> {
+    return this.#execute(request, signal);
+  }
+
+  async #execute(request: C3ModelRequest | C3VerificationRequest, signal: AbortSignal): Promise<string> {
     if (this.#cleanupUnconfirmed) throw new Error("operator command provider is held because owned process cleanup was not confirmed");
     if (this.#active) throw new Error("one generation is already running");
     this.#active = true;
@@ -109,7 +140,7 @@ export class CommandC3ModelProvider implements C3ModelProvider {
       return await runCommand(this.#command, this.#args, requestPath, this.#timeoutMs, this.#maxOutputBytes,
         this.#killGraceMs, this.#environment, signal);
     } catch (error) {
-      if (error instanceof CommandCleanupError) { cleanupConfirmed = false; this.#cleanupUnconfirmed = true; }
+      if ((error instanceof CommandCleanupError || error instanceof C3CommandResponseError && !error.cleanupConfirmed)) { cleanupConfirmed = false; this.#cleanupUnconfirmed = true; }
       throw error;
     } finally {
       this.#active = false;
@@ -155,6 +186,7 @@ function runCommand(command: string, args: readonly string[], requestPath: strin
     });
     const chunks: Buffer[] = [];
     let bytes = 0;
+    let receivedBytes = 0;
     let settled = false;
     let closeCode: number | null | undefined;
     let stdoutEnded = false;
@@ -168,7 +200,11 @@ function runCommand(command: string, args: readonly string[], requestPath: strin
       if (escalationTimer !== undefined) clearTimeout(escalationTimer);
       if (cleanupDeadlineTimer !== undefined) clearTimeout(cleanupDeadlineTimer);
       signal.removeEventListener("abort", onAbort);
-      error === undefined ? resolve(value ?? "") : reject(error);
+      if (error === undefined) resolve(value ?? "");
+      else reject(new C3CommandResponseError(error.message, {
+        kind: 'atliera.c3.transport-failure', rawResponseBase64: Buffer.concat(chunks, bytes).toString('base64'),
+        receivedBytes, retainedBytes: bytes, truncated: receivedBytes > bytes, completion: 'failed', message: error.message,
+      }, !(error instanceof CommandCleanupError)));
     };
     const finishStopped = (): void => {
       if (closeCode === undefined || processGroupAlive(child.pid)) return;
@@ -203,13 +239,53 @@ function runCommand(command: string, args: readonly string[], requestPath: strin
     signal.addEventListener("abort", onAbort, { once: true });
     const timer = setTimeout(() => requestStop(new Error("generation timed out; remote billed-work status may be unknown")), timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => {
+      receivedBytes += chunk.byteLength;
+      const remaining = maxOutputBytes - bytes;
+      if (remaining > 0) { const retained = chunk.subarray(0, remaining); chunks.push(Buffer.from(retained)); bytes += retained.length; }
+      if (receivedBytes > maxOutputBytes) { requestStop(new Error("model response exceeded output bound; remote billed-work status may be unknown")); return; }
       if (stopError !== undefined) return;
-      bytes += chunk.byteLength;
-      if (bytes > maxOutputBytes) { requestStop(new Error("model response exceeded output bound; remote billed-work status may be unknown")); return; }
-      chunks.push(Buffer.from(chunk));
     });
     child.stdout.on("end", () => { stdoutEnded = true; finish(); });
     child.on("error", () => { closeCode = null; stopError === undefined ? settle(new Error("operator model command failed")) : finishStopped(); });
     child.on("close", (code) => { closeCode = code; finish(); });
   });
+}
+
+/** One candidate and at most one independent verification; never retries, repairs or rewrites.
+ * External callers must durably retain the result before it becomes usable session work.
+ * Replay must use saved verification instead of invoking this fresh-generation entry point. */
+export async function generateVerifiedC3Record(provider: C3ModelProvider, request: C3ModelRequest,
+  context: FrozenC3ViewContext, signal: AbortSignal,
+  audit?: C3GenerationAudit): Promise<C3GenerationRecord> {
+  if (request.generationContractVersion !== '6') throw new Error('Fresh generation requires contract 6.');
+  if (provider.executionMode === 'external' && (!provider.verify || !audit || typeof audit.retainCandidate !== 'function' || typeof audit.retainRecord !== 'function' || typeof audit.retainFailure !== 'function')) {
+    throw new Error('Fresh generation requires the shared budgeted verification route and private attempt retention.');
+  }
+  let raw: string;
+  try { raw = await provider.generate(request, signal); }
+  catch (error) { await audit?.retainFailure(request, c3TransportFailure(error)); throw error; }
+  await audit?.retainCandidate(request, raw);
+  let verification: C3Verification | undefined;
+  let verificationRequest: C3VerificationRequest | undefined;
+  try { verificationRequest = createC3VerificationRequest(request, raw, context); }
+  catch { /* Structural refusal is retained without dispatching a semantic check. */ }
+  if (verificationRequest) {
+    let verifierRaw: string | null = null;
+    if (!signal.aborted && provider.verify) {
+      try { verifierRaw = await provider.verify(verificationRequest, signal); }
+      catch (error) { await audit?.retainFailure(verificationRequest, c3TransportFailure(error)); }
+    }
+    verification = retainC3Verification(verificationRequest, verifierRaw);
+  }
+  const record = createGenerationRecord(request, raw, context, verification);
+  await audit?.retainRecord(record);
+  return record;
+}
+
+export interface C3GenerationAudit {
+  /** Must acknowledge durable storage before verification starts. */
+  retainCandidate(request: C3ModelRequest, rawResponse: string): Promise<void>;
+  /** Must acknowledge durable storage before acceptance, even for refusals. */
+  retainRecord(record: C3GenerationRecord): Promise<void>;
+  retainFailure(request: C3ModelRequest | C3VerificationRequest, failure: C3TransportFailure): Promise<void>;
 }

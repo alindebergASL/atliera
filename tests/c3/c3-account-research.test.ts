@@ -184,7 +184,7 @@ test("Account inspection leaves versioned context, model request, raw response a
   const historicalInput = { meetingRequest: syntheticMeetingRequest, revision: null };
   const modelRequest = reconstructC3ModelRequest(context, historicalInput);
   const freshRequest = createC3ModelRequest(context, syntheticMeetingRequest);
-  assert.equal(freshRequest.generationContractVersion, "5");
+  assert.equal(freshRequest.generationContractVersion, "6");
   assert.equal(hash(JSON.stringify(modelRequest)), "5b295d01635cef3816f6c1c0d815a9eb9c1bf0c5e565b0df32ac7abdc09a1b3b", "baseline request bytes passed to a provider, without calling one");
   const raw = syntheticMeetingCandidate(context); // Hand-authored test data, never an acquired recording.
   const record = createGenerationRecord(modelRequest, raw, context);

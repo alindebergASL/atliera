@@ -8,15 +8,17 @@ const args = process.argv.slice(2);
 const account = args.includes("--cedar") ? "cedar" : "harbor";
 const mode = args.includes("--sparse") ? "sparse" : args.includes("--conflict") ? "conflict" : "normal";
 const context = syntheticWorkshopContext(account, mode);
-const initial = createC3ModelRequest(context, syntheticMeetingRequest);
+// These hand-authored fixtures were issued under v5, not fresh v6 model output.
+const initial = createC3ModelRequest(context, syntheticMeetingRequest, undefined, "5");
 const raw = syntheticMeetingCandidate(context);
 const record = createGenerationRecord(initial, raw, context);
 if (!record.draft) throw new Error("Synthetic initial candidate did not validate");
-const revision = createC3ModelRequest(context, syntheticMeetingRequest, createC3RevisionContext(record, syntheticCorrection, 1));
+const revision = createC3ModelRequest(context, syntheticMeetingRequest, createC3RevisionContext(record, syntheticCorrection, 1), "5");
 const revisedRaw = syntheticMeetingCandidate(context, true);
-if (!createGenerationRecord(revision, revisedRaw, context).draft) throw new Error("Synthetic revision candidate did not validate");
+const revisionRecord = createGenerationRecord(revision, revisedRaw, context);
+if (!revisionRecord.draft) throw new Error("Synthetic revision candidate did not validate");
 const responses = new Map([[canonicalJson(initial), raw], [canonicalJson(revision), revisedRaw]]);
-const running = await startC3Server({ context, port: 4321, recordedReplay: { initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection },
+const running = await startC3Server({ context, port: 4321, recordedReplay: { initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection, priorRecord: record, revisionRecord },
   syntheticPreview: true,
   provider: { name: "synthetic-authored-preview", executionMode: "local", async generate(request, signal) {
     await new Promise<void>((resolve, reject) => {

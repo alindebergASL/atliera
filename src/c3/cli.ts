@@ -10,6 +10,9 @@ import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, 
 import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider } from "./provider.ts";
 import { renderC3Page } from "./render.ts";
 import { startC3Server } from "./service.ts";
+import { C3GenerationJournal } from "./generation-journal.ts";
+import { buildC3RetainedEvaluationCases, runC3VerifierEvaluation, type C3EvaluationCase } from './generation-evaluation.ts';
+import type { C3Verification } from "./generation-contract-v6.ts";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const BROAD = resolve(REPO, "fixtures/account-intelligence/c2-01/broad-account-research-input.json");
@@ -109,7 +112,12 @@ async function loadRecording(context: FrozenC3AccountContext, directory: string,
   const expected = reconstructC3ModelRequest(context, supplied);
   if (canonicalJson(supplied) !== canonicalJson(expected)) throw new Error(`${label} recorded model request identity or prompt mismatch`);
   const rawResponse = fatalText(await boundedFile(rawPath, 256 * 1024, `${label} raw response`), `${label} raw response`, true);
-  const record = createGenerationRecord(expected, rawResponse, context);
+  let verification: C3Verification | undefined;
+  if (expected.generationContractVersion === '6') {
+    verification = JSON.parse(fatalText(await boundedFile(resolve(directory, 'verification.json'), 8 * 1024 * 1024,
+      `${label} verification`), `${label} verification`, false)) as C3Verification;
+  }
+  const record = createGenerationRecord(expected, rawResponse, context, verification);
   assertReplayIdentity(record, context);
   if (record.outcome !== "succeeded") throw new Error(`${label} recorded candidate refused without repair: ${record.refusal!.message}`);
   return { request: expected, record };
@@ -136,7 +144,7 @@ export async function loadC3RecordedReplay(context: FrozenC3AccountContext, reco
   if (canonicalJson(revision.request) !== canonicalJson(exactRevisionRequest)) {
     throw new Error("revision recording does not exactly bind the supplied correction to the supplied prior response and draft identity");
   }
-  const exactRevisionRecord = createGenerationRecord(exactRevisionRequest, revision.record.rawResponse, context);
+  const exactRevisionRecord = createGenerationRecord(exactRevisionRequest, revision.record.rawResponse, context, revision.record.verification);
   assertReplayIdentity(exactRevisionRecord, context);
   if (exactRevisionRecord.recordId !== revision.record.recordId ||
       canonicalJson(exactRevisionRecord.draft) !== canonicalJson(revision.record.draft)) {
@@ -159,7 +167,13 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
   const expected = reconstructC3ModelRequest(frozen, supplied);
   if (JSON.stringify(supplied) !== JSON.stringify(expected)) throw new Error("recorded model request identity or prompt mismatch");
   const rawResponse = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await readFile(resolve(rawResponsePath!)));
-  const record = createGenerationRecord(expected, rawResponse, frozen);
+  let verification: C3Verification | undefined;
+  if (expected.generationContractVersion === '6') {
+    try { verification = JSON.parse(fatalText(await boundedFile(resolve(dirname(requestPath!), 'verification.json'), 8 * 1024 * 1024, 'recorded verification'), 'recorded verification', false)) as C3Verification; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    // Missing verification yields a retained typed refusal, never acceptance or a fresh call.
+  }
+  const record = createGenerationRecord(expected, rawResponse, frozen, verification);
   assertReplayIdentity(record, frozen);
   const output = await ensureOutput(outputDirectory!);
   const page = record.outcome === "succeeded"
@@ -190,7 +204,10 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   const provider = command === undefined || isCuratedContext(frozen) ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command });
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
-  const running = await startC3Server({ context: frozen, provider, workStore: configuredWorkStore(), port: Number(portText) });
+  const auditRoot = process.env.C3_GENERATION_AUDIT_ROOT;
+  if (provider.executionMode === 'external' && !auditRoot) throw new Error('C3_GENERATION_AUDIT_ROOT is required for fresh generation.');
+  const generationAudit = auditRoot ? new C3GenerationJournal(auditRoot) : undefined;
+  const running = await startC3Server({ context: frozen, provider, generationAudit, workStore: configuredWorkStore(), port: Number(portText) });
   process.stdout.write(`${running.origin}\n`);
   const stop = (): void => { void running.close().then(() => process.exit(0)); };
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
@@ -211,8 +228,42 @@ async function serveRecordedCommand(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 
+/** Offline preparation is separate from explicit, wrapper-controlled model execution. */
+async function prepareVerifierEvaluation(args: readonly string[]): Promise<void> {
+  if (args.length !== 1) throw new Error('usage: prepare-verifier-evaluation OUTPUT_DIRECTORY');
+  const [utah, fedex] = await Promise.all([contextFor('acc_university_of_utah'), contextFor('acc_fedex_corp')]);
+  const cases = buildC3RetainedEvaluationCases(utah, fedex);
+  const output = await ensureOutput(args[0]!);
+  await writeFile(resolve(output, 'evaluation-cases.json'), JSON.stringify(cases, null, 2) + '\n', {mode: 0o600, flag: 'wx'});
+  process.stdout.write(JSON.stringify({cases: cases.length, modelCalls: 0, output}) + '\n');
+}
+
+async function runVerifierEvaluation(args: readonly string[]): Promise<void> {
+  const [casePath, outputPath, deadline, maxCallsText, admission] = args;
+  if (args.length !== 5 || admission !== '--budgeted' || !/^(?:[0-9]|1[0-9]|2[0-4])$/u.test(maxCallsText!)) {
+    throw new Error('usage: run-verifier-evaluation CASES_JSON OUTPUT_DIRECTORY DEADLINE_ISO MAX_CALLS --budgeted');
+  }
+  const command = process.env.C3_MODEL_COMMAND;
+  if (!command) throw new Error('C3_MODEL_COMMAND must name the existing approved route budget wrapper.');
+  const cases = JSON.parse(fatalText(await boundedFile(resolve(casePath!), 32 * 1024 * 1024, 'evaluation cases'), 'evaluation cases', false)) as C3EvaluationCase[];
+  const output = await ensureOutput(outputPath!);
+  const audit = new C3GenerationJournal(resolve(output, 'attempts'));
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  try {
+    const report = await runC3VerifierEvaluation(cases, new CommandC3ModelProvider({command}), audit,
+      {deadline: deadline!, maxCalls: Number(maxCallsText), signal: controller.signal,
+        onRow: async row => { await writeFile(resolve(output, `row-${row.recordId}.json`), JSON.stringify(row, null, 2) + '\n', {mode: 0o600, flag: 'wx'}); }});
+    await writeFile(resolve(output, 'report.json'), JSON.stringify(report, null, 2) + '\n', {mode: 0o600, flag: 'wx'});
+    process.stdout.write(JSON.stringify({completedCases: report.completedCases, calls: report.calls, stopped: report.stopped, output}) + '\n');
+  } finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); }
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
+  if (command === "prepare-verifier-evaluation") return prepareVerifierEvaluation(args);
+  if (command === "run-verifier-evaluation") return runVerifierEvaluation(args);
   if (command === "load-context") return loadContextCommand(args);
   if (command === "emit-model-request") return emitRequestCommand(args);
   if (command === "render-recorded-draft") return renderRecordedCommand(args);

@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { loadC3RecordedReplay, main } from "../../src/c3/cli.ts";
 import { loadC3AccountContext } from "../../src/c3/context.ts";
-import { reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord } from "../../src/c3/draft.ts";
+import { reconstructC3ModelRequest, createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord } from "../../src/c3/draft.ts";
+// These cases characterize issued v5; current v6 is covered by c3-generation-v6.test.ts.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const absent = (error: unknown): boolean => (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -154,3 +157,32 @@ test("serve-recorded preflight refuses corrupt raw response instead of binding a
     }
   } finally {await rm(root,{recursive:true,force:true});}
  });
+
+test('v6 CLI links and renders retained generator and verifier bytes without new calls', async () => {
+  const {createC3VerificationRequest,retainC3Verification}=await import('../../src/c3/generation-contract-v6.ts');
+  const {scriptedFullCoverage}=await import('./c3-generation-scripted.ts');
+  const root=await mkdtemp(resolve(tmpdir(),'c3-v6-cli-'));
+  try {
+    const old=await recordingPackage(root);
+    const raw=JSON.stringify({...JSON.parse(old.priorRecord.rawResponse),assertions:[]})+'\n';
+    const priorRequest=createCurrentC3ModelRequest(old.context,old.priorRequest.meetingRequest);
+    const check=createC3VerificationRequest(priorRequest,raw,old.context);
+    const priorRecord=createGenerationRecord(priorRequest,raw,old.context,retainC3Verification(check,scriptedFullCoverage(check)));
+    const revision=createC3RevisionContext(priorRecord,old.correctionNote,1);
+    const revisionRequest=createCurrentC3ModelRequest(old.context,old.priorRequest.meetingRequest,revision);
+    const revisionCheck=createC3VerificationRequest(revisionRequest,raw,old.context);
+    const revisionRecord=createGenerationRecord(revisionRequest,raw,old.context,retainC3Verification(revisionCheck,scriptedFullCoverage(revisionCheck)));
+    for(const [name,request,record] of [['prior',priorRequest,priorRecord],['revision',revisionRequest,revisionRecord]] as const){
+      await writeFile(resolve(root,name,'model-request.json'),JSON.stringify(request));
+      await writeFile(resolve(root,name,'raw-response.txt'),raw);
+      await writeFile(resolve(root,name,'verification.json'),JSON.stringify(record.verification));
+    }
+    const replay=await loadC3RecordedReplay(old.context,root);
+    assert.deepEqual(replay.priorRecord,priorRecord);assert.deepEqual(replay.revisionRecord,revisionRecord);
+    await main(['render-recorded-draft','acc_university_of_utah',resolve(root,'prior','model-request.json'),resolve(root,'prior','raw-response.txt'),resolve(root,'rendered-v6')]);
+    const rendered=JSON.parse(await readFile(resolve(root,'rendered-v6','generation-record.json'),'utf8'));
+    assert.deepEqual(rendered,priorRecord);
+    await writeFile(resolve(root,'prior','verification.json'),'{}');
+    await assert.rejects(loadC3RecordedReplay(old.context,root),/prior recorded candidate refused without repair: verification request must be an object/u);
+  } finally {await rm(root,{recursive:true,force:true});}
+});

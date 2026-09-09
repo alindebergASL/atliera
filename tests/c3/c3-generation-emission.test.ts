@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { canonicalJson } from '../../src/c3/context.ts';
-import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord, assertReplayIdentity } from '../../src/c3/draft.ts';
+import { createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, assertReplayIdentity } from '../../src/c3/draft.ts';
+// These cases characterize issued v5; current v6 is covered by c3-generation-v6.test.ts.
+const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
+  createCurrentC3ModelRequest(context, input, revision, version);
 import { syntheticWorkshopContext, syntheticMeetingCandidate, syntheticMeetingRequest } from '../fixtures/c3-workshop.ts';
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -56,7 +59,7 @@ for (const [mode, padding, beforeBytes] of [
   });
 }
 
-test('future initial and revision prompts select v5 controlled emission explicitly', () => {
+test('issued v5 initial and revision prompts retain controlled emission explicitly', () => {
   for (const request of requests()) {
     assert.equal(request.generationContractVersion, '5');
     assert.match(request.prompt, /GENERATION CONTRACT 5/);
@@ -64,13 +67,13 @@ test('future initial and revision prompts select v5 controlled emission explicit
 });
 
 test('v5 request composition and validation source bytes require explicit preservation before a future version', () => {
-  // Current v5 at 0c18437abdff24432882394773d10012169ad381. When a real successor
+  // Issued v5 at 0c18437abdff24432882394773d10012169ad381. When a real successor
   // exists, preserve/version these semantics first; do not simply refresh hashes.
-  // No duplicate source modules are needed for this characterization closure.
+  // The successor retains the issued module byte-for-byte except its frozen import.
   for (const [file, expected] of [
-    ['draft.ts', '1669101e2eafd0d0cd1f6ea3fad47e004847237ce46f3c40cb0ad5e28e869afb'],
+    ['generation-contract-v5.ts', '1669101e2eafd0d0cd1f6ea3fad47e004847237ce46f3c40cb0ad5e28e869afb'],
     ['generation-claims.ts', 'f0f8792dd9a9e5ce18b2536656572c7d2cf7d24dceaca0682c06a1e9dc8f8518'],
-  ]) assert.equal(hash(readFileSync(new URL(`../../src/c3/${file}`, import.meta.url), 'utf8')), expected,
+  ]) assert.equal(hash(readFileSync(new URL(`../../src/c3/${file}`, import.meta.url), 'utf8').replace('"./generation-claims-v5.ts"', '"./generation-claims.ts"')), expected,
     'Preserve the issued v5 request/validation contract before changing semantics.');
 });
 

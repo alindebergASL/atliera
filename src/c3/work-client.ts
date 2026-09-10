@@ -105,12 +105,13 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const owned={request:revisionRequest,recordId:currentRecord(),pendingRevisionToken,operationId:window.crypto.randomUUID().replaceAll('-','')};
     revisionOperation=owned;
     revisionStatus.textContent=recordedReplay ? 'Replaying the exact recorded revision locally… Current brief stays unchanged.' : 'Preparing a proposal… Current brief stays unchanged.';
+    const stopObserving = observeGeneration(owned, revisionStatus, () => revisionOperation === owned && !stopRequested, ' Current brief stays unchanged until Apply.');
     try {
       const payload=await requestJson('/api/generate',owned);
       if(!sameOperation(payload.operation,owned))throw Error('Revision operation was not confirmed.');
       if(stopRequested || payload.outcome !== 'succeeded')throw Error(payload.error || 'Revision stopped. Current brief kept.');
       displayProposal(payload); revisionStatus.textContent='Compare the proposal, then Apply revision or Keep original.';
-    }finally{if(cancelSettlement)await cancelSettlement;revisionOperation=null;}
+    }finally{stopObserving();if(cancelSettlement)await cancelSettlement;revisionOperation=null;}
   };
   document.querySelector('[data-revise]')?.addEventListener('click',async()=>{
     if(reviewBusy || !canStartRevision())return;

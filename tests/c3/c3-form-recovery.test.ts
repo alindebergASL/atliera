@@ -124,7 +124,7 @@ function runClient(options: ClientOptions) {
     replaceState(_state: unknown, _title: string, location: string) { navigation.push(`replace:${location}`); },
   };
   vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history, FormData: FormDataStub, fetch: options.fetch,
-    AbortController, Error, JSON, Number, String });
+    AbortController, Error, JSON, Number, String, setTimeout, clearTimeout });
   return { form, button, cancel, status, recovery, optionsSummary, noteForm, note, revise, reviewStatus, writes, navigation };
 }
 

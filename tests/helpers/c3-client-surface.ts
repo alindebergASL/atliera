@@ -4,10 +4,11 @@ import ts from 'typescript';
 import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 
 // Exact reviewed browser surface. These local routes do not authorize provider use:
-// generate/cancel retain service gating; revise/instruction/apply/discard manage proposals;
+// generate/cancel retain service gating; generation-status observes the owned operation only;
+// revise/instruction/apply/discard manage proposals;
 // note/section-note and planning manage session text; work-state/save/save-copy/reopen
 // inspect or explicitly retain private local work. No arbitrary request target is admitted.
-const fixed = ['/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate',
+const fixed = ['/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
   '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/revision-invalidate', '/api/save',
   '/api/save-copy', '/api/section-note', '/api/work-state', '/api/work/title'];
 const planning = ['/api/planning/strategy', '/api/planning/next-steps', '/api/section-note'];

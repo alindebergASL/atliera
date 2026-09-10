@@ -3,8 +3,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { canonicalJson } from './context.ts';
-import type { C3VerificationRequest } from './generation-contract-v6.ts';
-import type { C3GenerationRecord, C3ModelRequest } from './draft.ts';
+import type { C3VerificationRequest, C3GenerationRecord, C3ModelRequest } from './generation-contract.ts';
 import type { C3GenerationAudit, C3TransportFailure } from './provider.ts';
 
 /** Append-only private attempt evidence. Separate from work saves and account stores. */

@@ -8,18 +8,17 @@ import { PassThrough } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate as issuedMeetingCandidate } from '../fixtures/c3-workshop.ts';
 import { startC3Server as startProductionC3Server, type RunningC3Server } from '../../src/c3/service.ts';
-import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord as createOriginalGenerationRecord, type C3GenerationRecord } from '../../src/c3/draft.ts';
+import { createC3ModelRequest, createC3RevisionContext, createGenerationRecord as createOriginalGenerationRecord, type C3GenerationRecord } from '../../src/c3/generation-contract.ts';
 import { createRecordOriginReceipt, type RecordOriginReceipt, LocalWorkStore } from '../../src/c3/work-store.ts';
 import { RecordedReplayC3ModelProvider } from '../../src/c3/provider.ts';
-import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract-v6.ts';
+import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract.ts';
 import { scriptedFullCoverage } from './c3-generation-scripted.ts';
 import { canonicalJson } from '../../src/c3/context.ts';
 
 // Authored fresh-operation fixtures: scripted checks exercise custody and Apply, not evidence semantics.
-const syntheticMeetingCandidate: typeof issuedMeetingCandidate = (...args) =>
-  JSON.stringify({ ...JSON.parse(issuedMeetingCandidate(...args)), assertions: [] });
+const syntheticMeetingCandidate: typeof issuedMeetingCandidate = (...args) => issuedMeetingCandidate(...args);
 const createGenerationRecord: typeof createOriginalGenerationRecord = (model, raw, context, verification) => {
-  if (model.generationContractVersion === '6' && !verification) {
+  if ((model.generationContractVersion === '6' || model.generationContractVersion === '7') && !verification) {
     const check = createC3VerificationRequest(model, raw, context);
     verification = retainC3Verification(check, scriptedFullCoverage(check));
   }
@@ -111,7 +110,7 @@ test('private store validates identities, CAS, corruption, and failed acknowledg
   assert.equal(new LocalWorkStore({root,principal:'operator-one'},ctx).load(one.documentId).work.correctionNote,'Private note');
   assert.throws(()=>store.save(one.documentId,0,work()),/conflict/i);
   assert.throws(()=>new LocalWorkStore({root,principal:'operator-two'},ctx).load(one.documentId));
-  assert.throws(()=>new LocalWorkStore({root,principal:'operator-one'},syntheticWorkshopContext('harbor','sparse')).load(one.documentId));
+  assert.equal(new LocalWorkStore({root,principal:'operator-one'},syntheticWorkshopContext('harbor','sparse')).loadWithContext(one.documentId).context.sha256,ctx.sha256);
   const failing=new LocalWorkStore({root,principal:'operator-one',fault(stage){if(stage==='after-publish')throw Error('readback failure');}},ctx);
   assert.throws(()=>failing.save(one.documentId,1,{...work(),workVersion:2}),/readback failure/);
   assert.equal(store.load(one.documentId).version,2); assert.throws(()=>store.save(one.documentId,1,work()),/conflict/i);
@@ -413,7 +412,7 @@ for (const version of [2, 3, 4] as const) test(`exact v${version} recorded servi
   await fresh.call('/?draft=1');assert.equal(running.status().generationAttempted,0);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
 });
-for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v6`,async()=>{
+for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v7`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-pending-'));
  for(const file of old.files)await writeFile(join(root,file.name),file.bytes,{mode:0o600});
  const captures:ReturnType<typeof createC3ModelRequest>[]=[];
@@ -426,7 +425,7 @@ for (const version of [2, 3, 4] as const) test(`v${version} pending work opens w
   assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:old.revised.recordId,instruction:pending.work.instruction,pendingRevisionToken:pending.work.pendingRevisionToken})).status,200);
   const stage=(await b.call('/api/revise',{recordId:old.revised.recordId,note:'Clarify next steps.',priorNote:pending.work.correctionNote})).json();
   const generated=await b.call('/api/generate',{...envelope(old.revised.recordId,stage.pendingRevisionToken),request:old.revised.meetingRequest});
-  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'6');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
+  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'7');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
   for(const file of old.files)assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const awaiting=JSON.parse(old.files.find((file:any)=>{const w=JSON.parse(file.bytes).work;return w.pendingRevision && !w.proposal;}).bytes);
   const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:awaiting.documentId})).status,200);
@@ -442,7 +441,7 @@ test('versioned metadata verifies exact trusted custody, rejects forged origin, 
   const store=new LocalWorkStore({root,principal:'synthetic-operator',originReceipt,now:()=>new Date('2026-09-09T12:00:00Z')},old.context);
   assert.deepEqual(store.load(legacy.documentId),legacy);assert.equal(store.origin(legacy.work.record),'historical-replay');
   assert.equal(new LocalWorkStore({root,principal:'synthetic-operator'},old.context).origin(legacy.work.record),'unknown');
-  const saved=store.save(legacy.documentId,legacy.version,legacy.work,{title:'Preparation title'});assert.equal(saved.schemaVersion,'2');
+  const saved=store.save(legacy.documentId,legacy.version,legacy.work,{title:'Preparation title'});assert.equal(saved.schemaVersion,'3');
   assert.deepEqual(saved.work,legacy.work);assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const path=join(root,(await readdir(root)).find(name=>name!==file.name)!);const bytes=await readFile(path,'utf8');
   for(const patch of [{origin:'live'},{recordId:'c3_'+'0'.repeat(24)},{contextSha256:'0'.repeat(64)},{modelRequestSha256:'0'.repeat(64)},{rawResponseSha256:'0'.repeat(64)},{recordSha256:'0'.repeat(64)},{custodyReceiptId:'forged'}]){

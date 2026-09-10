@@ -8,8 +8,8 @@ import vm from "node:vm";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { loadC3AccountContext, type FrozenC3AccountContext } from "../../src/c3/context.ts";
-import { createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, type C3ModelRequest } from "../../src/c3/draft.ts";
-import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract-v6.ts';
+import { createC3ModelRequest as createCurrentC3ModelRequest, createC3RevisionContext, createGenerationRecord, type C3ModelRequest } from "../../src/c3/generation-contract.ts";
+import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract.ts';
 import { scriptedFullCoverage } from './c3-generation-scripted.ts';
 // Rendering and replay fixtures characterize issued v5. Fresh HTTP operations below use explicit scripted v6 checks.
 const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
@@ -388,7 +388,7 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
 
 test("two local service ports retain independent browser-jar sessions and a restart invalidates only its session", async () => {
   const ctx = await context();
-  const provider: C3ModelProvider = { name: "shared-browser-jar", generate: async () => JSON.stringify({...JSON.parse(candidate(ctx)), assertions: []}),
+  const provider: C3ModelProvider = { name: "shared-browser-jar", generate: async () => candidate(ctx),
     async verify(request) { return scriptedFullCoverage(request); } };
   const cookieJar = new Map<string, string>();
   const cookieHeader = (): string => [...cookieJar].map(([name, value]) => `${name}=${value}`).join("; ");
@@ -479,7 +479,8 @@ test("invalid model JSON is refused without repair; Host, Origin, session, and C
     assert.equal(refused.status, 422);
     const payload = JSON.parse(refused.text) as { html: string; refusal: { code: string } };
     assert.equal(payload.refusal.code, "invalid_model_candidate");
-    assert.match(payload.html, /Candidate refused without repair/);
+    assert.match(payload.html, /Draft format rejected/);
+    assert.match(payload.html, /Original retained without repair/);
     assert.equal(running.status().generationRefused, 1);
   } finally { await running.close(); }
 });
@@ -705,7 +706,7 @@ test("revision sends unsaved correction plus exact prior raw/draft identity and 
     assert.equal(captured.length, 2);
     assert.equal(captured[0]!.revision, null);
     assert.equal(captured[1]!.revision?.correctionNote, note);
-    assert.equal(captured[1]!.revision?.priorRawResponse, JSON.stringify({...JSON.parse(candidate(ctx)), assertions: []}));
+    assert.equal(captured[1]!.revision?.priorRawResponse, candidate(ctx));
     assert.ok(captured[1]!.revision?.priorDraft);
     assert.notEqual(captured[0]!.revisionSha256, captured[1]!.revisionSha256);
     assert.notEqual(JSON.stringify(captured[0]), JSON.stringify(captured[1]));
@@ -871,8 +872,8 @@ test("client history ignores evidence fragments and requires an explicit decisio
     addEventListener(name: string, listener: (event: any) => void) {
       documentListeners.set(name, [...(documentListeners.get(name) ?? []), listener]);
     } };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window, document, history });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window, document, history });
   assert.equal(listeners.get("popstate")?.length, 1, "document.write script execution does not multiply the route listener");
 
   location.hash = "#evidence-1";
@@ -918,12 +919,12 @@ test("client history ignores evidence fragments and requires an explicit decisio
   listeners.get("beforeunload")![0]!({ preventDefault() { unloadPrevented = true; } });
   assert.equal(unloadPrevented, true, "subsequent input revokes an earlier navigation approval");
 
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window, document, history });
   note.value = "Unsaved correction remains in the textarea";
   location.search = "?prepare=1";
   listeners.get("popstate")![0]!();
   assert.equal(reloads, 2);
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window, document, history });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window, document, history });
   location.search = "?draft=1";
   listeners.get("popstate")![0]!();
   assert.equal(reloads, 3, "Home, Prepare, and Draft history entries each resolve their URL-owned document");
@@ -963,7 +964,7 @@ test("rendered client restores edited in-flight form, ignores stale HTML, and co
     }
     throw new Error("unexpected route");
   };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
   const submitting = form.dispatch("submit");
   await new Promise((resolve) => setImmediate(resolve));
   form.values.audience = "CIO and engineering leaders";
@@ -1001,7 +1002,7 @@ test("rendered review handlers surface note and revise network errors and revise
     '[data-correction-note]': note, '[data-revision-instruction]': note, '[data-revision-status]': reviewStatus, '[data-review-status]': reviewStatus, 'meta[name="c3-csrf"]': meta } as Record<string, unknown>)[selector] ?? null; },
     open() {}, write() {}, close() {} };
   const fetchStub = async (url: string, init: { body: string }): Promise<never> => { calls.push({ url, body: init.body }); throw new Error(`${url} network unavailable`); };
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window: { crypto: webcrypto, addEventListener() {} }, document, FormData: FormDataStub, fetch: fetchStub, AbortController, Error, JSON, Number });
   await noteForm.dispatch("submit");
   assert.match(reviewStatus.textContent, /\/api\/note network unavailable/);
   await revise.dispatch("click");
@@ -1036,7 +1037,7 @@ test("Prepare success uses native safe navigation without rewriting the page", a
   const fetchStub = async (url: string): Promise<any> => ({ ok: true, json: async () => url === "/api/generate"
     ? ({ outcome: "succeeded", html: "DRAFT PAGE", location: "/?draft=1", history: "push" })
     : ({ html: "PREPARE PAGE", location: "/?prepare=1", history: "replace" }) });
-  vm.runInNewContext(C3_CLIENT_SCRIPT, { window: { location: { assign: (url: string) => navigation.push(`native:${url}`) }, crypto: webcrypto, addEventListener() {}, scrollTo: (x: number, y: number) => focusEvents.push([x, y]) }, document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
+  vm.runInNewContext(C3_CLIENT_SCRIPT, { setTimeout, clearTimeout, window: { location: { assign: (url: string) => navigation.push(`native:${url}`) }, crypto: webcrypto, addEventListener() {}, scrollTo: (x: number, y: number) => focusEvents.push([x, y]) }, document, FormData: FormDataStub, fetch: fetchStub, history, AbortController, Error, JSON, Number });
   await form.dispatch("submit");
   assert.deepEqual(navigation, ["native:/?draft=1"]);
   assert.deepEqual(writes, []);
@@ -1203,7 +1204,7 @@ test("Account Intel and purpose-specific templates share injected context withou
 test("in-place meeting notes retain raw response, bind displayed identity and protect pending revisions", async () => {
   const { syntheticWorkshopContext, syntheticMeetingRequest, syntheticMeetingCandidate } = await import("../fixtures/c3-workshop.ts");
   const ctx = syntheticWorkshopContext();
-  const raw = JSON.stringify({...JSON.parse(syntheticMeetingCandidate(ctx)), assertions: []});
+  const raw = syntheticMeetingCandidate(ctx);
   const exact = createCurrentC3ModelRequest(ctx, syntheticMeetingRequest);
   const verificationRequest = createC3VerificationRequest(exact, raw, ctx);
   const record = createGenerationRecord(exact, raw, ctx, retainC3Verification(verificationRequest, scriptedFullCoverage(verificationRequest)));
@@ -1490,6 +1491,38 @@ test('v6 verifier refusal leaves original, instruction and kept note intact; no 
     assert.equal((await browser.post('/api/apply-revision',{recordId,proposalId:recordId,instruction:'Explore whether the reported work matters.',pendingRevisionToken:staged.pendingRevisionToken})).status,409);
     assert.equal(generations,2);assert.equal(verifications,2);assert.equal(running.status().generationRefused,1);
   } finally {await running.close();}
+});
+
+test('owned progress observes actual generation/checker stages and cannot disclose another operation or session', async () => {
+  const ctx = await context();
+  let beginGeneration!: () => void, finishGeneration!: () => void;
+  let beginVerification!: () => void, finishVerification!: () => void;
+  const generating = new Promise<void>(resolve => { beginGeneration = resolve; });
+  const verifying = new Promise<void>(resolve => { beginVerification = resolve; });
+  const generationGate = new Promise<void>(resolve => { finishGeneration = resolve; });
+  const verificationGate = new Promise<void>(resolve => { finishVerification = resolve; });
+  let generations = 0, verifications = 0;
+  const running = await harness({ name: 'scripted-stages',
+    async generate() { generations++; beginGeneration(); await generationGate; return candidate(ctx); },
+    async verify(request) { verifications++; beginVerification(); await verificationGate; return scriptedFullCoverage(request); } });
+  try {
+    const browser = await browserSession(running), stranger = await browserSession(running);
+    const operation = { request: meetingRequest, operationId: 'ownedProgressOperation'.padEnd(32, '0'), recordId: null, pendingRevisionToken: null };
+    const result = browser.rawPost('/api/generate', operation);
+    await generating;
+    const preparing = JSON.parse((await browser.rawPost('/api/generation-status', operation)).text);
+    assert.equal(preparing.stage, 'preparing'); assert.equal(preparing.active, true);
+    assert.equal(Number.isInteger(preparing.elapsedSeconds), true);
+    assert.equal((await browser.rawPost('/api/generation-status', { ...operation, operationId: 'unrelatedOperation'.padEnd(32, '0') })).status, 409);
+    const isolated = JSON.parse((await stranger.rawPost('/api/generation-status', operation)).text);
+    assert.equal(isolated.active, false); assert.equal(isolated.stage, null);
+    finishGeneration(); await verifying;
+    const checking = JSON.parse((await browser.rawPost('/api/generation-status', operation)).text);
+    assert.equal(checking.stage, 'checking-evidence'); assert.equal(checking.active, true);
+    assert.equal(generations, 1); assert.equal(verifications, 1);
+    finishVerification(); assert.equal((await result).status, 200);
+    assert.equal((await browser.rawPost('/api/generation-status', operation)).status, 409, 'old displayed state cannot observe after the record changes');
+  } finally { finishGeneration(); finishVerification(); await running.close(); }
 });
 
 test('unconfigured external verification/audit is visibly unavailable and cannot spend', async () => {

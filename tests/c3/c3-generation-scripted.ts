@@ -1,4 +1,4 @@
-import type { C3VerificationRequest } from '../../src/c3/generation-contract-v6.ts';
+import type { C3VerificationRequest } from '../../src/c3/generation-contract.ts';
 
 /** Scripted transport fixture only. It does NOT evaluate whether text follows from evidence. */
 export function scriptedFullCoverage(check: C3VerificationRequest): string {

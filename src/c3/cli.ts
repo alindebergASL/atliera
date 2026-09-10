@@ -7,7 +7,7 @@ import { loadCuratedC3Context } from "./curated-context.ts";
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord,
   type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
-import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider } from "./provider.ts";
+import { CommandC3ModelProvider, DisabledC3ModelProvider, RecordedReplayC3ModelProvider, commandC3TimingOptions } from "./provider.ts";
 import { renderC3Page } from "./render.ts";
 import { startC3Server } from "./service.ts";
 import { C3GenerationJournal } from "./generation-journal.ts";
@@ -201,7 +201,7 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   if (args.length > 1) throw new Error("usage: serve [ACCOUNT_ID]");
   const frozen = await contextFor(accountId);
   const command = process.env.C3_MODEL_COMMAND;
-  const provider = command === undefined || isCuratedContext(frozen) ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command });
+  const provider = command === undefined || isCuratedContext(frozen) ? new DisabledC3ModelProvider() : new CommandC3ModelProvider({ command, ...commandC3TimingOptions(process.env.C3_MODEL_TIMEOUT_MS) });
   const portText = process.env.C3_PORT ?? "4317";
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error("C3_PORT refused");
   const auditRoot = process.env.C3_GENERATION_AUDIT_ROOT;
@@ -252,7 +252,7 @@ async function runVerifierEvaluation(args: readonly string[]): Promise<void> {
   const stop = () => controller.abort();
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
-    const report = await runC3VerifierEvaluation(cases, new CommandC3ModelProvider({command}), audit,
+    const report = await runC3VerifierEvaluation(cases, new CommandC3ModelProvider({command, ...commandC3TimingOptions(process.env.C3_MODEL_TIMEOUT_MS)}), audit,
       {deadline: deadline!, maxCalls: Number(maxCallsText), signal: controller.signal,
         onRow: async row => { await writeFile(resolve(output, `row-${row.recordId}.json`), JSON.stringify(row, null, 2) + '\n', {mode: 0o600, flag: 'wx'}); }});
     await writeFile(resolve(output, 'report.json'), JSON.stringify(report, null, 2) + '\n', {mode: 0o600, flag: 'wx'});

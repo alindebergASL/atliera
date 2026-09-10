@@ -66,6 +66,19 @@ export interface CommandC3ModelProviderOptions {
   readonly environment?: Readonly<Record<string, string>>;
 }
 
+/** Opt-in wrapper envelope; omission preserves the existing offline/default configuration.
+ * The wrapper must budget transport and durable finalization within these bounds.
+ * This configuration neither enables a command nor authorizes a dispatch.
+ */
+export function commandC3TimingOptions(value: string | undefined): Partial<CommandC3ModelProviderOptions> {
+  if (value === undefined) return {};
+  if (!/^[1-9][0-9]{3,5}$/u.test(value) || Number(value) < 1_000 || Number(value) > 300_000) {
+    throw new Error('C3_MODEL_TIMEOUT_MS timeout refused');
+  }
+  return { timeoutMs: Number(value), killGraceMs: 15_000,
+    environment: { C3_COMMAND_TIMEOUT_MS: value, C3_COMMAND_KILL_GRACE_MS: '15000' } };
+}
+
 class CommandCleanupError extends Error { readonly cleanupConfirmed = false; }
 
 export interface C3TransportFailure {

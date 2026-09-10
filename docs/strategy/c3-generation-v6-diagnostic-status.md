@@ -1,6 +1,8 @@
 # C3 generation v6: integrity repair and bounded diagnostic
 
-Status: implementation candidate; fresh-generation quality and successful fresh workflow remain **HOLD**. This is not customer acceptance, graph ratification, launch readiness, or permission for another model call.
+Status: historical pre-continuation checkpoint; fresh-generation quality and successful fresh workflow remained **HOLD** at that closeout. This is not customer acceptance, graph ratification, launch readiness, or permission for another model call.
+
+Later execution and recorded-revision compatibility are recorded separately in [the continuation checkpoint](c3-recorded-revision-availability.md). The results and costs below belong to this historical phase, not a current cumulative ledger.
 
 ## What changed
 

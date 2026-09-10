@@ -13,6 +13,7 @@ import { createRecordOriginReceipt, type RecordOriginReceipt, LocalWorkStore } f
 import { RecordedReplayC3ModelProvider } from '../../src/c3/provider.ts';
 import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract-v6.ts';
 import { scriptedFullCoverage } from './c3-generation-scripted.ts';
+import { canonicalJson } from '../../src/c3/context.ts';
 
 // Authored fresh-operation fixtures: scripted checks exercise custody and Apply, not evidence semantics.
 const syntheticMeetingCandidate: typeof issuedMeetingCandidate = (...args) =>
@@ -314,6 +315,79 @@ test('work-state binds same-session annotations and instruction to CAS without e
 const oldFixture=async(version: 2 | 3 | 4 = 2)=>JSON.parse(await readFile(new URL(version === 2 ? '../fixtures/c3-old-contract.json' : version === 3 ? '../fixtures/c3-v3-contract.json' : '../fixtures/c3-v4-contract.json',import.meta.url),'utf8'));
 const oldReplay=(old:Awaited<ReturnType<typeof oldFixture>>)=>({initialRequest:old.initial.meetingRequest,correctionNote:old.revised.revision.correctionNote,priorRecord:old.initial,revisionRecord:old.revised});
 const oldProvider=(old:Awaited<ReturnType<typeof oldFixture>>)=>new RecordedReplayC3ModelProvider([{request:old.initialRequest,rawResponse:old.initial.rawResponse},{request:old.revisedRequest,rawResponse:old.revised.rawResponse}]);
+
+for (const origin of ['historical-replay', 'unknown'] as const) for (const pending of [false, true]) {
+ test(`upgraded replay refuses another pair's ${origin} initial, pending=${pending}, without generation effects or lost notes`, async () => {
+  const old = await oldFixture(4), root = await mkdtemp(join(tmpdir(), 'c3-replay-availability-'));
+  // Identical meeting inputs and correction still cannot authorize a different full base.
+  const correctionNote = old.revised.revision.correctionNote;
+  const initialModel = createC3ModelRequest(old.context, old.initial.meetingRequest);
+  const priorRecord = createGenerationRecord(initialModel, syntheticMeetingCandidate(old.context), old.context);
+  const revisionModel = createC3ModelRequest(old.context, old.initial.meetingRequest, createC3RevisionContext(priorRecord, correctionNote, 1));
+  const revisionRecord = createGenerationRecord(revisionModel, syntheticMeetingCandidate(old.context, true), old.context);
+  assert.equal(priorRecord.outcome, 'succeeded'); assert.equal(revisionRecord.outcome, 'succeeded');
+  const replay = new RecordedReplayC3ModelProvider([{request:initialModel,rawResponse:priorRecord.rawResponse},{request:revisionModel,rawResponse:revisionRecord.rawResponse}]);
+  let calls = 0;
+  const originReceipt = (record: C3GenerationRecord) => origin === 'historical-replay' && canonicalJson(record) === canonicalJson(old.initial)
+    ? createRecordOriginReceipt(record, 'historical-replay', 'synthetic-old-custody') : undefined;
+  const workStore = {root, principal:'synthetic-operator', originReceipt};
+  const store = new LocalWorkStore(workStore, old.context);
+  const saved = store.save('doc_777777777777777777777777', 0, {
+    record:old.initial, records:[old.initial], correctionNote:'Keep old annotation', sectionNotes:{Opening:'Keep old section note'},
+    instruction:pending ? correctionNote : '', pendingRevision:pending ? createC3RevisionContext(old.initial, correctionNote, 1) : null,
+    pendingRevisionToken:pending ? 'p'.repeat(32) : null, proposal:null, proposalStale:false, workVersion:1,
+  });
+  const file = join(root, (await readdir(root))[0]!), bytes = await readFile(file, 'utf8');
+  const running = await startProductionC3Server({context:old.context, listen:false, workStore,
+    provider:{name:replay.name, executionMode:'local', async generate(model, signal){calls++; return replay.generate(model, signal);}},
+    recordedReplay:{initialRequest:old.initial.meetingRequest, correctionNote, priorRecord, revisionRecord}});
+  try {
+    const b = await browser(running);
+    assert.equal((await b.call('/api/reopen', {documentId:saved.documentId})).status, 200);
+    const before = (await b.call('/api/work-state', {})).json(), status = running.status();
+    assert.equal(before.origin, origin);
+    const page = (await b.call('/?draft=1')).text;
+    assert.match(page, /Revision unavailable\. No recorded response is configured for this exact brief/);
+    assert.match(page, /data-revise disabled/);
+    assert.match(page, /data-revision-panel[^>]*data-generation-available="false"/);
+    assert.doesNotMatch(page, /<pre data-recorded-note>|<button[^>]*data-use-recorded-note/);
+    assert.match(page, origin === 'historical-replay' ? />Historical replay<\/span>/ : /Origin not established/);
+    const refused = await b.call('/api/revise', {recordId:old.initial.recordId, note:correctionNote, priorNote:'Keep old annotation'});
+    assert.equal(refused.status, 409); assert.match(refused.json().error, /no revision staged or provider work started/);
+    if (pending) {
+      const attempt = {...envelope(old.initial.recordId, before.snapshot.pendingRevisionToken), request:old.initial.meetingRequest};
+      for (let retry = 0; retry < 2; retry++) {
+        const refused = await b.call('/api/generate', attempt);
+        assert.equal(refused.status, 409); assert.match(refused.json().error, /no recorded response matches this brief and correction/);
+      }
+    } else {
+      assert.equal((await b.call('/api/generate', {...envelope(old.initial.recordId), request:old.initial.meetingRequest})).json().noChange, true);
+    }
+    assert.deepEqual((await b.call('/api/work-state', {})).json(), before);
+    assert.deepEqual(running.status(), status); assert.equal(calls, 0);
+    assert.equal(await readFile(file, 'utf8'), bytes);
+    assert.equal((await b.call('/api/note', {recordId:old.initial.recordId, note:'Updated old annotation', priorNote:'Keep old annotation'})).status, 200);
+    const after = (await b.call('/api/work-state', {})).json();
+    assert.equal((await b.call('/api/save', {recordId:old.initial.recordId, documentId:saved.documentId, expectedVersion:1, workVersion:after.workVersion})).status, 200);
+    const retained = store.load(saved.documentId);
+    assert.deepEqual(retained.work.record, old.initial); assert.deepEqual(retained.work.records, [old.initial]);
+    assert.equal(retained.work.correctionNote, 'Updated old annotation'); assert.deepEqual(retained.work.sectionNotes, {Opening:'Keep old section note'});
+    assert.deepEqual(retained.metadata?.origins, saved.metadata?.origins); assert.equal(await readFile(file, 'utf8'), bytes);
+    // A new session can still complete the configured v6 pair, with no live/verifier fallback.
+    const fresh = await browser(running);
+    const generated = await fresh.call('/api/generate', {...envelope(), request:priorRecord.meetingRequest});
+    assert.equal(generated.status, 200); assert.equal(generated.json().recordId, priorRecord.recordId);
+    assert.match(generated.json().html, /<pre data-recorded-note>/); assert.doesNotMatch(generated.json().html, /data-revise disabled/);
+    const stage = (await fresh.call('/api/revise', {recordId:priorRecord.recordId, note:correctionNote, priorNote:''})).json();
+    const proposed = await fresh.call('/api/generate', {...envelope(priorRecord.recordId, stage.pendingRevisionToken), request:priorRecord.meetingRequest});
+    assert.equal(proposed.status, 200); assert.equal(proposed.json().proposalId, revisionRecord.recordId);
+    const applied = await fresh.call('/api/apply-revision', {recordId:priorRecord.recordId, proposalId:revisionRecord.recordId, instruction:correctionNote, pendingRevisionToken:stage.pendingRevisionToken});
+    assert.equal(applied.status, 200); assert.match(applied.json().html, /No further recorded response is available/);
+    assert.match(applied.json().html, /data-revise disabled/); assert.match(applied.json().html, /data-revision-panel[^>]*data-generation-available="false"/);
+    assert.equal(calls, 2);
+  } finally { await running.close(); await rm(root, {recursive:true, force:true}); }
+ });
+}
 for (const version of [2, 3, 4] as const) test(`exact v${version} recorded service initial→revision→Apply→note→Save→restart→new browser keeps old identities`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-service-'));
  const options={context:old.context,provider:oldProvider(old),recordedReplay:oldReplay(old),listen:false,workStore:{root,principal:'synthetic-operator'},now:()=>new Date('2026-09-09T10:00:00Z')};

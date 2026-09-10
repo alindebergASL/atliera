@@ -6,7 +6,7 @@ import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 const request = { audience: 'Original audience', intendedOutcome: 'Original outcome', durationMinutes: 15, meetingDate: '2026-09-12' };
 const priorId='c3_'+'1'.repeat(24),nextId='c3_'+'2'.repeat(24);
 class Element {
- value='';textContent='';disabled=false;hidden=false; childNodes:any[]=[];
+ value='';textContent='';disabled=false;readOnly=false;hidden=false; childNodes:any[]=[];
  attrs:Record<string,string>={};listeners=new Map<string,(event:any)=>any>();
  addEventListener(name:string,fn:(event:any)=>any){const prior=this.listeners.get(name);this.listeners.set(name,prior?(event:any)=>{prior(event);return fn(event);}:fn);}
  getAttribute(name:string){return this.attrs[name]??null;}
@@ -37,7 +37,7 @@ function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: 
  const events=new Map<string,((event:any)=>void)[]>();
  const calls:{url:string;body:any}[]=[];
  const dialog=new Element(),evidenceBody=new Element(),evidenceSupport=new Element(),inspectorTitle=new Element(),returnRevision=new Element(),original=new Element(),originalHeading=new Element();
- const selectQuestions=new Element(),evidenceLink=new Element(),evidence=new Element(),evidenceContent=new Element(),useRecorded=new Element(),recordedNote=new Element();
+ const selectQuestions=new Element(),evidenceLink=new Element(),evidence=new Element(),evidenceContent=new Element(),useRecorded=new Element(),recordedNote=new Element(),replayHelp=new Element();
  if(options.inspector){
   panel.attrs['data-original-sections']=JSON.stringify({Opening:'Original opening',Questions:'Original questions'});
   panel.hidden=true;original.textContent='Original opening';originalHeading.textContent='Original opening';
@@ -47,28 +47,74 @@ function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: 
   Object.assign(evidenceLink,{closest:(s:string)=>s==='a[data-evidence-link], a[data-research-link]'?evidenceLink:null});evidenceLink.attrs={href:'#evidence-1','data-context':'Questions'};
   evidenceContent.textContent='Exact retained evidence';Object.assign(evidenceContent,{cloneNode:()=>evidenceContent});
   Object.assign(evidence,{querySelector:(s:string)=>s==='[data-evidence-content]'?evidenceContent:null});
-  recordedNote.textContent='Improve opening';
-  Object.assign(selectors,{'[data-evidence-dialog]':dialog,'[data-revision-original]':original,'[data-original-heading]':originalHeading,'#evidence-1':evidence,'[data-use-recorded-note]':useRecorded,'[data-recorded-note]':recordedNote});
+  recordedNote.textContent='Improve opening';replayHelp.textContent='Historical replay · only the fixed recorded instruction below has a response.';
+  Object.assign(selectors,{'[data-evidence-dialog]':dialog,'[data-revision-original]':original,'[data-original-heading]':originalHeading,'#evidence-1':evidence,'[data-use-recorded-note]':useRecorded,'[data-recorded-note]':recordedNote,'#replay-instruction-help':replayHelp});
  }
  const clickEntry=(target:Element)=>{const event={target,button:0,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};for(const fn of events.get('click')??[])fn(event);};
  let active:any=null;const notes=new Element();Object.assign(notes,{open:false});const addNote=new Element();selectors['#review']=notes;selectors['[data-add-note]']=addNote;Object.assign(note,{focus:()=>{active=note;}});
  const document={querySelector:(s:string)=>selectors[s]??null,querySelectorAll:(s:string)=>s==='[data-generated-region]'?[region]:s==='[data-local-edit]'&&options.section!==undefined?[sectionForm]:[],addEventListener(name:string,fn:(event:any)=>void){events.set(name,[...(events.get(name)??[]),fn]);},createElement:()=>new Element()};
  class Parser {parseFromString(html:string){
   const forms=Array.from(html.matchAll(/<form\b([^>]*)>/g),([,attrs])=>{const f=new Element();for(const [,name,value]of attrs!.matchAll(/(data-[\w-]+)(?:="([^"]*)")?/g))f.attrs[name!]=value??'';return f;});
-  const nextPanel=new Element(),nextOriginal=new Element();
+  const nextPanel=new Element(),nextOriginal=new Element(),nextHelp=new Element(),nextInstruction=new Element(),nextRecorded=new Element();
+  const availability=html.match(/data-generation-available="([^"]*)"/)?.[1];
+  if(availability!==undefined)nextPanel.attrs['data-generation-available']=availability;
+  nextHelp.textContent=html.match(/<p id="replay-instruction-help">([^<]*)<\/p>/)?.[1]??'';
+  const instructionAttrs=html.match(/<textarea data-revision-instruction([^>]*)>/)?.[1];
+  nextInstruction.readOnly=/\breadonly\b/.test(instructionAttrs??'');
+  const recordedAttrs=html.match(/<button data-use-recorded-note([^>]*)>/)?.[1];
+  nextRecorded.disabled=/\bdisabled\b/.test(recordedAttrs??'');
   const sections=html.match(/data-original-sections="([^"]*)"/)?.[1];
   if(sections!==undefined)nextPanel.attrs['data-original-sections']=sections.replaceAll('&quot;','"').replaceAll('&amp;','&');
   nextOriginal.textContent=html.match(/<p data-revision-original>([^<]*)<\/p>/)?.[1]??'';
-  return {querySelector:(s:string)=>s==='[data-note-form]'?forms.find(f=>f.getAttribute('data-note-form')!==null)??null:s==='[data-revision-panel]'&&sections!==undefined?nextPanel:s==='[data-revision-original]'&&sections!==undefined?nextOriginal:s.startsWith('[data-generated-region=')&&html.includes('data-generated-region')?{childNodes:['Revised brief']}:null,querySelectorAll:()=>forms.filter(f=>f.getAttribute('data-local-edit')!==null)};
+  return {querySelector:(s:string)=>s==='[data-note-form]'?forms.find(f=>f.getAttribute('data-note-form')!==null)??null:s==='[data-revision-panel]'&&(sections!==undefined||availability!==undefined)?nextPanel:s==='#replay-instruction-help'&&html.includes('id="replay-instruction-help"')?nextHelp:s==='[data-revision-instruction]'&&instructionAttrs!==undefined?nextInstruction:s==='[data-use-recorded-note]'&&recordedAttrs!==undefined?nextRecorded:s==='[data-revision-original]'&&sections!==undefined?nextOriginal:s.startsWith('[data-generated-region=')&&html.includes('data-generated-region')?{childNodes:['Revised brief']}:null,querySelectorAll:()=>forms.filter(f=>f.getAttribute('data-local-edit')!==null)};
  }}
  vm.runInNewContext(C3_CLIENT_SCRIPT,{document,window:{crypto:webcrypto,addEventListener(){},sessionStorage:{getItem:(key:string)=>cache.get(key),setItem:(key:string,value:string)=>cache.set(key,value),removeItem:(key:string)=>cache.delete(key)}},DOMParser:Parser,fetch:async(url:string,init:any)=>{const body=JSON.parse(init.body);calls.push({url,body});const payload=url==='/api/revision-instruction'?{instruction:body.instruction}:await fetcher(url,body);return {ok:true,json:async()=>payload};},Error,JSON,Number,String});
- return {useRecorded,panel,original,originalHeading,inspectorTitle,evidenceBody,returnRevision,selectQuestions:()=>clickEntry(selectQuestions),openEvidence:()=>clickEntry(evidenceLink),notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,savedTimestamp,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
+ return {useRecorded,replayHelp,panel,original,originalHeading,inspectorTitle,evidenceBody,returnRevision,selectQuestions:()=>clickEntry(selectQuestions),openEvidence:()=>clickEntry(evidenceLink),notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,savedTimestamp,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
 }
 const snapshot=()=>({correctionNote:'Separate annotation',sectionNotes:{},instruction:'Improve opening',pendingRevisionToken:null,proposalId:null,proposalStale:false});
 const staged=(body:any)=>({revisionReady:true,recordId:body.recordId,request,savedNote:'Separate annotation',instruction:body.note,pendingRevisionToken:'a'.repeat(32)});
 const proposed=(body:any)=>({outcome:'succeeded',operation:body,proposalReady:true,proposalId:nextId,recordId:priorId,instruction:'Improve opening',stale:false,proposal:{opening:{text:'Revised opening'}},original:{opening:{text:'Original opening'}}});
 const returnedHtml=(recordId=nextId,sectionId=recordId)=>`<section data-generated-region="opening">Revised brief</section><form data-note-form data-record-id="${recordId}"></form><form data-local-edit data-section="Opening" data-record-id="${sectionId}"></form>`;
 const success=()=>({applied:true,outcome:'succeeded',recordId:nextId,savedNote:'Separate annotation',sectionNotes:{},changedSections:['Opening'],html:returnedHtml()});
+test('per-record unavailable revision remains disabled when the sheet opens and controls refresh', () => {
+ const ui=client(async()=>assert.fail('Opening unavailable revision must not request generation'),{inspector:true});
+ ui.panel.setAttribute('data-generation-available','false');
+ ui.selectQuestions();assert.equal(ui.revise.disabled,true);
+ ui.instruction.input();assert.equal(ui.revise.disabled,true);
+ ui.typeNote('Another annotation');assert.equal(ui.revise.disabled,true);
+ assert.equal(ui.instruction.value,'Improve opening','nonempty retained instructions do not enable revision');
+ assert.equal(ui.calls.length,0);
+});
+
+test('disabled recorded instruction invocation does not mutate typing or POST an instruction',async()=>{
+ const ui=client(async()=>assert.fail('Disabled recorded selector must not request anything'),{inspector:true});
+ ui.instruction.value='Local typed draft';ui.instruction.input();await new Promise(resolve=>setImmediate(resolve));
+ const before=ui.calls.length;ui.useRecorded.disabled=true;
+ await ui.useRecorded.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(ui.calls.length,before);assert.equal(ui.instruction.value,'Local typed draft');
+});
+for(const replay of [true,false])test(`Apply synchronizes server revision controls and preserves local work (${replay?'recorded':'live'})`,async()=>{
+ const help='Server-owned availability explanation after Apply';
+ let finish!:(payload:any)=>void;
+ const ui=client(async(url,body)=>url==='/api/revise'?staged(body):url==='/api/generate'?proposed(body):new Promise(resolve=>{finish=resolve;}),{inspector:true,section:'Retained section note'});
+ const panel=ui.panel,instruction=ui.instruction,button=ui.useRecorded;
+ ui.selectQuestions();await ui.revise.click();
+ const applying=ui.apply.click();await new Promise(resolve=>setImmediate(resolve));
+ ui.instruction.value='Newer local instruction';ui.note.value='Newer local note';ui.section.value='Newer section draft';
+ finish({...success(),sectionNotes:{Opening:'Retained section note'},html:returnedHtml()+`<div data-revision-panel data-generation-available="${!replay}" data-original-sections="{&quot;Questions&quot;:&quot;Applied questions&quot;}"><p id="replay-instruction-help">${help}</p><textarea data-revision-instruction${replay?' readonly':''}></textarea>${replay?'':'<button data-use-recorded-note></button>'}</div>`});
+ await applying;
+ assert.match(ui.status.textContent,/Revision applied/);
+ assert.equal(ui.panel.getAttribute('data-generation-available'),String(!replay));
+ assert.equal(ui.replayHelp.textContent,help);assert.equal(ui.useRecorded.disabled,replay);assert.equal(ui.instruction.readOnly,replay);
+ assert.equal(ui.instruction.value,'Newer local instruction');assert.equal(ui.note.value,'Newer local note');assert.equal(ui.section.value,'Newer section draft');
+ assert.equal(ui.panel,panel);assert.equal(ui.instruction,instruction);assert.equal(ui.useRecorded,button);
+ assert.equal(ui.inspectorTitle.textContent,'Revise questions');assert.equal(ui.original.textContent,'Applied questions');
+ ui.instruction.input();await new Promise(resolve=>setImmediate(resolve));assert.equal(ui.revise.disabled,replay);assert.equal(ui.replayHelp.textContent,help);
+ if(replay){
+  const before=ui.calls.length;await ui.useRecorded.click();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.calls.length,before,'disabled invocation must not POST an instruction');assert.equal(ui.instruction.value,'Newer local instruction');
+ }
+});
 test('selected Questions → revision → Apply → Evidence → Return to revision preserves the heading and applied questions',async()=>{
  const appliedQuestions='Applied question one?\nLearning one\n\nApplied question two?\nLearning two';
  const sections=JSON.stringify({Opening:'Applied opening',Questions:appliedQuestions});

@@ -157,7 +157,19 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
       reviewForm.setAttribute('data-record-id',result.recordId);reviewForm.setAttribute('data-revised','true');
       pendingRevisionToken=null;proposalId=null;proposalStale=false;proposalNoteSnapshot=null;syncedInstruction='';
       if(instruction.value===submitted)instruction.value='';else await syncInstruction();
-      const nextSections = parsed.querySelector('[data-revision-panel]')?.getAttribute('data-original-sections'); if(nextSections) revisionPanel.setAttribute('data-original-sections',nextSections);
+      const nextPanel = parsed.querySelector('[data-revision-panel]');
+      const nextSections = nextPanel?.getAttribute('data-original-sections'); if(nextSections) revisionPanel.setAttribute('data-original-sections',nextSections);
+      // Adopt server availability without replacing handler-bound controls or local drafts.
+      const nextAvailability = nextPanel?.getAttribute('data-generation-available');
+      if(nextAvailability !== null && nextAvailability !== undefined) revisionPanel.setAttribute('data-generation-available',nextAvailability);
+      const replayHelp = document.querySelector('#replay-instruction-help');
+      const nextReplayHelp = parsed.querySelector('#replay-instruction-help');
+      if(replayHelp && nextReplayHelp) replayHelp.textContent = nextReplayHelp.textContent;
+      const recordedButton = document.querySelector('[data-use-recorded-note]');
+      const nextRecordedButton = parsed.querySelector('[data-use-recorded-note]');
+      if(recordedButton && nextPanel) recordedButton.disabled = !nextRecordedButton || nextRecordedButton.disabled || nextAvailability !== 'true';
+      const nextInstruction = parsed.querySelector('[data-revision-instruction]');
+      if(instruction && nextInstruction) instruction.readOnly = nextInstruction.readOnly;
       refreshRevisionOriginal();
       document.querySelector('[data-proposal-comparison]').hidden=true;
       revisionStatus.textContent='Revision applied. Notes kept. Save to retain this version.';markWorkDirty();
@@ -177,7 +189,8 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     }catch(error){revisionStatus.textContent=error.message;}
     finally{reviewBusy=false;controls();}
   });
-  document.querySelector('[data-use-recorded-note]')?.addEventListener('click',()=>{
+  document.querySelector('[data-use-recorded-note]')?.addEventListener('click',(event)=>{
+    if(event.currentTarget.disabled || revisionPanel?.getAttribute('data-generation-available') !== 'true')return;
     const exact=document.querySelector('[data-recorded-note]');if(instruction && exact && !reviewBusy){if(pendingRevisionToken && instruction.value !== (exact.textContent || ''))proposalStale=true;instruction.value=exact.textContent || '';revisionStatus.textContent='Fixed instruction selected. This preview uses its existing response.';markWorkDirty();syncInstruction().catch(error=>{revisionStatus.textContent=error.message;});openRevisionSheet(revisionSection, true);}
   });
   const flushGeneralNote = async () => {

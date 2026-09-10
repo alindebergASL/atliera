@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-command-deadlines-20260910",
+    "recordId": "c3-recorded-revision-availability-20260910",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build optional bounded C3 command-deadline configuration under existing standing development authority; preserve disabled defaults and separate product-effect admission.",
-    "scope": "Add opt-in C3_MODEL_TIMEOUT_MS configuration for the two existing command-backed CLI entry points, forward only derived non-secret timing values, document nested transport/finalization/cleanup deadlines, and add configuration and actual-child regressions. No command, provider dispatch, route change, retry, spending authorization, production write, deployment or user acceptance is enabled by this code-only change.",
+    "decision": "Preserve exact recorded revision availability under existing standing development authority, without enabling fresh generation or deployment.",
+    "scope": "Match recorded replay revisions to the exact configured initial and correction before staging and restored pending generation; preserve historical records, notes and response bytes; update existing revision controls and help after explicit Apply without losing local drafts; add regressions and truthful status documentation. No provider call, route change, paid retry, migration, new durable authority, owner-store mutation, deployment or customer acceptance is enabled by this source-only repair.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-10T02:48:41.955Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/pull/340",
-    "proposalDigest": "sha256:74e58224bb1fe2ae617749efbace011eb3f00c0898cc8d97a08fc346f76589f7"
+    "proposedAt": "2026-09-10T04:47:58.918Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/pull/341",
+    "proposalDigest": "sha256:f0efbcb3c5e7d537f960189f78df640f4a9c10135ed2f7bd58f8aaa68aea7610"
   }
 }

@@ -197,6 +197,15 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     return exact ? createRecordOriginReceipt(record,options.syntheticPreview ? 'synthetic' : 'historical-replay',`replay:${record.recordId}`) : undefined;
   };
   const origin = (record:C3GenerationRecord|undefined):WorkOrigin => record ? originReceipt(record)?.origin ?? 'unknown' : 'unknown';
+  const revisionUnavailableReason = (record: C3GenerationRecord): string | undefined => {
+    if (options.recordedReplay === undefined) return undefined;
+    // Historical custody does not imply that this configured pair can revise the record.
+    if (admitted[0] && canonicalJson(record) === canonicalJson(admitted[0])) return undefined;
+    if (admitted[1] && canonicalJson(record) === canonicalJson(admitted[1])) return options.syntheticPreview
+      ? 'Synthetic example · this is the authored revision. No further example response is available.'
+      : 'Historical replay · this is the recorded revision. No further recorded response is available.';
+    return 'Revision unavailable. No recorded response is configured for this exact brief. You can still add notes.';
+  };
   const store = options.workStore ? new LocalWorkStore({...options.workStore, originReceipt, now:options.now ?? options.workStore.now}, options.context) : undefined;
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
@@ -219,7 +228,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const state = { ...inputState, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
-  const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
+  const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
     options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
       initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
   let expectedHost = "";
@@ -493,8 +502,8 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           "Correction unchanged from the one already used for this draft. No revision requested; draft and note kept." }); return;
       }
       if (isCuratedContext(options.context) || (options.recordedReplay !== undefined &&
-          (action.note !== options.recordedReplay.correctionNote || prior.revision !== null))) {
-        json(res, 409, { error: "Local exact replay only: this correction has no recorded response. Previous brief and saved note kept; no revision staged or provider work started." }); return;
+          (revisionUnavailableReason(prior) !== undefined || action.note !== options.recordedReplay.correctionNote || prior.revision !== null))) {
+        json(res, 409, { error: "Local exact replay only: this brief and correction have no recorded response. Previous brief and saved note kept; no revision staged or provider work started." }); return;
       }
       const revisionNumber = (prior.revision?.revisionNumber ?? 0) + 1;
       let revision: C3RevisionContext;
@@ -534,6 +543,11 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
     if (session.pendingRevision !== null && session.record !== undefined && !sameMeetingRequest(session.record.meetingRequest, request)) {
       json(res, 409, { error: "Revision must use the unchanged original meeting setup.", operation, outcome: "refused" }); return;
+    }
+    if (options.recordedReplay !== undefined && session.pendingRevision !== null &&
+        (!session.record || revisionUnavailableReason(session.record) !== undefined ||
+         !admitted[1] || canonicalJson(session.pendingRevision) !== canonicalJson(admitted[1].revision))) {
+      json(res, 409, { error: "Local exact replay only: no recorded response matches this brief and correction. Previous brief and saved note kept; no provider work started." }); return;
     }
     session.operations.add(operation.operationId);
     // Reopening is an exact comparison against the current successful record, never a replay fallback.

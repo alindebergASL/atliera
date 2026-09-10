@@ -1,4 +1,5 @@
 import { WORKING_DOCUMENT_CLIENT_SCRIPT } from './work-client.ts';
+import { GENERATION_PROGRESS_CLIENT_SCRIPT } from './generation-progress-client.ts';
 import { WORKSPACE_CSS } from "./workspace-style.ts";
 import { researchUrl, type ResearchTopic, type WorkspaceDestination } from "./workspace-route.ts";
 import { createHash } from "node:crypto";
@@ -10,7 +11,7 @@ import { PLANNING_CLIENT_SCRIPT } from "./planning-client.ts";
 import { accountGaps, businessGapLabel, briefContext, accountIntelSections, planningPage, sectionNoteEditor, workshopKinds } from "./planning-render.ts";
 import type { PlanningBrief, SectionNotes } from "./planning.ts";
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
-import type { C3GenerationRecord, C3MeetingFormState, C3SupportedText } from "./draft.ts";
+import type { C3GenerationRecord, C3MeetingFormState, C3SupportedText } from "./generation-contract.ts";
 
 export type WorkOrigin = 'live' | 'historical-replay' | 'synthetic' | 'unknown';
 export interface WorkDisplayState {
@@ -298,6 +299,7 @@ const SCRIPT = `
   if (typeof window !== 'undefined') window.addEventListener('hashchange', revealEvidence);
   revealEvidence();
 ${ACCOUNT_READING_CLIENT_SCRIPT}
+${GENERATION_PROGRESS_CLIENT_SCRIPT}
   const briefContext = document.querySelector('.brief-context');
   if (briefContext && typeof window.matchMedia === 'function') briefContext.open = window.matchMedia('(min-width: 701px)').matches;
   const form = document.querySelector('[data-generate]');
@@ -389,8 +391,10 @@ ${ACCOUNT_READING_CLIENT_SCRIPT}
       controller = new AbortController();
       if (button) button.disabled = true;
       if (status) status.textContent = recordedReplay ? 'Replaying the exact recorded response locally…' : 'Preparing a proposed draft…';
+      const ownedOperation = operationRequest();
+      const stopObserving = observeGeneration(ownedOperation, status, () => token === requestToken && controller !== null, ' Your inputs are kept.');
       try {
-        const payload = await requestJson('/api/generate', operationRequest(), controller.signal);
+        const payload = await requestJson('/api/generate', ownedOperation, controller.signal);
         if (token === requestToken && payload.outcome === 'succeeded') {
           if (payload.location === '/?draft=1' && !clearCachedForm() && cacheMayContainStale) {
             ready('Draft prepared, but superseded reload recovery could not be cleared. Do not reload this form; open the session draft from Account Home after browser storage is available.');
@@ -401,6 +405,7 @@ ${ACCOUNT_READING_CLIENT_SCRIPT}
       } catch (error) {
         if (token === requestToken && error?.name !== 'AbortError') { ready('The brief could not be prepared. Your inputs are kept.'); showFailure(status, error, 'The brief could not be prepared. Your inputs are kept.'); }
       } finally {
+        stopObserving();
         if (token === requestToken) { controller = null; if (button) button.disabled = generationUnavailable; }
       }
     });
@@ -589,7 +594,7 @@ function workshop(state: Extract<C3PageState, { page: "workshop" }>): string {
     const opener = currentVersion && work?.saved ? `<a class="saved-title" href="/?draft=1">${esc(title)}</a>` : `<button type="button" class="saved-title" data-reopen-work="${esc(item.documentId)}" data-replaces-unsaved="${Boolean(state.hasDraft && !work?.saved)}" data-work-version="${work?.workVersion ?? 0}">${esc(title)}</button>`;
     return `<article class="workshop-item"${current ? ' data-current-work="true"' : ''}><div><h3>${opener}</h3>${item.intendedOutcome && item.intendedOutcome !== title ? `<p class="work-preview">${esc(item.intendedOutcome)}</p>` : ''}<p class="saved-metadata">${esc(item.audience)}${item.meetingDate ? ` · Meeting ${esc(humanDate(item.meetingDate))}` : ''}</p><p class="meta">${originLabel(item.origin)} · Version ${item.version}${savedTime(item.savedAt) ? ` · Last saved ${savedTime(item.savedAt)}` : ''}${current ? ` · ${!currentVersion ? `Current session is based on saved version ${work?.version}` : work?.saved ? 'Current brief' : 'Current session has unsaved changes'}` : ''}</p></div><details class="saved-record-details"><summary>Brief details</summary><p class="meta">Record ${esc(item.documentId.slice(-8))}</p><p class="meta">Open the brief, then Document details to edit its title.</p></details></article>`;
   }).join('');
-  return `<main id="main" class="workshop-workspace" tabindex="-1"><div class="section-heading"><div><h1>Workshop</h1><p class="lede">Prepare, refine and return to your work.</p></div><a class="button" href="/?prepare=1">Prepare brief</a></div>${state.generation && !state.generation.available ? `<details class="generation-availability"><summary>Generation unavailable</summary><p class="meta">${esc(state.generation.explanation)}</p></details>` : ''}<div class="workshop-groups">${continueWork ? `<section class="workshop-list current-work"><h2>Continue working</h2><article class="workshop-item"><h3>${esc(displayWorkTitle(work?.title, work?.title || 'Meeting brief'))}</h3><p>${currentSaved ? 'Unsaved changes to the saved brief below.' : work?.saved ? `Current session shows saved version ${work.version}.` : 'Current session brief · unsaved changes.'}${state.revisionPending ? ' Revision pending.' : ''}</p><a class="quiet-link" href="/?draft=1">Reopen session draft →</a></article></section>` : ''}${work?.available ? `<section class="workshop-list"><h2>Saved briefs</h2><p data-work-list-status role="status">${work.storageError ? 'Saved briefs could not be loaded. Current work is kept.' : ''}</p>${errorDiagnostics(work.storageError)}${rows || (work.storageError ? '' : '<p>No saved briefs for this account.</p>')}</section>` : ''}${!state.hasDraft ? '<p class="workshop-empty">No meeting brief yet. Start with the audience and outcome, or use an editable worksheet below.</p>' : ''}${edited.map(brief => `<article class="workshop-item"><h3>${brief.kind === 'strategy' ? 'Strategy' : 'Next steps'} worksheet</h3><p>${esc(brief.audience || 'Audience not set')} · Session version ${brief.version}</p><a class="quiet-link" href="/?kind=${brief.kind}">Open worksheet →</a></article>`).join('')}</div><section class="account-section"><h2>Planning worksheets</h2><p class="meta">Editable templates · not AI-generated.</p><nav class="journey-nav" aria-label="Planning worksheets"><a href="/?kind=strategy">Strategy worksheet →</a><a href="/?kind=next-steps">Next-steps worksheet →</a></nav></section></main>`;
+  return `<main id="main" class="workshop-workspace" tabindex="-1"><div class="section-heading"><div><h1>Workshop</h1><p class="lede">Prepare, refine and return to your work.</p></div><a class="button" href="/?prepare=1">Prepare brief</a></div>${state.generation && !state.generation.available ? `<details class="generation-availability"><summary>Generation unavailable</summary><p class="meta">${esc(state.generation.explanation)}</p></details>` : ''}<div class="workshop-groups">${continueWork ? `<section class="workshop-list current-work"><h2>Continue working</h2><article class="workshop-item"><h3>${esc(displayWorkTitle(work?.title, work?.title || 'Meeting brief'))}</h3><p>${currentSaved ? 'Unsaved changes to the saved brief below.' : work?.saved ? `Current session shows saved version ${work.version}.` : 'Current session brief · unsaved changes.'}${state.revisionPending ? ' Revision pending.' : ''}</p><a class="quiet-link" href="/?draft=1">Reopen session draft →</a></article></section>` : ''}${work?.available ? `<section class="workshop-list"><h2>Saved briefs</h2><p data-work-list-status role="status">${work.storageError ? (work.savedWorks.length ? 'Some saved briefs are unavailable. Other saved briefs remain listed; current work is kept.' : 'Saved briefs could not be loaded. Current work is kept.') : ''}</p>${errorDiagnostics(work.storageError)}${rows || (work.storageError ? '' : '<p>No saved briefs for this account.</p>')}</section>` : ''}${!state.hasDraft ? '<p class="workshop-empty">No meeting brief yet. Start with the audience and outcome, or use an editable worksheet below.</p>' : ''}${edited.map(brief => `<article class="workshop-item"><h3>${brief.kind === 'strategy' ? 'Strategy' : 'Next steps'} worksheet</h3><p>${esc(brief.audience || 'Audience not set')} · Session version ${brief.version}</p><a class="quiet-link" href="/?kind=${brief.kind}">Open worksheet →</a></article>`).join('')}</div><section class="account-section"><h2>Planning worksheets</h2><p class="meta">Editable templates · not AI-generated.</p><nav class="journey-nav" aria-label="Planning worksheets"><a href="/?kind=strategy">Strategy worksheet →</a><a href="/?kind=next-steps">Next-steps worksheet →</a></nav></section></main>`;
 }
 
 function sameMeetingRequest(left: C3MeetingFormState, right: C3MeetingFormState): boolean {
@@ -621,12 +626,27 @@ function citationId(contextName: string, number: number): string {
   return `cite-${contextName.toLowerCase().replace(/[^a-z0-9]+/gu, "-")}-${String(number)}`;
 }
 
+/** Navigation label only: source identity and full title stay in the inspector. */
+export function conciseSourceLabel(title: string): string {
+  const firstClause = title.split(/\s+[|–—]\s+|\s+-\s+/u)[0] ?? title;
+  const words = firstClause.trim().split(/\s+/u);
+  // Keep distinguishing nouns; do not manufacture a summary from excerpt content.
+  const compact = words.filter(word => !/^(?:the|a|an|of|and|for|statewide|operating)$/iu.test(word));
+  return (compact.length ? compact : words).slice(0, 6).join(' ');
+}
+
+function sourceTiming(source: EvidenceDisplay['source']): string {
+  const dated = source.evidenceCurrentThrough ?? source.eventDate ?? source.publicationDate;
+  const label = source.evidenceCurrentThrough ? 'Current through' : source.eventDate ? 'Event' : 'Published';
+  return `<p class="meta source-timing">${esc(source.publisher)} · ${dated ? `${label} ${esc(humanDate(dated))}` : 'Date not established'}</p><p class="meta timing-caution">${dated ? 'Source timing does not establish meeting-day status. Confirm before relying on it.' : 'Undated source — confirm timing before the meeting.'}</p><details class="source-metadata"><summary>Source details</summary><p class="meta">Published ${esc(humanDate(source.publicationDate))} · Event ${esc(humanDate(source.eventDate))} · Current through ${esc(humanDate(source.evidenceCurrentThrough))}</p><p class="meta">Acquired ${esc(source.retrievedAt)}. Acquisition is not publication or currentness.</p><p class="meta">Source: ${esc(source.sourceId)}</p></details>`;
+}
+
 function evidenceLinks(refs: readonly string[], numberById: ReadonlyMap<string, number>,
   sourceByEvidence: ReadonlyMap<string, EvidenceDisplay>, contextName: string, statement?: C3SupportedText): string {
   if (refs.length === 0) return "No evidence asserted";
   return refs.map((id) => { const number = numberById.get(id) ?? 0; const source = sourceByEvidence.get(id);
-    const dated = source?.source.evidenceCurrentThrough ?? source?.source.eventDate ?? source?.source.publicationDate;
-    return `<a class="source-chip" id="${citationId(contextName, number)}" data-evidence-link data-context="${esc(contextName)}" data-support="${statement?.supportCategory === "direct_support" && statement.text === source?.excerpt.exactExcerpt ? "Direct supporting evidence" : "Related evidence context"}" href="#evidence-${String(number)}" aria-label="${esc(`${contextName} evidence ${String(number)}: ${source?.source.title ?? "source"}${source ? ` · ${source.source.publisher}` : ""}`)}">${uiIcon("source")}<span class="source-chip-label" title="${esc(source?.source.title ?? "Source")}">${esc(source?.source.title ?? "Source")}</span><span class="source-chip-number">${String(number)}</span></a>`; }).join(" ");
+
+    return `<a class="source-chip" id="${citationId(contextName, number)}" data-evidence-link data-context="${esc(contextName)}" data-support="${statement?.supportCategory === "direct_support" && statement.text === source?.excerpt.exactExcerpt ? "Direct supporting evidence" : "Related evidence context"}" href="#evidence-${String(number)}" aria-label="${esc(`${contextName} evidence ${String(number)}: ${source?.source.title ?? "source"}${source ? ` · ${source.source.publisher}` : ""}`)}">${uiIcon("source")}<span class="source-chip-label" title="${esc(source?.source.title ?? "Source")}">${esc(conciseSourceLabel(source?.source.title ?? "Source"))}</span><span class="source-chip-number">${String(number)}</span></a>`; }).join(" ");
 }
 
 function contextChecks(context: FrozenC3AccountContext): string {
@@ -645,7 +665,7 @@ function draftPage(context: FrozenC3AccountContext, record: C3GenerationRecord, 
     return `<blockquote class="direct-source">${esc(item.text)}</blockquote><p class="source-attribution">${esc(exact.source.title)} · ${esc(exact.source.publisher)}</p>`;
   };
   const support = (title: string, item: C3SupportedText) => `<div class="brief-support">${item.evidenceRefs.length ? `<p class="support">${evidenceLinks(item.evidenceRefs, numberById, sourceByEvidence, title, item)}</p>` : ''}<details class="support-details"><summary>Support details<span class="sr-only"> for ${esc(title)}</span></summary><p class="meta">${esc(supportLabel(item))}${item.evidenceRefs.length ? '. References on an inference or recommendation provide context, not direct proof.' : ' · No evidence asserted'}</p></details></div>`;
-  const editing = (title: string) => `<div class="section-editing">${sectionNoteEditor(title, record.recordId, sectionNotes, false, state?.work?.available ?? false)}<button type="button" class="text-control" data-refine-section="${esc(title)}" aria-label="Revise ${esc(title)}">Revise</button></div>`;
+  const editing = (title: string) => `<details class="section-actions"${sectionNotes[title] ? ' open' : ''}><summary>Edit section<span class="sr-only">: ${esc(title)}</span></summary><div class="section-editing">${sectionNoteEditor(title, record.recordId, sectionNotes, false, state?.work?.available ?? false)}<button type="button" class="quiet-button" data-refine-section="${esc(title)}" aria-label="Revise ${esc(title)}">Revise section</button></div></details>`;
   const supported = (title: string, item: C3SupportedText, heading = title) => `<section class="draft-section"><div data-generated-region="${esc(title)}"><h2>${esc(heading)}</h2>${body(item)}${support(title, item)}</div>${editing(title)}</section>`;
   const initialWarning = recordedCorrection !== undefined && record.revision === null ? (syntheticPreview
     ? '<p class="meta brief-qualification">Authored initial example — before the example revision. Not model output.</p>'
@@ -663,7 +683,7 @@ function draftPage(context: FrozenC3AccountContext, record: C3GenerationRecord, 
     const prefix = text.slice(0, at);
     return `${prefix.length === 0 ? "" : `<p class="learning">${esc(prefix)}</p>`}<details class="optional-probe"><summary>Optional probe — only if relevant</summary><p>${esc(text.slice(at))}</p></details>`;
   };
-  const sourceDetail = (source: EvidenceDisplay["source"]) => `<p class="meta">${esc(source.publisher)} · ${esc(source.publicationDate ? humanDate(source.publicationDate) : "Undated")} · Event ${esc(humanDate(source.eventDate))} · Current through ${esc(humanDate(source.evidenceCurrentThrough))}</p><p class="meta">${source.publicationDate === null && source.eventDate === null && source.evidenceCurrentThrough === null ? "Undated source — recheck before meeting." : "Dated evidence does not establish current meeting-day status; recheck before relying on it."}</p><p class="meta"><a href="${esc(source.canonicalUrl)}" target="_blank" rel="noreferrer">Open source (new tab)</a></p>`;
+  const sourceDetail = (source: EvidenceDisplay["source"]) => `${sourceTiming(source)}<p class="meta"><a href="${esc(source.canonicalUrl)}" target="_blank" rel="noreferrer">Open source (new tab)</a></p>`;
   const retained = (_source: EvidenceDisplay["source"]) => `<a class="quiet-link" href="${esc(researchUrl('sources'))}">Full source context in Research →</a>`;
   const selectedSources = new Set(draft.selectedEvidenceRefs.map((id) => sourceByEvidence.get(id)!.source.sourceId));
   const otherSources = context.context.admittedSources.filter((source) => !selectedSources.has(source.sourceId));

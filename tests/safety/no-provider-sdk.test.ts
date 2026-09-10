@@ -131,6 +131,8 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
 it('composed browser inventory rejects new, dynamic, external and implicit save targets', () => {
   for (const changed of [
     C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('/api/unexpected'"),
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/generation-status'", "requestJson('/api/unexpected-progress'"),
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/generation-status'", "requestJson('https://example.invalid/status'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('https://example.invalid/note'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", 'requestJson(window.location.href'),
     C3_CLIENT_SCRIPT.replace("copy?'/api/save-copy':'/api/save'", "copy?'/api/save':'/api/save-copy'"),

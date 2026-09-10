@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { createGenerationRecord, type C3GenerationRecord, type C3ModelRequest } from "./draft.ts";
-import { createC3VerificationRequest, retainC3Verification, type C3VerificationRequest, type C3Verification } from "./generation-contract-v6.ts";
+import { createGenerationRecord, type C3GenerationRecord, type C3ModelRequest,
+  createC3VerificationRequest, retainC3Verification, type C3VerificationRequest, type C3Verification } from "./generation-contract.ts";
 import type { FrozenC3ViewContext } from "./view-context.ts";
 import { canonicalJson } from "./context.ts";
 
@@ -264,17 +264,20 @@ function runCommand(command: string, args: readonly string[], requestPath: strin
   });
 }
 
+export type C3GenerationStage = 'preparing' | 'checking-evidence';
+
 /** One candidate and at most one independent verification; never retries, repairs or rewrites.
  * External callers must durably retain the result before it becomes usable session work.
  * Replay must use saved verification instead of invoking this fresh-generation entry point. */
 export async function generateVerifiedC3Record(provider: C3ModelProvider, request: C3ModelRequest,
   context: FrozenC3ViewContext, signal: AbortSignal,
-  audit?: C3GenerationAudit): Promise<C3GenerationRecord> {
-  if (request.generationContractVersion !== '6') throw new Error('Fresh generation requires contract 6.');
+  audit?: C3GenerationAudit, onStage?: (stage: C3GenerationStage) => void): Promise<C3GenerationRecord> {
+  if (request.generationContractVersion !== '6' && request.generationContractVersion !== '7') throw new Error('Fresh generation requires contract 6 or 7.');
   if (provider.executionMode === 'external' && (!provider.verify || !audit || typeof audit.retainCandidate !== 'function' || typeof audit.retainRecord !== 'function' || typeof audit.retainFailure !== 'function')) {
     throw new Error('Fresh generation requires the shared budgeted verification route and private attempt retention.');
   }
   let raw: string;
+  onStage?.('preparing');
   try { raw = await provider.generate(request, signal); }
   catch (error) { await audit?.retainFailure(request, c3TransportFailure(error)); throw error; }
   await audit?.retainCandidate(request, raw);
@@ -285,6 +288,7 @@ export async function generateVerifiedC3Record(provider: C3ModelProvider, reques
   if (verificationRequest) {
     let verifierRaw: string | null = null;
     if (!signal.aborted && provider.verify) {
+      onStage?.('checking-evidence');
       try { verifierRaw = await provider.verify(verificationRequest, signal); }
       catch (error) { await audit?.retainFailure(verificationRequest, c3TransportFailure(error)); }
     }

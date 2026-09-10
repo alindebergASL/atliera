@@ -138,7 +138,24 @@ test("C2 closeout records the owner disposition without granting a successor eff
   assert.equal(markerValue(roadmap, "c2_additional_provider_calls_authorized"), "0");
   assert.match(roadmap, /^\| \*\*C1 — Calm read-only Account Home\*\* \| ✅ shipped \|/mu);
   assert.match(roadmap, /^\| \*\*C2 — Background Intelligence \/ AI Proposal vertical slice\*\* \| ✅ shipped upon closeout merge \|/mu);
-  assert.match(roadmap, /^\| \*\*C3 — Prepare Meeting\*\* \| ⬜ not started \|/mu);
+  assert.match(roadmap, /^\| \*\*C3 — Prepare Meeting\*\* \| 🔶 implemented; acceptance pending \|/mu);
+  const historical = roadmap.split('## Historical implementation and effect checkpoint — M5b/C2 closeout')[1]?.split('## Doctrine spine')[0];
+  assert.ok(historical, 'the closed C2/M5b markers have an explicit historical scope');
+  for (const marker of ['implementation_work_authorized', 'implementation_start_condition', 'current_effective_authorization']) {
+    assert.equal(markerValue(historical, marker), 'none');
+  }
+  const current = roadmap.split('## Current C3 completion — 2026-09-10 renewal')[1]?.split('## Historical implementation')[0];
+  assert.ok(current, 'active C3 status is separate from historical budget closure');
+  assert.equal(markerValue(current, 'c3_status'), 'implemented_acceptance_pending');
+  assert.equal(markerValue(current, 'c3_completion_deadline'), '2026-09-11T07:37:01Z');
+  assert.equal(markerValue(current, 'c3_metered_cap_usd'), '25');
+  for (const marker of ['c3_budget_resets_on_restore', 'c3_fresh_lifecycle_verified', 'c3_customer_acceptance_claim']) {
+    assert.equal(markerValue(current, marker), 'false');
+  }
+  assert.match(current, /all unresolved reservations/u);
+  assert.match(current, /real existing admission/u);
+  assert.match(current, /actual runtime|Actual access controls/u);
+  assert.doesNotMatch(roadmap, /C3 remains unstarted|Every slice requires a separate explicit owner decision|Completion of an implementation slice restores/u);
   assert.match(roadmap, /University of Utah \*\*Continue to C3\*\*/u);
   assert.match(roadmap, /FedEx \*\*Revise before C3\*\*/u);
 });

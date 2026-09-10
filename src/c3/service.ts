@@ -1,13 +1,14 @@
-import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type WorkStoreOptions } from './work-store.ts';
+import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type LoadedWorkBrief, type WorkStoreOptions } from './work-store.ts';
 import { parseWorkspaceRoute } from "./workspace-route.ts";
+import { generationRefusalNotice } from './generation-outcome.ts';
 import { canonicalJson } from "./context.ts";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, createC3RevisionContext, createGenerationRecord, snapshotMeetingFormState, snapshotMeetingRequest,
-  type C3GenerationRecord, type C3MeetingFormState, type C3MeetingRequest, type C3RevisionContext } from "./draft.ts";
-import { generateVerifiedC3Record, type C3ModelProvider, type C3GenerationAudit } from "./provider.ts";
+  type C3GenerationRecord, type C3MeetingFormState, type C3MeetingRequest, type C3RevisionContext } from "./generation-contract.ts";
+import { C3CommandResponseError, generateVerifiedC3Record, type C3ModelProvider, type C3GenerationAudit, type C3GenerationStage } from "./provider.ts";
 import { boundedPlanningText, MEETING_NOTE_SECTIONS, newPlanningBrief, updatePlanningBrief, type PlanningBrief, type PlanningKind } from "./planning.ts";
 import { renderC3Page } from "./render.ts";
 
@@ -19,6 +20,7 @@ interface Session {
   readonly csrf: string;
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
+  workContext?: LoadedWorkBrief['context'];
   correctionNote: string;
   instruction: string;
   proposal: C3GenerationRecord | null;
@@ -39,7 +41,7 @@ interface Session {
   revisionNumber: number;
   sequence: number;
   operations: Set<string>;
-  active?: { readonly operationId: string; readonly controller: AbortController; readonly sequence: number; readonly settled: Promise<void> };
+  active?: { readonly operationId: string; readonly controller: AbortController; readonly sequence: number; readonly settled: Promise<void>; readonly startedAt: number; stage: C3GenerationStage };
 }
 
 export interface C3ServiceStatus {
@@ -224,13 +226,21 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const session = [...sessions.values()].find(item => item.csrf === csrf);
     let savedWorks: { documentId: string; version: number; audience: string; title?: string; intendedOutcome?: string; meetingDate?: string; savedAt?: string; origin?: WorkOrigin }[] = [];
     let storageError: string | undefined;
-    if (store && inputState.page === 'workshop') try { savedWorks = store.list().map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
+    if (store && inputState.page === 'workshop') try {
+      const listing = store.listWithDiagnostics();
+      if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
+      savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
     const state = { ...inputState, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
-  const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => renderC3Page(options.context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: [...sessions.values()].find((session) => session.csrf === csrf)?.sectionNotes ?? {} } : state.page === "prepare" ? { ...state, displayedRecordId: [...sessions.values()].find((session) => session.csrf === csrf)?.record?.recordId ?? null } : state, csrf,
-    options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
-      initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
+  const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
+    const session = [...sessions.values()].find(item => item.csrf === csrf);
+    const context = state.page === "draft" ? session?.workContext ?? options.context : options.context;
+    return renderC3Page(context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: session?.sectionNotes ?? {} } :
+      state.page === "prepare" ? { ...state, displayedRecordId: session?.record?.recordId ?? null } : state, csrf,
+      options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
+        initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
+  };
   let expectedHost = "";
 
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
@@ -293,6 +303,16 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (store && session.record && url.pathname !== '/api/work-state' && req.headers['x-c3-document'] !== session.documentId) {
       json(res,409,{error:'Displayed document is stale. Local work kept; reopen the intended document before editing or saving.'}); return;
     }
+    if (url.pathname === '/api/generation-status') {
+      const operation = operationEnvelope(body);
+      if (!operation || !matchesDisplayedState(session, operation) || session.active && session.active.operationId !== operation.operationId) {
+        json(res, 409, { error: 'Displayed operation is stale. Current work kept.' }); return;
+      }
+      const active = session.active;
+      // Observation only: never starts, cancels, or advances product work.
+      json(res, 200, { operationId: operation.operationId, active: Boolean(active),
+        stage: active?.stage ?? null, elapsedSeconds: active ? Math.max(0, Math.floor((performance.now() - active.startedAt) / 1000)) : null }); return;
+    }
     if (url.pathname === '/api/work/title') {
       const value=body as Record<string,unknown> | null;
       let title:string;
@@ -318,7 +338,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const snapshot: WorkingBrief = {record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion};
       try {
         const copy=url.pathname === '/api/save-copy';
-        const saved=store.save(copy ? newWorkDocumentId() : session.documentId,copy ? 0 : session.storageVersion,snapshot,{title:session.title});
+        const saved=store.save(copy ? newWorkDocumentId() : session.documentId,copy ? 0 : session.storageVersion,snapshot,{title:session.title},session.workContext);
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.savedWorkVersion=saved.work.workVersion; session.savedAt=saved.metadata?.savedAt; session.title=saved.metadata?.title;
         json(res,200,{saved:true,documentId:saved.documentId,version:saved.version,workVersion:saved.work.workVersion,recordId:session.record.recordId,title:session.title,savedAt:session.savedAt,origin:origin(session.record)});
       } catch(error) { json(res,409,{error:error instanceof Error ? error.message : 'Save could not be confirmed. Local work kept; reopen or Save a copy.'}); }
@@ -331,10 +351,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         if(session.record && session.savedWorkVersion!==session.workVersion && (value?.discardUnsaved!==true || value.workVersion!==session.workVersion)) {
           json(res,409,{error:'Current brief has unsaved changes. Save a copy, or deliberately reopen the saved version from Workshop.'});return;
         }
-        const saved=store.load(typeof value?.documentId === 'string' ? value.documentId : '');
+        const {saved, context}=store.loadWithContext(typeof value?.documentId === 'string' ? value.documentId : '');
         const work=saved.work;
         session.title=saved.metadata?.title ?? defaultWorkTitle(work.record); session.savedAt=saved.metadata?.savedAt;
-        session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
+        session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
@@ -501,7 +521,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
           "No revision requested. Add a correction first; the current draft and note are unchanged." :
           "Correction unchanged from the one already used for this draft. No revision requested; draft and note kept." }); return;
       }
-      if (isCuratedContext(options.context) || (options.recordedReplay !== undefined &&
+      if (isCuratedContext(options.context) || isCuratedContext(session.workContext ?? options.context) || (options.recordedReplay !== undefined &&
           (revisionUnavailableReason(prior) !== undefined || action.note !== options.recordedReplay.correctionNote || prior.revision !== null))) {
         json(res, 409, { error: "Local exact replay only: this brief and correction have no recorded response. Previous brief and saved note kept; no revision staged or provider work started." }); return;
       }
@@ -538,7 +558,12 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     } catch (error) {
       json(res, 400, { error: error instanceof Error ? error.message : "invalid meeting request" }); return;
     }
-    if (options.context.context.ownerCorrections.some((item) => item.text.includes("not enabled"))) {
+    // A revision stays bound to its original evidence, but current runtime holds still apply.
+    const generationContext = session.pendingRevision !== null ? session.workContext ?? options.context : options.context;
+    if (isCuratedContext(generationContext)) {
+      json(res, 409, { error: "Original context is template-only; revision generation is unavailable. Current work kept." }); return;
+    }
+    if ([options.context, generationContext].some(context => context.context.ownerCorrections.some(item => item.text.includes("not enabled")))) {
       json(res, 409, { error: "account preparation is held pending the recorded C2 revision" }); return;
     }
     if (session.pendingRevision !== null && session.record !== undefined && !sameMeetingRequest(session.record.meetingRequest, request)) {
@@ -571,7 +596,12 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const settled = new Promise<void>((resolve) => { resolveSettled = resolve; });
     const onResponseClose = (): void => { if (!res.writableEnded) controller.abort(); };
     res.once("close", onResponseClose);
-    session.active = { operationId: operation.operationId, controller, sequence, settled };
+    session.active = { operationId: operation.operationId, controller, sequence, settled, startedAt: performance.now(), stage: 'preparing' };
+    let generatorTransportError: C3CommandResponseError | undefined;
+    const generate = async (model: Parameters<C3ModelProvider['generate']>[0], signal: AbortSignal): Promise<string> => {
+      try { return await options.provider.generate(model, signal); }
+      catch (error) { if (error instanceof C3CommandResponseError) generatorTransportError = error; throw error; }
+    };
     try {
       if (previous !== undefined) { previous.controller.abort(); await previous.settled; }
       if (session.sequence !== sequence || controller.signal.aborted || res.destroyed) {
@@ -582,10 +612,12 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       const revision = session.pendingRevision;
       const replayRecord=admitted.find(record=>record && canonicalJson(record.meetingRequest)===canonicalJson(request) && canonicalJson(record.revision)===canonicalJson(revision));
       if(admitted.length && !replayRecord) throw Error('Recorded replay refused: no response matches this exact request; no live generation was attempted.');
-      const modelRequest = replayRecord ? reconstructC3ModelRequest(options.context,replayRecord) : createC3ModelRequest(options.context, request, revision);
+      const modelRequest = replayRecord ? reconstructC3ModelRequest(generationContext,replayRecord) : createC3ModelRequest(generationContext, request, revision);
       const generation = replayRecord
-        ? createGenerationRecord(modelRequest, await options.provider.generate(modelRequest, controller.signal), options.context, replayRecord.verification)
-        : await generateVerifiedC3Record(options.provider, modelRequest, options.context, controller.signal, options.generationAudit);
+        ? createGenerationRecord(modelRequest, await generate(modelRequest, controller.signal), generationContext, replayRecord.verification)
+        : await generateVerifiedC3Record({ name: options.provider.name, executionMode: options.provider.executionMode, generate, verify: options.provider.verify?.bind(options.provider) }, modelRequest, generationContext, controller.signal, options.generationAudit, (stage) => {
+          if (session.active?.sequence === sequence && !controller.signal.aborted) session.active.stage = stage;
+        });
       if(replayRecord && canonicalJson(generation)!==canonicalJson(replayRecord)) throw Error('Recorded replay response identity mismatch');
       if (session.sequence !== sequence || controller.signal.aborted) {
         if (!res.writableEnded) json(res, 409, { outcome: "cancelled", operation, error: "stale generation discarded" });
@@ -593,11 +625,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       }
       if (generation.outcome === "refused") {
         events.push({ kind: "refused", sequence });
-        const page = render(revision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:`Candidate refused without repair: ${generation.refusal!.message}`,...pendingPageState(session)} : { page: "prepare", request,
-          error: `Candidate refused without repair: ${generation.refusal!.message}`,
+        const failureKind = generation.generationContractVersion === '7' ? generation.refusal!.failureKind : undefined;
+        const refusalNotice = generationRefusalNotice(generation);
+        const page = render(revision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:refusalNotice,...pendingPageState(session)} : { page: "prepare", request,
+          error: refusalNotice,
           hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
           ...pendingPageState(session) }, session.csrf);
-        json(res, 422, { outcome: "refused", operation, error: generation.refusal!.message, html: page, location: revision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
+        json(res, 422, { outcome: "refused", operation, error: refusalNotice, ...(failureKind ? { failureKind } : {}), html: page, location: revision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
       originReceipt(generation); // Validate trusted generation custody before accepting session work.
       const changed = revision && session.record ? changedSections(session.record,generation) : [];
@@ -607,6 +641,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         json(res,200,{outcome:'succeeded',operation,proposalReady:true,stale:session.proposalStale,proposalId:generation.recordId,recordId:session.record!.recordId,instruction:revision.correctionNote,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changed,proposal:generation.draft,original:session.record!.draft,status:'Proposal ready. Current brief stays unchanged until Apply revision.',html:render({page:'draft',record:session.record!,correctionNote:session.correctionNote,...pendingPageState(session)},session.csrf)}); return;
       }
       session.title=defaultWorkTitle(generation); session.savedAt=undefined;
+      session.workContext = generationContext;
       session.sectionNotes = {}; session.record = generation; session.records = [generation];
       session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
       session.correctionNote = ''; session.instruction=''; session.proposal=null;
@@ -620,8 +655,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         return;
       }
       events.push({ kind: "failed", sequence });
-      const message = error instanceof Error ? error.message : "generation failed";
-      json(res, 502, { outcome: "failed", operation, html: render(session.pendingRevision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:message,...pendingPageState(session)} : { page: "prepare", request, error: message,
+      const generatorTransportFailure = generatorTransportError !== undefined && error === generatorTransportError;
+      const detail = error instanceof Error ? error.message : "generation failed";
+      const message = generatorTransportFailure ? `Generator transport failure: ${detail}` : detail;
+      json(res, 502, { outcome: "failed", operation, ...(generatorTransportFailure ? { failureKind: "generator_transport" } : {}), html: render(session.pendingRevision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:message,...pendingPageState(session)} : { page: "prepare", request, error: message,
         hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
         ...pendingPageState(session) }, session.csrf),
         location: session.pendingRevision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", error: message });

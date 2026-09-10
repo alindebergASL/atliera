@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "completion-v3-generation-20260909",
+    "recordId": "c3-command-deadlines-20260910",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Build the bounded C3 v6 integrity and independent evidence-check contract under existing standing development authority; preserve fresh-generation HOLD and existing preview release.",
-    "scope": "Freeze v2-v5 historical response behavior; add v6 full-display evidence coverage, original-response and failure retention, bounded evaluation plumbing, exact synthetic versus historical replay custody and focused regressions; record empirical false rejection, unsupported acceptance and failed fresh initial honestly. No actual provider dispatch, production write, deployment, route switch, retry permission or authorization is granted by this change.",
+    "decision": "Build optional bounded C3 command-deadline configuration under existing standing development authority; preserve disabled defaults and separate product-effect admission.",
+    "scope": "Add opt-in C3_MODEL_TIMEOUT_MS configuration for the two existing command-backed CLI entry points, forward only derived non-secret timing values, document nested transport/finalization/cleanup deadlines, and add configuration and actual-child regressions. No command, provider dispatch, route change, retry, spending authorization, production write, deployment or user acceptance is enabled by this code-only change.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-09T23:32:27.547Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/tree/feat/completion-v3-generation-20260909",
-    "proposalDigest": "sha256:364cb8c5d02c4e8203027463af563ff23727d1d3f2f67337bcb3801202baa029"
+    "proposedAt": "2026-09-10T02:48:41.955Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/pull/340",
+    "proposalDigest": "sha256:74e58224bb1fe2ae617749efbace011eb3f00c0898cc8d97a08fc346f76589f7"
   }
 }

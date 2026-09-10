@@ -69,6 +69,7 @@ Status vocabulary:
 | `controlled-2b-expanded-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-2b-live-provider-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
+| `c3-command-deadlines.md` | active | Opt-in command deadline configuration and cancellation/accounting boundary; no dispatch, retry, spending or release authority. |
 | `c3-generation-emission-v5.md` | active | No-call future-prompt emission and capacity regression reference; preserves historical contracts, raw responses and validation boundaries. It grants no provider execution, retry, release, approval or customer-readiness authority. |
 | `c3-local-working-journey.md` | active | Reviewed loopback-only, session-memory C3 Account Home → Prepare → proposed-draft prototype. Generation is disabled by default; the optional operator-command seam grants no provider, source-retrieval, persistence, deployment, approval, or customer-readiness authority. |
 | `fake-mode-workshop-serve-slice-status.md` | active | Current no-spend fake/local HTTP Workshop serve slice; Gate 3 remains underbuilt after this slice. |

@@ -45,7 +45,15 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const stale = !proposalId || proposalStale || instruction?.value !== proposalInstruction || noteIsDirty() || notesChangedForProposal();
     if(revisionPanel) revisionPanel.setAttribute('data-has-proposal', proposalId ? 'true' : 'false');
     const apply = document.querySelector('[data-apply-revision]'); if(apply) apply.disabled = reviewBusy || stale;
-    const revise = document.querySelector('[data-revise]'); if(revise) { revise.disabled = reviewBusy || !instruction?.value.trim() || revisionPanel?.getAttribute('data-generation-available') !== 'true' || (recordedReplay && reviewForm?.getAttribute('data-revised') === 'true'); revise.textContent = pendingRevisionToken ? 'Revise again' : 'Revise'; }
+    const available = revisionPanel?.getAttribute('data-generation-available') === 'true';
+    const active = Boolean(reviewBusy || pendingRevisionToken || proposalId);
+    const editor = document.querySelector('[data-revision-editor]');
+    if(editor) editor.hidden = !available && !active && !instruction?.value;
+    const recordedNote = document.querySelector('[data-recorded-note]')?.closest?.('details');
+    if(recordedNote) recordedNote.hidden = !available;
+    const actions = document.querySelector('.revision-actions'); if(actions) actions.hidden = !available && !active;
+    const revise = document.querySelector('[data-revise]'); if(revise) revise.hidden = !available;
+    if(revise) { revise.disabled = reviewBusy || !instruction?.value.trim() || revisionPanel?.getAttribute('data-generation-available') !== 'true' || (recordedReplay && reviewForm?.getAttribute('data-revised') === 'true'); revise.textContent = pendingRevisionToken ? 'Revise again' : 'Revise'; }
     const keep = document.querySelector('[data-discard-revision]'); if(keep) keep.disabled = reviewBusy || !pendingRevisionToken;
     const stop = document.querySelector('[data-stop-revision]'); if(stop) stop.disabled = !reviewBusy;
     if (proposalId && stale && revisionStatus && !reviewBusy) revisionStatus.textContent = 'Instructions or notes changed. Revise again before applying; the current brief is unchanged.';
@@ -82,7 +90,9 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     evidenceDialog.querySelector('#evidence-panel-title').textContent = 'Revise ' + (section === 'Situation for this audience' ? 'situation' : section.toLowerCase());
     if(!restore) refreshRevisionOriginal();
     revisionPanel.hidden = false; revisionPanel.scrollTop = restore ? revisionScroll : 0;
-    instruction?.focus?.({preventScroll:restore}); controls(); inspectorRoutes();
+    controls(); inspectorRoutes();
+    const focus = revisionPanel.getAttribute('data-generation-available') === 'true' ? instruction : evidenceDialog.querySelector('[data-evidence-close]');
+    focus?.focus?.({preventScroll:restore});
   };
   const sameOperation = (a,b) => a && b && a.operationId===b.operationId && a.recordId===b.recordId && a.pendingRevisionToken===b.pendingRevisionToken && JSON.stringify(a.request)===JSON.stringify(b.request);
   const displayProposal = (payload) => {
@@ -199,7 +209,14 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const submitted=correctionNote.value;const result=await requestJson('/api/note',{recordId:currentRecord(),note:submitted,priorNote:savedNote});
     if(result.savedNote!==submitted)throw Error(result.error || 'Note was not confirmed');savedNote=submitted;markWorkDirty();
   };
-  document.querySelector('[data-add-note]')?.addEventListener('click', (event) => { const notes = document.querySelector('#review'); if(!notes || !correctionNote) return; event.preventDefault(); notes.open = true; correctionNote.focus(); });
+  const openNotes = () => { const notes = document.querySelector('#review'); if(!notes || !correctionNote) return; notes.open = true; correctionNote.focus(); };
+  document.querySelector('[data-add-note]')?.addEventListener('click', (event) => { event.preventDefault(); openNotes(); });
+  document.querySelector('[data-revision-add-note]')?.addEventListener('click', () => {
+    if(!evidenceDialog?.open) { openNotes(); return; }
+    // Run after the existing Close handler restores the inspector entry, even for a queued native event.
+    evidenceDialog.addEventListener('close', openNotes, {once:true});
+    evidenceDialog.close();
+  });
   const titleForm = document.querySelector('[data-title-form]');
   const titleInput = document.querySelector('[data-title-input]');
   let syncedTitle = titleInput?.value || '';

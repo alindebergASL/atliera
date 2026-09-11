@@ -84,7 +84,7 @@ test('saved current work has one open entry; unsaved work explains its relations
  const savedWorks=[{documentId:work.documentId,version:1,audience:'CIO',title:request.intendedOutcome,intendedOutcome:request.intendedOutcome,origin:'historical-replay' as const}, {documentId:'doc_'+'2'.repeat(24),version:1,audience:'CIO',title:request.intendedOutcome,intendedOutcome:request.intendedOutcome,origin:'historical-replay' as const}];
  const html=main(renderC3Page(ctx,{page:'workshop',hasDraft:true,work:{...work,savedWorks}},'offline'));
  assert.equal((html.match(/data-current-work="true"/g)||[]).length,1);
- assert.match(html,/<a class="saved-title" href="\/\?draft=1">Understand research priorities<\/a>/);
+ assert.match(html,/<a class="saved-title" href="\/\?draft=1" aria-label="Understand research priorities · Record 11111111">Understand research priorities<\/a>/);
  assert.doesNotMatch(html,/Continue working|Last-saved time not available/);
  assert.match(html,/Record 11111111/);assert.match(html,/Record 22222222/);
  assert.match(html,/Historical replay/);assert.ok(html.includes(request.intendedOutcome));

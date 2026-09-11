@@ -17,9 +17,9 @@ class Element {
  click(){return this.listeners.get('click')?.({preventDefault(){},currentTarget:this});}
  input(){return this.listeners.get('input')?.({target:this});}
 }
-function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: Map<string,string>; section?: string; title?: string; inspector?: boolean } = {}){
+function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: Map<string,string>; section?: string; title?: string; inspector?: boolean; instruction?: string | null; unavailable?: boolean; pending?: boolean } = {}){
  const form=new Element();form.attrs={'data-record-id':priorId,'data-meeting-request':JSON.stringify(request)};
- const note=new Element();note.value='Separate annotation';const instruction=new Element();instruction.value='Improve opening';
+ const note=new Element();note.value='Separate annotation';const instruction=new Element();instruction.value=options.instruction ?? 'Improve opening';
  const revise=new Element(),stop=new Element(),apply=new Element(),discard=new Element(),status=new Element(),comparison=new Element(),panel=new Element();panel.attrs={'data-generation-available':'true'};
  let generated='Prior brief';const region={getAttribute:()=> 'opening',replaceChildren:(...children:string[])=>{generated=children.join('');}};
  const selectors:Record<string,any>={'[data-note-form]':form,'[data-correction-note]':note,'[data-revision-instruction]':instruction,'[data-revision-panel]':panel,'[data-revise]':revise,'[data-stop-revision]':stop,'[data-apply-revision]':apply,'[data-discard-revision]':discard,'[data-review-status]':new Element(),'[data-revision-status]':status,'[data-proposal-comparison]':comparison};
@@ -52,6 +52,16 @@ function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: 
  }
  const clickEntry=(target:Element)=>{const event={target,button:0,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};for(const fn of events.get('click')??[])fn(event);};
  let active:any=null;const notes=new Element();Object.assign(notes,{open:false});const addNote=new Element();selectors['#review']=notes;selectors['[data-add-note]']=addNote;Object.assign(note,{focus:()=>{active=note;}});
+ const editor=new Element(),actions=new Element(),close=new Element(),revisionAddNote=new Element();
+ Object.assign(selectors,{'[data-revision-editor]':editor,'.revision-actions':actions,'[data-revision-add-note]':revisionAddNote});
+ Object.assign(instruction,{focus:()=>{active=instruction;}});Object.assign(close,{focus:()=>{active=close;}});
+ if(options.instruction === null) delete selectors['[data-revision-instruction]'];
+ if(options.unavailable) panel.attrs['data-generation-available']='false';
+ if(options.pending) {form.attrs['data-pending-revision-token']='a'.repeat(32);panel.attrs['data-proposal-id']=nextId;panel.attrs['data-proposal-instruction']=instruction.value;}
+ if(options.inspector) {
+  const query=(dialog as any).querySelector;
+  Object.assign(dialog,{querySelector:(s:string)=>s==='[data-evidence-close]'?close:query(s),close(){(dialog as any).open=false;dialog.listeners.get('close')?.({});}});
+ }
  const document={querySelector:(s:string)=>selectors[s]??null,querySelectorAll:(s:string)=>s==='[data-generated-region]'?[region]:s==='[data-local-edit]'&&options.section!==undefined?[sectionForm]:[],addEventListener(name:string,fn:(event:any)=>void){events.set(name,[...(events.get(name)??[]),fn]);},createElement:()=>new Element()};
  class Parser {parseFromString(html:string){
   const forms=Array.from(html.matchAll(/<form\b([^>]*)>/g),([,attrs])=>{const f=new Element();for(const [,name,value]of attrs!.matchAll(/(data-[\w-]+)(?:="([^"]*)")?/g))f.attrs[name!]=value??'';return f;});
@@ -69,7 +79,7 @@ function client(fetcher:(url:string,body:any)=>Promise<any>, options: { cache?: 
   return {querySelector:(s:string)=>s==='[data-note-form]'?forms.find(f=>f.getAttribute('data-note-form')!==null)??null:s==='[data-revision-panel]'&&(sections!==undefined||availability!==undefined)?nextPanel:s==='#replay-instruction-help'&&html.includes('id="replay-instruction-help"')?nextHelp:s==='[data-revision-instruction]'&&instructionAttrs!==undefined?nextInstruction:s==='[data-use-recorded-note]'&&recordedAttrs!==undefined?nextRecorded:s==='[data-revision-original]'&&sections!==undefined?nextOriginal:s.startsWith('[data-generated-region=')&&html.includes('data-generated-region')?{childNodes:['Revised brief']}:null,querySelectorAll:()=>forms.filter(f=>f.getAttribute('data-local-edit')!==null)};
  }}
  vm.runInNewContext(C3_CLIENT_SCRIPT,{document,setTimeout,clearTimeout,window:{crypto:webcrypto,addEventListener(){},sessionStorage:{getItem:(key:string)=>cache.get(key),setItem:(key:string,value:string)=>cache.set(key,value),removeItem:(key:string)=>cache.delete(key)}},DOMParser:Parser,fetch:async(url:string,init:any)=>{const body=JSON.parse(init.body);calls.push({url,body});const payload=url==='/api/revision-instruction'?{instruction:body.instruction}:await fetcher(url,body);return {ok:true,json:async()=>payload};},Error,JSON,Number,String});
- return {useRecorded,replayHelp,panel,original,originalHeading,inspectorTitle,evidenceBody,returnRevision,selectQuestions:()=>clickEntry(selectQuestions),openEvidence:()=>clickEntry(evidenceLink),notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,savedTimestamp,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
+ return {editor,actions,close,revisionAddNote,dialog,useRecorded,replayHelp,panel,original,originalHeading,inspectorTitle,evidenceBody,returnRevision,selectQuestions:()=>clickEntry(selectQuestions),openEvidence:()=>clickEntry(evidenceLink),notes,addNote,active:()=>active,readOnly(){for(const fn of events.get('click')??[])fn({target:{closest:()=>null}});},typeTitle(value:string){titleInput.value=value;for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='main, [data-revision-panel]'?titleForm:null}});},titleInput,titleStatus,titleHeading,lastSaved,savedTimestamp,keepTitle:()=>titleForm.listeners.get('submit')?.({preventDefault(){}}),cache,section,sectionStatus,keepSection:()=>sectionForm.listeners.get('submit')?.({preventDefault(){}}),typeSection(value:string){section.value=value;sectionForm.input();for(const fn of events.get('input')??[])fn({target:{closest:(selector:string)=>selector==='[data-local-edit][data-section]'?sectionForm:true}});},form,note,instruction,revise,stop,apply,discard,status,comparison,calls,save,saveCopy,workStatus,typeNote(value:string){note.value=value;Object.assign(note,{closest:()=>true});for(const fn of events.get('input')??[])fn({target:note});},generated:()=>generated};
 }
 const snapshot=()=>({correctionNote:'Separate annotation',sectionNotes:{},instruction:'Improve opening',pendingRevisionToken:null,proposalId:null,proposalStale:false});
 const staged=(body:any)=>({revisionReady:true,recordId:body.recordId,request,savedNote:'Separate annotation',instruction:body.note,pendingRevisionToken:'a'.repeat(32)});
@@ -424,11 +434,38 @@ test('section revision shows that section’s original and retains its title on 
  const end=C3_CLIENT_SCRIPT.indexOf('  const sameOperation',start);
  const original={textContent:''},heading={textContent:''},title={textContent:''};
  const sections={'Opening':'Exact original opening','Situation for this audience':'Exact original situation','Questions':'First question\nPurpose kept','Useful close':'Exact original close'};
- const revisionPanel={hidden:true,scrollTop:0,getAttribute:()=>JSON.stringify(sections)};
+ const revisionPanel={hidden:true,scrollTop:0,getAttribute:(name:string)=>name==='data-generation-available'?'true':JSON.stringify(sections)};
  const panel={hidden:false},support={hidden:false};
  const scope:any={revisionPanel,evidenceDialog:{querySelector:(s:string)=>s==='[data-evidence-panel-body]'?panel:s==='[data-evidence-support]'?support:title},document:{querySelector:(s:string)=>s==='[data-revision-original]'?original:s==='[data-original-heading]'?heading:null},retainInspectorView(){},presentInspector(){},controls(){},inspectorRoutes(){},instruction:{focus(){}},revisionScroll:135};
  vm.runInNewContext(C3_CLIENT_SCRIPT.slice(start,end)+';globalThis.openRevision=openRevisionSheet;',scope);
  scope.openRevision('Questions');assert.equal(original.textContent,sections.Questions);assert.equal(heading.textContent,'Original questions');assert.equal(title.textContent,'Revise questions');
  scope.openRevision('Brief',true);assert.equal(title.textContent,'Revise questions');assert.equal(revisionPanel.scrollTop,135);
  scope.openRevision('Situation for this audience');assert.equal(original.textContent,sections['Situation for this audience']);assert.equal(title.textContent,'Revise situation');
+});
+
+for(const draft of [null,'Retained instruction']) test(`unavailable sheet Close/reopen and notes preserve ${draft ? 'local input' : 'no editor'}`,async()=>{
+ const ui=client(async()=>assert.fail('No product request expected'),{inspector:true,unavailable:true,instruction:draft});
+ ui.selectQuestions();assert.equal(ui.active(),ui.close);assert.equal(ui.revise.hidden,true);
+ assert.equal(ui.editor.hidden,draft===null);assert.equal(ui.actions.hidden,true);
+ await ui.close.click();assert.equal((ui.dialog as any).open,false);
+ ui.selectQuestions();assert.equal(ui.active(),ui.close);assert.equal(ui.editor.hidden,draft===null);
+ await ui.revisionAddNote.click();await new Promise(resolve=>setTimeout(resolve,10));
+ assert.equal((ui.dialog as any).open,false);assert.equal((ui.notes as any).open,true);assert.equal(ui.active(),ui.note);
+ assert.equal(ui.note.value,'Separate annotation');if(draft)assert.equal(ui.instruction.value,draft);
+ assert.equal(ui.calls.length,0);
+});
+test('unavailable pending proposal stays inspectable and discardable after notes make it stale',async()=>{
+ const ui=client(async(url)=>{assert.equal(url,'/api/discard-revision');return {discarded:true,recordId:priorId};},{inspector:true,unavailable:true,pending:true});
+ ui.selectQuestions();assert.equal(ui.actions.hidden,false);assert.equal(ui.editor.hidden,false);assert.equal(ui.discard.disabled,false);
+ ui.typeNote('Newer annotation');assert.equal(ui.apply.disabled,true);assert.match(ui.status.textContent,/notes changed/);
+ await ui.close.click();ui.selectQuestions();assert.equal(ui.actions.hidden,false);
+ await ui.discard.click();assert.equal(ui.actions.hidden,true);assert.equal(ui.editor.hidden,true);assert.equal(ui.note.value,'Newer annotation');
+ assert.deepEqual(ui.calls.map(c=>c.url),['/api/discard-revision']);
+});
+test('Apply to a recorded final revision hides empty bound controls and reopens at Close',async()=>{
+ const ui=client(async(url,body)=>url==='/api/revise'?staged(body):url==='/api/generate'?proposed(body):({...success(),html:returnedHtml()+'<div data-revision-panel data-generation-available="false"><p id="replay-instruction-help">No further recorded response is available.</p></div>'}),{inspector:true});
+ ui.selectQuestions();await ui.revise.click();await ui.apply.click();
+ assert.equal(ui.instruction.value,'');assert.equal(ui.editor.hidden,true);assert.equal(ui.actions.hidden,true);assert.equal(ui.revise.hidden,true);
+ await ui.close.click();ui.selectQuestions();assert.equal(ui.active(),ui.close);assert.equal(ui.editor.hidden,true);
+ assert.equal(ui.note.value,'Separate annotation');assert.match(ui.replayHelp.textContent,/No further recorded response/);
 });

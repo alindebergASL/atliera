@@ -347,7 +347,7 @@ for (const origin of ['historical-replay', 'unknown'] as const) for (const pendi
     assert.equal(before.origin, origin);
     const page = (await b.call('/?draft=1')).text;
     assert.match(page, /Revision unavailable\. No recorded response is configured for this exact brief/);
-    assert.match(page, /data-revise disabled/);
+    assert.doesNotMatch(page, /<button[^>]*data-revise(?:\s|>)/);
     assert.match(page, /data-revision-panel[^>]*data-generation-available="false"/);
     assert.doesNotMatch(page, /<pre data-recorded-note>|<button[^>]*data-use-recorded-note/);
     assert.match(page, origin === 'historical-replay' ? />Historical replay<\/span>/ : /Origin not established/);
@@ -382,7 +382,7 @@ for (const origin of ['historical-replay', 'unknown'] as const) for (const pendi
     assert.equal(proposed.status, 200); assert.equal(proposed.json().proposalId, revisionRecord.recordId);
     const applied = await fresh.call('/api/apply-revision', {recordId:priorRecord.recordId, proposalId:revisionRecord.recordId, instruction:correctionNote, pendingRevisionToken:stage.pendingRevisionToken});
     assert.equal(applied.status, 200); assert.match(applied.json().html, /No further recorded response is available/);
-    assert.match(applied.json().html, /data-revise disabled/); assert.match(applied.json().html, /data-revision-panel[^>]*data-generation-available="false"/);
+    assert.doesNotMatch(applied.json().html, /<button[^>]*data-revise(?:\s|>)/); assert.match(applied.json().html, /data-revision-panel[^>]*data-generation-available="false"/);
     assert.equal(calls, 2);
   } finally { await running.close(); await rm(root, {recursive:true, force:true}); }
  });

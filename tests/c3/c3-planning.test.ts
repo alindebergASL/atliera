@@ -230,7 +230,7 @@ test("section note guidance is provider neutral and reserves durability for Save
   const ctx = syntheticWorkshopContext();
   const record = createGenerationRecord(createC3ModelRequest(ctx, syntheticMeetingRequest), syntheticMeetingCandidate(ctx), ctx);
   for (const replay of [undefined, { syntheticPreview: true, initialRequest: syntheticMeetingRequest, correctionNote: syntheticCorrection }]) {
-    const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '', revisionPending: false }, 'test', replay).split('<script>')[0]!;
+    const html = renderC3Page(ctx, { page: 'draft', record, correctionNote: '', revisionPending: false, generation: { available: true, explanation: 'Isolated fixture' } }, 'test', replay).split('<script>')[0]!;
     assert.doesNotMatch(html, /Only the exact recorded correction in Draft review can replay a revision/);
     assert.match(html, /Add note/);assert.match(html, /This note lasts for this session/);
     assert.match(html, /The current brief stays unchanged until you apply/);assert.match(html, /Apply revision<\/button>/);

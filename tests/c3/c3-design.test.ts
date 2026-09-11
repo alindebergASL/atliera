@@ -84,7 +84,7 @@ test("Prepare retains editable inputs, disclosed options and context, with unava
 });
 test("Workshop has honest empty and current-draft states with working secondary worksheets", async () => {
   const context = await load();
-  const empty = main(renderC3Page(context, { page: 'workshop' }, 'test'));
+  const empty = main(renderC3Page(context, { page: 'workshop', work: { available: true, documentId: '', version: 0, workVersion: 0, saved: false, savedWorks: [] } }, 'test'));
   assert.match(empty, /No meeting brief yet/);
   assert.match(empty, /href="\/\?kind=strategy"/);
   assert.match(empty, /href="\/\?kind=next-steps"/);

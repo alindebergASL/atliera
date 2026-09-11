@@ -144,14 +144,25 @@ test("C2 closeout records the owner disposition without granting a successor eff
   for (const marker of ['implementation_work_authorized', 'implementation_start_condition', 'current_effective_authorization']) {
     assert.equal(markerValue(historical, marker), 'none');
   }
-  const current = roadmap.split('## Current C3 completion — 2026-09-10 renewal')[1]?.split('## Historical implementation')[0];
-  assert.ok(current, 'active C3 status is separate from historical budget closure');
+  const current = roadmap.split('## Historical C3 completion checkpoint — 2026-09-10 renewal')[1]?.split('## Historical implementation')[0];
+  assert.ok(current, 'the earlier C3 renewal remains a distinct historical checkpoint');
   assert.equal(markerValue(current, 'c3_status'), 'implemented_acceptance_pending');
   assert.equal(markerValue(current, 'c3_completion_deadline'), '2026-09-11T07:37:01Z');
   assert.equal(markerValue(current, 'c3_metered_cap_usd'), '25');
   for (const marker of ['c3_budget_resets_on_restore', 'c3_fresh_lifecycle_verified', 'c3_customer_acceptance_claim']) {
     assert.equal(markerValue(current, marker), 'false');
   }
+  const currentCloseout = roadmap.split('## Current C3 closeout and owner-review follow-up — 2026-09-11')[1]?.split('## Historical C3 completion checkpoint')[0];
+  assert.ok(currentCloseout);
+  assert.equal(markerValue(currentCloseout, 'c3_status'), 'implemented_acceptance_pending');
+  assert.equal(markerValue(currentCloseout, 'c3_fresh_lifecycle_verified'), 'true');
+  assert.equal(markerValue(currentCloseout, 'c3_customer_acceptance_claim'), 'false');
+  assert.equal(markerValue(currentCloseout, 'c3_budget_resets_on_restore'), 'false');
+  assert.match(currentCloseout, /recorded replay/);
+  assert.match(currentCloseout, /Wait for owner feedback after that prototype delivery/);
+  assert.match(currentCloseout, /not an owner-accepted final design/);
+  assert.match(currentCloseout, /no application-wide design rollout is authorized before his direction review/);
+  assert.match(currentCloseout, /No inherited automation start/);
   assert.match(current, /all unresolved reservations/u);
   assert.match(current, /real existing admission/u);
   assert.match(current, /actual runtime|Actual access controls/u);

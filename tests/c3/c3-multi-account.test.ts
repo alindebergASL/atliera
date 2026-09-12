@@ -86,6 +86,14 @@ test('retained Utah/FedEx routes, source coverage, hold, native URLs and honest 
   const server=await start({context:utah,provider,workStore,accounts:[{context:fedex,provider,workStore}]});
   try {
     const b=browser(server);
+    const art = await b.call('', '/assets/campus-concept.png');
+    assert.equal(art.status, 200);
+    assert.equal(art.headers['content-type'], 'image/png');
+    assert.equal(art.headers['x-content-type-options'], 'nosniff');
+    if (!realHttp) assert.deepEqual(Buffer.from(art.text), await readFile('src/c3/assets/campus-concept.png'));
+    for (const path of ['/assets/missing.png', '/assets/campus-concept.png?path=other', '/assets/../service.ts']) {
+      assert.notEqual((await b.call('', path)).status, 200, 'No generic asset/filesystem route');
+    }
     const legacy=await b.call('','/?prepare=1');assert.equal(legacy.status,302);assert.equal(legacy.headers.location,accountPath(utah.context.account.accountId)+'/?prepare=1');
     for(const context of [utah,fedex]) {
       const id=context.context.account.accountId;
@@ -161,6 +169,11 @@ test('account sessions retain notes and proposals; cross-account actions, stale 
     const name=(await readdir(root)).find(name=>name.endsWith('.json'))!;
     const originalBytes=await readFile(join(root,name));
     assert.match((await b.call(aid,'/?view=workshop')).text,new RegExp(before.documentId));
+    const home = (await b.call(aid,'/')).text;
+    assert.match(home, /Saved briefs/);
+    assert.ok(!home.includes('No saved briefs for this account.'));
+    assert.ok(!(await b.call(zid,'/')).text.includes(`data-reopen-work="${before.documentId}"`));
+    assert.deepEqual(await readFile(join(root,name)),originalBytes, 'Overview listing is read-only');
     assert.ok(!(await b.call(zid,'/?view=workshop')).text.includes(`data-reopen-work="${before.documentId}"`));
     // A matching document ID in another account's request does not open a hidden row.
     assert.equal((await b.call(zid,'/api/reopen',{documentId:before.documentId})).status,409);

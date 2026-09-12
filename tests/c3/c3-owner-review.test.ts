@@ -13,14 +13,14 @@ test('Workshop absence requires a settled successful empty saved list and no ses
   for (const saved of [savedWorks, []]) for (const hasDraft of [false, true]) {
     const html = main(renderC3Page(context,{page:'workshop',hasDraft,work:{...work,savedWorks:saved}},'test'));
     assert.equal(html.includes('No meeting brief yet'), !hasDraft && saved.length === 0);
-    assert.match(html,/Prepare brief/);
+    assert.match(html,/href="\/\?prepare=1">Set up brief<\/a>/);
   }
 });
 test('unknown, unavailable and failed saved lists never imply absence; partial results remain actionable', () => {
   for (const state of [undefined,{...work,available:false},{...work,storageError:'Read failed'},{...work,storageError:'Partial failure',savedWorks}]) {
     const html = main(renderC3Page(context,{page:'workshop',work:state},'test'));
     assert.doesNotMatch(html,/No meeting brief yet|No saved briefs for this account/);
-    assert.match(html,/Prepare brief/);
+    assert.match(html,/href="\/\?prepare=1">Set up brief<\/a>/);
     if(state?.storageError) assert.match(html,/could not be loaded|Some saved briefs are unavailable/);
     if(state?.savedWorks.length) assert.equal((html.match(/data-reopen-work=/g)||[]).length,3);
   }

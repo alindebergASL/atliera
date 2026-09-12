@@ -3,6 +3,7 @@ import { projectAccount } from "./account-projection.ts";
 import { accountPath, type C3AccountNavigation, parseWorkspaceRoute } from "./workspace-route.ts";
 import { generationRefusalNotice } from './generation-outcome.ts';
 import { canonicalJson } from "./context.ts";
+import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
@@ -244,7 +245,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
     const session = [...sessions.values()].find(item => item.csrf === csrf);
     let savedWorks: { documentId: string; version: number; audience: string; title?: string; intendedOutcome?: string; meetingDate?: string; savedAt?: string; origin?: WorkOrigin }[] = [];
     let storageError: string | undefined;
-    if (store && inputState.page === 'workshop') try {
+    if (store && (inputState.page === 'workshop' || inputState.page === 'home')) try {
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
@@ -724,6 +725,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     let url: URL;
     try { url = parseRequestTarget(req.url, expectedHost); }
     catch { sendJson(res, 400, {error:'malformed request target'}); return; }
+    // Fixed approved public illustration only; no user-selected filesystem path or CSP expansion.
+    if (url.pathname === '/assets/campus-concept.png' && !url.search && req.method === 'GET') {
+      const bytes = await readFile(new URL('./assets/campus-concept.png', import.meta.url));
+      res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(bytes.length),
+        'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=3600' });
+      res.end(bytes); return;
+    }
     if (!multi) { await defaultRuntime.handle(req, res); return; }
     if (url.pathname === '/healthz' && req.method === 'GET') {
       sendJson(res, 200, {...defaultRuntime.status(), accounts: accounts.map(account =>

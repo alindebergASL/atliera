@@ -72,7 +72,7 @@ test("Account identity never selects a school-specific reading and sparse/confli
   const html = renderC3Page(sparse, { page: "home" }, "test");
   assert.ok(html.includes("There is not enough matched evidence"));
   assert.ok(html.includes("Conflicting context."));
-  const technology = html.slice(html.indexOf('id="account-technology"'), html.indexOf('<section class="context-note"'));
+  const technology = html.match(/<nav class="journey-nav" aria-label="Explore retained research">[\s\S]*?<\/nav>/u)![0];
   assert.ok(technology.includes('href="/?view=research&amp;topic=technology"'), "Separate research remains inspectable with sparse historical context");
   assert.ok(!technology.includes('id="reading-'), "No technology reading is inferred from missing historical evidence");
   assert.ok(!html.includes('id="account-priorities"'));

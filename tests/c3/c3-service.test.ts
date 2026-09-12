@@ -174,12 +174,12 @@ test("HTTP handler renders discoverable responsive journey and disabled-provider
   const running = await harness(new DisabledC3ModelProvider(), () => new Date("2026-09-05T00:00:00.000Z"));
   try {
     const browser = await browserSession(running);
-    assert.match(browser.page, /Prepare brief/);
+    assert.match(browser.page, /href="\/\?prepare=1">Set up brief<\/a>/);
     assert.match(browser.page, /The sources suggest/);
     assert.match(browser.page, /<blockquote>/);
-    assert.match(browser.page, /class="account-readout"/);
+    assert.match(browser.page, /class="account-readout has-illustration"/);
     assert.doesNotMatch(browser.page, /id="original-account-proposal"/);
-    assert.ok(browser.page.indexOf('>Prepare brief</a>') < browser.page.indexOf('class="account-readout"'));
+    assert.ok(browser.page.indexOf('>Set up brief</a>') < browser.page.indexOf('class="account-readout has-illustration"'));
     assert.match(browser.page, /@media\(max-width:700px\)/);
     assert.match(browser.page, /server restart loses unsaved work/);
     assert.doesNotMatch(browser.page, /Private candidate preview|Recorded responses|No live generation/);
@@ -220,7 +220,7 @@ test("recorded mode prefills exact request, labels every page, preserves notes, 
     assert.match(browser.page, /Recorded responses · No live generation/);
     assert.match(browser.page, /Private document storage never changes account truth or approves content/);
     assert.doesNotMatch(browser.page, /Unmerged and proposed/);
-    assert.match(browser.page, />Prepare brief</);
+    assert.match(browser.page, /href="\/\?prepare=1">Set up brief<\/a>/);
     const prepare = await requestTo(running, "GET", "/?prepare=1", undefined, { cookie: browser.cookie });
     assert.match(prepare.text, /Recorded responses · No live generation/);
     assert.match(prepare.text, /value="CIO and engineering leaders"/);

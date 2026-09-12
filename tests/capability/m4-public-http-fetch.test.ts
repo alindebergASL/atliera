@@ -214,6 +214,7 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
       const allowedAddressClassifier = [
         join(root, "src", "capability", "public-http-fetch-policy.ts"),
         join(root, "src", "capability", "m4-orchestrator-mcp-client.ts"),
+        join(root, "src", "c3", "research-source.ts"),
       ].includes(path) && /node:net["']/.test(networkImport);
       const allowedM4Adapter = path === join(root, "src", "capability", "m4-sec-live-adapter.ts") &&
         /node:(?:dns|https|http|net)["']/.test(networkImport);
@@ -226,7 +227,7 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
     if (path === join(root, "src", "c3", "service.ts")) {
       assert.equal(networkImports.length, 1);
       assert.match(source, /^import \{ createServer, type IncomingMessage, type Server, type ServerResponse \} from "node:http";$/m);
-      assert.match(source, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
+      assert.match(source, /server\.listen\(options\.port \?\? 0, '127\.0\.0\.1'/);
     }
     if (path === join(root, "src", "capability", "public-http-fetch-policy.ts")) {
       assert.equal(networkImports.length, 1);
@@ -236,11 +237,15 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
       assert.equal(networkImports.length, 1);
       assert.match(source, /^import \{ isIP \} from "node:net";$/m);
     }
+    if (path === join(root, "src", "c3", "research-source.ts")) {
+      assert.equal(networkImports.length, 1);
+      assert.match(source, /^import \{ isIP \} from 'node:net';$/m);
+    }
     if (path === join(root, "src", "capability", "m4-sec-live-adapter.ts")) assert.equal(networkImports.length, 4);
     const browserFetchCalls = source.match(/\bfetch\s*\(/g) ?? [];
     if (path === join(root, "src", "c3", "render.ts")) {
       assert.equal(browserFetchCalls.length, 1);
-      assert.match(source, /const response = await fetch\(url, \{ method: 'POST'/);
+      assert.match(source, /const response = await fetch\(accountUrl\(url\), \{ method: 'POST'/);
       assertC3ClientSurface();
     } else {
       assert.equal(browserFetchCalls.length, 0, `${path}: browser/global fetch escaped reviewed C3 same-origin calls`);

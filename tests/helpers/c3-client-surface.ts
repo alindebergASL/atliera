@@ -20,8 +20,18 @@ export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
   }
   const tree = ts.createSourceFile('composed-client.js', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const endpoints: string[] = [];
-  let fetches = 0, branches = 0, dynamic = 0;
+  let fetches = 0, branches = 0, dynamic = 0, accountQualifiers = 0, accountPrefixes = 0;
   const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      if (node.name.text === 'accountUrl') {
+        accountQualifiers++;
+        assert.equal(node.initializer?.getText(tree), 'route => accountPrefix + route');
+      }
+      if (node.name.text === 'accountPrefix') {
+        accountPrefixes++;
+        assert.equal(node.initializer?.getText(tree), `document.querySelector('meta[name="c3-account-path"]')?.getAttribute('content') || ''`);
+      }
+    }
     if (ts.isIdentifier(node) && node.text === 'requestJson') {
       const parent = node.parent;
       const directCall = ts.isCallExpression(parent) && parent.expression === node;
@@ -33,7 +43,7 @@ export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'fetch') {
       fetches++;
-      assert.match(node.getText(tree), /^fetch\(url, \{ method: 'POST', headers: \{ 'content-type': 'application\/json', 'x-c3-csrf': csrf, 'x-c3-document': workDocumentId \}, body: JSON.stringify\(body\), signal \}\)$/);
+      assert.match(node.getText(tree), /^fetch\(accountUrl\(url\), \{ method: 'POST', headers: \{ 'content-type': 'application\/json', 'x-c3-csrf': csrf, 'x-c3-account': account, 'x-c3-document': workDocumentId \}, body: JSON.stringify\(body\), signal \}\)$/);
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'requestJson') {
       const target = node.arguments[0]!;
@@ -57,6 +67,8 @@ export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
   };
   visit(tree);
   assert.equal(fetches, 1, 'one shared same-origin POST helper');
+  assert.equal(accountQualifiers, 1, 'one exact account route qualifier');
+  assert.equal(accountPrefixes, 1, 'prefix comes only from server-rendered account metadata');
   assert.equal(branches, 1, 'Save and Save a copy require the explicit fixed branch');
   assert.equal(dynamic, 1, 'only the guarded planning form selects a target');
   assert.deepEqual([...new Set(endpoints)].sort(), [...new Set([...fixed, ...planning])].sort());

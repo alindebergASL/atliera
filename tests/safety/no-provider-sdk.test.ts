@@ -109,7 +109,7 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
     );
     const c3 = readFileSync(join(SRC_ROOT, "c3", "service.ts"), "utf8");
     assert.match(c3, /^import \{ createServer, type IncomingMessage, type Server, type ServerResponse \} from "node:http";$/m);
-    assert.match(c3, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
+    assert.match(c3, /server\.listen\(options\.port \?\? 0, '127\.0\.0\.1'/);
     assert.doesNotMatch(c3, /\b(?:node:https|node:net|node:tls|node:dns|undici)\b/);
   });
 
@@ -122,14 +122,17 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
     );
     const renderer = readFileSync(join(SRC_ROOT, "c3", "render.ts"), "utf8");
     assert.equal((renderer.match(/\bfetch\s*\(/g) ?? []).length, 1);
-    assert.match(renderer, /fetch\(url, \{ method: 'POST'/);
+    assert.match(renderer, /fetch\(accountUrl\(url\), \{ method: 'POST'/);
     assertC3ClientSurface();
   });
 });
 
 
 it('composed browser inventory rejects new, dynamic, external and implicit save targets', () => {
+  assertC3ClientSurface(); // Mutations must fail against a passing current baseline.
   for (const changed of [
+    C3_CLIENT_SCRIPT.replace('route => accountPrefix + route', 'route => window.location.href + route'),
+    C3_CLIENT_SCRIPT.replace("'x-c3-account': account", "'x-c3-account': 'foreign-account'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('/api/unexpected'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/generation-status'", "requestJson('/api/unexpected-progress'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/generation-status'", "requestJson('https://example.invalid/status'"),

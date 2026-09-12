@@ -52,3 +52,32 @@ test("Malformed reading receipts cannot select arbitrary routes, invalid positio
     assert.equal(browser({ stored }).frames.length, 0);
   }
 });
+
+test('canonical account switch restores only its own route and scroll; mobile topic links keep the account', () => {
+  const prefix='/accounts/acc_fedex_corp', targetPrefix='/accounts/acc_university_of_utah';
+  const values=new Map<string,string>([
+    ['atliera.c3.account-route.v1:'+targetPrefix,JSON.stringify({route:targetPrefix+'/?view=research&topic=sources',y:400})],
+    ['atliera.c3.account-route.v1:'+prefix,JSON.stringify({route:prefix+'/?view=workshop',y:120})],
+  ]);
+  const attrs=new Map([['data-account-switch','acc_university_of_utah'],['href',targetPrefix+'/']]);
+  const handlers=new Map<string,(event:any)=>void>();
+  const actions:unknown[]=[];
+  const document={
+    querySelector:(selector:string)=>selector==='meta[name="c3-account-path"]' ? {getAttribute:()=>prefix} :
+      selector==='[data-research-topic]' ? {addEventListener:(name:string,fn:(event:any)=>void)=>handlers.set(name,fn)}:null,
+    querySelectorAll:()=>[{getAttribute:(name:string)=>attrs.get(name),setAttribute:(name:string,value:string)=>attrs.set(name,value)}],
+  };
+  const window={location:{origin:'http://127.0.0.1:4317',pathname:prefix+'/',search:'?view=workshop',hash:'',assign:(route:string)=>actions.push(route)},
+    sessionStorage:{getItem:(key:string)=>values.get(key) ?? null,setItem:(key:string,value:string)=>values.set(key,value)},
+    scrollY:250,scrollTo:(...args:number[])=>actions.push(args),requestAnimationFrame:(fn:()=>void)=>fn(),
+    addEventListener:(name:string,fn:(event:any)=>void)=>handlers.set(name,fn)};
+  runInNewContext(ACCOUNT_READING_CLIENT_SCRIPT,{document,window,URL});
+  assert.equal(attrs.get('href'),targetPrefix+'/?view=research&topic=sources');
+  assert.deepEqual(JSON.parse(JSON.stringify(actions)),[[0,120]]);
+  handlers.get('change')!({target:{value:prefix+'/?view=research&topic=people'}});
+  assert.equal(actions.at(-1),prefix+'/?view=research&topic=people');
+  handlers.get('change')!({target:{value:targetPrefix+'/?view=research&topic=people'}});
+  assert.equal(actions.length,2,'topic control refuses a foreign account route');
+  handlers.get('pagehide')!({});
+  assert.deepEqual(JSON.parse(values.get('atliera.c3.account-route.v1:'+prefix)!),{route:prefix+'/?view=workshop',y:250});
+});

@@ -26,7 +26,7 @@ const CURATED_INPUTS: Readonly<Record<string, string>> = Object.freeze({
   acc_university_of_missouri: resolve(REPO, "fixtures/account-intelligence/c3-curated/missouri.json"),
 });
 
-async function contextFor(accountId: string) {
+export async function contextFor(accountId: string) {
   const curated = CURATED_INPUTS[accountId];
   if (curated !== undefined) return loadCuratedC3Context(curated, accountId);
   const proposalPath = PROPOSALS[accountId];
@@ -213,6 +213,22 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 
+/** Retained-account inspection, optionally with an exact Utah recording. No external provider path. */
+async function serveAccountsCommand(args: readonly string[]): Promise<void> {
+  if (args.length > 1) throw Error('usage: serve-accounts [UTAH_RECORDING_DIRECTORY]');
+  const [utah, fedex] = await Promise.all([contextFor('acc_university_of_utah'), contextFor('acc_fedex_corp')]);
+  const replay = args[0] ? await loadC3RecordedReplay(utah, args[0]) : undefined;
+  const portText = process.env.C3_PORT ?? '4317';
+  if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw Error('C3_PORT refused');
+  const workStore = configuredWorkStore();
+  const running = await startC3Server({context:utah, provider:replay?.provider ?? new DisabledC3ModelProvider(),
+    recordedReplay:replay, workStore, port:Number(portText),
+    accounts:[{context:fedex, provider:new DisabledC3ModelProvider(), workStore}]});
+  process.stdout.write(`${running.origin}\n`);
+  const stop = (): void => { void running.close().then(() => process.exit(0)); };
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+}
+
 async function serveRecordedCommand(args: readonly string[]): Promise<void> {
   const [recordingDirectory, accountId = "acc_university_of_utah"] = args;
   if (recordingDirectory === undefined || args.length > 2) throw new Error("usage: serve-recorded RECORDING_DIRECTORY [ACCOUNT_ID]");
@@ -267,9 +283,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (command === "load-context") return loadContextCommand(args);
   if (command === "emit-model-request") return emitRequestCommand(args);
   if (command === "render-recorded-draft") return renderRecordedCommand(args);
+  if (command === "serve-accounts") return serveAccountsCommand(args);
   if (command === "serve") return serveCommand(args);
   if (command === "serve-recorded") return serveRecordedCommand(args);
-  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve|serve-recorded> ...");
+  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve|serve-recorded|serve-accounts> ...");
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,5 +1,6 @@
 import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type LoadedWorkBrief, type WorkStoreOptions } from './work-store.ts';
-import { parseWorkspaceRoute } from "./workspace-route.ts";
+import { projectAccount } from "./account-projection.ts";
+import { accountPath, type C3AccountNavigation, parseWorkspaceRoute } from "./workspace-route.ts";
 import { generationRefusalNotice } from './generation-outcome.ts';
 import { canonicalJson } from "./context.ts";
 import { randomBytes } from "node:crypto";
@@ -56,12 +57,11 @@ export interface C3ServiceStatus {
   readonly customerAvailability: "local_prototype_only";
 }
 
-export interface C3ServerOptions {
+export interface C3AccountServiceOptions {
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   /** Private durable audit sink for original generator/verifier responses, including refusals. */
   readonly generationAudit?: C3GenerationAudit;
-  readonly port?: number;
   readonly workStore?: WorkStoreOptions;
   /** Labels hand-authored local fixtures; never changes request matching. */
   readonly syntheticPreview?: boolean;
@@ -69,9 +69,6 @@ export interface C3ServerOptions {
   /** Operator custody source for exact generation receipts. Never inferred from provider/runtime strings.
    * Reuse its durable receipt lookup after restart; it may also establish synthetic generation. */
   readonly originReceipt?: (record: C3GenerationRecord) => RecordOriginReceipt | undefined;
-  /** Test seam: create the real HTTP request handler without opening a socket. */
-  readonly listen?: boolean;
-  readonly expectedHost?: string;
   /** Validated operator recordings used only to prefill and explain an exact local replay. */
   readonly recordedReplay?: {
     readonly initialRequest: C3MeetingRequest;
@@ -82,6 +79,21 @@ export interface C3ServerOptions {
   };
 }
 
+export interface C3ServerOptions extends C3AccountServiceOptions {
+  readonly port?: number;
+  /** Test seam: create the real HTTP request handler without opening a socket. */
+  readonly listen?: boolean;
+  readonly expectedHost?: string;
+  /** Additional explicitly configured canonical accounts. The legacy context remains the default. */
+  readonly accounts?: readonly C3AccountServiceOptions[];
+}
+
+interface AccountRuntime {
+  handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
+  status(): C3ServiceStatus;
+  close(): Promise<void>;
+}
+
 export interface RunningC3Server {
   readonly server: Server;
   readonly origin: string;
@@ -89,7 +101,7 @@ export interface RunningC3Server {
   close(): Promise<void>;
 }
 
-function json(res: ServerResponse, status: number, value: unknown): void {
+function sendJson(res: ServerResponse, status: number, value: unknown): void {
   const body = JSON.stringify(value);
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body),
     "cache-control": "no-store", "x-content-type-options": "nosniff" });
@@ -177,7 +189,13 @@ function submittedPendingRevisionToken(value: unknown): string | undefined {
   return typeof token === "string" && /^[A-Za-z0-9_-]{32}$/u.test(token) ? token : undefined;
 }
 
-export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
+async function createAccountRuntime(options: C3AccountServiceOptions, host: () => string,
+  navigation?: C3AccountNavigation): Promise<AccountRuntime> {
+  const json = (res: ServerResponse, status: number, value: unknown): void => {
+    const payload = value as Record<string, unknown>;
+    sendJson(res, status, navigation && typeof payload?.location === 'string'
+      ? {...payload, location: accountPath(navigation.accountId) + payload.location} : value);
+  };
   if (isCuratedContext(options.context) && options.recordedReplay !== undefined) throw new Error("Agent-curated context cannot claim recorded replay");
   // Snapshot admitted bytes so later operator-object mutation cannot change the authorization.
   const admitted = options.recordedReplay?.priorRecord || options.recordedReplay?.revisionRecord ?
@@ -239,20 +257,19 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     return renderC3Page(context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: session?.sectionNotes ?? {} } :
       state.page === "prepare" ? { ...state, displayedRecordId: session?.record?.recordId ?? null } : state, csrf,
       options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
-        initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
+        initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview }, navigation);
   };
-  let expectedHost = "";
 
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const host = req.headers.host;
-    if (host !== expectedHost) { json(res, 400, { error: "host refused" }); return; }
+    const expectedHost = host();
+    if (req.headers.host !== expectedHost) { json(res, 400, { error: "host refused" }); return; }
     let url: URL;
     try { url = parseRequestTarget(req.url, expectedHost); }
     catch { json(res, 400, { error: "malformed request target" }); return; }
     if (url.pathname === "/healthz" && req.method === "GET") {
       json(res, 200, status()); return;
     }
-    const cookieName = sessionCookieName(expectedHost);
+    const cookieName = sessionCookieName(expectedHost) + (navigation ? `_${navigation.accountId}` : "");
     const sessionId = cookieValue(req, cookieName);
     let session = sessionId === undefined ? undefined : sessions.get(sessionId);
     if (session === undefined && req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
@@ -267,6 +284,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       try { route = parseWorkspaceRoute(url.searchParams); }
       catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "Invalid workspace location" }); return; }
       if (route.destination === "research") {
+        if (route.reading && !projectAccount(options.context).readings.some(item => item.id === route.reading &&
+            (route.topic === 'initiatives' ? !['people', 'technology'].includes(item.topic) : item.topic === route.topic))) {
+          json(res, 404, { error: "Research item unavailable for this account and topic." }); return;
+        }
         html(res, 200, render({ page: "research", topic: route.topic, ...(route.reading ? { reading: route.reading } : {}), hasDraft, ...pendingPageState(session) }, session.csrf), C3_SCRIPT_SHA256); return;
       }
       if (route.destination === "workshop" && route.task === undefined) {
@@ -294,7 +315,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       html(res, 200, render(page, session.csrf), C3_SCRIPT_SHA256); return;
     }
     if (req.method !== "POST" || !url.pathname.startsWith("/api/")) { json(res, 404, { error: "not found" }); return; }
-    if (req.headers.origin !== `http://${expectedHost}` || req.headers["x-c3-csrf"] !== session.csrf ||
+    if ((navigation && req.headers["x-c3-account"] !== navigation.accountId) || req.headers.origin !== `http://${expectedHost}` || req.headers["x-c3-csrf"] !== session.csrf ||
         !/^application\/json(?:;|$)/iu.test(req.headers["content-type"] ?? "")) {
       json(res, 403, { error: "same-origin session guard refused request" }); return;
     }
@@ -669,38 +690,76 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
   };
 
-  const server = createServer((req, res) => {
-    void handleRequest(req, res).catch(() => {
-      if (res.writableEnded || res.destroyed) return;
-      if (res.headersSent) res.destroy();
-      else json(res, 500, { error: "bounded request handling failure" });
-    });
-  });
-
   const status = (): C3ServiceStatus => ({ provider: isCuratedContext(options.context) ? "disabled_curated_template_only" : options.provider.name,
     generationAttempted: count(events, "attempted"), generationSucceeded: count(events, "succeeded"),
     generationRefused: count(events, "refused"), generationCancelled: count(events, "cancelled"),
     generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: options.context.context.ownerDecisionSource === null ? "absent" : "recorded",
     customerAvailability: "local_prototype_only" });
-  if (options.listen === false) {
-    expectedHost = options.expectedHost ?? "127.0.0.1:4317";
-  } else {
+  return { handle: handleRequest, status, close: async () => {
+    const active = [...sessions.values()].flatMap(session => session.active ? [session.active] : []);
+    for (const generation of active) generation.controller.abort();
+    await Promise.all(active.map(generation => generation.settled));
+  } };
+}
+
+/** One listener, explicit account runtimes. Sessions/providers/stores never follow a mutable UI selection.
+ * This is local operator partitioning, not multitenant authentication. */
+export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
+  const entries = [options, ...(options.accounts ?? [])];
+  const accounts = entries.map(entry => ({ accountId: entry.context.context.account.accountId,
+    accountName: entry.context.context.account.accountName }));
+  if (accounts.some(account => !/^[A-Za-z0-9_-]{1,120}$/u.test(account.accountId)) ||
+      new Set(accounts.map(account => account.accountId)).size !== accounts.length) throw Error('Invalid or duplicate canonical account');
+  const multi = options.accounts !== undefined;
+  let expectedHost = options.expectedHost ?? "127.0.0.1:4317";
+  const runtimes = new Map<string, AccountRuntime>();
+  for (const [index, entry] of entries.entries()) {
+    const accountId = accounts[index]!.accountId;
+    runtimes.set(accountId, await createAccountRuntime(entry, () => expectedHost,
+      multi ? {accountId, accounts} : undefined));
+  }
+  const defaultRuntime = runtimes.get(accounts[0]!.accountId)!;
+  const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (req.headers.host !== expectedHost) { sendJson(res, 400, {error:'host refused'}); return; }
+    let url: URL;
+    try { url = parseRequestTarget(req.url, expectedHost); }
+    catch { sendJson(res, 400, {error:'malformed request target'}); return; }
+    if (!multi) { await defaultRuntime.handle(req, res); return; }
+    if (url.pathname === '/healthz' && req.method === 'GET') {
+      sendJson(res, 200, {...defaultRuntime.status(), accounts: accounts.map(account =>
+        ({...account, ...runtimes.get(account.accountId)!.status()}))}); return;
+    }
+    if ((url.pathname === '/' || url.pathname === '/account') && req.method === 'GET') {
+      // Old URLs have a stable default; never infer an account from titles, IDs or the last tab.
+      res.writeHead(302, {location: accountPath(accounts[0]!.accountId) + '/' + url.search, 'cache-control':'no-store'}); res.end(); return;
+    }
+    const match = /^\/accounts\/([A-Za-z0-9_-]{1,120})(\/.*)$/u.exec(url.pathname);
+    const runtime = match ? runtimes.get(match[1]!) : undefined;
+    if (!runtime) { sendJson(res, 404, {error:'Canonical account route required'}); return; }
+    const originalUrl = req.url;
+    req.url = match![2]! + url.search;
+    try { await runtime.handle(req, res); } finally { req.url = originalUrl; }
+  };
+  const server = createServer((req, res) => {
+    void handle(req, res).catch(() => {
+      if (res.writableEnded || res.destroyed) return;
+      if (res.headersSent) res.destroy();
+      else sendJson(res, 500, {error:'bounded request handling failure'});
+    });
+  });
+  if (options.listen !== false) {
     await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(options.port ?? 0, "127.0.0.1", () => { server.off("error", reject); resolve(); });
+      server.once('error', reject);
+      server.listen(options.port ?? 0, '127.0.0.1', () => { server.off('error', reject); resolve(); });
     });
     const address = server.address();
-    if (address === null || typeof address === "string") throw new Error("local server did not bind a TCP port");
-    expectedHost = `127.0.0.1:${String(address.port)}`;
+    if (!address || typeof address === 'string') throw Error('local server did not bind a TCP port');
+    expectedHost = `127.0.0.1:${address.port}`;
   }
-  return { server, origin: `http://${expectedHost}`, status,
-    close: async () => {
-      const active = [...sessions.values()].flatMap((session) => session.active === undefined ? [] : [session.active]);
-      for (const generation of active) generation.controller.abort();
-      await Promise.all(active.map((generation) => generation.settled));
-      if (!server.listening) return;
-      await new Promise<void>((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error)));
-    } };
+  return {server, origin:`http://${expectedHost}`, status: defaultRuntime.status, close: async () => {
+    await Promise.all([...runtimes.values()].map(runtime => runtime.close()));
+    if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }};
 }
 
 interface ReviewAction { readonly note: string; readonly recordId: string; }

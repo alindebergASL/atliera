@@ -66,6 +66,7 @@ class FormDataStub {
 interface ClientOptions {
   readonly csrf: string;
   readonly account?: string;
+  readonly accountPrefix?: string;
   readonly storage?: TabStorage;
   readonly storageUnavailable?: boolean;
   readonly form?: Record<string, string>;
@@ -107,6 +108,7 @@ function runClient(options: ClientOptions) {
         '[data-review-status]': options.recordId === undefined ? null : reviewStatus,
         'meta[name="c3-csrf"]': csrfMeta,
         'meta[name="c3-account"]': accountMeta,
+        'meta[name="c3-account-path"]': { getAttribute: () => options.accountPrefix ?? '' },
       } as Record<string, unknown>)[selector] ?? null;
     },
     open() {},
@@ -488,4 +490,33 @@ test("modal citation keeps dirty notes, targets one excerpt and restores focus a
   assert.equal(note.value, 'Unsaved correction'); assert.equal(document.body.style.overflow, 'hidden');
   dialog.close(); assert.equal(focus, true); assert.deepEqual(scroll, [0, 640]); assert.equal(document.body.style.overflow, '');
   }
+});
+
+
+test("switching account forms preserves both tab-local unsent inputs without submitting", async () => {
+  const storage = new TabStorage();
+  const fetch = async () => { throw Error('Switching must not submit'); };
+  const form = {audience:'Original',intendedOutcome:'Original outcome',durationMinutes:'15',meetingDate:'2026-09-12'};
+  const utah = runClient({csrf:'utah-session',account:'acc_university_of_utah',storage,form,fetch});
+  utah.form!.fields.audience!.value='Unsent Utah audience';
+  await utah.form!.dispatch('input');
+  const fedex = runClient({csrf:'fedex-session',account:'acc_fedex_corp',storage,form,fetch});
+  assert.equal(fedex.form!.fields.audience!.value,'Original');
+  fedex.form!.fields.intendedOutcome!.value='Unsent FedEx outcome';
+  await fedex.form!.dispatch('input');
+  const back=runClient({csrf:'utah-session',account:'acc_university_of_utah',storage,form,fetch});
+  assert.equal(back.form!.fields.audience!.value,'Unsent Utah audience');
+  const forward=runClient({csrf:'fedex-session',account:'acc_fedex_corp',storage,form,fetch});
+  assert.equal(forward.form!.fields.intendedOutcome!.value,'Unsent FedEx outcome');
+});
+
+test("generation requests and native completion navigation use the rendered canonical account", async () => {
+  const prefix='/accounts/acc_university_of_utah';
+  const calls:string[]=[];
+  const client=runClient({csrf:'session',accountPrefix:prefix,
+    form:{audience:'CISO',intendedOutcome:'Clarify outcome',durationMinutes:'15',meetingDate:'2026-09-12'},
+    fetch:async url=>{calls.push(url);return response({outcome:'succeeded',location:prefix+'/?draft=1'});}});
+  await client.form!.dispatch('submit');
+  assert.equal(calls[0],prefix+'/api/generate');
+  assert.deepEqual(client.navigation,['native:'+prefix+'/?draft=1']);
 });

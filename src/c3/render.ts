@@ -1,7 +1,7 @@
 import { WORKING_DOCUMENT_CLIENT_SCRIPT } from './work-client.ts';
 import { GENERATION_PROGRESS_CLIENT_SCRIPT } from './generation-progress-client.ts';
 import { WORKSPACE_CSS } from "./workspace-style.ts";
-import { researchUrl, type ResearchTopic, type WorkspaceDestination } from "./workspace-route.ts";
+import { accountPath, type C3AccountNavigation, researchUrl, type ResearchTopic, type WorkspaceDestination } from "./workspace-route.ts";
 import { createHash } from "node:crypto";
 import { projectAccount, type AccountReading, type AccountTopic } from "./account-projection.ts";
 import { ACCOUNT_READING_CLIENT_SCRIPT } from "./account-client.ts";
@@ -65,6 +65,8 @@ const SCRIPT = `
 (() => {
   const csrf = document.querySelector('meta[name="c3-csrf"]')?.getAttribute('content') || '';
   const account = document.querySelector('meta[name="c3-account"]')?.getAttribute('content') || '';
+  const accountPrefix = document.querySelector('meta[name="c3-account-path"]')?.getAttribute('content') || '';
+  const accountUrl = route => accountPrefix + route;
   let workDocumentId = document.querySelector('meta[name="c3-document"]')?.getAttribute('content') || '';
   const recordedReplay = document.querySelector('meta[name="c3-recorded-replay"]')?.getAttribute('content') === 'true';
   const cachePrefix = 'atliera.c3.unsent-form.v1:';
@@ -102,7 +104,7 @@ const SCRIPT = `
       formCache = storage;
       for (let index = formCache.length - 1; index >= 0; index -= 1) {
         const key = formCache.key(index);
-        if (key && key.startsWith(cachePrefix) && key !== cacheKey) formCache.removeItem(key);
+        if (key && key.startsWith(cachePrefix + account + ':') && key !== cacheKey) formCache.removeItem(key);
       }
     }
   } catch { formCache = null; }
@@ -123,10 +125,10 @@ const SCRIPT = `
   }
   const replacePage = (payload) => {
     if (!confirmDirtyNavigation()) return;
-    if (payload.outcome === 'succeeded' && payload.location === '/?draft=1') window.location.assign('/?draft=1');
+    if (payload.outcome === 'succeeded' && payload.location === accountUrl('/?draft=1')) window.location.assign(accountUrl('/?draft=1'));
   };
   const requestJson = async (url, body, signal) => {
-    const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-c3-csrf': csrf, 'x-c3-document': workDocumentId }, body: JSON.stringify(body), signal });
+    const response = await fetch(accountUrl(url), { method: 'POST', headers: { 'content-type': 'application/json', 'x-c3-csrf': csrf, 'x-c3-account': account, 'x-c3-document': workDocumentId }, body: JSON.stringify(body), signal });
     const payload = await response.json().catch(() => ({ error: 'Invalid local service response' }));
     if (!response.ok && typeof payload.html !== 'string') { const error = new Error(payload.error || 'Request failed'); error.status = response.status; error.route = url; throw error; }
     return payload;
@@ -378,6 +380,10 @@ ${GENERATION_PROGRESS_CLIENT_SCRIPT}
       cancelPending = pending;
       return pending;
     };
+    const initialFormRequest = JSON.stringify(formRequest());
+    window.addEventListener?.('beforeunload', event => {
+      if (!formCache && JSON.stringify(formRequest()) !== initialFormRequest) { event.preventDefault(); event.returnValue = ''; }
+    });
     restoreCachedForm();
     updateRecordedReset();
     form.addEventListener('submit', async (event) => {
@@ -396,7 +402,7 @@ ${GENERATION_PROGRESS_CLIENT_SCRIPT}
       try {
         const payload = await requestJson('/api/generate', ownedOperation, controller.signal);
         if (token === requestToken && payload.outcome === 'succeeded') {
-          if (payload.location === '/?draft=1' && !clearCachedForm() && cacheMayContainStale) {
+          if (payload.location === accountUrl('/?draft=1') && !clearCachedForm() && cacheMayContainStale) {
             ready('Draft prepared, but superseded reload recovery could not be cleared. Do not reload this form; open the session draft from Account Home after browser storage is available.');
             return;
           }
@@ -578,7 +584,7 @@ function home(frozen: FrozenC3AccountContext, hasDraft: boolean, recorded: boole
     const separate = topic === 'people' || topic === 'technology' ? renderAccountResearch(publicResearch, topic, true) : '';
     return `<main id="main" class="research-workspace" tabindex="-1"><h1>Research</h1><p class="lede">Explore the retained account knowledge and inspect its support.</p>${topics}${selectionNotice}${contradictions}${topic === 'sources' ? research + priorProposal : (selected?.topic === 'overview' ? row(selected) : '') + groups + separate}<details class="technical-detail"><summary>Context and timing details</summary><p class="boundary">${isCuratedContext(frozen) ? 'This orientation uses agent-curated public excerpts, not admitted C2 evidence.' : 'This orientation reuses admitted C2 evidence.'} It does not claim that the legacy “meaningfully changed” bucket proves temporal change, ${isCuratedContext(frozen) ? 'and no C2 owner disposition or generated C3 content exists' : 'and the C2 disposition does not approve generated C3 content'}.</p></details>${topic === 'sources' ? '' : evidenceStore(evidence.map(item => item.excerpt.evidenceId))}${inspector}</main>`;
   }
-  return `<main id="main" class="account-workspace" tabindex="-1"><section id="account-overview" class="account-readout"><p class="account-subtitle">${esc(account.admittedContext.sector ?? 'Sector not established')} · ${esc(account.admittedContext.geography ?? 'Geography not established')}</p><h1>${esc(overview ? compactReading(overview).title : 'Explore the retained account context.')}</h1>${overview ? `<p class="lede">${esc(compactReading(overview).text)}</p>${detailLink(overview)}` : `<p>There is not enough matched evidence for a substantive Account reading. No priorities, people or technology are inferred from the account name.</p><a class="quiet-link" href="${esc(researchUrl('initiatives'))}#original-account-proposal">Inspect original proposal →</a>`}<a class="source-chip research-basis" href="${esc(researchUrl('sources'))}">${uiIcon("source")}<span>Public research · details</span></a></section>${contradictions}${revisionPending ? '<p class="context-note">Revision pending. <a href="/?draft=1">Reopen the preserved session draft</a>.</p>' : ''}${notes('priorities').length ? `<section id="account-priorities" class="account-section"><div class="section-heading"><h2>Priorities &amp; initiatives</h2><a class="quiet-link" href="${esc(researchUrl('initiatives'))}">View all →</a></div><div class="priority-grid">${preparationAnchors(projection.readings).map(note => tile(compactReading(note))).join('')}</div></section>` : ''}<div class="account-columns">${summarySection('people', 'People &amp; operating context', 'Explore publicly reported roles and their limits in Research.')}${summarySection('technology', 'Technology landscape', 'Explore the available service research and its scope.')}</div><section class="context-note account-confirmation"><span class="item-icon">${uiIcon("question")}</span><div><h2>Worth confirming</h2><p>${esc(questions[0]?.question ?? 'Which priorities are active, and what evidence establishes their current status?')}</p></div><a class="quiet-link" href="${esc(researchUrl('initiatives'))}#account-unknowns">Explore open questions →</a></section>${hasDraft ? '<p><a id="account-reopen" href="/?draft=1">Reopen session draft</a></p>' : ''}${evidenceStore(overview?.evidenceIds ?? [])}${inspector}</main>`;
+  return `<main id="main" class="account-workspace" tabindex="-1"><section id="account-overview" class="account-readout"><p class="account-subtitle">${esc(account.admittedContext.sector ?? 'Sector not established')} · ${esc(account.admittedContext.geography ?? 'Geography not established')}</p><h1>${esc(overview ? compactReading(overview).title : 'Explore the retained account context.')}</h1>${overview ? `<p class="lede">${esc(compactReading(overview).text)}</p>${detailLink(overview)}` : `<p>There is not enough matched evidence for a substantive Account reading. No priorities, people or technology are inferred from the account name.</p>${sources.length > 0 && proposal.accountThesis.evidenceIds.every(id => numbers.has(id)) ? `<p class="proposed-cue">Original retained proposal · unreviewed</p><p class="lede">${esc(proposal.accountThesis.text)}</p><p>${sources.length} retained sources · ${evidence.length} exact excerpts. Inspect scope and dates before relying on this proposal.</p>` : ""}<a class="quiet-link" href="${esc(researchUrl('initiatives'))}#original-account-proposal">Inspect original proposal →</a>`}<a class="source-chip research-basis" href="${esc(researchUrl('sources'))}">${uiIcon("source")}<span>Public research · details</span></a></section>${contradictions}${revisionPending ? '<p class="context-note">Revision pending. <a href="/?draft=1">Reopen the preserved session draft</a>.</p>' : ''}${notes('priorities').length ? `<section id="account-priorities" class="account-section"><div class="section-heading"><h2>Priorities &amp; initiatives</h2><a class="quiet-link" href="${esc(researchUrl('initiatives'))}">View all →</a></div><div class="priority-grid">${preparationAnchors(projection.readings).map(note => tile(compactReading(note))).join('')}</div></section>` : ''}<div class="account-columns">${summarySection('people', 'People &amp; operating context', 'Explore publicly reported roles and their limits in Research.')}${summarySection('technology', 'Technology landscape', 'Explore the available service research and its scope.')}</div><section class="context-note account-confirmation"><span class="item-icon">${uiIcon("question")}</span><div><h2>Worth confirming</h2><p>${esc(questions[0]?.question ?? 'Which priorities are active, and what evidence establishes their current status?')}</p></div><a class="quiet-link" href="${esc(researchUrl('initiatives'))}#account-unknowns">Explore open questions →</a></section>${hasDraft ? '<p><a id="account-reopen" href="/?draft=1">Reopen session draft</a></p>' : ''}${evidenceStore(overview?.evidenceIds ?? proposal.accountThesis.evidenceIds)}${inspector}</main>`;
 
 }
 
@@ -738,12 +744,25 @@ function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: s
     csrf, context, recorded, state.page, true, options?.syntheticPreview, state.work);
 }
 
-export function renderC3Page(context: FrozenC3AccountContext, state: C3PageState, csrf: string, options?: C3RenderOptions): string {
-  if (isCuratedContext(context)) {
-    if (options !== undefined || state.page === "draft") throw new Error("Agent-curated context cannot render recorded-model claims");
-    return renderPage(context, state, csrf);
+export function renderC3Page(context: FrozenC3AccountContext, state: C3PageState, csrf: string, options?: C3RenderOptions,
+  navigation?: C3AccountNavigation): string {
+  if (isCuratedContext(context) && (options !== undefined || state.page === "draft")) {
+    throw new Error("Agent-curated context cannot render recorded-model claims");
   }
-  return renderPage(context, state, csrf, options);
+  const page = renderPage(context, state, csrf, options);
+  if (!navigation) return page;
+  if (navigation.accountId !== context.context.account.accountId) throw Error('Rendered account identity mismatch');
+  const prefix = accountPath(navigation.accountId);
+  // Only renderer-created local route attributes are qualified. Original prose is escaped before this
+  // adapter; neither source bytes, scripts, external links nor fragment evidence IDs are rewritten.
+  const scriptStart = page.indexOf('<script>');
+  const qualified = page.slice(0, scriptStart).replace(/(href|<option value)="(\/(?:\?[^"<>]*|account)?)"/gu,
+    (_match, attribute: string, route: string) => `${attribute}="${prefix}${route}"`) + page.slice(scriptStart);
+  const switcher = `<details class="account-switcher"><summary>Switch account</summary><nav aria-label="Switch account">${navigation.accounts.map(account =>
+    `<a data-account-switch="${esc(account.accountId)}" href="${accountPath(account.accountId)}/"${account.accountId === navigation.accountId ? ' aria-current="true"' : ''}>${esc(account.accountName)}</a>`).join('')}</nav><p class="meta">Each account keeps separate session work. ${state.work?.available ? 'Use Save for durable briefs.' : 'Session only; no private work store is configured.'}</p></details>`;
+  return qualified.replace('<meta name="c3-account"', `<meta name="c3-account-path" content="${prefix}"><meta name="c3-account"`)
+    .replace('<span class="account-identity">', `${switcher}<span class="account-identity">`)
+    .replace('</header>', `</header>${state.generation ? `<p class="storage-notice">${esc(state.generation.explanation)}</p>` : ''}`);
 }
 
 /** Short authored surface copy is activated only by projectAccount's exact evidence bindings. */

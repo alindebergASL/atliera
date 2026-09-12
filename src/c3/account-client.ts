@@ -1,10 +1,37 @@
 /** Tab-local reading position only. No account content, worksheet, or request is persisted here. */
 export const ACCOUNT_READING_CLIENT_SCRIPT = `
 (() => {
+  const suppliedPrefix = document.querySelector('meta[name="c3-account-path"]')?.getAttribute('content') || '';
+  const prefix = /^[/]accounts[/][A-Za-z0-9_-]{1,120}$/.test(suppliedPrefix) ? suppliedPrefix : '';
   document.querySelector('[data-research-topic]')?.addEventListener('change', event => {
     const route = event.target.value;
-    if (['initiatives','people','technology','sources'].some(topic => route === '/?view=research&topic=' + topic)) window.location.assign(route);
+    if (['initiatives','people','technology','sources'].some(topic => route === prefix + '/?view=research&topic=' + topic)) window.location.assign(route);
   });
+  // Tab-local route/scroll recovery contains no work content and never submits an editor.
+  if (prefix) {
+    const routeKey = 'atliera.c3.account-route.v1:';
+    const remember = () => {
+      try { window.sessionStorage.setItem(routeKey + prefix, JSON.stringify({route:window.location.pathname + window.location.search + window.location.hash, y:window.scrollY || 0})); } catch {}
+    };
+    document.querySelectorAll?.('[data-account-switch]').forEach(link => {
+      const targetPrefix = '/accounts/' + link.getAttribute('data-account-switch');
+      try {
+        const saved = JSON.parse(window.sessionStorage.getItem(routeKey + targetPrefix) || 'null');
+        if (saved && typeof saved.route === 'string' && saved.route.startsWith(targetPrefix + '/')) {
+          const target = new URL(saved.route, window.location.origin);
+          if (target.origin === window.location.origin && target.pathname === targetPrefix + '/') link.setAttribute('href', saved.route);
+        }
+      } catch {}
+    });
+    try {
+      const saved = JSON.parse(window.sessionStorage.getItem(routeKey + prefix) || 'null');
+      if (saved?.route === window.location.pathname + window.location.search + window.location.hash &&
+          !window.location.hash && Number.isFinite(saved.y) && saved.y >= 0 && saved.y <= 1000000) {
+        window.requestAnimationFrame?.(() => window.scrollTo(0, saved.y));
+      }
+    } catch {}
+    window.addEventListener?.('pagehide', remember);
+  }
   const selected = document.querySelector('[data-selected="true"]');
   if(selected && !window.location?.hash) window.requestAnimationFrame?.(() => { selected.scrollIntoView?.({block:'nearest'}); selected.focus({preventScroll:true}); });
   if (!document.querySelector('.account-workspace')) return;
@@ -12,7 +39,7 @@ export const ACCOUNT_READING_CLIENT_SCRIPT = `
   const sessionId = document.querySelector('meta[name="c3-csrf"]')?.getAttribute('content');
   if (!accountId || !sessionId || typeof window === 'undefined') return;
   const key = 'atliera.c3.account-reading.v1:' + accountId + ':' + sessionId;
-  const routes = ['/?prepare=1', '/?draft=1', '/?kind=strategy', '/?kind=next-steps'];
+  const routes = ['/?prepare=1', '/?draft=1', '/?kind=strategy', '/?kind=next-steps'].map(route => prefix + route);
   window.addEventListener?.('pageshow', event => {
     if (event.persisted) { try { window.sessionStorage.removeItem(key); } catch { /* Native Back owns this restore. */ } }
   });

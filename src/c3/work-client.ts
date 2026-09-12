@@ -293,13 +293,14 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     const status=document.querySelector('[data-work-list-status]');
     const discardUnsaved=button.getAttribute('data-replaces-unsaved')==='true';
     if(discardUnsaved && !(typeof window.confirm==='function' && window.confirm('Replace the current unsaved brief with this saved version? Save a copy first if you need the current work.')))return;
-    try{const result=await requestJson('/api/reopen',{documentId:button.getAttribute('data-reopen-work'),discardUnsaved,workVersion:Number(button.getAttribute('data-work-version'))});if(!result.reopened)throw Error(result.error || 'Reopen failed');window.location.assign('/?draft=1');}
+    try{const result=await requestJson('/api/reopen',{documentId:button.getAttribute('data-reopen-work'),discardUnsaved,workVersion:Number(button.getAttribute('data-work-version'))});if(!result.reopened)throw Error(result.error || 'Reopen failed');window.location.assign(accountUrl('/?draft=1'));}
     catch(error){showFailure(status,error,'The saved brief could not be reopened. Current work is kept.');}
   }));
   const priorDeparture=confirmDirtyNavigation;
   confirmDirtyNavigation=()=>{
     if(saveBusy || titleBusy || reviewBusy)return false;
     if(!priorDeparture())return false;
+    if(instruction && instruction.value!==syncedInstruction && !(typeof window.confirm==='function' && window.confirm('Leave with unsubmitted revision instructions? Cancel to keep editing, or copy the text before leaving. The current proposal stays with this account.')))return false;
     if(workDirty && workControls?.getAttribute('data-store-available')==='true'){workNavigationApproved=reviewNavigationApproved || typeof window.confirm==='function' && window.confirm('Leave with unsaved document changes? Save first to retain this version.');return workNavigationApproved;}
     return true;
   };

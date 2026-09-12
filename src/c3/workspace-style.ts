@@ -1,5 +1,7 @@
 /** Shared workspace tokens and responsive controls. */
 export const WORKSPACE_CSS = `
+.account-switcher{position:relative;flex-shrink:0;max-width:100%}.account-switcher summary{min-height:44px;display:list-item;padding:10px;cursor:pointer}.account-switcher nav{display:flex;flex-direction:column;gap:4px}.account-switcher a{display:block;padding:12px;min-height:44px;overflow-wrap:anywhere}.account-switcher a[aria-current]{font-weight:700}.account-switcher[open]{padding:8px;border:1px solid var(--atl-line);border-radius:8px}.account-switcher[open] .meta{max-width:28ch}
+
 /* Atliera modern workspace v2 — approved restrained-violet direction.
  * Reference tokens, not a running application.
  * Integrate into existing components; verify contrast and responsive behavior.
@@ -248,4 +250,5 @@ button.saved-title,a.saved-title{display:inline-flex;min-height:44px;padding:0;t
  [data-revision-panel] textarea,.title-editor input{font-size:16px}
 }
 @media(max-width:350px){.account-workspace,.brief-workspace,.research-workspace{padding-inline:16px}.document-actions{gap:4px 12px}}
+@media(max-width:700px){.workspace-header:has(.account-switcher){flex-wrap:wrap}.workspace-header .account-switcher{order:2}.workspace-header .account-identity{order:0}.workspace-header>a{order:1}}
 `;

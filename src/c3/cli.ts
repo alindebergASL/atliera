@@ -1,3 +1,4 @@
+import { readResearchConfiguration, researchLaunchArguments } from './research-config.ts';
 import { mkdir, readFile, writeFile, realpath, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -215,15 +216,17 @@ async function serveCommand(args: readonly string[]): Promise<void> {
 
 /** Retained-account inspection, optionally with an exact Utah recording. No external provider path. */
 async function serveAccountsCommand(args: readonly string[]): Promise<void> {
-  if (args.length > 1) throw Error('usage: serve-accounts [UTAH_RECORDING_DIRECTORY]');
+  const launch = researchLaunchArguments(args);
   const [utah, fedex] = await Promise.all([contextFor('acc_university_of_utah'), contextFor('acc_fedex_corp')]);
-  const replay = args[0] ? await loadC3RecordedReplay(utah, args[0]) : undefined;
+  const replay = launch.recording ? await loadC3RecordedReplay(utah, launch.recording) : undefined;
   const portText = process.env.C3_PORT ?? '4317';
   if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw Error('C3_PORT refused');
   const workStore = configuredWorkStore();
-  const running = await startC3Server({context:utah, provider:replay?.provider ?? new DisabledC3ModelProvider(),
+  const researchConfigs = launch.configPath ? readResearchConfiguration(launch.configPath, launch.enable, [utah.context.account.accountId, fedex.context.account.accountId], workStore) : [];
+  const researchFor = (accountId: string) => { const config = researchConfigs.find(item => item.accountId === accountId); return config ? { config } : undefined; };
+  const running = await startC3Server({context:utah, research:researchFor(utah.context.account.accountId), provider:replay?.provider ?? new DisabledC3ModelProvider(),
     recordedReplay:replay, workStore, port:Number(portText),
-    accounts:[{context:fedex, provider:new DisabledC3ModelProvider(), workStore}]});
+    accounts:[{context:fedex, research:researchFor(fedex.context.account.accountId), provider:new DisabledC3ModelProvider(), workStore}]});
   process.stdout.write(`${running.origin}\n`);
   const stop = (): void => { void running.close().then(() => process.exit(0)); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);

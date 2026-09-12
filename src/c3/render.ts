@@ -1,3 +1,5 @@
+import { renderResearchPanel, RESEARCH_CLIENT_SCRIPT } from './research-render.ts';
+import { unavailableResearchDisplay, type ResearchDisplay } from './research-service.ts';
 import { WORKING_DOCUMENT_CLIENT_SCRIPT } from './work-client.ts';
 import { GENERATION_PROGRESS_CLIENT_SCRIPT } from './generation-progress-client.ts';
 import { WORKSPACE_CSS } from "./workspace-style.ts";
@@ -32,7 +34,7 @@ export type C3PageState = (
   | { readonly page: "workshop"; readonly hasDraft?: boolean; readonly worksheets?: readonly PlanningBrief[] }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
       readonly correctionNote?: string; readonly displayedRecordId?: string | null }
-  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
+  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
 
 export interface C3RenderOptions {
   readonly correctionNote: string;
@@ -505,6 +507,7 @@ ${GENERATION_PROGRESS_CLIENT_SCRIPT}
     finally { reviewBusy = false; controls(); }
   });
 ${WORKING_DOCUMENT_CLIENT_SCRIPT}
+${RESEARCH_CLIENT_SCRIPT}
 ${PLANNING_CLIENT_SCRIPT}
   controls();
 })();`;
@@ -733,7 +736,7 @@ function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: s
   const recorded = options !== undefined;
   if (state.page === "planning") return shell(`Workshop for ${context.context.account.accountName}`, planningPage(context, state.brief, state.strategySuggestion), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
   if (state.page === "workshop") return shell(`Workshop for ${context.context.account.accountName}`, workshop(state), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
-  if (state.page === "research") return shell(`Research for ${context.context.account.accountName}`, home(context, state.hasDraft ?? false, recorded, state.revisionPending ?? false, state.topic, state.reading), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
+  if (state.page === "research") return shell(`Research for ${context.context.account.accountName}`, home(context, state.hasDraft ?? false, recorded, state.revisionPending ?? false, state.topic, state.reading).replace('</h1>', '</h1><div data-bounded-research>' + renderResearchPanel(state.research ?? unavailableResearchDisplay()) + '</div>'), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
   if (state.page === "home") return shell(context.context.account.accountName, home(context, state.hasDraft ?? false, recorded,
     state.revisionPending ?? false, undefined, undefined, state.work), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
   if (state.page === "prepare") return shell(`Prepare for ${context.context.account.accountName}`, prepare(context, state.request, state.error,

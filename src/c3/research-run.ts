@@ -17,7 +17,7 @@ export interface ResearchExecutionOptions extends ResearchBinding {
 export interface ResearchHandle { readonly runId: string; readonly completion: Promise<ResearchRun>; }
 export interface ResearchSnapshot {
   readonly snapshotId: string; readonly runId: string; readonly principal: string; readonly accountId: string;
-  readonly state: ResearchState; readonly question: string; readonly sources: readonly RetainedResearchSource[];
+  readonly state: ResearchState; readonly updatedAt: string; readonly error: string | null; readonly question: string; readonly sources: readonly RetainedResearchSource[];
   readonly coverage: { readonly requested: number; readonly retained: number; readonly attempts: number; readonly transportInvocations: number; readonly unavailableUrls: readonly string[] };
   readonly unknowns: readonly string[]; readonly generationEligible: false;
 }
@@ -211,7 +211,7 @@ export class BoundedResearchExecution {
   snapshots(callerInput: ResearchCaller): readonly ResearchSnapshot[] {
     this.caller(callerInput);
     return this.readRuns().filter(run => run.snapshotId !== null).map(run => researchJson({ snapshotId: run.snapshotId!, runId: run.runId,
-      principal: run.principal, accountId: run.accountId, state: run.state, question: run.scope.question, sources: run.sources,
+      principal: run.principal, accountId: run.accountId, state: run.state, updatedAt: run.updatedAt, error: run.error, question: run.scope.question, sources: run.sources,
       coverage: { requested: run.scope.targets.length, retained: run.sources.length, attempts: run.attempts.length, transportInvocations: run.attempts.filter(attempt => attempt.transportInvoked).length,
         unavailableUrls: run.scope.targets.filter(target => !run.sources.some(source => source.requestedUrl === target.url)).map(target => target.url) },
       unknowns: ['Publication, event and evidence-current-through dates are not established.', 'Retrieval does not establish current access or service readiness.',

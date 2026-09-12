@@ -3,11 +3,11 @@ import { canonicalResearchUrl, validateResearchScope, type ResearchScope, type R
 
 export interface RestrictedResearchDependencies {
   /** Trusted runtime resolver. The wrapper rejects the entire answer if any address is nonpublic. */
-  resolve(host: string): Promise<readonly string[]>;
+  resolve(host: string, signal?: AbortSignal): Promise<readonly string[]>;
   /** Exactly one bounded HTTPS exchange to the supplied pinned address, preserving URL
    * hostname TLS verification. No redirect, retry, cookies, credentials, decompression or proxy.
    * The implementation must enforce maxBytes while streaming and honor signal cancellation.
-   * C2/D must supply and review this socket implementation; this interface is not its proof. */
+   * Native implementation: research-native-https.ts; this interface alone is not socket proof. */
   exchange(input: Parameters<ResearchTransport>[0], address: string): Promise<SourceResponse & {
     readonly connectedAddress: string; readonly bodyComplete: boolean; readonly contentEncoding: string | null;
   }>;
@@ -33,7 +33,7 @@ function restricted(scopeInput: ResearchScope, dependencies: RestrictedResearchD
       cancelled.catch(() => undefined);
       if (input.signal.aborted) controller.abort();
       controller.signal.throwIfAborted();
-      const addresses = await Promise.race([dependencies.resolve(new URL(url).hostname), cancelled]);
+      const addresses = await Promise.race([dependencies.resolve(new URL(url).hostname, controller.signal), cancelled]);
       controller.signal.throwIfAborted();
       if (!addresses.length || addresses.length > 32 || addresses.some(address => !isPublicAddress(address))) throw Error('non_public_address_refused');
       const result = await Promise.race([dependencies.exchange({ ...input, signal: controller.signal }, addresses[0]!), cancelled]);
@@ -50,8 +50,8 @@ function restricted(scopeInput: ResearchScope, dependencies: RestrictedResearchD
   };
 }
 /** Inert, restricted one-hop factory. Requires an explicitly supplied trusted exchange;
- * the repository's existing outbound import boundary remains unchanged. No default socket,
- * DNS, authorization, ledger, eligibility, provider or M4 execution kernel is enabled. */
+ * Native DNS/socket dependencies are supplied by the account runtime only. This wrapper
+ * performs no import/construction I/O or authorization, ledger, eligibility or M4 execution. */
 export function createRestrictedResearchTransport(scope: ResearchScope, dependencies: RestrictedResearchDependencies): ResearchTransport {
   if (!dependencies || typeof dependencies.resolve !== 'function' || typeof dependencies.exchange !== 'function') throw Error('Explicit restricted exchange required');
   return restricted(scope, { resolve: dependencies.resolve.bind(dependencies), exchange: dependencies.exchange.bind(dependencies) });

@@ -218,7 +218,8 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
       ].includes(path) && /node:net["']/.test(networkImport);
       const allowedM4Adapter = path === join(root, "src", "capability", "m4-sec-live-adapter.ts") &&
         /node:(?:dns|https|http|net)["']/.test(networkImport);
-      assert.equal(allowedInboundServer || allowedC3InboundServer || allowedAddressClassifier || allowedM4Adapter, true, `${path}: ${networkImport}`);
+      const allowedResearchAdapter = path === join(root, "src", "c3", "research-native-https.ts") && /node:(?:dns|https|tls|net)["']/.test(networkImport);
+      assert.equal(allowedResearchAdapter || allowedInboundServer || allowedC3InboundServer || allowedAddressClassifier || allowedM4Adapter, true, `${path}: ${networkImport}`);
     }
     if (path === join(root, "scripts", "fake-mode-workshop-server.ts")) {
       assert.equal(networkImports.length, 1);
@@ -242,6 +243,13 @@ test("Node DNS/HTTPS imports are confined to the reviewed narrow adapter", () =>
       assert.match(source, /^import \{ isIP \} from 'node:net';$/m);
     }
     if (path === join(root, "src", "capability", "m4-sec-live-adapter.ts")) assert.equal(networkImports.length, 4);
+    if (path === join(root, "src", "c3", "research-native-https.ts")) {
+      assert.equal(networkImports.length, 4);
+      assert.match(source, /^import \{ Resolver \} from 'node:dns';$/m);
+      assert.match(source, /^import \{ request, type RequestOptions \} from 'node:https';$/m);
+      assert.match(source, /^import \{ checkServerIdentity \} from 'node:tls';$/m);
+      assert.match(source, /^import \{ isIP \} from 'node:net';$/m);
+    }
     const browserFetchCalls = source.match(/\bfetch\s*\(/g) ?? [];
     if (path === join(root, "src", "c3", "render.ts")) {
       assert.equal(browserFetchCalls.length, 1);

@@ -101,6 +101,8 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
     assert.deepEqual(
       hits,
       [
+        { file: "src/c3/research-native-https.ts", needle: "node:http" },
+        { file: "src/c3/research-native-https.ts", needle: "node:https" },
         { file: "src/c3/service.ts", needle: "node:http" },
         { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:http" },
         { file: "src/capability/m4-sec-live-adapter.ts", needle: "node:https" },
@@ -131,6 +133,8 @@ describe("safety: src/ contains no provider SDK imports or API key reads and con
 it('composed browser inventory rejects new, dynamic, external and implicit save targets', () => {
   assertC3ClientSurface(); // Mutations must fail against a passing current baseline.
   for (const changed of [
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/research/start'", "requestJson('https://example.invalid/start'"),
+    C3_CLIENT_SCRIPT.replace("requestJson('/api/research/refresh'", "requestJson(button.dataset.url"),
     C3_CLIENT_SCRIPT.replace('route => accountPrefix + route', 'route => window.location.href + route'),
     C3_CLIENT_SCRIPT.replace("'x-c3-account': account", "'x-c3-account': 'foreign-account'"),
     C3_CLIENT_SCRIPT.replace("requestJson('/api/note'", "requestJson('/api/unexpected'"),

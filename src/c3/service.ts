@@ -1,3 +1,5 @@
+import { AccountResearchService, validateAccountResearchConfiguration, unavailableResearchDisplay, type AccountResearchOptions } from './research-service.ts';
+import { renderResearchPanel, renderResearchSnapshot, renderResearchSource } from './research-render.ts';
 import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type LoadedWorkBrief, type WorkStoreOptions } from './work-store.ts';
 import { projectAccount } from "./account-projection.ts";
 import { accountPath, type C3AccountNavigation, parseWorkspaceRoute } from "./workspace-route.ts";
@@ -59,6 +61,7 @@ export interface C3ServiceStatus {
 }
 
 export interface C3AccountServiceOptions {
+  readonly research?: AccountResearchOptions;
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   /** Private durable audit sink for original generator/verifier responses, including refusals. */
@@ -90,12 +93,15 @@ export interface C3ServerOptions extends C3AccountServiceOptions {
 }
 
 interface AccountRuntime {
+  disableResearch(): void;
   handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
   status(): C3ServiceStatus;
   close(): Promise<void>;
 }
 
 export interface RunningC3Server {
+  /** Trusted operator kill switch, no browser route and no re-enable. */
+  disableResearch(accountId: string): void;
   readonly server: Server;
   readonly origin: string;
   readonly status: () => C3ServiceStatus;
@@ -231,6 +237,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
+  const research = options.research ? new AccountResearchService(options.research, { accountId: options.context.context.account.accountId, principal: options.workStore?.principal, workRoot: options.workStore?.root }, now) : undefined;
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
   const generation = isCuratedContext(options.context) ? { available: false, explanation: "Fresh meeting generation is unavailable for this agent-curated context. Editable planning worksheets are available." } :
     options.context.context.ownerCorrections.some(item => item.text.includes("not enabled")) ? { available: false, explanation: "Preparation held pending the recorded C2 revision." } :
@@ -249,7 +256,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
-    const state = { ...inputState, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    const state = { ...inputState, research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
@@ -324,6 +331,17 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
     try { body = await readJson(req); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
     if (store && session.record && url.pathname !== '/api/work-state' && req.headers['x-c3-document'] !== session.documentId) {
       json(res,409,{error:'Displayed document is stale. Local work kept; reopen the intended document before editing or saving.'}); return;
+    }
+    if (url.pathname.startsWith('/api/research/')) {
+      if (!navigation || url.search) { json(res, 404, { error: 'Canonical account research route required' }); return; }
+      if (!research) { json(res, 409, { error: unavailableResearchDisplay().reason }); return; }
+      try {
+        const result = research.action(session.id, url.pathname, body);
+        const inspectionHtml = result.inspectedSnapshot ? renderResearchSnapshot(result.inspectedSnapshot) : result.inspectedSource
+          ? renderResearchSource(result.inspectedSource, (body as { snapshotId: string }).snapshotId, research.config.scope.question) : undefined;
+        json(res, 200, { ...result, panelHtml: renderResearchPanel(result.display), inspectionHtml });
+      } catch { json(res, 409, { error: 'Research request refused: invalid or stale identity, unavailable scope, active run or exhausted allowance. Inspect status; local work is kept.' }); }
+      return;
     }
     if (url.pathname === '/api/generation-status') {
       const operation = operationEnvelope(body);
@@ -696,7 +714,8 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
     generationRefused: count(events, "refused"), generationCancelled: count(events, "cancelled"),
     generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: options.context.context.ownerDecisionSource === null ? "absent" : "recorded",
     customerAvailability: "local_prototype_only" });
-  return { handle: handleRequest, status, close: async () => {
+  return { handle: handleRequest, status, disableResearch: () => research?.disable(), close: async () => {
+      await research?.close();
     const active = [...sessions.values()].flatMap(session => session.active ? [session.active] : []);
     for (const generation of active) generation.controller.abort();
     await Promise.all(active.map(generation => generation.settled));
@@ -712,6 +731,12 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
   if (accounts.some(account => !/^[A-Za-z0-9_-]{1,120}$/u.test(account.accountId)) ||
       new Set(accounts.map(account => account.accountId)).size !== accounts.length) throw Error('Invalid or duplicate canonical account');
   const multi = options.accounts !== undefined;
+  if (!multi && entries.some(entry => entry.research)) throw Error('Research requires canonical account routes');
+  for (const [index, entry] of entries.entries()) if (entry.research) {
+    for (const other of entries.slice(index + 1)) if (other.research) {
+      validateAccountResearchConfiguration(entry.research.config, entry.context.context.account.accountId, undefined, other.research.config.retentionRoot);
+    }
+  }
   let expectedHost = options.expectedHost ?? "127.0.0.1:4317";
   const runtimes = new Map<string, AccountRuntime>();
   for (const [index, entry] of entries.entries()) {
@@ -764,7 +789,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     if (!address || typeof address === 'string') throw Error('local server did not bind a TCP port');
     expectedHost = `127.0.0.1:${address.port}`;
   }
-  return {server, origin:`http://${expectedHost}`, status: defaultRuntime.status, close: async () => {
+  return {server, disableResearch: accountId => { const runtime = runtimes.get(accountId); if (!runtime) throw Error('Unknown research account'); runtime.disableResearch(); }, origin:`http://${expectedHost}`, status: defaultRuntime.status, close: async () => {
     await Promise.all([...runtimes.values()].map(runtime => runtime.close()));
     if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }};

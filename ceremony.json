@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-owner-review-corrections-20260911",
+    "recordId": "c3-account-service-integration-20260913",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Complete the four bounded C3 owner-review corrections, then hand the checked private preview to Andrew for product feedback.",
-    "scope": "Correct Workshop empty and load-failure messaging; distinguish otherwise identical saved rows with genuine stable metadata without mutating history; simplify unavailable recorded-revision UI while retaining notes, local drafts and pending recovery; add dated truthful closeout. Relevant tests, independent technical and first-time-user MOA review, ordinary merge and checked private recorded-replay deployment are authorized by Andrew. This build proposal performs no deployment or product calls. No new product-generation calls, budget reset, repeated fresh demonstration, broad redesign, governance framework, account generalization or automatic successor work. Preserve saved records and existing controls. Arbitrary fresh preparation remains unavailable in deployed preview; enabling it needs a separate decision.",
+    "decision": "Integrate accepted account composition with isolated Utah/FedEx services, bounded retained research and targeted saved work; deliver checked private access with truthful partial C/D status.",
+    "scope": "Build permission only for the finite authorized account-service integration: server-owned account/session/store isolation and switching; accepted composition; bounded acquisition transport and immutable retained-source custody; explicit selected-source preparation; original-context generation validation, proposal/Apply separation, notes, Save and reopen; relevant tests, independent reviews, material fixes, documentation and ordinary merge. This code landing executes no product calls, acquisitions, deployment or customer effects. Separately recorded live research and four model slots are consumed; the sole revision was refused, so successful live revision Apply and product milestone closure remain unproved. No additional paid attempt, route or account expansion, budget/window reset, release of old unknown reservations, FedEx generation, owner approval, public rollout, C4 sharing or automatic next milestone is authorized by this proposal. Preserve original replay deployment, accepted prototype and private evidence outside Git.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-11T04:19:36.295175Z",
-    "referenceUri": "https://github.com/alindebergASL/atliera/pull/342#issuecomment-5626511942",
-    "proposalDigest": "sha256:97fa216ed409a7eee49d243249d61c158ae2b3f1c05b344bc15ed61b1e8edc0f"
+    "proposedAt": "2026-09-13T01:19:53.215Z",
+    "referenceUri": "https://github.com/alindebergASL/atliera/blob/main/docs/strategy/standing-development-policy.md",
+    "proposalDigest": "sha256:236638d15cc80e33480e5fc17a54d23f15c15768ccda1f3dce4458ff424ded7a"
   }
 }

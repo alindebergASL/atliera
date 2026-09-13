@@ -1,3 +1,8 @@
+import { modelCommandLaunchArguments, readAccountModelCommand } from './model-command-config.ts';
+import { admitResearchIntelligence } from './research-intelligence.ts';
+import { AccountResearchService } from './research-service.ts';
+import { researchHash } from './research-source.ts';
+import { readResearchConfiguration, researchLaunchArguments } from './research-config.ts';
 import { mkdir, readFile, writeFile, realpath, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -26,7 +31,7 @@ const CURATED_INPUTS: Readonly<Record<string, string>> = Object.freeze({
   acc_university_of_missouri: resolve(REPO, "fixtures/account-intelligence/c3-curated/missouri.json"),
 });
 
-async function contextFor(accountId: string) {
+export async function contextFor(accountId: string) {
   const curated = CURATED_INPUTS[accountId];
   if (curated !== undefined) return loadCuratedC3Context(curated, accountId);
   const proposalPath = PROPOSALS[accountId];
@@ -213,6 +218,29 @@ async function serveCommand(args: readonly string[]): Promise<void> {
   process.once("SIGINT", stop); process.once("SIGTERM", stop);
 }
 
+/** Retained-account inspection; command execution requires explicit account-bound operator configuration. */
+async function serveAccountsCommand(args: readonly string[]): Promise<void> {
+  const modelLaunch = modelCommandLaunchArguments(args);
+  const launch = researchLaunchArguments(modelLaunch.remaining);
+  if (modelLaunch.modelConfig && launch.recording) throw Error("Recorded replay and external command are mutually exclusive");
+  const [utah, fedex] = await Promise.all([contextFor('acc_university_of_utah'), contextFor('acc_fedex_corp')]);
+  const replay = launch.recording ? await loadC3RecordedReplay(utah, launch.recording) : undefined;
+  const portText = process.env.C3_PORT ?? '4317';
+  if (!/^\d{1,5}$/u.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw Error('C3_PORT refused');
+  const workStore = configuredWorkStore();
+  if (modelLaunch.modelConfig && !workStore) throw Error('Account command requires a bound private work store');
+  const model = modelLaunch.modelConfig ? readAccountModelCommand(modelLaunch.modelConfig, utah.context.account.accountId, workStore!.principal) : undefined;
+  const generationAudit = model ? new C3GenerationJournal(model.auditRoot) : undefined;
+  const researchConfigs = launch.configPath ? readResearchConfiguration(launch.configPath, launch.enable, [utah.context.account.accountId, fedex.context.account.accountId], workStore) : [];
+  const researchFor = (accountId: string) => { const config = researchConfigs.find(item => item.accountId === accountId); return config ? { config } : undefined; };
+  const running = await startC3Server({context:utah, research:researchFor(utah.context.account.accountId), provider:model?.provider ?? replay?.provider ?? new DisabledC3ModelProvider(), generationAudit,
+    recordedReplay:replay, workStore, port:Number(portText),
+    accounts:[{context:fedex, research:researchFor(fedex.context.account.accountId), provider:new DisabledC3ModelProvider(), workStore}]});
+  process.stdout.write(`${running.origin}\n`);
+  const stop = (): void => { void running.close().then(() => process.exit(0)); };
+  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+}
+
 async function serveRecordedCommand(args: readonly string[]): Promise<void> {
   const [recordingDirectory, accountId = "acc_university_of_utah"] = args;
   if (recordingDirectory === undefined || args.length > 2) throw new Error("usage: serve-recorded RECORDING_DIRECTORY [ACCOUNT_ID]");
@@ -260,16 +288,43 @@ async function runVerifierEvaluation(args: readonly string[]): Promise<void> {
   } finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); }
 }
 
+/** Writes the actual command request bytes offline. No provider, socket, source run or owner-store write. */
+async function prepareTargetedRequest(args: readonly string[]): Promise<void> {
+  if (args.length !== 8) throw Error('usage: prepare-targeted-request ACCOUNT_ID RESEARCH_CONFIG SNAPSHOT_ID SOURCE_ID PASSAGE_SHA256 PRINCIPAL FORM_JSON OUTPUT_DIRECTORY');
+  const [accountId, configPath, snapshotId, sourceId, passage, principal, formPath, out] = args as [string,string,string,string,string,string,string,string];
+  const base = await contextFor(accountId);
+  const config = readResearchConfiguration(configPath, false, [accountId]).find(item => item.accountId === accountId);
+  if (!config || config.principal !== principal) throw Error('Research principal mismatch');
+  const service = new AccountResearchService({ config, networkEnabled: () => false }, { accountId, principal }, () => new Date());
+  try {
+    const context = admitResearchIntelligence(base, service.selectedRun('offline_preparation', snapshotId), sourceId, passage, { accountId, principal });
+    const form = JSON.parse(fatalText(await boundedFile(formPath, 16_384, 'meeting form'), 'meeting form', false));
+    const request = createC3ModelRequest(context, form);
+    const bytes = JSON.stringify(request) + '\n';
+    const output = await ensureOutput(out);
+    await writeFile(resolve(output, 'context.json'), context.canonicalJson, { mode: 0o600, flag: 'wx' });
+    await writeFile(resolve(output, 'model-request.json'), bytes, { mode: 0o600, flag: 'wx' });
+    const summary = { accountId, principal, contextSha256: context.sha256, requestBytesSha256: researchHash(bytes),
+      canonicalRequestSha256: researchHash(canonicalJson(request)), meetingRequestSha256: request.meetingRequestSha256,
+      snapshotId, sourceId, passageSha256: passage, selectedEvidenceId: context.context.directResearch!.selectedEvidenceId,
+      modelCalls: 0, sourceCalls: 0, humanApproved: false };
+    await writeFile(resolve(output, 'preparation.json'), JSON.stringify(summary, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    process.stdout.write(JSON.stringify(summary) + '\n');
+  } finally { await service.close(); }
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
+  if (command === "prepare-targeted-request") return prepareTargetedRequest(args);
   if (command === "prepare-verifier-evaluation") return prepareVerifierEvaluation(args);
   if (command === "run-verifier-evaluation") return runVerifierEvaluation(args);
   if (command === "load-context") return loadContextCommand(args);
   if (command === "emit-model-request") return emitRequestCommand(args);
   if (command === "render-recorded-draft") return renderRecordedCommand(args);
+  if (command === "serve-accounts") return serveAccountsCommand(args);
   if (command === "serve") return serveCommand(args);
   if (command === "serve-recorded") return serveRecordedCommand(args);
-  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve|serve-recorded> ...");
+  throw new Error("usage: c3 <load-context|emit-model-request|render-recorded-draft|serve|serve-recorded|serve-accounts> ...");
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

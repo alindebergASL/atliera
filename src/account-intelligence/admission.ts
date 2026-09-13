@@ -9,6 +9,7 @@ import {
   type StrictJsonValue,
 } from "../authority/strict-json.ts";
 import type {
+  DirectSourceAcquisition,
   AccountEntityBoundary,
   AccountEntityKind,
   AccountResearchPlan,
@@ -192,7 +193,7 @@ function snapshotTaxonomyEvidence(value: StrictJsonValue | undefined, path: stri
   return rows;
 }
 
-function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSourceInput {
+function snapshotRetrieved(value: StrictJsonValue, index: number, direct = false): RetrievedSourceInput {
   const path = `retrievedSources[${String(index)}]`;
   const root = object(value, path);
   assertExactKeys(root, ["retrievalId", "discoveredByQueryIds", "entity", "relatedEntities", "canonicalUrl", "title", "publisher",
@@ -218,7 +219,7 @@ function snapshotRetrieved(value: StrictJsonValue, index: number): RetrievedSour
   const taxonomyEvidence = snapshotTaxonomyEvidence(root.taxonomyEvidence, `${path}.taxonomyEvidence`, candidateExcerpts.length, taxonomyCoverage);
   return {
     retrievalId: safeId(root.retrievalId, `${path}.retrievalId`),
-    discoveredByQueryIds: stringArray(root.discoveredByQueryIds, `${path}.discoveredByQueryIds`, 30, true),
+    discoveredByQueryIds: stringArray(root.discoveredByQueryIds, `${path}.discoveredByQueryIds`, 30, !direct),
     entity,
     relatedEntities,
     canonicalUrl: safeHttpsUrl(root.canonicalUrl, `${path}.canonicalUrl`),
@@ -251,6 +252,7 @@ export function admitAccountResearch(
   policySnapshot: Readonly<SnapshottedResearchPolicy>,
   discoveriesInput: unknown,
   retrievedSourcesInput: unknown,
+  directAcquisitions: readonly DirectSourceAcquisition[] = [],
 ): Readonly<AdmittedAccountResearch> {
   if (request.accountId !== plan.accountId) throw new Error("request and plan account mismatch");
   const policy = policySnapshot.policy;
@@ -262,7 +264,8 @@ export function admitAccountResearch(
     .map((item, index) => snapshotDiscovery(item, plan, index));
   const retrievedSnapshot = snapshotStrictJson(retrievedSourcesInput, "retrievedSources", LIMITS);
   const retrieved = array(retrievedSnapshot, "retrievedSources", plan.admittedSourceLimit, true)
-    .map((item, index) => snapshotRetrieved(item, index));
+    .map((item, index) => snapshotRetrieved(item, index, directAcquisitions.length > 0));
+  if (directAcquisitions.length && (discoveries.length || directAcquisitions.length !== retrieved.length || new Set(directAcquisitions.map(item => item.retrievalId)).size !== retrieved.length)) throw Error("Direct acquisition must bind each source without search history");
   if (new Set(retrieved.map((item) => item.retrievalId)).size !== retrieved.length) {
     throw new Error("retrieval ids must be unique");
   }
@@ -300,7 +303,11 @@ export function admitAccountResearch(
     const boundLineageUrls = new Set(discoveries
       .filter((item) => source.discoveredByQueryIds.includes(item.queryId))
       .flatMap((item) => [...(item.resultUrl === null ? [] : [item.resultUrl]), ...item.derivedRetrievalUrls]));
-    if (!boundLineageUrls.has(source.canonicalUrl)) {
+    const direct = directAcquisitions.find(item => item.retrievalId === source.retrievalId);
+    if (direct && (direct.kind !== 'direct-source' || direct.accountId !== request.accountId || !SAFE_ID.test(direct.principal) ||
+        !SAFE_ID.test(direct.snapshotId) || !SAFE_ID.test(direct.retainedSourceId) || !/^[a-f0-9]{64}$/u.test(direct.rawSha256) ||
+        direct.cleanTextSha256 !== sha256(source.retrievedText) || direct.canonicalUrl !== source.canonicalUrl || source.discoveredByQueryIds.length)) throw Error('Direct acquisition custody mismatch');
+    if (!direct && !boundLineageUrls.has(source.canonicalUrl)) {
       throw new Error("retrieved source must descend from its recorded search query lineage");
     }
     if (urls.has(source.canonicalUrl)) throw new Error("duplicate canonical source URL refused");

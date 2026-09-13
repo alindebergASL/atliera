@@ -1,7 +1,12 @@
+import { admitResearchIntelligence } from './research-intelligence.ts';
+import { AccountResearchService, validateAccountResearchConfiguration, unavailableResearchDisplay, type AccountResearchOptions } from './research-service.ts';
+import { renderResearchPanel, renderResearchSnapshot, renderResearchSource } from './research-render.ts';
 import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type LoadedWorkBrief, type WorkStoreOptions } from './work-store.ts';
-import { parseWorkspaceRoute } from "./workspace-route.ts";
+import { projectAccount } from "./account-projection.ts";
+import { accountPath, type C3AccountNavigation, parseWorkspaceRoute } from "./workspace-route.ts";
 import { generationRefusalNotice } from './generation-outcome.ts';
 import { canonicalJson } from "./context.ts";
+import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
@@ -21,6 +26,7 @@ interface Session {
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
   workContext?: LoadedWorkBrief['context'];
+  preparedContext?: LoadedWorkBrief['context'];
   correctionNote: string;
   instruction: string;
   proposal: C3GenerationRecord | null;
@@ -56,12 +62,12 @@ export interface C3ServiceStatus {
   readonly customerAvailability: "local_prototype_only";
 }
 
-export interface C3ServerOptions {
+export interface C3AccountServiceOptions {
+  readonly research?: AccountResearchOptions;
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   /** Private durable audit sink for original generator/verifier responses, including refusals. */
   readonly generationAudit?: C3GenerationAudit;
-  readonly port?: number;
   readonly workStore?: WorkStoreOptions;
   /** Labels hand-authored local fixtures; never changes request matching. */
   readonly syntheticPreview?: boolean;
@@ -69,9 +75,6 @@ export interface C3ServerOptions {
   /** Operator custody source for exact generation receipts. Never inferred from provider/runtime strings.
    * Reuse its durable receipt lookup after restart; it may also establish synthetic generation. */
   readonly originReceipt?: (record: C3GenerationRecord) => RecordOriginReceipt | undefined;
-  /** Test seam: create the real HTTP request handler without opening a socket. */
-  readonly listen?: boolean;
-  readonly expectedHost?: string;
   /** Validated operator recordings used only to prefill and explain an exact local replay. */
   readonly recordedReplay?: {
     readonly initialRequest: C3MeetingRequest;
@@ -82,14 +85,32 @@ export interface C3ServerOptions {
   };
 }
 
+export interface C3ServerOptions extends C3AccountServiceOptions {
+  readonly port?: number;
+  /** Test seam: create the real HTTP request handler without opening a socket. */
+  readonly listen?: boolean;
+  readonly expectedHost?: string;
+  /** Additional explicitly configured canonical accounts. The legacy context remains the default. */
+  readonly accounts?: readonly C3AccountServiceOptions[];
+}
+
+interface AccountRuntime {
+  disableResearch(): void;
+  handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
+  status(): C3ServiceStatus;
+  close(): Promise<void>;
+}
+
 export interface RunningC3Server {
+  /** Trusted operator kill switch, no browser route and no re-enable. */
+  disableResearch(accountId: string): void;
   readonly server: Server;
   readonly origin: string;
   readonly status: () => C3ServiceStatus;
   close(): Promise<void>;
 }
 
-function json(res: ServerResponse, status: number, value: unknown): void {
+function sendJson(res: ServerResponse, status: number, value: unknown): void {
   const body = JSON.stringify(value);
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(body),
     "cache-control": "no-store", "x-content-type-options": "nosniff" });
@@ -177,7 +198,13 @@ function submittedPendingRevisionToken(value: unknown): string | undefined {
   return typeof token === "string" && /^[A-Za-z0-9_-]{32}$/u.test(token) ? token : undefined;
 }
 
-export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
+async function createAccountRuntime(options: C3AccountServiceOptions, host: () => string,
+  navigation?: C3AccountNavigation): Promise<AccountRuntime> {
+  const json = (res: ServerResponse, status: number, value: unknown): void => {
+    const payload = value as Record<string, unknown>;
+    sendJson(res, status, navigation && typeof payload?.location === 'string'
+      ? {...payload, location: accountPath(navigation.accountId) + payload.location} : value);
+  };
   if (isCuratedContext(options.context) && options.recordedReplay !== undefined) throw new Error("Agent-curated context cannot claim recorded replay");
   // Snapshot admitted bytes so later operator-object mutation cannot change the authorization.
   const admitted = options.recordedReplay?.priorRecord || options.recordedReplay?.revisionRecord ?
@@ -212,6 +239,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
   const sessions = new Map<string, Session>();
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
+  const research = options.research ? new AccountResearchService(options.research, { accountId: options.context.context.account.accountId, principal: options.workStore?.principal, workRoot: options.workStore?.root }, now) : undefined;
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
   const generation = isCuratedContext(options.context) ? { available: false, explanation: "Fresh meeting generation is unavailable for this agent-curated context. Editable planning worksheets are available." } :
     options.context.context.ownerCorrections.some(item => item.text.includes("not enabled")) ? { available: false, explanation: "Preparation held pending the recorded C2 revision." } :
@@ -226,33 +254,34 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     const session = [...sessions.values()].find(item => item.csrf === csrf);
     let savedWorks: { documentId: string; version: number; audience: string; title?: string; intendedOutcome?: string; meetingDate?: string; savedAt?: string; origin?: WorkOrigin }[] = [];
     let storageError: string | undefined;
-    if (store && inputState.page === 'workshop') try {
+    if (store && (inputState.page === 'workshop' || inputState.page === 'home')) try {
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
-    const state = { ...inputState, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    const state = { ...inputState, research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
     const session = [...sessions.values()].find(item => item.csrf === csrf);
-    const context = state.page === "draft" ? session?.workContext ?? options.context : options.context;
+    const context = state.page === "draft" ? session?.workContext ?? options.context : state.page === "prepare"
+      ? session?.pendingRevision ? session.workContext ?? options.context : session?.preparedContext ?? options.context
+      : options.context;
     return renderC3Page(context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: session?.sectionNotes ?? {} } :
       state.page === "prepare" ? { ...state, displayedRecordId: session?.record?.recordId ?? null } : state, csrf,
       options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
-        initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview });
+        initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview }, navigation);
   };
-  let expectedHost = "";
 
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const host = req.headers.host;
-    if (host !== expectedHost) { json(res, 400, { error: "host refused" }); return; }
+    const expectedHost = host();
+    if (req.headers.host !== expectedHost) { json(res, 400, { error: "host refused" }); return; }
     let url: URL;
     try { url = parseRequestTarget(req.url, expectedHost); }
     catch { json(res, 400, { error: "malformed request target" }); return; }
     if (url.pathname === "/healthz" && req.method === "GET") {
       json(res, 200, status()); return;
     }
-    const cookieName = sessionCookieName(expectedHost);
+    const cookieName = sessionCookieName(expectedHost) + (navigation ? `_${navigation.accountId}` : "");
     const sessionId = cookieValue(req, cookieName);
     let session = sessionId === undefined ? undefined : sessions.get(sessionId);
     if (session === undefined && req.method === "GET" && (url.pathname === "/" || url.pathname === "/account")) {
@@ -267,6 +296,10 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       try { route = parseWorkspaceRoute(url.searchParams); }
       catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "Invalid workspace location" }); return; }
       if (route.destination === "research") {
+        if (route.reading && !projectAccount(options.context).readings.some(item => item.id === route.reading &&
+            (route.topic === 'initiatives' ? !['people', 'technology'].includes(item.topic) : item.topic === route.topic))) {
+          json(res, 404, { error: "Research item unavailable for this account and topic." }); return;
+        }
         html(res, 200, render({ page: "research", topic: route.topic, ...(route.reading ? { reading: route.reading } : {}), hasDraft, ...pendingPageState(session) }, session.csrf), C3_SCRIPT_SHA256); return;
       }
       if (route.destination === "workshop" && route.task === undefined) {
@@ -294,7 +327,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       html(res, 200, render(page, session.csrf), C3_SCRIPT_SHA256); return;
     }
     if (req.method !== "POST" || !url.pathname.startsWith("/api/")) { json(res, 404, { error: "not found" }); return; }
-    if (req.headers.origin !== `http://${expectedHost}` || req.headers["x-c3-csrf"] !== session.csrf ||
+    if ((navigation && req.headers["x-c3-account"] !== navigation.accountId) || req.headers.origin !== `http://${expectedHost}` || req.headers["x-c3-csrf"] !== session.csrf ||
         !/^application\/json(?:;|$)/iu.test(req.headers["content-type"] ?? "")) {
       json(res, 403, { error: "same-origin session guard refused request" }); return;
     }
@@ -302,6 +335,27 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     try { body = await readJson(req); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
     if (store && session.record && url.pathname !== '/api/work-state' && req.headers['x-c3-document'] !== session.documentId) {
       json(res,409,{error:'Displayed document is stale. Local work kept; reopen the intended document before editing or saving.'}); return;
+    }
+    if (url.pathname.startsWith('/api/research/')) {
+      if (!navigation || url.search) { json(res, 404, { error: 'Canonical account research route required' }); return; }
+      if (!research) { json(res, 409, { error: unavailableResearchDisplay().reason }); return; }
+      try {
+        const prepare = url.pathname === '/api/research/prepare';
+        if (prepare && (session.active || session.pendingRevision || session.proposal)) throw Error('Finish pending work before selecting new evidence');
+        const result = research.action(session.id, prepare ? '/api/research/select' : url.pathname, body);
+        if (prepare) {
+          const selected = result.selection!;
+          const context = admitResearchIntelligence(options.context, research.selectedRun(session.id, selected.snapshotId), selected.sourceId,
+            selected.passage.sha256, { accountId: options.context.context.account.accountId, principal: research.config.principal });
+          session.preparedContext = context;
+          json(res, 200, { contextSha256: context.sha256, findingIds: context.context.directResearch!.findingIds,
+            generationEligible: true, humanApproved: false, location: '/?prepare=1' }); return;
+        }
+        const inspectionHtml = result.inspectedSnapshot ? renderResearchSnapshot(result.inspectedSnapshot) : result.inspectedSource
+          ? renderResearchSource(result.inspectedSource, (body as { snapshotId: string }).snapshotId, research.config.scope.question) : undefined;
+        json(res, 200, { ...result, panelHtml: renderResearchPanel(result.display), inspectionHtml });
+      } catch { json(res, 409, { error: 'Research request refused: invalid or stale identity, unavailable scope, active run or exhausted allowance. Inspect status; local work is kept.' }); }
+      return;
     }
     if (url.pathname === '/api/generation-status') {
       const operation = operationEnvelope(body);
@@ -354,7 +408,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         const {saved, context}=store.loadWithContext(typeof value?.documentId === 'string' ? value.documentId : '');
         const work=saved.work;
         session.title=saved.metadata?.title ?? defaultWorkTitle(work.record); session.savedAt=saved.metadata?.savedAt;
-        session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
+        session.preparedContext=undefined; session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
@@ -559,7 +613,13 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
       json(res, 400, { error: error instanceof Error ? error.message : "invalid meeting request" }); return;
     }
     // A revision stays bound to its original evidence, but current runtime holds still apply.
-    const generationContext = session.pendingRevision !== null ? session.workContext ?? options.context : options.context;
+    const generationContext = session.pendingRevision !== null ? session.workContext ?? options.context : session.preparedContext ?? options.context;
+    if (session.preparedContext && session.pendingRevision === null) {
+      try {
+        if (req.headers['x-c3-context'] !== generationContext.sha256 || !research) throw Error('Displayed context is stale');
+        research.selectedRun(session.id, generationContext.context.directResearch!.run.snapshotId!);
+      } catch { json(res, 409, { error: 'Selected evidence is stale. Inspect and select the latest completed snapshot before preparing.' }); return; }
+    }
     if (isCuratedContext(generationContext)) {
       json(res, 409, { error: "Original context is template-only; revision generation is unavailable. Current work kept." }); return;
     }
@@ -578,7 +638,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     // Reopening is an exact comparison against the current successful record, never a replay fallback.
     // Active work and pending corrections retain their existing cancellation/identity paths.
     if (session.active === undefined && session.pendingRevision === null && session.record?.draft !== undefined &&
-        sameMeetingRequest(session.record.meetingRequest, request)) {
+        (!session.preparedContext || session.record.contextSha256 === generationContext.sha256) && sameMeetingRequest(session.record.meetingRequest, request)) {
       session.form = request;
       const status = "Meeting inputs unchanged. Reopened the existing session draft; no new generation. Your note is kept.";
       json(res, 200, { outcome: "succeeded", operation, recordId: session.record.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, noChange: true, status, html: render({ page: "draft", record: session.record,
@@ -641,7 +701,7 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
         json(res,200,{outcome:'succeeded',operation,proposalReady:true,stale:session.proposalStale,proposalId:generation.recordId,recordId:session.record!.recordId,instruction:revision.correctionNote,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changed,proposal:generation.draft,original:session.record!.draft,status:'Proposal ready. Current brief stays unchanged until Apply revision.',html:render({page:'draft',record:session.record!,correctionNote:session.correctionNote,...pendingPageState(session)},session.csrf)}); return;
       }
       session.title=defaultWorkTitle(generation); session.savedAt=undefined;
-      session.workContext = generationContext;
+      session.workContext = generationContext; session.preparedContext = undefined;
       session.sectionNotes = {}; session.record = generation; session.records = [generation];
       session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
       session.correctionNote = ''; session.instruction=''; session.proposal=null;
@@ -669,38 +729,90 @@ export async function startC3Server(options: C3ServerOptions): Promise<RunningC3
     }
   };
 
-  const server = createServer((req, res) => {
-    void handleRequest(req, res).catch(() => {
-      if (res.writableEnded || res.destroyed) return;
-      if (res.headersSent) res.destroy();
-      else json(res, 500, { error: "bounded request handling failure" });
-    });
-  });
-
   const status = (): C3ServiceStatus => ({ provider: isCuratedContext(options.context) ? "disabled_curated_template_only" : options.provider.name,
     generationAttempted: count(events, "attempted"), generationSucceeded: count(events, "succeeded"),
     generationRefused: count(events, "refused"), generationCancelled: count(events, "cancelled"),
     generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: options.context.context.ownerDecisionSource === null ? "absent" : "recorded",
     customerAvailability: "local_prototype_only" });
-  if (options.listen === false) {
-    expectedHost = options.expectedHost ?? "127.0.0.1:4317";
-  } else {
+  return { handle: handleRequest, status, disableResearch: () => research?.disable(), close: async () => {
+      await research?.close();
+    const active = [...sessions.values()].flatMap(session => session.active ? [session.active] : []);
+    for (const generation of active) generation.controller.abort();
+    await Promise.all(active.map(generation => generation.settled));
+  } };
+}
+
+/** One listener, explicit account runtimes. Sessions/providers/stores never follow a mutable UI selection.
+ * This is local operator partitioning, not multitenant authentication. */
+export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
+  const entries = [options, ...(options.accounts ?? [])];
+  const accounts = entries.map(entry => ({ accountId: entry.context.context.account.accountId,
+    accountName: entry.context.context.account.accountName }));
+  if (accounts.some(account => !/^[A-Za-z0-9_-]{1,120}$/u.test(account.accountId)) ||
+      new Set(accounts.map(account => account.accountId)).size !== accounts.length) throw Error('Invalid or duplicate canonical account');
+  const multi = options.accounts !== undefined;
+  if (!multi && entries.some(entry => entry.research)) throw Error('Research requires canonical account routes');
+  for (const [index, entry] of entries.entries()) if (entry.research) {
+    for (const other of entries.slice(index + 1)) if (other.research) {
+      validateAccountResearchConfiguration(entry.research.config, entry.context.context.account.accountId, undefined, other.research.config.retentionRoot);
+    }
+  }
+  let expectedHost = options.expectedHost ?? "127.0.0.1:4317";
+  const runtimes = new Map<string, AccountRuntime>();
+  for (const [index, entry] of entries.entries()) {
+    const accountId = accounts[index]!.accountId;
+    runtimes.set(accountId, await createAccountRuntime(entry, () => expectedHost,
+      multi ? {accountId, accounts} : undefined));
+  }
+  const defaultRuntime = runtimes.get(accounts[0]!.accountId)!;
+  const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (req.headers.host !== expectedHost) { sendJson(res, 400, {error:'host refused'}); return; }
+    let url: URL;
+    try { url = parseRequestTarget(req.url, expectedHost); }
+    catch { sendJson(res, 400, {error:'malformed request target'}); return; }
+    // Fixed approved public illustration only; no user-selected filesystem path or CSP expansion.
+    if (url.pathname === '/assets/campus-concept.png' && !url.search && req.method === 'GET') {
+      const bytes = await readFile(new URL('./assets/campus-concept.png', import.meta.url));
+      res.writeHead(200, { 'content-type': 'image/png', 'content-length': String(bytes.length),
+        'x-content-type-options': 'nosniff', 'cache-control': 'private, max-age=3600' });
+      res.end(bytes); return;
+    }
+    if (!multi) { await defaultRuntime.handle(req, res); return; }
+    if (url.pathname === '/healthz' && req.method === 'GET') {
+      sendJson(res, 200, {...defaultRuntime.status(), accounts: accounts.map(account =>
+        ({...account, ...runtimes.get(account.accountId)!.status()}))}); return;
+    }
+    if ((url.pathname === '/' || url.pathname === '/account') && req.method === 'GET') {
+      // Old URLs have a stable default; never infer an account from titles, IDs or the last tab.
+      res.writeHead(302, {location: accountPath(accounts[0]!.accountId) + '/' + url.search, 'cache-control':'no-store'}); res.end(); return;
+    }
+    const match = /^\/accounts\/([A-Za-z0-9_-]{1,120})(\/.*)$/u.exec(url.pathname);
+    const runtime = match ? runtimes.get(match[1]!) : undefined;
+    if (!runtime) { sendJson(res, 404, {error:'Canonical account route required'}); return; }
+    const originalUrl = req.url;
+    req.url = match![2]! + url.search;
+    try { await runtime.handle(req, res); } finally { req.url = originalUrl; }
+  };
+  const server = createServer((req, res) => {
+    void handle(req, res).catch(() => {
+      if (res.writableEnded || res.destroyed) return;
+      if (res.headersSent) res.destroy();
+      else sendJson(res, 500, {error:'bounded request handling failure'});
+    });
+  });
+  if (options.listen !== false) {
     await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(options.port ?? 0, "127.0.0.1", () => { server.off("error", reject); resolve(); });
+      server.once('error', reject);
+      server.listen(options.port ?? 0, '127.0.0.1', () => { server.off('error', reject); resolve(); });
     });
     const address = server.address();
-    if (address === null || typeof address === "string") throw new Error("local server did not bind a TCP port");
-    expectedHost = `127.0.0.1:${String(address.port)}`;
+    if (!address || typeof address === 'string') throw Error('local server did not bind a TCP port');
+    expectedHost = `127.0.0.1:${address.port}`;
   }
-  return { server, origin: `http://${expectedHost}`, status,
-    close: async () => {
-      const active = [...sessions.values()].flatMap((session) => session.active === undefined ? [] : [session.active]);
-      for (const generation of active) generation.controller.abort();
-      await Promise.all(active.map((generation) => generation.settled));
-      if (!server.listening) return;
-      await new Promise<void>((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error)));
-    } };
+  return {server, disableResearch: accountId => { const runtime = runtimes.get(accountId); if (!runtime) throw Error('Unknown research account'); runtime.disableResearch(); }, origin:`http://${expectedHost}`, status: defaultRuntime.status, close: async () => {
+    await Promise.all([...runtimes.values()].map(runtime => runtime.close()));
+    if (server.listening) await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }};
 }
 
 interface ReviewAction { readonly note: string; readonly recordId: string; }

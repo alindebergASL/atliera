@@ -29,10 +29,10 @@ test("shared frame has one account identity and three destinations with exact se
     const nav = html.match(/<nav class="workspace-nav"[\s\S]*?<\/nav>/u)![0];
     assert.equal((nav.match(/<a /gu) ?? []).length, 3);
     assert.equal((nav.match(/aria-current="page"/gu) ?? []).length, 1);
-    assert.match(html, /<header class="workspace-header"><span class="account-identity">University of Utah<\/span>/);
+    assert.match(html, /<header class="workspace-header"><a class="brand" href="\/">atliera<\/a><span class="account-identity">University of Utah<\/span>/);
     assert.doesNotMatch(html, /Georgia|parchment|account-atmosphere|linear-gradient|>Settings</);
   }
-  for (const token of ['--atl-canvas: #f6f7f9', '--atl-ink: #171a1f', '--atl-muted: #626b78', '--atl-accent: #6652c6', '--atl-sidebar: 208px', '--atl-inspector: 420px']) assert.ok(WORKSPACE_CSS.includes(token));
+  for (const token of ['--atl-canvas: #faf9f7', '--atl-ink: #10111c', '--atl-muted: #5d5c69', '--atl-accent: #272731', '--atl-sidebar: 0px', '--atl-inspector: 500px']) assert.ok(WORKSPACE_CSS.includes(token));
   assert.match(WORKSPACE_CSS, /background:var\(--atl-question-surface\);color:var\(--atl-question-ink\)/);
   assert.match(WORKSPACE_CSS, /safe-area-inset-bottom/);
   assert.match(WORKSPACE_CSS, /focus-visible/);

@@ -37,6 +37,9 @@ export interface AccountDetail {
   readonly sections: readonly AccountDetailSection[];
 }
 export interface AccountProjection {
+  readonly presentation?: { readonly illustration: { readonly src: string; readonly alt: string; readonly caption: string } };
+  /** Exact existing proposal prose, not newly authored account readings. */
+  readonly retainedSections: readonly { readonly id: string; readonly title: string; readonly text: string; readonly state: string; readonly evidenceIds: readonly string[] }[];
   readonly details: readonly AccountDetail[];
   readonly readings: readonly AccountReading[];
   readonly passages: readonly AccountSourcePassage[];
@@ -279,6 +282,22 @@ export function projectAccount(frozen: FrozenC3ViewContext): AccountProjection {
   const used = new Set(readings.flatMap(note => note.evidenceIds.map(id => byEvidence.get(id)!.source.sourceId)));
   passages.forEach(passage => used.add(passage.source.sourceId));
   details.forEach(detail => detail.sections.forEach(section => used.add(section.sourceId)));
-  return deepFreezeOwnData({ details, readings: readings.map(note => ({ ...note, evidenceIds: [...note.evidenceIds] })), passages,
+  const proposal = frozen.context.proposal;
+  const retainedSections = readings.length ? [] : [
+    ...proposal.establishedContext.map((item, index) => ({ ...item, id: `retained-context-${index + 1}`, title: `Retained context ${index + 1}` })),
+    ...proposal.meaningfullyChanged.map((item, index) => ({ ...item, id: `retained-development-${index + 1}`, title: `Reported development ${index + 1}` })),
+    ...proposal.whyChangeMayMatter.map((item, index) => ({ ...item, id: `retained-interpretation-${index + 1}`, title: `Proposed interpretation ${index + 1}` })),
+    ...proposal.stillOpenQuestions.map((item, index) => ({ ...item, id: `retained-question-${index + 1}`, title: `Open question ${index + 1}` })),
+  ].filter(item => item.evidenceIds.length > 0 && item.evidenceIds.every(id => {
+    const retained = byEvidence.get(id);
+    return retained && retained.excerpt.sourceId === retained.source.sourceId &&
+      hash(retained.excerpt.exactExcerpt) === retained.excerpt.exactExcerptSha256 &&
+      retained.source.fullBoundedCleanText.slice(retained.excerpt.sourceCharStart, retained.excerpt.sourceCharEnd) === retained.excerpt.exactExcerpt;
+  }));
+  // Optional account presentation, never evidence or a renderer account-name branch.
+  const presentation = frozen.context.account.accountId === 'acc_university_of_utah' ? {
+    illustration: { src: '/assets/campus-concept.png', alt: 'Illustrative University of Utah campus concept', caption: 'Campus illustration · not a documented photograph' },
+  } : undefined;
+  return deepFreezeOwnData({ presentation, retainedSections, details, readings: readings.map(note => ({ ...note, evidenceIds: [...note.evidenceIds] })), passages,
     unmatchedSourceIds: sources.filter(source => !used.has(source.sourceId)).map(source => source.sourceId) });
 }

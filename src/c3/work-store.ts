@@ -1,3 +1,4 @@
+import { validateResearchIntelligence } from './research-intelligence.ts';
 import { constants, openSync, closeSync, fstatSync, fsyncSync, readSync, writeFileSync, mkdirSync, lstatSync, realpathSync, opendirSync, unlinkSync, linkSync } from 'node:fs';
 import { resolve, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -243,7 +244,9 @@ export class LocalWorkStore {
        !/^[a-f0-9]{64}$/u.test(digest) || createHash('sha256').update(serialized).digest('hex')!==digest) throw Error('Retained context digest mismatch');
     const context=JSON.parse(serialized) as FrozenC3ViewContext['context'];
     if(canonicalJson(context)!==serialized || context?.account?.accountId!==this.context.context.account.accountId) throw Error('Retained context account or canonical identity mismatch');
-    return Object.freeze({context:deepFreezeOwnData(context),canonicalJson:serialized,sha256:digest});
+    const frozen = Object.freeze({context:deepFreezeOwnData(context),canonicalJson:serialized,sha256:digest});
+    validateResearchIntelligence(frozen, this.options.principal);
+    return frozen;
   }
   /** Used by the service for historical rendering, evidence inspection and revision.
    * Always validates the complete work against the exact original context. */

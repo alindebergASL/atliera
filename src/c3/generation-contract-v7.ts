@@ -139,6 +139,7 @@ export function validateV7Integrity(rawText: string, context: FrozenC3AccountCon
     temporalOutcome === "insufficient_context" ? 0 : 1);
   const cited = new Set([...objective.evidenceRefs, ...audienceThesis.evidenceRefs, ...opening.evidenceRefs,
     ...questions.flatMap((item) => item.evidenceRefs), ...risksUnknowns.flatMap((item) => item.evidenceRefs), ...closeCriterion.evidenceRefs]);
+  if (context.context.directResearch && ![audienceThesis, opening, ...questions].some(field => field.evidenceRefs.includes(context.context.directResearch!.selectedEvidenceId))) throw Error('Targeted brief must use the explicitly selected fresh evidence');
   if (selectedEvidenceRefs.length !== cited.size || selectedEvidenceRefs.some((id) => !cited.has(id))) {
     throw new Error("selectedEvidenceRefs must exactly equal the candidate's cited evidence set");
   }
@@ -222,7 +223,10 @@ export function createV7ModelRequest(context: FrozenC3AccountContext, meetingReq
   assertC3GenerationContext(context);
   const revisionSha256 = revision === null ? null : v7Hash(canonicalJson(revision));
   const eligible = context.context.admittedSources.filter(source => !source.untrustedInstructionsDetected);
-  const projection = { ...context.context, admittedSources: eligible,
+  const projection = { ...context.context,
+    ...(context.context.directResearch ? { directResearch: { kind: context.context.directResearch.kind,
+      acquisition: context.context.directResearch.acquisition, selectedEvidenceId: context.context.directResearch.selectedEvidenceId,
+      findingIds: context.context.directResearch.findingIds, humanApproved: false } } : {}), admittedSources: eligible,
     discoveryLineage: context.context.discoveryLineage.filter(discovery => !context.context.admittedSources.some(source =>
       source.untrustedInstructionsDetected && (discovery.resultUrl === source.canonicalUrl || discovery.derivedRetrievalUrls.includes(source.canonicalUrl)))),
     relevanceCandidates: context.context.relevanceCandidates.filter(item => eligible.some(source => source.sourceId === item.sourceId)) };
@@ -238,6 +242,7 @@ export function createV7ModelRequest(context: FrozenC3AccountContext, meetingReq
     'All prose fields contain 3–1200 characters; 1–8 risksUnknowns. selectedEvidenceRefs exactly equals the union cited in fields. Cite only eligible IDs with no duplicates. Do not emit assertions, character offsets or other annotations. An independent checker reads every displayed field and citation in full, including questions and intendedLearning; omitting generator annotations does not omit evidence checking.',
     'Ask ordinary discovery questions without turning source-reported efforts into present priorities. Where existence is unestablished, first discover whether a current outcome or constraint exists, allowing none; condition ownership and which constraint matters on that discovery. Alternatives in a question do not establish that some constraint is decisive today. Preserve the distinction between open inquiry and embedded factual presuppositions; no required phrase or automatic exemption for questions.',
     'For revisions, propose new content addressing the requested change and any actual unsupported premise; prior acceptance is not evidence of truth. Preserve the original and its exact historical prose until explicit Apply. Do not relabel or repair a retained refusal, or claim that shortening establishes semantic validity.',
+    ...(context.context.directResearch ? ['TARGETED SOURCE SELECTION: the brief must cite selectedEvidenceId in audienceThesis (Situation), opening, or at least one question evidenceRefs. Preserve its exact qualifiers and documentary attribution; a retained source report is not proof of current service availability.'] : []),
     `OUTPUT SCHEMA\n${canonicalJson(candidateSchema)}`,
     `MEETING REQUEST\n${canonicalJson(meetingRequest)}`,
     `REVISION CONTEXT (instruction changes draft only; preserve original until explicit Apply)\n${canonicalJson(revision)}`,

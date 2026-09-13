@@ -141,6 +141,10 @@ function isIntentionalAcquisitionPolicyLiteral(hit: {
   if (hit.file === "src/c3/service.ts" &&
       ((hit.kind === "literal IPv4 address" && hit.value === "127.0.0.1") ||
        (hit.kind === "protocol URL" && hit.value === "http://$"))) return true;
+  // Configured-host validation interpolates no literal endpoint. The scanner
+  // captures only the template prefix; real URLs in this file remain forbidden.
+  if (hit.file === "src/c3/research-source.ts" &&
+      hit.kind === "protocol URL" && hit.value === "https://$") return true;
   // These four immutable public citations are Account inspection data, not
   // runtime endpoints. Only this file/kind/exact URL combination is exempt;
   // other URLs, addresses and infrastructure assignments remain scanned.
@@ -249,9 +253,19 @@ describe("safety: app/deploy files do not hardcode infrastructure locations", ()
     ].join("\n"))) assert.equal(isIntentionalAcquisitionPolicyLiteral(hit), false);
   });
 
+  it("admits only the research configured-host template, never literal endpoints", () => {
+    const file = "src/c3/research-source.ts";
+    const source = readFileSync(join(REPO_ROOT, file), "utf8");
+    assert.match(source, /canonicalResearchUrl\(`https:\/\/\$\{host\}\/`\)/);
+    const hits = (text: string, path = file) => findInfrastructureLiteralsInText(path, text).filter((hit) => !isIntentionalAcquisitionPolicyLiteral(hit));
+    assert.deepEqual(hits('canonicalResearchUrl(`https://${host}/`)'), []);
+    for (const text of ['"https://api.example.org/path"', '"http://api.example.org/path"', '"127.0.0.1"', 'DB_HOST="db.example.org"']) assert.ok(hits(text).length > 0);
+    assert.ok(hits('`https://${host}/`', 'src/c3/other.ts').length > 0);
+  });
+
   it("contains no hardcoded URLs, IPs, DB URLs, host assignments, DB paths, or Atliera server-local paths", () => {
     const c3Service = readFileSync(join(REPO_ROOT, "src", "c3", "service.ts"), "utf8");
-    assert.match(c3Service, /server\.listen\(options\.port \?\? 0, "127\.0\.0\.1"/);
+    assert.match(c3Service, /server\.listen\(options\.port \?\? 0, '127\.0\.0\.1'/);
     assert.doesNotMatch(c3Service, /server\.listen\([^\n]+(?:0\.0\.0\.0|::)/);
     const hits = findInfrastructureLiterals(scannedFiles());
     assert.deepEqual(

@@ -58,6 +58,7 @@ export interface C3RelevanceCandidate {
 }
 
 export interface C3AccountContext {
+  readonly directResearch?: import("./research-intelligence.ts").ResearchIntelligenceBinding;
   readonly kind: typeof C3_ACCOUNT_CONTEXT_KIND;
   readonly schemaVersion: typeof C3_ACCOUNT_CONTEXT_VERSION;
   readonly account: Pick<AccountResearchRequest, "accountId" | "accountName" | "canonicalPublicDomains" | "knownAliases" |

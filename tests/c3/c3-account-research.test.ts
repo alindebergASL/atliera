@@ -30,7 +30,7 @@ test("Account offers a separate unreviewed public research layer with nine exact
     assert.match(inspection, /Excluded from approved facts, preparation, Brief and model inputs/);
     assert.doesNotMatch(inspection, /data-evidence-|data-source-id=|<form|<button|\bApprove\b|\bRatify\b/);
     assert.match(html, /id="account-research"/);
-    assert.match(renderC3Page(context, { page: "home" }, "test"), />Prepare brief<\/a>/);
+    assert.match(renderC3Page(context, { page: "home" }, "test"), /href="\/\?prepare=1">Set up brief<\/a>/);
     assert.doesNotMatch(html, /no new research has run/);
     for (const match of inspection.matchAll(/<details\b[^>]*data-research-excerpt="([^"]+)"[\s\S]*?<\/details>/gu)) {
       assert.equal((match[0].match(/<details\b/gu) ?? []).length, 2, "exact excerpt inspection has a separate Source details disclosure");

@@ -18,7 +18,7 @@ import { canonicalJson } from '../../src/c3/context.ts';
 // Authored fresh-operation fixtures: scripted checks exercise custody and Apply, not evidence semantics.
 const syntheticMeetingCandidate: typeof issuedMeetingCandidate = (...args) => issuedMeetingCandidate(...args);
 const createGenerationRecord: typeof createOriginalGenerationRecord = (model, raw, context, verification) => {
-  if ((model.generationContractVersion === '6' || model.generationContractVersion === '7') && !verification) {
+  if ((model.generationContractVersion === '6' || model.generationContractVersion === '7' || model.generationContractVersion === '8') && !verification) {
     const check = createC3VerificationRequest(model, raw, context);
     verification = retainC3Verification(check, scriptedFullCoverage(check));
   }
@@ -412,7 +412,7 @@ for (const version of [2, 3, 4] as const) test(`exact v${version} recorded servi
   await fresh.call('/?draft=1');assert.equal(running.status().generationAttempted,0);
  }finally{await running.close();await rm(root,{recursive:true,force:true});}
 });
-for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v7`,async()=>{
+for (const version of [2, 3, 4] as const) test(`v${version} pending work opens without mutation; Apply keeps old proposal; genuinely new Generate uses v8`,async()=>{
  const old=await oldFixture(version);const root=await mkdtemp(join(tmpdir(),'c3-old-pending-'));
  for(const file of old.files)await writeFile(join(root,file.name),file.bytes,{mode:0o600});
  const captures:ReturnType<typeof createC3ModelRequest>[]=[];
@@ -425,7 +425,7 @@ for (const version of [2, 3, 4] as const) test(`v${version} pending work opens w
   assert.equal((await b.call('/api/apply-revision',{recordId:old.initial.recordId,proposalId:old.revised.recordId,instruction:pending.work.instruction,pendingRevisionToken:pending.work.pendingRevisionToken})).status,200);
   const stage=(await b.call('/api/revise',{recordId:old.revised.recordId,note:'Clarify next steps.',priorNote:pending.work.correctionNote})).json();
   const generated=await b.call('/api/generate',{...envelope(old.revised.recordId,stage.pendingRevisionToken),request:old.revised.meetingRequest});
-  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'7');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
+  assert.equal(generated.status,200);assert.equal(captures[0]!.generationContractVersion,'8');assert.equal(captures[0]!.revision!.priorRawResponse,old.revised.rawResponse);
   for(const file of old.files)assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const awaiting=JSON.parse(old.files.find((file:any)=>{const w=JSON.parse(file.bytes).work;return w.pendingRevision && !w.proposal;}).bytes);
   const fresh=await browser(running);assert.equal((await fresh.call('/api/reopen',{documentId:awaiting.documentId})).status,200);

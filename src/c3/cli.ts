@@ -118,7 +118,7 @@ async function loadRecording(context: FrozenC3AccountContext, directory: string,
   if (canonicalJson(supplied) !== canonicalJson(expected)) throw new Error(`${label} recorded model request identity or prompt mismatch`);
   const rawResponse = fatalText(await boundedFile(rawPath, 256 * 1024, `${label} raw response`), `${label} raw response`, true);
   let verification: C3Verification | undefined;
-  if (expected.generationContractVersion === '6' || expected.generationContractVersion === '7') {
+  if (expected.generationContractVersion === '6' || expected.generationContractVersion === '7' || expected.generationContractVersion === '8') {
     verification = JSON.parse(fatalText(await boundedFile(resolve(directory, 'verification.json'), 8 * 1024 * 1024,
       `${label} verification`), `${label} verification`, false)) as C3Verification;
   }
@@ -173,7 +173,7 @@ async function renderRecordedCommand(args: readonly string[]): Promise<void> {
   if (JSON.stringify(supplied) !== JSON.stringify(expected)) throw new Error("recorded model request identity or prompt mismatch");
   const rawResponse = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await readFile(resolve(rawResponsePath!)));
   let verification: C3Verification | undefined;
-  if (expected.generationContractVersion === '6' || expected.generationContractVersion === '7') {
+  if (expected.generationContractVersion === '6' || expected.generationContractVersion === '7' || expected.generationContractVersion === '8') {
     try { verification = JSON.parse(fatalText(await boundedFile(resolve(dirname(requestPath!), 'verification.json'), 8 * 1024 * 1024, 'recorded verification'), 'recorded verification', false)) as C3Verification; }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     // Missing verification yields a retained typed refusal, never acceptance or a fresh call.

@@ -272,7 +272,7 @@ export type C3GenerationStage = 'preparing' | 'checking-evidence';
 export async function generateVerifiedC3Record(provider: C3ModelProvider, request: C3ModelRequest,
   context: FrozenC3ViewContext, signal: AbortSignal,
   audit?: C3GenerationAudit, onStage?: (stage: C3GenerationStage) => void): Promise<C3GenerationRecord> {
-  if (request.generationContractVersion !== '6' && request.generationContractVersion !== '7') throw new Error('Fresh generation requires contract 6 or 7.');
+  if (request.generationContractVersion !== '6' && request.generationContractVersion !== '7' && request.generationContractVersion !== '8') throw new Error('Fresh generation requires contract 6, 7 or 8.');
   if (provider.executionMode === 'external' && (!provider.verify || !audit || typeof audit.retainCandidate !== 'function' || typeof audit.retainRecord !== 'function' || typeof audit.retainFailure !== 'function')) {
     throw new Error('Fresh generation requires the shared budgeted verification route and private attempt retention.');
   }

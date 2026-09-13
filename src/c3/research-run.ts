@@ -218,6 +218,13 @@ export class BoundedResearchExecution {
         'Supported findings, inference, conflict classification, relevance and generation eligibility require separate admission and synthesis.',
         ...(run.sources.some(source => source.extraction.truncated) ? ['At least one clean-text projection was truncated.'] : [])], generationEligible: false }));
   }
+  /** Account-owned immutable receipt for admission, not session-owned cancellation. */
+  latestCompletedRun(caller: ResearchCaller, snapshotId: string): ResearchRun {
+    this.caller(caller);
+    const run = this.readRuns().at(-1);
+    if (!run || run.state !== 'completed' || run.snapshotId !== snapshotId) throw Error('Latest completed snapshot required');
+    return researchJson(run);
+  }
   snapshot(caller: ResearchCaller, snapshotId: string): ResearchSnapshot {
     const snapshot = this.snapshots(caller).find(item => item.snapshotId === snapshotId);
     if (!snapshot) throw Error('Research snapshot unavailable for this account and principal');

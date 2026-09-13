@@ -23,7 +23,8 @@ test('SYNTHETIC research client: explicit actions, busy clicks, lost response re
   click({target:{closest:()=>button}});assert.equal(calls.length,2);assert.equal(JSON.stringify(calls[1]),JSON.stringify(calls[0]),'retry retains identical snapshot identity');
   resolve({selection:{reason:'Admission required',snapshotId:'snapshot_original',sourceId:'source_a',passage:{sha256:'passage_hash'}}});await new Promise(done=>setImmediate(done));
   assert.match(message.textContent,/Admission required/);assert.deepEqual(dirty,before);
-  assert.doesNotMatch(RESEARCH_CLIENT_SCRIPT,/location\.(assign|replace)|replacePage\(|saveWork\(|applyRevision\(/);
+  assert.doesNotMatch(RESEARCH_CLIENT_SCRIPT,/replacePage\(|saveWork\(|applyRevision\(/);
+  assert.match(RESEARCH_CLIENT_SCRIPT,/if \(result.location\) \{ window.location.assign\(result.location\); return; \}/);
 });
 test('composed C2 research endpoints: passing baseline precedes hostile route mutations',()=>{
   assertC3ClientSurface();
@@ -43,4 +44,22 @@ test('exact-passage navigation locates question terms beyond a long menu prefix'
   assert.match(passages[0]!.text, /access requires an application/);
   assert.ok(passages[0]!.start > 900);
   for (const passage of passages) assert.equal(passage.text, cleanText.slice(passage.start, passage.end));
+});
+
+// Exact C2→CD1 migration: only explicit validated preparation may navigate.
+test('SYNTHETIC explicit validated selection navigates the server account route exactly once', async () => {
+  let click: any, prepareClick: any;
+  const locations: string[] = [], calls: string[] = [];
+  const selection = { snapshotId: 'snapshot_exact', sourceId: 'source_exact', passage: { sha256: 'passage_exact' }, reason: 'Admission required' };
+  const inspection = { append: (_button: unknown) => {}, setAttribute: () => {}, focus: () => {} };
+  const panel = { querySelector: (s: string) => s === '[data-research-inspection]' ? inspection : null, addEventListener: (_event: string, fn: unknown) => { click = fn; } };
+  runInNewContext(RESEARCH_CLIENT_SCRIPT, { document: { querySelector: () => panel, createElement: () => ({ addEventListener: (_event: string, fn: unknown) => { prepareClick = fn; } }) },
+    window: { location: { assign: (value: string) => locations.push(value) } }, clearTimeout: () => {}, setTimeout: () => 0,
+    requestJson: async (route: string) => { calls.push(route); return route.endsWith('/select') ? { selection } : { location: '/accounts/acct-synthetic/?prepare=1' }; } });
+  click({ target: { closest: () => ({ disabled: false, dataset: { snapshot: selection.snapshotId, source: selection.sourceId, passage: selection.passage.sha256 }, hasAttribute: (attr: string) => attr === 'data-research-select' }) } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(locations, []);
+  prepareClick(); await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, ['/api/research/select', '/api/research/prepare']);
+  assert.deepEqual(locations, ['/accounts/acct-synthetic/?prepare=1']);
 });

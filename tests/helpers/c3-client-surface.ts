@@ -11,7 +11,7 @@ import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 const fixed = ['/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
   '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/revision-invalidate', '/api/save',
   '/api/save-copy', '/api/section-note', '/api/work-state', '/api/work/title', '/api/research/start', '/api/research/status', '/api/research/cancel', '/api/research/refresh',
-  '/api/research/recover', '/api/research/snapshot', '/api/research/source', '/api/research/select'];
+  '/api/research/recover', '/api/research/snapshot', '/api/research/source', '/api/research/select', '/api/research/prepare'];
 const planning = ['/api/planning/strategy', '/api/planning/next-steps', '/api/section-note'];
 
 export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
@@ -44,7 +44,7 @@ export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'fetch') {
       fetches++;
-      assert.match(node.getText(tree), /^fetch\(accountUrl\(url\), \{ method: 'POST', headers: \{ 'content-type': 'application\/json', 'x-c3-csrf': csrf, 'x-c3-account': account, 'x-c3-document': workDocumentId \}, body: JSON.stringify\(body\), signal \}\)$/);
+      assert.match(node.getText(tree), /^fetch\(accountUrl\(url\), \{ method: 'POST', headers: \{ 'content-type': 'application\/json', 'x-c3-csrf': csrf, 'x-c3-account': account, 'x-c3-document': workDocumentId, 'x-c3-context': displayedContext \}, body: JSON.stringify\(body\), signal \}\)$/);
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'requestJson') {
       const target = node.arguments[0]!;

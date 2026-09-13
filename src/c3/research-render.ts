@@ -8,38 +8,69 @@ export function questionPassages(source: RetainedResearchSource, question: strin
   const terms = [...new Set(question.toLowerCase().match(/[a-z]{4,}/gu) ?? [])].filter(term => !stop.has(term)).slice(0, 32);
   const text = source.cleanText;
   const candidates: { start: number; end: number; score: number }[] = [];
+  // Menus often repeat across desktop/mobile markup. Repetition and prose density
+  // are structural hints only; the retained projection and offsets never change.
+  const words = [...text.matchAll(/\b[\p{L}][\p{L}'’-]*\b/gu)];
+  const shingles = new Map<string, number>();
+  for (let i = 0; i + 5 <= words.length; i++) {
+    const key = words.slice(i, i + 5).map(w => w[0].toLowerCase()).join(' ');
+    shingles.set(key, (shingles.get(key) ?? 0) + 1);
+  }
   const rank = (start: number, end: number): void => {
-    if (candidates.length >= 256) return;
-    const segment = text.slice(start, end).toLowerCase();
-    const matches = terms.filter(term => segment.includes(term)).length;
-    const navigation = (segment.match(/\b(?:navigation|breadcrumb|menu|skip to|log in|sign in)\b/gu) ?? []).length;
-    if (matches && end - start > 35) candidates.push({ start, end, score: matches - navigation });
+    while (start < end && /\s/u.test(text[start]!)) start++;
+    while (end > start && /\s/u.test(text[end - 1]!)) end--;
+    // Repeated editorial sentences need a little exact adjacent context to be
+    // uniquely inspectable; never rewrite the quote or invent an occurrence ID.
+    while (end - start < 750 && text.indexOf(text.slice(start, end), start + 1) !== -1 && end < text.length) {
+      const nextEnd = /[.!?](?:\s|$)/u.exec(text.slice(end));
+      end = nextEnd ? end + nextEnd.index + 1 : Math.min(text.length, end + 60);
+      while (end < text.length && !/\s/u.test(text[end]!)) end++;
+    }
+    const segment = text.slice(start, end);
+    const lower = segment.toLowerCase();
+    const matches = terms.filter(term => lower.includes(term)).length;
+    const tokens = segment.match(/\b[\p{L}][\p{L}'’-]*\b/gu) ?? [];
+    const prose = (lower.match(/\b(?:is|are|was|were|will|can|may|must|should|includes?|invites?|requires?|offers?|accepts?|through|that|which|when|once|provide|provides)\b/gu) ?? []).length;
+    const navigation = (lower.match(/\b(?:navigation|breadcrumb|menu|skip to|log in|sign in|quick links)\b/gu) ?? []).length;
+    let repeated = 0;
+    for (let i = 0; i + 5 <= tokens.length; i++) if ((shingles.get(tokens.slice(i, i + 5).join(' ').toLowerCase()) ?? 0) > 1) repeated++;
+    const repeatRatio = repeated / Math.max(1, tokens.length - 4);
+    const titleRatio = tokens.filter(token => /^[A-Z]/u.test(token)).length / Math.max(1, tokens.length);
+    if (matches && tokens.length >= 5 && prose > 0) candidates.push({ start, end,
+      score: matches + Math.min(prose, 4) + (/\b(?:invit\w*|requir\w*|eligib\w*)\b/u.test(lower) ? 6 : 0) - (/^[a-z]/u.test(segment) ? 2 : 0) - 8 * repeatRatio * titleRatio - 5 * titleRatio - 4 * navigation });
   };
-  const regex = /[^.!?]+[.!?]?/gu;
-  for (const match of text.matchAll(regex)) {
+  for (const match of text.matchAll(/[^.!?]+[.!?]?/gu)) {
     const offset = match.index!;
-    const trimmed = match[0].trim();
-    const start = offset + match[0].indexOf(trimmed);
-    if (trimmed.length <= 850) rank(start, start + trimmed.length);
+    // A menu can share a punctuation-free block with the first prose sentence.
+    // Add suffixes at sentence-like capital/lowercase transitions, still exact.
+    for (const transition of match[0].matchAll(/\b[A-Z][\p{L}'’-]* (?:[a-z][\p{L}'’-]*[,;:]? ){2}/gu)) {
+      if (transition.index! > 80 && match[0].length - transition.index! <= 850) rank(offset + transition.index!, offset + match[0].length);
+    }
+    if (match[0].length <= 850) rank(offset, offset + match[0].length);
     else {
-      // Long blocks often start with menus. Locate bounded windows around actual
-      // question terms instead of presenting the block's unrelated prefix.
-      const lower = trimmed.toLowerCase();
-      for (const term of terms) {
-        let index = -1, scanned = 0;
-        while (scanned++ < 24 && (index = lower.indexOf(term, index + 1)) !== -1) {
-          const left = Math.max(0, index - 240);
-          const right = Math.min(trimmed.length, index + term.length + 380);
-          rank(start + left, start + right);
-        }
+      // Keep word boundaries in long punctuation-free blocks, including menus.
+      // Scan the whole bounded text so repeated early menus cannot exhaust a quota.
+      for (const word of match[0].matchAll(/\S+/gu)) {
+        if (!terms.some(term => word[0].toLowerCase().includes(term))) continue;
+        let left = Math.max(0, word.index! - 180);
+        let right = Math.min(match[0].length, word.index! + word[0].length + 380);
+        while (left > 0 && !/\s/u.test(match[0][left - 1]!)) left++;
+        while (right < match[0].length && !/\s/u.test(match[0][right]!)) right++;
+        rank(offset + left, offset + right);
       }
     }
   }
   const passages: ResearchPassage[] = [];
   for (const candidate of candidates.sort((a, b) => b.score - a.score || a.start - b.start)) {
     if (passages.some(passage => Math.max(candidate.start, passage.start) < Math.min(candidate.end, passage.end))) continue;
+    const candidateWords = text.slice(candidate.start, candidate.end).toLowerCase().match(/\b[\p{L}]+\b/gu) ?? [];
+    const candidatePhrases = candidateWords.slice(4).map((_, i) => candidateWords.slice(i, i + 5).join(' '));
+    if (passages.some(passage => {
+      const existing = (passage.text.toLowerCase().match(/\b[\p{L}]+\b/gu) ?? []).join(' ');
+      return candidatePhrases.length > 0 && candidatePhrases.filter(phrase => existing.includes(phrase)).length / candidatePhrases.length > 0.65;
+    })) continue;
     try { passages.push(researchPassage(text, candidate.start, candidate.end)); } catch { /* No invented ambiguous excerpt. */ }
-    if (passages.length === 3) break;
+    if (passages.length === 5) break;
   }
   return passages;
 }
@@ -75,9 +106,18 @@ export const RESEARCH_CLIENT_SCRIPT = `
       if (result.panelHtml) researchRoot.innerHTML = result.panelHtml;
       const inspection = researchRoot.querySelector('[data-research-inspection]');
       if (inspection && result.inspectionHtml) { inspection.innerHTML = result.inspectionHtml; inspection.setAttribute('tabindex', '-1'); inspection.focus(); }
+      if (result.location) { window.location.assign(result.location); return; }
       if (result.selection) {
         const message = researchRoot.querySelector('[data-research-message]');
         if (message) message.textContent = result.selection.reason + ' Snapshot ' + result.selection.snapshotId + '; source ' + result.selection.sourceId + '; passage ' + result.selection.passage.sha256;
+        if (inspection) {
+          const action = document.createElement('button');
+          action.type = 'button'; action.textContent = 'Validate passage and set up targeted brief';
+          action.addEventListener('click', () => researchAction(() => requestJson('/api/research/prepare', {
+            snapshotId: result.selection.snapshotId, sourceId: result.selection.sourceId, passageSha256: result.selection.passage.sha256
+          })));
+          inspection.append(action);
+        }
       }
     } catch (error) {
       const message = researchRoot.querySelector('[data-research-message]');

@@ -1,3 +1,4 @@
+import { admitResearchIntelligence } from './research-intelligence.ts';
 import { AccountResearchService, validateAccountResearchConfiguration, unavailableResearchDisplay, type AccountResearchOptions } from './research-service.ts';
 import { renderResearchPanel, renderResearchSnapshot, renderResearchSource } from './research-render.ts';
 import { LocalWorkStore, newWorkDocumentId, defaultWorkTitle, workTitle, createRecordOriginReceipt, validateOriginReceipt, type RecordOriginReceipt, type WorkOrigin, type WorkingBrief, type LoadedWorkBrief, type WorkStoreOptions } from './work-store.ts';
@@ -25,6 +26,7 @@ interface Session {
   form: C3MeetingFormState;
   record?: C3GenerationRecord;
   workContext?: LoadedWorkBrief['context'];
+  preparedContext?: LoadedWorkBrief['context'];
   correctionNote: string;
   instruction: string;
   proposal: C3GenerationRecord | null;
@@ -261,7 +263,9 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
     const session = [...sessions.values()].find(item => item.csrf === csrf);
-    const context = state.page === "draft" ? session?.workContext ?? options.context : options.context;
+    const context = state.page === "draft" ? session?.workContext ?? options.context : state.page === "prepare"
+      ? session?.pendingRevision ? session.workContext ?? options.context : session?.preparedContext ?? options.context
+      : options.context;
     return renderC3Page(context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: session?.sectionNotes ?? {} } :
       state.page === "prepare" ? { ...state, displayedRecordId: session?.record?.recordId ?? null } : state, csrf,
       options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
@@ -336,7 +340,17 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       if (!navigation || url.search) { json(res, 404, { error: 'Canonical account research route required' }); return; }
       if (!research) { json(res, 409, { error: unavailableResearchDisplay().reason }); return; }
       try {
-        const result = research.action(session.id, url.pathname, body);
+        const prepare = url.pathname === '/api/research/prepare';
+        if (prepare && (session.active || session.pendingRevision || session.proposal)) throw Error('Finish pending work before selecting new evidence');
+        const result = research.action(session.id, prepare ? '/api/research/select' : url.pathname, body);
+        if (prepare) {
+          const selected = result.selection!;
+          const context = admitResearchIntelligence(options.context, research.selectedRun(session.id, selected.snapshotId), selected.sourceId,
+            selected.passage.sha256, { accountId: options.context.context.account.accountId, principal: research.config.principal });
+          session.preparedContext = context;
+          json(res, 200, { contextSha256: context.sha256, findingIds: context.context.directResearch!.findingIds,
+            generationEligible: true, humanApproved: false, location: '/?prepare=1' }); return;
+        }
         const inspectionHtml = result.inspectedSnapshot ? renderResearchSnapshot(result.inspectedSnapshot) : result.inspectedSource
           ? renderResearchSource(result.inspectedSource, (body as { snapshotId: string }).snapshotId, research.config.scope.question) : undefined;
         json(res, 200, { ...result, panelHtml: renderResearchPanel(result.display), inspectionHtml });
@@ -394,7 +408,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
         const {saved, context}=store.loadWithContext(typeof value?.documentId === 'string' ? value.documentId : '');
         const work=saved.work;
         session.title=saved.metadata?.title ?? defaultWorkTitle(work.record); session.savedAt=saved.metadata?.savedAt;
-        session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
+        session.preparedContext=undefined; session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
@@ -599,7 +613,13 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       json(res, 400, { error: error instanceof Error ? error.message : "invalid meeting request" }); return;
     }
     // A revision stays bound to its original evidence, but current runtime holds still apply.
-    const generationContext = session.pendingRevision !== null ? session.workContext ?? options.context : options.context;
+    const generationContext = session.pendingRevision !== null ? session.workContext ?? options.context : session.preparedContext ?? options.context;
+    if (session.preparedContext && session.pendingRevision === null) {
+      try {
+        if (req.headers['x-c3-context'] !== generationContext.sha256 || !research) throw Error('Displayed context is stale');
+        research.selectedRun(session.id, generationContext.context.directResearch!.run.snapshotId!);
+      } catch { json(res, 409, { error: 'Selected evidence is stale. Inspect and select the latest completed snapshot before preparing.' }); return; }
+    }
     if (isCuratedContext(generationContext)) {
       json(res, 409, { error: "Original context is template-only; revision generation is unavailable. Current work kept." }); return;
     }
@@ -618,7 +638,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
     // Reopening is an exact comparison against the current successful record, never a replay fallback.
     // Active work and pending corrections retain their existing cancellation/identity paths.
     if (session.active === undefined && session.pendingRevision === null && session.record?.draft !== undefined &&
-        sameMeetingRequest(session.record.meetingRequest, request)) {
+        (!session.preparedContext || session.record.contextSha256 === generationContext.sha256) && sameMeetingRequest(session.record.meetingRequest, request)) {
       session.form = request;
       const status = "Meeting inputs unchanged. Reopened the existing session draft; no new generation. Your note is kept.";
       json(res, 200, { outcome: "succeeded", operation, recordId: session.record.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, noChange: true, status, html: render({ page: "draft", record: session.record,
@@ -681,7 +701,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
         json(res,200,{outcome:'succeeded',operation,proposalReady:true,stale:session.proposalStale,proposalId:generation.recordId,recordId:session.record!.recordId,instruction:revision.correctionNote,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changed,proposal:generation.draft,original:session.record!.draft,status:'Proposal ready. Current brief stays unchanged until Apply revision.',html:render({page:'draft',record:session.record!,correctionNote:session.correctionNote,...pendingPageState(session)},session.csrf)}); return;
       }
       session.title=defaultWorkTitle(generation); session.savedAt=undefined;
-      session.workContext = generationContext;
+      session.workContext = generationContext; session.preparedContext = undefined;
       session.sectionNotes = {}; session.record = generation; session.records = [generation];
       session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
       session.correctionNote = ''; session.instruction=''; session.proposal=null;

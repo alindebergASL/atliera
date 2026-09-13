@@ -121,7 +121,7 @@ export class AccountResearchService {
       const value = keys(body, path.endsWith('/select') ? ['snapshotId', 'sourceId', 'passageSha256'] : ['snapshotId', 'sourceId']);
       const source = this.execution.source(caller, value.snapshotId!, value.sourceId!);
       if (path.endsWith('/select')) {
-        if (this.execution.snapshots(caller).at(-1)?.snapshotId !== value.snapshotId) throw Error('Selected snapshot is stale. Historical evidence remains inspectable.');
+        if (this.execution.snapshots(caller).at(-1)?.snapshotId !== value.snapshotId || this.execution.snapshot(caller, value.snapshotId!).state !== 'completed') throw Error('Selected snapshot is stale. Historical evidence remains inspectable.');
         const passage = questionPassages(source, this.config.scope.question).find(item => item.sha256 === value.passageSha256);
         if (!passage) throw Error('Selected passage is not retained by this source');
         extra = { selection: { accountId: caller.accountId, principal: caller.principal, snapshotId: value.snapshotId!, sourceId: source.sourceId,
@@ -130,6 +130,14 @@ export class AccountResearchService {
       } else extra = { inspectedSource: source };
     } else throw Error('Unknown research route');
     return { display: this.display(sessionId), ...extra };
+  }
+  /** Re-resolve current immutable custody before admission or first generation. */
+  selectedRun(sessionId: string, snapshotId: string): import('./research-store.ts').ResearchRun {
+    const caller = this.caller(sessionId);
+    const latest = this.execution.snapshots(caller).at(-1);
+    if (!latest || latest.snapshotId !== snapshotId || latest.state !== 'completed') throw Error('Completed latest snapshot required');
+    const run = this.execution.latestCompletedRun(caller, latest.snapshotId);
+    return run;
   }
   disable(): void { this.stopped = true; this.execution.stop(); }
   async close(): Promise<void> { this.disable(); await Promise.all([...this.completions]); }

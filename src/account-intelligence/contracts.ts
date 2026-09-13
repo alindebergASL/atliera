@@ -69,6 +69,19 @@ export interface SearchDiscoveryRecord {
   readonly snippetUsedAsEvidence: false;
 }
 
+/** Exact URL acquisition is retrieval lineage, never a successful search record. */
+export interface DirectSourceAcquisition {
+  readonly kind: "direct-source";
+  readonly accountId: string;
+  readonly principal: string;
+  readonly snapshotId: string;
+  readonly retainedSourceId: string;
+  readonly retrievalId: string;
+  readonly canonicalUrl: string;
+  readonly rawSha256: string;
+  readonly cleanTextSha256: string;
+}
+
 export type AccountEntityKind =
   | "account"
   | "subsidiary"

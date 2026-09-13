@@ -685,7 +685,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       }
       if (generation.outcome === "refused") {
         events.push({ kind: "refused", sequence });
-        const failureKind = generation.generationContractVersion === '7' ? generation.refusal!.failureKind : undefined;
+        const failureKind = (generation.generationContractVersion === '7' || generation.generationContractVersion === '8') ? generation.refusal!.failureKind : undefined;
         const refusalNotice = generationRefusalNotice(generation);
         const page = render(revision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:refusalNotice,...pendingPageState(session)} : { page: "prepare", request,
           error: refusalNotice,

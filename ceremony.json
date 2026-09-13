@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-account-service-integration-20260913",
+    "recordId": "c3-field-local-generation-v8-20260913",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Integrate accepted account composition with isolated Utah/FedEx services, bounded retained research and targeted saved work; deliver checked private access with truthful partial C/D status.",
-    "scope": "Build permission only for the finite authorized account-service integration: server-owned account/session/store isolation and switching; accepted composition; bounded acquisition transport and immutable retained-source custody; explicit selected-source preparation; original-context generation validation, proposal/Apply separation, notes, Save and reopen; relevant tests, independent reviews, material fixes, documentation and ordinary merge. This code landing executes no product calls, acquisitions, deployment or customer effects. Separately recorded live research and four model slots are consumed; the sole revision was refused, so successful live revision Apply and product milestone closure remain unproved. No additional paid attempt, route or account expansion, budget/window reset, release of old unknown reservations, FedEx generation, owner approval, public rollout, C4 sharing or automatic next milestone is authorized by this proposal. Preserve original replay deployment, accepted prototype and private evidence outside Git.",
+    "decision": "Clarify field-local factual-premise citation guidance in forward generation contract v8 while preserving historical v7 and unchanged verifier requirements.",
+    "scope": "Build permission only for one generator instruction clarification through existing contract version dispatch, compatibility guards, synthetic tests and documentation; parent verification, independent review, required CI, ordinary PR and merge. Preserve historical request/prompt/record identity and all saved evidence and outcomes. This code landing executes no provider calls, acquisitions, deployment or customer effects. No verifier relaxation, prior-acceptance exemption, output repair, retry or live improvement claim. All previous paid slots remain consumed and their window expired; no renewed budget, authority or successful C/D revision Apply is implied. Retained private evidence stays outside Git.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-13T01:19:53.215Z",
+    "proposedAt": "2026-09-13T06:36:18.468Z",
     "referenceUri": "https://github.com/alindebergASL/atliera/blob/main/docs/strategy/standing-development-policy.md",
-    "proposalDigest": "sha256:236638d15cc80e33480e5fc17a54d23f15c15768ccda1f3dce4458ff424ded7a"
+    "proposalDigest": "sha256:40ab881ff1efed3d38f7ba8da17a3c098cb06427807d2ad1926b47f6ba7104bc"
   }
 }

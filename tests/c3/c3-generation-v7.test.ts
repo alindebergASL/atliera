@@ -13,7 +13,7 @@ import { generationRefusalNotice } from '../../src/c3/generation-outcome.ts';
 import { syntheticMeetingCandidate, syntheticMeetingRequest, syntheticWorkshopContext } from '../fixtures/c3-workshop.ts';
 
 const context = syntheticWorkshopContext();
-const request = contract.createC3ModelRequest(context, syntheticMeetingRequest);
+const request = contract.createC3ModelRequest(context, syntheticMeetingRequest, null, '7');
 const raw = syntheticMeetingCandidate(context) + '\n\n';
 
 // Synthetic verdict injection exercises custody/coverage/refusal plumbing only. It is not a semantic model.
@@ -70,7 +70,7 @@ for (const phase of ['initial', 'revision'] as const) test(`${phase}: Unicode, p
   const original = record(fixture());
   const originalBytes = canonicalJson(original);
   const revision = contract.createC3RevisionContext(original, 'Shorten the opening and discover whether a constraint exists.', 1);
-  const req = phase === 'revision' ? contract.createC3ModelRequest(context, syntheticMeetingRequest, revision) : request;
+  const req = phase === 'revision' ? contract.createC3ModelRequest(context, syntheticMeetingRequest, revision, '7') : request;
   const candidate = JSON.parse(raw);
   const segments = phase === 'revision' ? ['Explore 🛰 ', ...parts.slice(1), ' Then decide.'] : parts;
   candidate.opening.text = segments.join('');
@@ -134,7 +134,7 @@ for (const [name, mutate] of [
 
 for (const mode of ['sparse', 'conflict'] as const) test(`v7 keeps ${mode} evidence limits visible and checked`, () => {
   const ctx = syntheticWorkshopContext('cedar', mode);
-  const req = contract.createC3ModelRequest(ctx, syntheticMeetingRequest);
+  const req = contract.createC3ModelRequest(ctx, syntheticMeetingRequest, null, '7');
   const bytes = syntheticMeetingCandidate(ctx);
   const check = contract.createC3VerificationRequest(req, bytes, ctx);
   const retained = contract.createGenerationRecord(req, bytes, ctx, contract.retainC3Verification(check, JSON.stringify(output(check))));
@@ -212,7 +212,7 @@ test('v6 source, prompt and schema 1/2 success/refusal replay remain unchanged t
   }
   assert.throws(() => validateV7Integrity(oldRaw, context), /unexpected or missing/);
   assert.throws(() => v6.validateV6Integrity(raw, context), /unexpected or missing/);
-  assert.throws(() => contract.createC3ModelRequest(context, syntheticMeetingRequest, null, '8' as any), /unsupported/);
+  assert.throws(() => contract.createC3ModelRequest(context, syntheticMeetingRequest, null, '9' as any), /unsupported/);
 });
 
 test('historical 2–5 and missing markers never select the fresh v7 prompt', () => {

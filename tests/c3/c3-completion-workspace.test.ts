@@ -115,3 +115,19 @@ test('a newer saved version of the same document is not presented as the current
  assert.match(html,/<button[^>]+data-reopen-work=/);
  assert.doesNotMatch(html,/<a class="saved-title" href="\/\?draft=1"/,'Newer saved row must reopen the actual stored version');
 });
+
+
+test('replay badge and working return reflect only supplied account session state',()=>{
+ const draft=renderC3Page(ctx,{page:'draft',record,correctionNote:'',work},'offline');
+ assert.match(draft,/<span class="work-origin" data-origin="historical-replay">Historical replay<\/span>/);
+ const unknown=renderC3Page(ctx,{page:'draft',record,correctionNote:'',work:{...work,origin:undefined}},'offline');
+ assert.match(unknown,/<span class="work-origin" data-origin="unknown">Origin not established<\/span>/);
+ const navigation={accountId:ctx.context.account.accountId,accounts:[{accountId:ctx.context.account.accountId,accountName:'Synthetic Harbor'}]};
+ for(const saved of [true,false]){
+  const html=renderC3Page(ctx,{page:'home',hasDraft:true,work:{...work,saved}},'offline',undefined,navigation);
+  assert.ok(html.includes('href="/accounts/'+navigation.accountId+'/?draft=1">Return to working brief'));
+  assert.ok(html.includes(saved?'Brief saved · information reviews are separate.':'Pending brief changes · use Save in the brief to retain them.'));
+ }
+ const other=renderC3Page(ctx,{page:'home',hasDraft:false,work},'offline');
+ assert.ok(!other.includes('aria-label="Existing working brief"'));
+});

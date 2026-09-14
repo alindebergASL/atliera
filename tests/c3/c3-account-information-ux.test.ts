@@ -23,7 +23,7 @@ function clientFixture() {
  const detail={open:false};
  const form:any={dataset:{id:'info_'+'a'.repeat(64),version:'1'},elements:{namedItem:(n:string)=>fields[n]},addEventListener:(n:string,f:any)=>{formHandlers[n]=f;},querySelectorAll:(s:string)=>s==='input,textarea,select,button'?Object.values(fields):[],querySelector:()=>status,closest:()=>cards[0]};
  const card=(text:string):any=>({hidden:false,text,querySelectorAll(s:string){assert.equal(s,'[data-information-search-text]');return [{textContent:this.text}];},querySelector:(s:string)=>s==='[data-information-detail]'?detail:status,replaceWith(next:any){cards[0]=next;}});
- const cards=[card('Synthetic access passage Harbor source newsletter 2026-09-01 Not independently checked'),card('Synthetic budget statement Cedar source annual report 2020-01-01 Operator validated')];
+ const cards=[card('Synthetic access passage Harbor source newsletter 2026 access plan'),card('Synthetic budget statement Cedar source annual report 2020 budget scope')];
  const panel={hasAttribute:()=>true,querySelectorAll:()=>cards,querySelector:()=>count,getAttribute:()=> 'record-synthetic',matches:()=>false};
  const search={value:'',closest:()=>panel,addEventListener:(n:string,f:()=>void)=>{searchHandlers[n]=f;},focus:()=>{focused='search';}};
  let replacement=card('Changed synthetic passage Cedar');
@@ -33,12 +33,13 @@ function clientFixture() {
  return {cards,fields,status,count,search,requests,context,focused:()=>focused,setResponse:(r:any)=>{response=r;},filter:(q:string)=>{search.value=q;searchHandlers.input!();},nativeClear:()=>{search.value='';searchHandlers.search!();},clear:()=>clear(),input:()=>formHandlers.input!(),submit:()=>formHandlers.submit!({preventDefault(){}} as never),add:()=>click({preventDefault(){},target:{closest:()=>({dataset:{id:form.dataset.id,informationVersion:'1'},getAttribute:()=> 'add',closest:(s:string)=>s==='article'?{querySelector:()=>status}:panel})}})};
 }
 
-test('local information search matches statement/entity/source/date/trust, bounds literal input and clears without mutation',()=>{
+test('local information search matches statement/entity/scope/source without status boilerplate, bounds literal input and clears without mutation',()=>{
  const f=clientFixture();const before=JSON.stringify(f.fields);const nodes=[...f.cards];
  assert.equal(f.count.textContent,'2 of 2 information cards');
- for(const q of ['ACCESS','harbor','newsletter','2026-09-01','not independently checked']){
+ for(const q of ['ACCESS','harbor','newsletter','2026 access plan']){
   f.filter(q);assert.equal(f.cards[0].hidden,false,q);assert.equal(f.cards[1].hidden,true,q);assert.equal(f.count.textContent,'1 of 2 information cards');
  }
+ f.filter('not independently checked');assert.ok(f.cards.every(c=>c.hidden));
  f.filter('<script>throw Error()</script>');assert.ok(f.cards.every(c=>c.hidden));assert.match(f.count.textContent,/0 of 2.*No matches/);
  f.filter('x'.repeat(300));assert.equal(f.search.value.length,200);
  f.clear();assert.ok(f.cards.every(c=>!c.hidden));assert.equal(f.focused(),'search');assert.equal(f.count.textContent,'2 of 2 information cards');
@@ -62,7 +63,7 @@ test('confirmed Account addition exposes an account-qualified Save link and expl
 test('search markup is labeled, bounded, keyboard-native and rendering leaves information bytes unchanged',()=>{
  const item=newInformation({text:'Synthetic <statement>',entity:'Harbor',timeScope:'Unknown',evidence:[],origin:{kind:'source',contextSha256:'a'.repeat(64),binding:'synthetic'}},{principal:'synthetic.operator',accountId:'acct-harbor',at:'2026-09-14T00:00:00.000Z'});
  const before=JSON.stringify(item);const html=renderAccountInformation([item],[],true,true,1);
- assert.match(html,/<label for="information-search">Find information<\/label>/);assert.match(html,/type="search" maxlength="200"/);assert.match(html,/data-information-search-clear>Clear search/);assert.match(html,/data-information-search-count role="status" aria-live="polite" aria-atomic="true"/);assert.match(html,/data-information-search-text><p class="user-copy">Synthetic &lt;statement&gt;/);assert.equal(JSON.stringify(item),before);
+ assert.match(html,/<label for="information-search">Find information<\/label>/);assert.match(html,/type="search" maxlength="200"/);assert.match(html,/data-information-search-clear>Clear search/);assert.match(html,/data-information-search-count role="status" aria-live="polite" aria-atomic="true"/);assert.match(html,/class="user-copy" data-information-search-text>Synthetic &lt;statement&gt;/);assert.equal(JSON.stringify(item),before);
 });
 
 function launchFixture(t:any) {

@@ -18,6 +18,7 @@ function clientFixture() {
  let clear=()=>{},click:(e:any)=>Promise<void>=async()=>{};
  let focused='',requests:any[]=[];
  const count={textContent:''};
+ const briefStatus={textContent:'Brief saved · information reviews are separate.'};
  const status:any={textContent:'',children:[] as any[],append(node:any){this.children.push(node);},setAttribute(){},focus(){focused='status';}};
  const fields:any={action:{value:'validate'},reason:{value:'Keep my typed review reasoning'},firsthand:{value:'Synthetic firsthand basis'}};
  const detail={open:false};
@@ -28,9 +29,9 @@ function clientFixture() {
  const search={value:'',closest:()=>panel,addEventListener:(n:string,f:()=>void)=>{searchHandlers[n]=f;},focus:()=>{focused='search';}};
  let replacement=card('Changed synthetic passage Cedar');
  let response:any={saved:true,item:{id:form.dataset.id,version:2},html:'public synthetic response'};
- const context:any={document:{querySelector:(s:string)=>s==='[data-account-information]'?panel:s==='[data-information-search]'?search:s==='[data-information-search-count]'?count:s==='[data-information-search-clear]'?{addEventListener:(_n:string,f:()=>void)=>{clear=f;}}:null,querySelectorAll:()=>[form],addEventListener:(_n:string,f:any)=>{click=f;},getElementById:()=>cards[0],importNode:(n:any)=>n,createElement:(tag:string)=>({tag})},window:{location:{hash:''},addEventListener(){},confirm:()=>false},DOMParser:class{parseFromString(){return {querySelector:()=>replacement};}},requestJson:async(route:string,body:any)=>{requests.push({route,body});return route==='/api/work-state'?{recordId:'record-synthetic',documentId:'document-synthetic',workVersion:1}:response;},confirmDirtyNavigation:()=>true,saveBusy:false,reviewBusy:false,workDocumentId:'document-synthetic',accountUrl:(route:string)=>'/accounts/acct-harbor'+route};
+ const context:any={document:{querySelector:(s:string)=>s==='[data-working-brief-status]'?briefStatus:s==='[data-account-information]'?panel:s==='[data-information-search]'?search:s==='[data-information-search-count]'?count:s==='[data-information-search-clear]'?{addEventListener:(_n:string,f:()=>void)=>{clear=f;}}:null,querySelectorAll:()=>[form],addEventListener:(_n:string,f:any)=>{click=f;},getElementById:()=>cards[0],importNode:(n:any)=>n,createElement:(tag:string)=>({tag})},window:{location:{hash:''},addEventListener(){},confirm:()=>false},DOMParser:class{parseFromString(){return {querySelector:()=>replacement};}},requestJson:async(route:string,body:any)=>{requests.push({route,body});return route==='/api/work-state'?{recordId:'record-synthetic',documentId:'document-synthetic',workVersion:1,saved:false}:response;},confirmDirtyNavigation:()=>true,saveBusy:false,reviewBusy:false,workDocumentId:'document-synthetic',accountUrl:(route:string)=>'/accounts/acct-harbor'+route};
  vm.runInNewContext(INFORMATION_CLIENT_SCRIPT,context);
- return {cards,fields,status,count,search,requests,context,focused:()=>focused,setResponse:(r:any)=>{response=r;},filter:(q:string)=>{search.value=q;searchHandlers.input!();},nativeClear:()=>{search.value='';searchHandlers.search!();},clear:()=>clear(),input:()=>formHandlers.input!(),submit:()=>formHandlers.submit!({preventDefault(){}} as never),add:()=>click({preventDefault(){},target:{closest:()=>({dataset:{id:form.dataset.id,informationVersion:'1'},getAttribute:()=> 'add',closest:(s:string)=>s==='article'?{querySelector:()=>status}:panel})}})};
+ return {cards,fields,status,briefStatus,count,search,requests,context,focused:()=>focused,setResponse:(r:any)=>{response=r;},filter:(q:string)=>{search.value=q;searchHandlers.input!();},nativeClear:()=>{search.value='';searchHandlers.search!();},clear:()=>clear(),input:()=>formHandlers.input!(),submit:()=>formHandlers.submit!({preventDefault(){}} as never),add:()=>click({preventDefault(){},target:{closest:()=>({dataset:{id:form.dataset.id,informationVersion:'1'},getAttribute:()=> 'add',closest:(s:string)=>s==='article'?{querySelector:()=>status}:panel})}})};
 }
 
 test('local information search matches statement/entity/scope/source without status boilerplate, bounds literal input and clears without mutation',()=>{
@@ -58,6 +59,13 @@ test('confirmed Account addition exposes an account-qualified Save link and expl
  assert.match(f.status.textContent,/updated locally.*Save the brief/);assert.deepEqual(f.status.children,[{tag:'a',href:'/accounts/acct-harbor/?draft=1',textContent:'Return to brief and Save'}]);
  assert.deepEqual(f.requests.map(r=>r.route),['/api/work-state','/api/work/information']);
  const failed=clientFixture();failed.setResponse({saved:true,attachments:[],workVersion:2});await failed.add();assert.equal(failed.status.children.length,0);assert.match(failed.status.textContent,/not confirmed/);
+});
+
+test('no-change addition invalidates a stale saved banner without claiming brief persistence',async()=>{
+ const f=clientFixture();f.setResponse({saved:false,attachments:[],workVersion:1,noChange:true});await f.add();
+ assert.doesNotMatch(f.briefStatus.textContent,/Brief saved/);
+ assert.match(f.briefStatus.textContent,/Inspect the brief.*Save status/);
+ assert.deepEqual(f.requests.map(r=>r.route),['/api/work-state','/api/work/information']);
 });
 
 test('search markup is labeled, bounded, keyboard-native and rendering leaves information bytes unchanged',()=>{

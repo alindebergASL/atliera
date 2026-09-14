@@ -86,7 +86,7 @@ export const INFORMATION_CLIENT_SCRIPT = `
       }else{
         status.textContent=result.noChange?'Working context unchanged. Inspect the brief for its Save status. ':'Working context updated locally. Save the brief to retain this version. ';
         const briefStatus=document.querySelector('[data-working-brief-status]');
-        if(briefStatus&&!result.noChange)briefStatus.textContent='Pending brief changes · use Save in the brief to retain them.';
+        if(briefStatus)briefStatus.textContent=result.noChange?'Working context unchanged. Inspect the brief for its current Save status.':'Pending brief changes · use Save in the brief to retain them.';
         const link=document.createElement('a');link.href=accountUrl('/?draft=1');link.textContent='Return to brief and Save';status.append(link);
       }
     }catch(error){status.textContent=error.message||'Working context update was not confirmed.';}

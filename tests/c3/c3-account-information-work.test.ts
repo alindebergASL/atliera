@@ -14,12 +14,15 @@ test('disabled production journey includes, saves, reopens, compares and explici
  const item=newInformation({text:'Synthetic useful uncertainty.',entity:accountId,timeScope:'Unknown',evidence:[],origin:{kind:'source',contextSha256:context.sha256,binding:'synthetic-test'}},a);information.save(item,0);
  try{
   let b=researchBrowser(server);await b.call(accountId,'/');assert.equal((await b.call(accountId,'/api/reopen',{documentId})).status,200);
+  let accountPage=await b.call(accountId,'/');assert.match(accountPage.text,/data-working-brief-status role="status">Brief saved/);assert.ok(accountPage.text.includes('href="/accounts/'+accountId+'/?draft=1">Return to working brief'));
   let state=(await b.call(accountId,'/api/work-state',{})).json();
   const change={action:'add',id:item.id,informationVersion:1,workVersion:state.workVersion,recordId:record.recordId};
   const included=await b.call(accountId,'/api/work/information',change);assert.equal(included.status,200,included.text);assert.equal(included.json().saved,false);
   assert.equal((await b.call(accountId,'/api/work/information',change)).status,409);state=(await b.call(accountId,'/api/work-state',{})).json();assert.equal(state.saved,false);
+  accountPage=await b.call(accountId,'/');assert.match(accountPage.text,/data-working-brief-status role="status">Pending brief changes/);assert.equal(store.load(documentId).version,1);
   const save=()=>b.call(accountId,'/api/save',{recordId:record.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion,informationAttachmentsSha256:state.attachmentDigest});
   const saved=await save();assert.equal(saved.status,200,saved.text);assert.equal(saved.json().version,2);
+  accountPage=await b.call(accountId,'/');assert.match(accountPage.text,/data-working-brief-status role="status">Brief saved/);
   const bytes=readFileSync(join(workStore.root,readdirSync(workStore.root).find(n=>n.endsWith('v000002.json'))!),'utf8');
   assert.equal(store.load(documentId).schemaVersion,'4');assert.equal(store.load(documentId).work.record.rawResponse,raw);
   let revised=reviseInformation(item,{action:'validate',reason:'Observed directly',firsthand:'I attended',evidenceIds:[]},a);information.save(revised,1);

@@ -28,15 +28,25 @@ export const INFORMATION_CLIENT_SCRIPT = `
       const showFields = () => form.querySelectorAll('[data-information-fields]').forEach(region => {region.hidden=!region.getAttribute('data-information-fields').split(' ').includes(field('action').value);});
       form.addEventListener('change',showFields);showFields();
       form.addEventListener('input',()=>informationDirtyForms.add(form));
+      form.querySelector('[data-information-cancel]')?.addEventListener?.('click',()=>{
+        if(informationBusy)return;
+        if(informationDirtyForms.has(form)&&!(typeof window.confirm==='function'&&window.confirm('Discard this unsaved information review?')))return;
+        form.reset();showFields();informationDirtyForms.delete(form);form.querySelector('[data-information-status]').textContent='';
+        const detail=form.closest('[data-information-detail]');detail.open=false;detail.querySelector('summary')?.focus();
+      });
       form.addEventListener('submit',async event=>{
-        event.preventDefault();if(informationBusy)return;informationBusy=true;
-        const status=form.querySelector('[data-information-status]');status.textContent='Saving information review…';
-        const controls=[...form.querySelectorAll('input,textarea,select,button')];
-        controls.forEach(control=>{control.disabled=true;});
+        event.preventDefault();if(informationBusy)return;
+        const status=form.querySelector('[data-information-status]');
         const action=field('action').value;
         const selected=[...form.querySelectorAll('[name="evidence"]:checked')].filter(e=>action==='assess'||e.closest('[data-information-evidence-choice]').getAttribute('data-existing')==='true');
         const evidenceIds=selected.map(e=>e.value);
         const additionalEvidenceIds=selected.filter(e=>e.closest('[data-information-evidence-choice]').getAttribute('data-existing')!=='true').map(e=>e.value);
+        if(['validate','resolve'].includes(action)&&!evidenceIds.length&&!field('firsthand').value.trim()){
+          status.textContent='Select an attached evidence passage or describe your firsthand basis before saving. Typed reasoning kept.';status.focus?.();field('firsthand').focus?.();return;
+        }
+        informationBusy=true;status.textContent='Saving information review…';
+        const controls=[...form.querySelectorAll('input,textarea,select,button')];
+        controls.forEach(control=>{control.disabled=true;});
         const change={action,reason:field('reason').value};
         if(action==='restore-conflict'){try{Object.assign(change,JSON.parse(field('restoreTarget').value));}catch{/* Server refuses a missing target; typed reasoning is kept. */}}
         if(action==='resolve')Object.assign(change,{contradictionIds:[...form.querySelectorAll('[name="contradiction"]:checked')].map(e=>e.value),text:field('resolutionText').value,entity:field('entity').value,timeScope:field('timeScope').value,category:field('resolutionCategory').value,basis:field('resolutionBasis').value,firsthand:field('firsthand').value,evidenceIds});
@@ -51,7 +61,7 @@ export const INFORMATION_CLIENT_SCRIPT = `
           const parsed=new DOMParser().parseFromString(result.html,'text/html');const next=parsed.querySelector('[data-information-item="'+id+'"]');if(!next)throw Error('Saved information display unavailable. Reopen to inspect the saved version.');
           informationDirtyForms.delete(form);const old=form.closest('[data-information-item]');old.replaceWith(document.importNode(next,true));bindInformation();
           const current=document.getElementById(id);current.querySelector('[data-information-detail]').open=true;const message=current.querySelector('[data-information-status]');message.textContent=result.noChange?'No change. Existing saved review kept.':'Information review saved · version '+result.item.version;message.setAttribute('tabindex','-1');if(current.hidden){const count=document.querySelector('[data-information-search-count]');count.textContent=message.textContent+'. '+count.textContent;informationSearch.focus();}else{message.focus();}
-        }catch(error){status.textContent=error.message||'Save was not confirmed. Typed reasoning kept.';}
+        }catch(error){status.textContent=error.message||'Save was not confirmed. Typed reasoning kept.';status.focus?.();}
         finally{controls.forEach(control=>{control.disabled=false;});informationBusy=false;}
       });
     });
@@ -74,7 +84,9 @@ export const INFORMATION_CLIENT_SCRIPT = `
         displayedInformationAttachments=result.attachments;panel.replaceWith(document.importNode(replacement,true));if(!result.noChange)markWorkDirty();
         const next=document.querySelector('[data-information-attachments]');next.setAttribute('tabindex','-1');next.focus();
       }else{
-        status.textContent=result.status+' ';
+        status.textContent=result.noChange?'Working context unchanged. Inspect the brief for its Save status. ':'Working context updated locally. Save the brief to retain this version. ';
+        const briefStatus=document.querySelector('[data-working-brief-status]');
+        if(briefStatus)briefStatus.textContent=result.noChange?'Working context unchanged. Inspect the brief for its current Save status.':'Pending brief changes · use Save in the brief to retain them.';
         const link=document.createElement('a');link.href=accountUrl('/?draft=1');link.textContent='Return to brief and Save';status.append(link);
       }
     }catch(error){status.textContent=error.message||'Working context update was not confirmed.';}

@@ -9,6 +9,7 @@ import { deepFreezeOwnData } from '../authority/strict-json.ts';
 import { acquireWorkStoreLock } from './work-store-lock.ts';
 import { assertReplayIdentity, createC3RevisionContext, type C3GenerationRecord, type C3RevisionContext } from './generation-contract.ts';
 import { boundedPlanningText, MEETING_NOTE_SECTIONS } from './planning.ts';
+import { validateAuthoredMeetingCopy } from './authored-copy.ts';
 import type { FrozenC3ViewContext } from './view-context.ts';
 
 export interface WorkingBrief {
@@ -23,6 +24,9 @@ export interface WorkingBrief {
   readonly proposal: C3GenerationRecord | null;
   readonly proposalStale: boolean;
   readonly workVersion: number;
+  /** OPTIONAL user-authored meeting copy beside the immutable record. Never a model output;
+   *  never an approval; bound to a retained record when saved. */
+  readonly authoredCopy?: unknown;
 }
 export interface WorkStoreOptions {
   readonly root: string;
@@ -97,6 +101,13 @@ export function validateWorkingBrief(work: WorkingBrief, context: FrozenC3ViewCo
     seen.set(record.recordId,record);
   }
   if (canonicalJson(work.records.at(-1)) !== canonicalJson(work.record)) throw Error('Current work identity mismatch');
+  // Optional authored copy: absent on all legacy stored files; when present it must be a valid
+  // user-authored value bound to a record retained in this history. Reading never rewrites old bytes.
+  if (work.authoredCopy !== undefined && work.authoredCopy !== null) {
+    const prior = (work.authoredCopy as { priorRecordId?: string }).priorRecordId;
+    if (!work.records.some(record => record.recordId === prior)) throw Error('Authored copy is bound to a different generation record');
+    validateAuthoredMeetingCopy(work.authoredCopy, context, prior!);
+  }
   boundedPlanningText(work.correctionNote,1000); boundedPlanningText(work.instruction,1000);
   if (!work.sectionNotes || Array.isArray(work.sectionNotes) || typeof work.sectionNotes !== 'object') throw Error('Invalid annotations');
   for (const [section,text] of Object.entries(work.sectionNotes)) {

@@ -304,4 +304,16 @@ dialog[data-evidence-dialog]{background:var(--atl-canvas);box-shadow:none}.evide
 .citation-identity{display:block;font-size:11px;overflow-wrap:anywhere;color:var(--atl-muted)}
 .working-brief-return{margin:12px var(--atl-content-inset);padding:12px 16px;background:var(--atl-neutral-soft);border:1px solid var(--atl-line);border-radius:8px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px}.working-brief-return a{display:inline-flex;align-items:center;min-height:44px}.working-brief-return span{font-size:14px;color:var(--atl-muted)}
 .information-review-actions{position:sticky;bottom:0;z-index:1;background:var(--atl-surface);border-top:1px solid var(--atl-line);padding:8px 0;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.information-review-actions .status-line{flex-basis:100%;margin:0}.information-review-actions .status-line:empty{display:none}.information-review-actions button{margin:0}.information-review-help{font-size:14px}
+
+/* Brief-first reading and optional authored editor share the existing workspace. */
+.brief-page{max-width:880px;margin:0 auto;padding:28px 32px 64px;overflow-wrap:anywhere}
+.brief-page>h1{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#68736d;margin-bottom:12px}
+.brief-reading h2{font-size:32px;line-height:1.2;margin:24px 0 8px}.brief-reading h3{font-size:17px;margin:26px 0 8px}
+.brief-reading p,.brief-reading li{line-height:1.65}.brief-reading li+li{margin-top:10px}
+.brief-subtitle{color:#59665f}.provenance-badge{font-size:12px;color:#59665f}.brief-purpose{border-left:3px solid #647d6e;padding-left:18px}
+.brief-uncertainty,.brief-material-limits{background:#f5f4ee;border-radius:8px;padding:1px 18px 12px;margin-top:24px}
+.brief-export{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0}.brief-export>[data-brief-export-note],.brief-export>[role=status],.brief-export-fallback{flex-basis:100%}
+.brief-editor{border-top:1px solid #d8ddd8;padding-top:20px}.brief-edit-field{margin:16px 0}.brief-edit-field label{display:block;margin-bottom:6px}.brief-edit-field textarea{width:100%;box-sizing:border-box}
+.brief-edit-question{border:1px solid #d8ddd8;border-radius:8px;margin:18px 0;padding:12px 16px}.brief-source-list{margin-top:20px}
+@media(max-width:600px){.brief-page{padding:20px 18px 40px}.brief-reading h2{font-size:27px}.brief-export button{min-height:44px}.brief-edit-question{padding:10px}.brief-page .work-toolbar{flex-wrap:wrap}}
 `;

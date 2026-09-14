@@ -22,6 +22,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
   let workNavigationApproved = false;
   let saveBusy = false;
   const workStatus = document.querySelector('[data-work-status]');
+  const displayedAuthoredCopyDigest = document.querySelector('meta[name="c3-authored-copy"]')?.getAttribute('content') || '';
   const workControls = document.querySelector('[data-work-controls]');
   const markWorkDirty = () => { const save = document.querySelector('[data-save-work]'); if(save) save.hidden = false; workEpoch++; workDirty = true; workNavigationApproved = false; if(workStatus) workStatus.textContent = workControls?.getAttribute('data-store-available') === 'true' ? 'Unsaved changes' : 'Session only'; };
   let proposalNoteSnapshot = null;
@@ -256,7 +257,9 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     target.textContent = age >= 0 && age < 60000 ? 'Saved just now' : age >= 60000 && age < 3600000 ? 'Saved ' + Math.floor(age/60000) + ' min ago' : age >= 3600000 && age < 86400000 ? 'Saved ' + Math.floor(age/3600000) + ' hr ago' : 'Saved ' + new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).format(new Date(value));
     const details = document.querySelector('[data-saved-timestamp]'); if(details) details.textContent = 'Last saved ' + new Intl.DateTimeFormat('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC',timeZoneName:'short'}).format(new Date(value));
   };
+  const persistDisplayedWork = (state,copy) => requestJson(copy?'/api/save-copy':'/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion,informationAttachmentsSha256:state.attachmentDigest});
   const saveWork = async(copy=false)=>{
+    if(document.querySelector('[data-brief-record]')) { await saveBriefWork(copy); return; }
     if(saveBusy || titleBusy || reviewBusy || !canStartRevision())return;saveBusy=true;if(workStatus)workStatus.textContent='Saving…';
     try{
       await instructionQueue;await syncInstruction();await flushGeneralNote();await flushSectionNotes();await flushTitle();
@@ -266,7 +269,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
       if(state.recordId!==currentRecord() || state.documentId!==workDocumentId)throw Error('Current document changed. Reopen or Save a copy; local text kept.');
       // Versions belong to this exact displayed work, never just the shared session's latest record.
       const snapshot=state.snapshot;
-      if(!snapshot || JSON.stringify(snapshot.informationAttachments||[])!==JSON.stringify(displayed.informationAttachments) || snapshot.correctionNote!==displayed.correctionNote || snapshot.instruction!==displayed.instruction ||
+      if(!snapshot || displayedAuthoredCopyDigest && snapshot.authoredCopyDigest !== displayedAuthoredCopyDigest || JSON.stringify(snapshot.informationAttachments||[])!==JSON.stringify(displayed.informationAttachments) || snapshot.correctionNote!==displayed.correctionNote || snapshot.instruction!==displayed.instruction ||
         snapshot.pendingRevisionToken!==displayed.pendingRevisionToken || snapshot.proposalId!==displayed.proposalId ||
         displayed.pendingRevisionToken && snapshot.proposalStale!==displayed.proposalStale && !(displayed.proposalStale && snapshot.proposalStale===false) ||
         !snapshot.sectionNotes || typeof snapshot.sectionNotes!=='object' || Array.isArray(snapshot.sectionNotes) ||
@@ -280,7 +283,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
           throw Error(result.error || 'Proposal invalidation was not confirmed. Local edits kept.');
         state.workVersion = result.workVersion;
       }
-      const result=await requestJson(copy?'/api/save-copy':'/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion,informationAttachmentsSha256:state.attachmentDigest});
+      const result=await persistDisplayedWork(state,copy);
       if(result.saved!==true || result.workVersion!==state.workVersion || result.recordId!==currentRecord() || !/^doc_[a-f0-9]{24}$/.test(result.documentId) || result.version!==(copy?1:state.version+1) || !copy && result.documentId!==state.documentId)throw Error(result.error || 'Durable save was not confirmed');
       workDocumentId=result.documentId; proposalStale=proposalStale || displayed.proposalStale; controls(); showSavedTime(result.savedAt); const savedVersion = document.querySelector('[data-saved-version]'); if(savedVersion) savedVersion.textContent = 'Saved version ' + result.version;
       if(epoch===workEpoch){workDirty=false;workStatus.textContent='Saved';const save=document.querySelector('[data-save-work]');if(save)save.hidden=true;}else workStatus.textContent='Newer edits are unsaved. Save again to retain them.';

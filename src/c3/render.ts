@@ -3,6 +3,7 @@ import { INFORMATION_CLIENT_SCRIPT } from './account-information-client.ts';
 import { renderResearchPanel, RESEARCH_CLIENT_SCRIPT } from './research-render.ts';
 import { unavailableResearchDisplay, type ResearchDisplay } from './research-service.ts';
 import { WORKING_DOCUMENT_CLIENT_SCRIPT } from './work-client.ts';
+import { BRIEF_CLIENT_SCRIPT } from './brief-client.ts';
 import { GENERATION_PROGRESS_CLIENT_SCRIPT } from './generation-progress-client.ts';
 import { WORKSPACE_CSS } from "./workspace-style.ts";
 import { accountPath, type C3AccountNavigation, researchUrl, type ResearchTopic, type WorkspaceDestination } from "./workspace-route.ts";
@@ -16,12 +17,14 @@ import { accountGaps, businessGapLabel, briefContext, accountIntelSections, plan
 import type { PlanningBrief, SectionNotes } from "./planning.ts";
 import { isCuratedContext, type FrozenC3ViewContext as FrozenC3AccountContext } from "./view-context.ts";
 import type { C3GenerationRecord, C3MeetingFormState, C3SupportedText } from "./generation-contract.ts";
+import type { AuthoredMeetingCopy } from "./authored-copy.ts";
+import { authoredReading, generatedReading, renderBriefReading } from "./brief-first.ts";
 
 export type WorkOrigin = 'live' | 'historical-replay' | 'synthetic' | 'unknown';
 export interface WorkDisplayState {
   readonly available: boolean; readonly documentId: string; readonly version: number;
   readonly workVersion: number; readonly saved: boolean; readonly title?: string;
-  readonly savedAt?: string; readonly origin?: WorkOrigin;
+  readonly savedAt?: string; readonly origin?: WorkOrigin; readonly attachmentDigest?: string; readonly authoredCopyDigest?: string;
   readonly savedWorks: readonly { documentId: string; version: number; audience: string;
     title?: string; intendedOutcome?: string; meetingDate?: string; savedAt?: string; origin?: WorkOrigin }[];
   readonly storageError?: string;
@@ -36,7 +39,9 @@ export type C3PageState = (
   | { readonly page: "workshop"; readonly hasDraft?: boolean; readonly worksheets?: readonly PlanningBrief[] }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
       readonly correctionNote?: string; readonly displayedRecordId?: string | null }
-  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly informationPreview?: InformationPreview; readonly informationHtml?: string; readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
+  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }
+  | { readonly page: "brief"; readonly record: C3GenerationRecord; readonly authoredCopy: AuthoredMeetingCopy | null;
+      readonly savedState?: string; readonly hasDraft?: boolean }) & C3PendingState & { readonly informationPreview?: InformationPreview; readonly informationHtml?: string; readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
 
 export interface C3RenderOptions {
   readonly correctionNote: string;
@@ -510,6 +515,7 @@ ${GENERATION_PROGRESS_CLIENT_SCRIPT}
     finally { reviewBusy = false; controls(); }
   });
 ${WORKING_DOCUMENT_CLIENT_SCRIPT}
+${BRIEF_CLIENT_SCRIPT}
 ${INFORMATION_CLIENT_SCRIPT}
 ${RESEARCH_CLIENT_SCRIPT}
 ${PLANNING_CLIENT_SCRIPT}
@@ -534,7 +540,7 @@ function shell(title: string, body: string, csrf: string, context: FrozenC3Accou
   const storage = work?.available ? 'Private local storage available · use Save to retain a brief across restart.' : 'Session only · server restart loses unsaved work.';
   const workingReturn = hasDraft && ['home','research','prepare'].includes(page) ? `<aside class="working-brief-return" aria-label="Existing working brief"><a href="/?draft=1">Return to working brief</a><span data-working-brief-status role="status">${work?.available ? work.saved ? 'Brief saved · information reviews are separate.' : 'Pending brief changes · use Save in the brief to retain them.' : 'Session only · use the brief to inspect current working context.'}</span></aside>` : '';
   const boundary = `<details class="recorded-mode"><summary>Content and storage details</summary><p>${synthetic ? 'Hand-authored fixtures · No AI recordings. Exact replay has no live fallback.' : recorded ? 'Recorded responses · No live generation. Exact request matching has no live fallback.' : isCuratedContext(context) ? 'Agent-curated proposed/template context. No human approval, owner disposition, policy admission or model recording. Owner and date unassigned.' : 'Proposed and unreviewed local content.'} Private document storage never changes account truth or approves content. ${esc(storage)}</p></details>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="c3-csrf" content="${esc(csrf)}"><meta name="c3-account" content="${esc(context.context.account.accountId)}"><meta name="c3-context" content="${esc(context.sha256)}"><meta name="c3-document" content="${esc(work?.documentId ?? '')}">${recorded ? '<meta name="c3-recorded-replay" content="true">' : ""}<title>${esc(title)} · Atliera</title><style>${CSS}</style></head><body><a class="skip-link" href="#main">Skip to content</a><div class="workspace-frame"><header class="workspace-header"><a class="brand" href="/">atliera</a><span class="account-identity">${esc(context.context.account.accountName)}</span>${navigation}${destination === 'overview' ? '<a class="button" href="/?prepare=1">Set up brief</a>' : destination === 'research' ? '<a class="quiet-link" href="/">Back to overview</a>' : page !== 'workshop' ? '<a class="quiet-link header-back" href="/?view=workshop" aria-label="Back to Workshop"><span aria-hidden="true">←</span><span class="header-back-label">Back to Workshop</span></a>' : ''}</header>${page === "prepare" || page === "workshop" ? `<p class="storage-notice">${esc(storage)}</p>` : ""}${workingReturn}${withInspector}${accountDetailLibrary(context)}${boundary}</div><script>${SCRIPT}</script></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="c3-csrf" content="${esc(csrf)}"><meta name="c3-account" content="${esc(context.context.account.accountId)}"><meta name="c3-context" content="${esc(context.sha256)}"><meta name="c3-document" content="${esc(work?.documentId ?? '')}"><meta name="c3-authored-copy" content="${esc(work?.authoredCopyDigest ?? '')}">${recorded ? '<meta name="c3-recorded-replay" content="true">' : ""}<title>${esc(title)} · Atliera</title><style>${CSS}</style></head><body><a class="skip-link" href="#main">Skip to content</a><div class="workspace-frame"><header class="workspace-header"><a class="brand" href="/">atliera</a><span class="account-identity">${esc(context.context.account.accountName)}</span>${navigation}${destination === 'overview' ? '<a class="button" href="/?prepare=1">Set up brief</a>' : destination === 'research' ? '<a class="quiet-link" href="/">Back to overview</a>' : page !== 'workshop' ? '<a class="quiet-link header-back" href="/?view=workshop" aria-label="Back to Workshop"><span aria-hidden="true">←</span><span class="header-back-label">Back to Workshop</span></a>' : ''}</header>${page === "prepare" || page === "workshop" ? `<p class="storage-notice">${esc(storage)}</p>` : ""}${workingReturn}${withInspector}${accountDetailLibrary(context)}${boundary}</div><script>${SCRIPT}</script></body></html>`;
 }
 
 function home(frozen: FrozenC3AccountContext, hasDraft: boolean, recorded: boolean, revisionPending: boolean, topic?: ResearchTopic, selectedReading?: string, work?: WorkDisplayState): string {
@@ -588,7 +594,9 @@ function home(frozen: FrozenC3AccountContext, hasDraft: boolean, recorded: boole
   }
   const illustration = projection.presentation?.illustration;
   const supportedThesis = sources.length > 0 && proposal.accountThesis.evidenceIds.length > 0 && proposal.accountThesis.evidenceIds.every(id => byEvidence.has(id) && !byEvidence.get(id)!.source.untrustedInstructionsDetected);
-  return `<main id="main" class="account-workspace" tabindex="-1"><section id="account-overview" class="account-readout${illustration ? ' has-illustration' : ''}"><div class="account-copy"><h1>${esc(account.accountName)}</h1><p class="account-subtitle">${esc(account.admittedContext.sector ?? 'Sector not established')} · ${esc(account.admittedContext.geography ?? 'Geography not established')}</p><p class="meta">${sources.length} retained sources · Not refreshed</p>${overview ? `<p class="lede">${esc(compactReading(overview).text)}</p>${detailLink(overview)}` : supportedThesis ? `<p class="proposed-cue">Original retained proposal · unreviewed</p><p class="lede user-copy">${esc(proposal.accountThesis.text)}</p><p class="support">${refs(proposal.accountThesis.evidenceIds, 'Original account thesis')}</p>` : '<p>There is not enough matched evidence for a substantive Account reading. Inspect the retained research and its limits.</p>'}<a class="quiet-link research-basis" href="${esc(researchUrl('sources'))}">${uiIcon('source')}<span>Public research · details</span></a></div>${illustration ? `<figure class="account-illustration"><img src="${esc(illustration.src)}" alt="${esc(illustration.alt)}" width="395" height="196"><figcaption>${esc(illustration.caption)}</figcaption></figure>` : ''}</section>${contradictions}${revisionPending ? '<p class="context-note">Revision pending. <a href="/?draft=1">Reopen the preserved session draft</a>.</p>' : ''}${notes('priorities').length ? `<section id="account-priorities" class="account-section"><div class="section-heading"><h2>Priorities &amp; initiatives</h2><a class="quiet-link" href="${esc(researchUrl('initiatives'))}">View all →</a></div><div class="priority-grid">${preparationAnchors(projection.readings).map(note => tile(compactReading(note))).join('')}</div></section>` : retainedContext}${projection.readings.length ? `<div class="account-columns">${summarySection('people', 'People &amp; operating context', 'Explore publicly reported roles and their limits in Research.')}${summarySection('technology', 'Technology landscape', 'Explore the available service research and its scope.')}</div>` : `<nav class="journey-nav" aria-label="Explore retained research"><a href="${esc(researchUrl('people'))}">People &amp; operating context →</a><a href="${esc(researchUrl('technology'))}">Technology &amp; services →</a></nav>`}<section class="context-note account-confirmation"><span class="item-icon">${uiIcon("question")}</span><div><h2>Worth confirming</h2><p>${esc(questions[0]?.question ?? 'Which priorities are active, and what evidence establishes their current status?')}</p></div><a class="quiet-link" href="${esc(researchUrl('initiatives'))}#account-unknowns">Explore open questions →</a></section><section class="account-section overview-work"><div class="section-heading"><h2>Saved briefs</h2><a class="quiet-link" href="/?view=workshop">Open Workshop →</a></div>${work?.available ? `<p data-work-list-status role="status">${work.storageError ? 'Some saved briefs could not be loaded. Open Workshop for storage details.' : ''}</p>${errorDiagnostics(work.storageError)}${savedWorkRows(work, hasDraft) || (work.storageError ? '' : '<p class="meta">No saved briefs for this account.</p>')}` : '<p class="meta">Session only · private document storage is unavailable.</p>'}${hasDraft ? '<a id="account-reopen" class="quiet-link" href="/?draft=1">Reopen session draft</a>' : ''}<a class="button" href="/?prepare=1">Set up brief</a></section>${evidenceStore(evidence.map(item => item.excerpt.evidenceId))}${inspector}</main>`;
+  // Prominent truthful account entry for the existing brief; no deceptive CTA when none exists.
+  const briefEntry = `<aside class="brief-entry" data-brief-account-entry aria-label="Existing meeting brief">${hasDraft ? `<a class="button" href="/?brief=1">Open the one-minute brief</a><span class="meta">${work?.saved ? 'Saved current brief' : 'Current session brief · unsaved'}${work?.savedWorks.length ? ` · ${work.savedWorks.length} saved brief${work.savedWorks.length === 1 ? '' : 's'} in Workshop` : ''}. Deep evidence and history remain available.</span>` : `<span class="meta">${work?.savedWorks.length ? `${work.savedWorks.length} saved brief${work.savedWorks.length === 1 ? '' : 's'} available. <a class="quiet-link" href="/?view=workshop">Reopen a saved brief</a>. No current session brief. ` : 'No meeting brief yet. '}<a class="quiet-link" href="/?prepare=1">Set up brief</a> starts one; nothing is generated by browsing.</span>`}</aside>`;
+  return `<main id="main" class="account-workspace" tabindex="-1"><section id="account-overview" class="account-readout${illustration ? ' has-illustration' : ''}">${briefEntry}<div class="account-copy"><h1>${esc(account.accountName)}</h1><p class="account-subtitle">${esc(account.admittedContext.sector ?? 'Sector not established')} · ${esc(account.admittedContext.geography ?? 'Geography not established')}</p><p class="meta">${sources.length} retained sources · Not refreshed</p>${overview ? `<p class="lede">${esc(compactReading(overview).text)}</p>${detailLink(overview)}` : supportedThesis ? `<p class="proposed-cue">Original retained proposal · unreviewed</p><p class="lede user-copy">${esc(proposal.accountThesis.text)}</p><p class="support">${refs(proposal.accountThesis.evidenceIds, 'Original account thesis')}</p>` : '<p>There is not enough matched evidence for a substantive Account reading. Inspect the retained research and its limits.</p>'}<a class="quiet-link research-basis" href="${esc(researchUrl('sources'))}">${uiIcon('source')}<span>Public research · details</span></a></div>${illustration ? `<figure class="account-illustration"><img src="${esc(illustration.src)}" alt="${esc(illustration.alt)}" width="395" height="196"><figcaption>${esc(illustration.caption)}</figcaption></figure>` : ''}</section>${contradictions}${revisionPending ? '<p class="context-note">Revision pending. <a href="/?draft=1">Reopen the preserved session draft</a>.</p>' : ''}${notes('priorities').length ? `<section id="account-priorities" class="account-section"><div class="section-heading"><h2>Priorities &amp; initiatives</h2><a class="quiet-link" href="${esc(researchUrl('initiatives'))}">View all →</a></div><div class="priority-grid">${preparationAnchors(projection.readings).map(note => tile(compactReading(note))).join('')}</div></section>` : retainedContext}${projection.readings.length ? `<div class="account-columns">${summarySection('people', 'People &amp; operating context', 'Explore publicly reported roles and their limits in Research.')}${summarySection('technology', 'Technology landscape', 'Explore the available service research and its scope.')}</div>` : `<nav class="journey-nav" aria-label="Explore retained research"><a href="${esc(researchUrl('people'))}">People &amp; operating context →</a><a href="${esc(researchUrl('technology'))}">Technology &amp; services →</a></nav>`}<section class="context-note account-confirmation"><span class="item-icon">${uiIcon("question")}</span><div><h2>Worth confirming</h2><p>${esc(questions[0]?.question ?? 'Which priorities are active, and what evidence establishes their current status?')}</p></div><a class="quiet-link" href="${esc(researchUrl('initiatives'))}#account-unknowns">Explore open questions →</a></section><section class="account-section overview-work"><div class="section-heading"><h2>Saved briefs</h2><a class="quiet-link" href="/?view=workshop">Open Workshop →</a></div>${work?.available ? `<p data-work-list-status role="status">${work.storageError ? 'Some saved briefs could not be loaded. Open Workshop for storage details.' : ''}</p>${errorDiagnostics(work.storageError)}${savedWorkRows(work, hasDraft) || (work.storageError ? '' : '<p class="meta">No saved briefs for this account.</p>')}` : '<p class="meta">Session only · private document storage is unavailable.</p>'}${hasDraft ? '<a id="account-reopen" class="quiet-link" href="/?draft=1">Reopen session draft</a>' : ''}<a class="button" href="/?prepare=1">Set up brief</a></section>${evidenceStore(evidence.map(item => item.excerpt.evidenceId))}${inspector}</main>`;
 
 }
 
@@ -738,6 +746,54 @@ function admittedSourceSectionContext({ source, excerpt: selected }: EvidenceDis
   return `<p class="source-section" data-evidence-id="${headingId}"><strong>Source section:</strong> Responsible AI <span class="meta">Heading evidence ${headingId}</span></p>`;
 }
 
+function briefPage(context: FrozenC3AccountContext, state: Extract<C3PageState, { page: "brief" }>): string {
+  const boundCopy = state.authoredCopy?.priorRecordId === state.record.recordId ? state.authoredCopy : null;
+  const baseReading = boundCopy ? authoredReading(boundCopy, context, state.record) : generatedReading(state.record, context, state.work?.origin);
+  const reading = { ...baseReading, ...(state.revisionPending || state.proposal ? { pendingNote: 'Revision pending; this reading shows the current record.' } : {}) };
+  const record = state.record;
+  const copy = state.authoredCopy;
+  const field = (name: string, label: string, value: string, rows = 3, max = 1200): string =>
+    `<div class="brief-edit-field"><label for="authored-${esc(name)}">${esc(label)}</label><textarea id="authored-${esc(name)}" data-authored="${esc(name)}" rows="${String(rows)}" maxlength="${String(max)}">${esc(value)}</textarea></div>`;
+  const question = (index: number): string => `<fieldset class="brief-edit-question"><legend>Question ${String(index + 1)}</legend>
+    ${field(`q${String(index)}question`, 'Question', copy?.questions[index]?.question ?? '', 2, 600)}
+    ${field(`q${String(index)}probe`, 'Optional probe (may be empty)', copy?.questions[index]?.probe ?? '', 2, 600)}</fieldset>`;
+  const selected = copy?.selectedEvidenceRefs ?? state.record.draft?.selectedEvidenceRefs ?? [];
+  const editor = `<details class="brief-editor" data-brief-editor><summary>Edit meeting copy (user-authored)</summary>
+${copy && !boundCopy ? '<p class="warning">The original record changed. Your previous authored text is retained below. Review it and explicitly Keep to use it with this revision.</p>' : ''}
+<p class="meta">Optional authored copy is kept locally in this session and retained only by explicit Save. It never alters the original record or account truth, and carries no approval.</p>
+<form data-authored-form>
+${field('title', 'Title', copy?.title ?? record.meetingRequest.intendedOutcome.slice(0, 160), 1, 160)}
+${field('audience', 'Audience', copy?.audience ?? record.meetingRequest.audience, 1, 160)}
+${field('duration', 'Duration (for the subtitle)', copy?.duration ?? `${String(record.meetingRequest.durationMinutes)} minutes`, 1, 40)}
+${field('purpose', 'Purpose', copy?.purpose ?? record.draft?.objective.text ?? '', 3)}
+<div class="brief-edit-field"><label for="authored-facts">Relevant facts (up to three, one per line)</label><textarea id="authored-facts" data-authored="facts" rows="4">${esc((copy?.facts ?? []).join('\n'))}</textarea></div>
+${field('interpretation', 'Interpretation to explore (labeled hypothesis)', copy?.interpretation ?? record.draft?.audienceThesis.text ?? '', 3)}
+${field('opening', 'Suggested opening', copy?.opening ?? record.draft?.opening.text ?? '', 3)}
+${[0, 1, 2].map(question).join('')}
+${field('close', 'Suggested close', copy?.close ?? record.draft?.closeCriterion.text ?? '', 3)}
+${field('uncertainty', 'One uncertainty note', copy?.uncertainty ?? reading.uncertainty, 3)}
+<div class="brief-edit-field"><label for="authored-evidence">Selected evidence IDs (one per line, from this work context)</label><textarea id="authored-evidence" data-authored="evidence" rows="4">${esc(selected.join('\n'))}</textarea></div>
+<p class="status-line" data-authored-status role="status" aria-live="polite"></p>
+<button type="submit" class="secondary">Keep authored copy</button>
+<button type="button" class="quiet-button" data-authored-reset>Reset unsubmitted edits</button>
+<button type="button" class="quiet-button" data-authored-clear${copy ? '' : ' hidden'}>Clear authored copy</button>
+</form></details>`;
+  const exportUi = `<div class="brief-export" data-brief-export-ui>
+<span class="meta" data-brief-export-note></span>
+<button type="button" data-brief-copy>Copy brief</button>
+<button type="button" class="secondary" data-brief-download="md">Download Markdown</button>
+<button type="button" class="secondary" data-brief-download="txt">Download text</button>
+<textarea class="brief-export-fallback" data-brief-fallback rows="8" hidden readonly aria-label="Brief text for manual copy"></textarea>
+<p class="status-line" data-brief-export-status role="status" aria-live="polite"></p></div>`;
+  return `<main id="main" class="brief-page" tabindex="-1" data-brief-record="${esc(record.recordId)}" data-brief-work-version="${String(state.work?.workVersion ?? 0)}" data-brief-storage-version="${String(state.work?.version ?? 0)}" data-brief-attachment-digest="${esc(state.work?.attachmentDigest ?? '')}"${boundCopy ? ` data-kept-copy="${esc(JSON.stringify(copy))}"` : ''}>
+<h1>Discovery brief</h1>
+${workToolbar(state.work)}
+${renderBriefReading(reading, record, context, { savedState: state.savedState, hasAuthoredEditor: true })}
+${exportUi}
+${editor}
+</main>`;
+}
+
 function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: string, options?: C3RenderOptions): string {
   const recorded = options !== undefined;
   if (state.page === "planning") return shell(`Workshop for ${context.context.account.accountName}`, planningPage(context, state.brief, state.strategySuggestion), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
@@ -747,6 +803,7 @@ function renderPage(context: FrozenC3AccountContext, state: C3PageState, csrf: s
     state.revisionPending ?? false, undefined, undefined, state.work), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
   if (state.page === "prepare") return shell(`Prepare for ${context.context.account.accountName}`, prepare(context, state.request, state.error,
     state.hasDraft ?? false, recorded, options?.initialRequest, state.correctionNote, state.revisionPending, state.displayedRecordId, state.pendingRevisionToken, state.generation, options?.syntheticPreview), csrf, context, recorded, state.page, state.hasDraft ?? false, options?.syntheticPreview, state.work);
+  if (state.page === "brief") return shell(`Brief for ${context.context.account.accountName}`, briefPage(context, state), csrf, context, recorded, state.page, true, options?.syntheticPreview, state.work);
   const draft = draftPage(context, state.record, state.correctionNote, options?.correctionNote, state.revisionPending ?? false,
     state.pendingRevisionToken, state.notice, state.sectionNotes, state, options?.syntheticPreview);
   return shell(`Draft for ${context.context.account.accountName}`, draft,

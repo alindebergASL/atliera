@@ -8,7 +8,8 @@ import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 // revise/instruction/apply/discard manage proposals;
 // note/section-note and planning manage session text; work-state/save/save-copy/reopen
 // inspect or explicitly retain private local work. No arbitrary request target is admitted.
-const fixed = ['/api/information/change', '/api/work/information', '/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
+// authored-copy keeps validated session text; brief-export reads the displayed version.
+const fixed = ['/api/authored-copy', '/api/brief-export', '/api/information/change', '/api/work/information', '/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
   '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/revision-invalidate', '/api/save',
   '/api/save-copy', '/api/section-note', '/api/work-state', '/api/work/title', '/api/research/start', '/api/research/status', '/api/research/cancel', '/api/research/refresh',
   '/api/research/recover', '/api/research/snapshot', '/api/research/source', '/api/research/select', '/api/research/prepare'];
@@ -16,7 +17,7 @@ const planning = ['/api/planning/strategy', '/api/planning/next-steps', '/api/se
 
 export function assertC3ClientSurface(script = C3_CLIENT_SCRIPT): void {
   const renderer = readFileSync(new URL('../../src/c3/render.ts', import.meta.url), 'utf8');
-  for (const name of ['WORKING_DOCUMENT', 'PLANNING']) {
+  for (const name of ['WORKING_DOCUMENT', 'PLANNING', 'BRIEF']) {
     assert.equal(renderer.split('${' + name + '_CLIENT_SCRIPT}').length - 1, 1, 'inspect the actual composed client');
   }
   const tree = ts.createSourceFile('composed-client.js', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);

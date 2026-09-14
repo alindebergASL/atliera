@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-field-local-generation-v8-20260913",
+    "recordId": "c3-useful-information-validation-uv1-20260914",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Clarify field-local factual-premise citation guidance in forward generation contract v8 while preserving historical v7 and unchanged verifier requirements.",
-    "scope": "Build permission only for one generator instruction clarification through existing contract version dispatch, compatibility guards, synthetic tests and documentation; parent verification, independent review, required CI, ordinary PR and merge. Preserve historical request/prompt/record identity and all saved evidence and outcomes. This code landing executes no provider calls, acquisitions, deployment or customer effects. No verifier relaxation, prior-acceptance exemption, output repair, retry or live improvement claim. All previous paid slots remain consumed and their window expired; no renewed budget, authority or successful C/D revision Apply is implied. Retained private evidence stays outside Git.",
+    "decision": "Implement UV1 useful uncertain account information, attributed operator validation and evidence assessments, with versioned information history and labeled saved meeting-brief attachments.",
+    "scope": "Build permission for the authorized bounded C3 UV1 product slice: account-bound retained-source and structurally eligible refused-candidate display; separate source support, operator validation, independent-origination assessment, temporal assessment and conflict attention; private information and attachment schemas with old readers preserved; guarded UI/service/storage integration; synthetic offline fixtures, independent reviews, browser verification, exact-head CI and ordinary PR/merge. This code landing performs no live product provider calls, source acquisition, customer-data import or writes, external sends, production deployment or historical closed-run replay. Existing generation contracts, raw records, successful-record guard, permissions and budget boundaries remain unchanged. Local authored synthetic testing is not live research, multiuser authentication, factual confirmation or customer acceptance.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-13T06:36:18.468Z",
+    "proposedAt": "2026-09-14T00:08:14.906Z",
     "referenceUri": "https://github.com/alindebergASL/atliera/blob/main/docs/strategy/standing-development-policy.md",
-    "proposalDigest": "sha256:40ab881ff1efed3d38f7ba8da17a3c098cb06427807d2ad1926b47f6ba7104bc"
+    "proposalDigest": "sha256:9794d78b47e7895ebdb9da3b768263cc711a4f6b461913d1aef30e5dc8992353"
   }
 }

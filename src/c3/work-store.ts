@@ -1,3 +1,4 @@
+import { validateInformationAttachments, type InformationAttachment } from './account-information.ts';
 import { validateResearchIntelligence } from './research-intelligence.ts';
 import { constants, openSync, closeSync, fstatSync, fsyncSync, readSync, writeFileSync, mkdirSync, lstatSync, realpathSync, opendirSync, unlinkSync, linkSync } from 'node:fs';
 import { resolve, relative, isAbsolute, sep } from 'node:path';
@@ -11,6 +12,7 @@ import { boundedPlanningText, MEETING_NOTE_SECTIONS } from './planning.ts';
 import type { FrozenC3ViewContext } from './view-context.ts';
 
 export interface WorkingBrief {
+  readonly informationAttachments?: readonly InformationAttachment[];
   readonly record: C3GenerationRecord;
   readonly records: readonly C3GenerationRecord[];
   readonly correctionNote: string;
@@ -36,7 +38,7 @@ export interface WorkStoreOptions {
   /** Deterministic filesystem failure seam; not exposed by CLI or HTTP. */
   readonly fault?: (stage: 'before-publish' | 'after-link' | 'after-publish') => void;
 }
-export interface StoredBrief { readonly kind: 'atliera.c3.private-work'; readonly schemaVersion: '1' | '2' | '3'; readonly contextCanonicalJson?: string; readonly principal: string; readonly accountId: string; readonly contextSha256: string; readonly documentId: string; readonly version: number; readonly work: WorkingBrief; readonly metadata?: WorkMetadata; }
+export interface StoredBrief { readonly kind: 'atliera.c3.private-work'; readonly schemaVersion: '1' | '2' | '3' | '4'; readonly contextCanonicalJson?: string; readonly principal: string; readonly accountId: string; readonly contextSha256: string; readonly documentId: string; readonly version: number; readonly work: WorkingBrief; readonly metadata?: WorkMetadata; }
 export interface LoadedWorkBrief { readonly saved: StoredBrief; readonly context: FrozenC3ViewContext; }
 export interface WorkStoreListing { readonly briefs: readonly StoredBrief[]; readonly unreadableDocumentIds: readonly string[]; }
 export type WorkOrigin = 'live' | 'historical-replay' | 'synthetic' | 'unknown';
@@ -83,6 +85,7 @@ function exactRecord(record: C3GenerationRecord, context: FrozenC3ViewContext): 
 }
 export function validateWorkingBrief(work: WorkingBrief, context: FrozenC3ViewContext): void {
   if (!work || typeof work.proposalStale !== 'boolean' || !Number.isSafeInteger(work.workVersion) || work.workVersion < 1 || !Array.isArray(work.records) || work.records.length < 1 || work.records.length > 21) throw Error('Invalid work history');
+  if(work.informationAttachments!==undefined)validateInformationAttachments(work.informationAttachments,context.context.account.accountId);
   const seen = new Map<string,C3GenerationRecord>();
   for (const record of work.records) {
     exactRecord(record,context);
@@ -160,7 +163,7 @@ export class LocalWorkStore {
       if(size!==stat.size || after.size!==stat.size || after.mtimeMs!==stat.mtimeMs) throw Error('Work record changed during bounded read');
       const bytes=buffer.subarray(0,size);
       const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)) as StoredBrief;
-      if(value.kind !== 'atliera.c3.private-work' || !['1','2','3'].includes(value.schemaVersion) || value.principal !== this.options.principal || value.accountId !== this.context.context.account.accountId || !Number.isSafeInteger(value.version) || value.version<1 || value.version>999999 || name !== this.filename(value.documentId,value.version)) throw Error('Work account, principal or version mismatch');
+      if(value.kind !== 'atliera.c3.private-work' || !['1','2','3','4'].includes(value.schemaVersion) || value.principal !== this.options.principal || value.accountId !== this.context.context.account.accountId || !Number.isSafeInteger(value.version) || value.version<1 || value.version>999999 || name !== this.filename(value.documentId,value.version)) throw Error('Work account, principal or version mismatch');
       this.contextFor(value);
       if (value.schemaVersion === '1') {
         if (Object.hasOwn(value,'metadata')) throw Error('Legacy work cannot claim versioned metadata');
@@ -253,12 +256,14 @@ export class LocalWorkStore {
   contextFor(saved: StoredBrief): FrozenC3ViewContext {
     if(saved.principal!==this.options.principal || saved.accountId!==this.context.context.account.accountId) throw Error('Work account or principal mismatch');
     let context:FrozenC3ViewContext|undefined;
-    if(saved.schemaVersion==='3') context=this.checkContext(saved.contextCanonicalJson!,saved.contextSha256);
+    if(saved.schemaVersion==='3'||saved.schemaVersion==='4') context=this.checkContext(saved.contextCanonicalJson!,saved.contextSha256);
     else {
       if(!['1','2'].includes(saved.schemaVersion) || Object.hasOwn(saved,'contextCanonicalJson')) throw Error('Invalid legacy context envelope');
       context=this.contexts.get(saved.contextSha256);
     }
     if(!context) throw Error('Exact original context unavailable for historical work');
+    if(saved.schemaVersion!=='4' && saved.work.informationAttachments!==undefined)throw Error('Legacy work cannot contain information attachments');
+    validateInformationAttachments(saved.work.informationAttachments??[],saved.accountId,saved.principal);
     validateWorkingBrief(saved.work,context);
     return context;
   }
@@ -271,7 +276,7 @@ export class LocalWorkStore {
     if(!supplied) throw Error('Exact original context required to Save historical work');
     const context=this.checkContext(supplied.canonicalJson,supplied.sha256);
     if(canonicalJson(supplied.context)!==context.canonicalJson) throw Error('Retained context projection mismatch');
-    validateWorkingBrief(work,context); this.assertRoot();
+    validateWorkingBrief(work,context); validateInformationAttachments(work.informationAttachments??[],context.context.account.accountId,this.options.principal); this.assertRoot();
     if(!Number.isSafeInteger(expectedVersion) || expectedVersion<0 || expectedVersion>=999999) throw Error('Invalid storage version');
     const dir=acquireWorkStoreLock(this.root);
     let temp:string|undefined;
@@ -286,7 +291,7 @@ export class LocalWorkStore {
       const origins=records.flatMap(record=>{const receipt=this.options.originReceipt?.(record);return receipt?[receipt]:[];});
       const savedMetadata:WorkMetadata={title:workTitle(metadata?.title ?? prior?.metadata?.title ?? defaultWorkTitle(work.record)),savedAt:(this.options.now?.() ?? new Date()).toISOString(),origins};
       this.validateMetadata(savedMetadata,work);
-      const value:StoredBrief={kind:'atliera.c3.private-work',schemaVersion:'3',contextCanonicalJson:context.canonicalJson,principal:this.options.principal,accountId:this.context.context.account.accountId,contextSha256:context.sha256,documentId:id,version:expectedVersion+1,work,metadata:savedMetadata};
+      const value:StoredBrief={kind:'atliera.c3.private-work',schemaVersion:'4',contextCanonicalJson:context.canonicalJson,principal:this.options.principal,accountId:this.context.context.account.accountId,contextSha256:context.sha256,documentId:id,version:expectedVersion+1,work,metadata:savedMetadata};
       const bytes=canonicalJson(value)+'\n'; if(Buffer.byteLength(bytes)>MAX_BYTES) throw Error('Work record exceeds private storage limit');
       temp=resolve(this.root,`.pending-${randomBytes(16).toString('hex')}`);
       const fd=openSync(temp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);

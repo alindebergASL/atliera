@@ -16,8 +16,9 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
   let revisionOperation = null;
   let stopRequested = false;
   let cancelSettlement = null;
+  let displayedInformationAttachments = JSON.parse(document.querySelector('[data-information-attachments]')?.getAttribute('data-attachments') || '[]');
   let workEpoch = 0;
-  let workDirty = false;
+  let workDirty = document.querySelector('[data-information-attachments]')?.getAttribute('data-unsaved') === 'true';
   let workNavigationApproved = false;
   let saveBusy = false;
   const workStatus = document.querySelector('[data-work-status]');
@@ -260,12 +261,12 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
     try{
       await instructionQueue;await syncInstruction();await flushGeneralNote();await flushSectionNotes();await flushTitle();
       const epoch=workEpoch;
-      const displayed={correctionNote:correctionNote?.value || '',sectionNotes:displayedSectionNotes(),instruction:instruction?.value || '',pendingRevisionToken,proposalId,proposalStale:proposalStale || notesChangedForProposal()};
+      const displayed={informationAttachments:displayedInformationAttachments,correctionNote:correctionNote?.value || '',sectionNotes:displayedSectionNotes(),instruction:instruction?.value || '',pendingRevisionToken,proposalId,proposalStale:proposalStale || notesChangedForProposal()};
       const state=await requestJson('/api/work-state',{});
       if(state.recordId!==currentRecord() || state.documentId!==workDocumentId)throw Error('Current document changed. Reopen or Save a copy; local text kept.');
       // Versions belong to this exact displayed work, never just the shared session's latest record.
       const snapshot=state.snapshot;
-      if(!snapshot || snapshot.correctionNote!==displayed.correctionNote || snapshot.instruction!==displayed.instruction ||
+      if(!snapshot || JSON.stringify(snapshot.informationAttachments||[])!==JSON.stringify(displayed.informationAttachments) || snapshot.correctionNote!==displayed.correctionNote || snapshot.instruction!==displayed.instruction ||
         snapshot.pendingRevisionToken!==displayed.pendingRevisionToken || snapshot.proposalId!==displayed.proposalId ||
         displayed.pendingRevisionToken && snapshot.proposalStale!==displayed.proposalStale && !(displayed.proposalStale && snapshot.proposalStale===false) ||
         !snapshot.sectionNotes || typeof snapshot.sectionNotes!=='object' || Array.isArray(snapshot.sectionNotes) ||
@@ -279,7 +280,7 @@ export const WORKING_DOCUMENT_CLIENT_SCRIPT = `
           throw Error(result.error || 'Proposal invalidation was not confirmed. Local edits kept.');
         state.workVersion = result.workVersion;
       }
-      const result=await requestJson(copy?'/api/save-copy':'/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion});
+      const result=await requestJson(copy?'/api/save-copy':'/api/save',{recordId:state.recordId,documentId:state.documentId,expectedVersion:state.version,workVersion:state.workVersion,informationAttachmentsSha256:state.attachmentDigest});
       if(result.saved!==true || result.workVersion!==state.workVersion || result.recordId!==currentRecord() || !/^doc_[a-f0-9]{24}$/.test(result.documentId) || result.version!==(copy?1:state.version+1) || !copy && result.documentId!==state.documentId)throw Error(result.error || 'Durable save was not confirmed');
       workDocumentId=result.documentId; proposalStale=proposalStale || displayed.proposalStale; controls(); showSavedTime(result.savedAt); const savedVersion = document.querySelector('[data-saved-version]'); if(savedVersion) savedVersion.textContent = 'Saved version ' + result.version;
       if(epoch===workEpoch){workDirty=false;workStatus.textContent='Saved';const save=document.querySelector('[data-save-work]');if(save)save.hidden=true;}else workStatus.textContent='Newer edits are unsaved. Save again to retain them.';

@@ -8,7 +8,7 @@ import { C3_CLIENT_SCRIPT } from '../../src/c3/render.ts';
 // revise/instruction/apply/discard manage proposals;
 // note/section-note and planning manage session text; work-state/save/save-copy/reopen
 // inspect or explicitly retain private local work. No arbitrary request target is admitted.
-const fixed = ['/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
+const fixed = ['/api/information/change', '/api/work/information', '/api/apply-revision', '/api/cancel', '/api/discard-revision', '/api/generate', '/api/generation-status',
   '/api/note', '/api/reopen', '/api/revise', '/api/revision-instruction', '/api/revision-invalidate', '/api/save',
   '/api/save-copy', '/api/section-note', '/api/work-state', '/api/work/title', '/api/research/start', '/api/research/status', '/api/research/cancel', '/api/research/refresh',
   '/api/research/recover', '/api/research/snapshot', '/api/research/source', '/api/research/select', '/api/research/prepare'];

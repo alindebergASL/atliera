@@ -1,3 +1,4 @@
+import {validateInformationPreview,type InformationPreview} from './account-information-config.ts';
 import { INFORMATION_CLIENT_SCRIPT } from './account-information-client.ts';
 import { renderResearchPanel, RESEARCH_CLIENT_SCRIPT } from './research-render.ts';
 import { unavailableResearchDisplay, type ResearchDisplay } from './research-service.ts';
@@ -35,7 +36,7 @@ export type C3PageState = (
   | { readonly page: "workshop"; readonly hasDraft?: boolean; readonly worksheets?: readonly PlanningBrief[] }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
       readonly correctionNote?: string; readonly displayedRecordId?: string | null }
-  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly informationHtml?: string; readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
+  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly informationPreview?: InformationPreview; readonly informationHtml?: string; readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
 
 export interface C3RenderOptions {
   readonly correctionNote: string;
@@ -755,7 +756,9 @@ export function renderC3Page(context: FrozenC3AccountContext, state: C3PageState
   if (isCuratedContext(context) && (options !== undefined || state.page === "draft")) {
     throw new Error("Agent-curated context cannot render recorded-model claims");
   }
-  const page = renderPage(context, state, csrf, options).replace('</main>', (state.informationHtml ?? '')+'</main>');
+  const preview=state.informationPreview===undefined?undefined:validateInformationPreview(state.informationPreview);
+  const banner=preview?`<aside class="storage-notice" aria-label="Preview identity"><strong>${esc(preview.mode)}</strong><details><summary>Preview details · configured build <span class="research-identity">${esc(preview.buildSha)}</span></summary><p>Configured operator only; no multi-user sign-in. Historical replay and retained evidence are not fresh verification. This operator-supplied build identity requires independent startup verification; it is not a signature or permission to act.</p></details></aside>`:'';
+  const page = renderPage(context, state, csrf, options).replace('</main>', (state.informationHtml ?? '')+'</main>').replace('</header>', '</header>'+banner);
   if (!navigation) return page;
   if (navigation.accountId !== context.context.account.accountId) throw Error('Rendered account identity mismatch');
   const prefix = accountPath(navigation.accountId);
@@ -768,7 +771,7 @@ export function renderC3Page(context: FrozenC3AccountContext, state: C3PageState
     `<a data-account-switch="${esc(account.accountId)}" href="${accountPath(account.accountId)}/"${account.accountId === navigation.accountId ? ' aria-current="true"' : ''}>${esc(account.accountName)}</a>`).join('')}</nav><p class="meta">Each account keeps separate session work. ${state.work?.available ? 'Use Save for durable briefs.' : 'Session only; no private work store is configured.'}</p></details>`;
   return qualified.replace('<meta name="c3-account"', `<meta name="c3-account-path" content="${prefix}"><meta name="c3-account"`)
     .replace('<span class="account-identity">', `${switcher}<span class="account-identity">`)
-    .replace('</header>', `</header>${state.generation ? `<p class="storage-notice">${esc(state.generation.explanation)}</p>` : ''}`);
+    .replace('</header>', `</header>${state.generation && !preview ? `<p class="storage-notice">${esc(state.generation.explanation)}</p>` : ''}`);
 }
 
 /** Short authored surface copy is activated only by projectAccount's exact evidence bindings. */

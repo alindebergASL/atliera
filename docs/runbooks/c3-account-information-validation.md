@@ -1,4 +1,4 @@
-# C3 account information — local UV1
+# C3 account information — local trust loop
 
 UV1 separates useful information, source provenance, human assessment, generation checks,
 and explicit document saving. An information review never accepts a refused generation.
@@ -39,9 +39,29 @@ Select Supports, record independently originated support, distinct common-origin
 and a rationale for the same proposition, entity and time. This is an attributed **human
 assessment**, not automatic truth inferred from a source count. Select the contradictory
 report in a later assessment; conflict becomes prominent and earlier validation remains.
-Contradictions remain unresolved for that statement revision in UV1, including after later
-support or reopening. UV1 has no conflict resolution action; history retains the evidence.
-An edit starts a new statement revision and must receive its own support assessment.
+Contradictions remain open across support, reopening and statement edits until explicitly
+judged for the current proposition. Expand the compact open/resolved conflict summary to
+inspect each original statement, entity, period, attribution and contradicting evidence.
+Choose **Resolve selected conflicts**, select one or more existing open contradictions,
+and inspect the displayed current proposition. Choose Evidence correction, Different
+proposition/entity/time, or Firsthand assessment. Supply a reason and specific factual basis;
+select already attached evidence or record an honest firsthand basis. For this synthetic
+exercise only, describe why the report concerns a different synthetic pilot if that is the
+scenario you are assessing; this is not a real-account result or an automatic truth check.
+
+The judgment is attributed to the configured operator. It grants neither validation nor
+independent corroboration and never accepts a refused generation. The original statement,
+contradicting evidence and judgment stay in history. **Restore a resolved conflict** selects
+one exact current resolution/contradiction pair and records why it is reversed. Other
+conflicts, including later reports, are unaffected. Reopen for confirmation changes review
+attention but does not reverse or reapply an explicit resolution.
+
+An edit starts a new statement revision, invalidates active support/validation/time-scope
+assessments and expires resolutions for the previous wording. All original conflicts need
+review for the edited proposition; none is treated as proof against unrelated new wording.
+Their prior scope remains visible. A new explicit judgment can explain the different
+proposition, entity or time. Expired judgments remain in history but cannot be restored as
+if still active. No-change edits do not expire anything.
 
 Corroboration can coexist with Needs confirmation. Choose Assess time scope separately,
 select the attached supporting evidence, and explain each source's dates and relevance to
@@ -68,6 +88,13 @@ is neither needed nor available. Do not use the closed historical v8 attempt.
 - `[data-information-detail] > summary`: View evidence and review.
 - `[data-information-form]`: `action`, `reason`, `firsthand`, `text`, `entity`, `timeScope`,
   `effect`, `independence`, `temporal`, `temporalBasis`; evidence checkboxes use `name="evidence"`.
+- `[data-information-conflicts] > summary`: compact open/currently resolved counts with
+  progressive original-scope and evidence details.
+- Resolution controls: `contradiction` checkboxes, read-only `resolutionText`,
+  `resolutionCategory`, `resolutionBasis`, `firsthand` and attached `evidence` choices.
+  Restore uses native `restoreTarget` select with an exact contradiction/resolution pair.
+  Empty states direct the operator back to existing assessment or open conflict details.
+  Native controls support keyboard operation; actual Chromium evidence is required.
 - `[data-information-evidence-choice]`: retained evidence, common-origin group and basis.
   Expand its source detail to inspect the exact retained excerpt and metadata.
 - `[data-information-status]`: save/error acknowledgement. Failed requests keep reasoning.
@@ -110,6 +137,14 @@ configured `operator`. This observation does not invoke acquisition or generatio
 Other changes:
 
 - `edit`: `action`, `reason`, `text`, `entity`, `timeScope`.
+- `resolve`: `action`, `reason`, `contradictionIds` (1–20 distinct open history identities),
+  `text`, `entity`, `timeScope` (exact current proposition), `category` (`evidence-correction`,
+  `different-scope`, `firsthand`), `basis` (specific nonblank factual rationale), `firsthand`
+  (nonblank for firsthand category), `evidenceIds` (already attached only). At least evidence
+  or firsthand basis is required. `additionalEvidenceIds` must be empty.
+- `restore-conflict`: `action`, `reason`, `contradictionId`, `resolutionId`. Both must name
+  the same currently effective judgment. Foreign, future, missing, duplicate, already
+  resolved/restored and expired targets fail before publication; stale versions fail CAS.
 - `withdraw` or `reopen`: `action`, `reason`.
 - `assess-time`: `action`, `reason`, `evidenceIds` (already attached), `entity`, `timeScope`,
   `temporal` (`addresses-scope` or `unresolved`), `basis` (nonblank explanation of dates
@@ -142,10 +177,53 @@ research file quotas. Information supports at most 100 items, 100 changes per it
 CAS, private owned paths, no-follow reads, checksums, and exact readback protect publication.
 A failed acknowledgement never reports Saved; reopen to inspect possible publication.
 
-Information schema 2 adds the separate time-scope assessment action. Schema 1 records and
-old assessment shapes remain readable without mutation; a new saved change writes schema 2
-and retains prior history. No-change saves keep their existing schema. Attachment envelope
-schema 1 continues to hold either information schema, preserving old snapshot bytes and hashes.
+Changed publications reserve reversal capacity derived from existing history and the
+latest existing store records; no registry or migration is involved. Prospective history
+length plus the number of currently resolved targets must be at most 100. Each target
+needs its own restore entry, even when one judgment resolved several targets. Every
+ordinary write obeys this reservation. An exact restore consumes one entry and releases
+one reservation; an edit expires the judgments and releases their reservations. Reopen
+does not release them. No-change retains the existing version and schema.
+
+The information directory also has a shared 4,090-entry publication budget, across all
+accounts/operators using that root, with the existing 4,096-entry listing bound and
+housekeeping margin unchanged. Under the publication lock, a changed write requires
+directory entries after publication plus all remaining active target reservations to fit
+that budget. Unrelated-item and new-item writes cannot consume those reserved slots.
+The prospective 2,000,000-byte envelope must also fit every remaining restore, allowing
+the maximum legal 1,200-character reason, JSON escaping, operator attribution and ISO
+timestamp. Later evidence/review writes must preserve this byte headroom too.
+
+Unsafe new judgments and capacity-consuming reviews are refused before publication with
+a capacity error; typed reasoning remains available. Existing schema 1/2 records and
+snapshots remain readable unchanged. This contract applies to writes admitted with these
+checks; it cannot retroactively supply capacity to an already stranded diagnostic record.
+Normal storage availability is still required: reserved logical capacity does not make
+writes possible under ENOSPC, I/O failure, corruption, permission loss or external file
+changes. No automatic deletion, larger quota, or physical-outage recovery is performed.
+
+Information schema 3 adds explicit resolution and restore actions to the existing history;
+there is no separate mutable adjudication registry. A history identity is `ih_` plus the
+canonical SHA-256 of `[item.id, accountId, principal, one-based history position, entry]`.
+Resolution entries name selected contradiction identities and the exact current proposition;
+original scope is recovered from each immutable target entry's statement revision. Restore
+names both that contradiction and the exact resolution entry. Edits expire effective
+judgments; later contradictions are separate identities. Readers replay actions against the
+strict preceding history and verify sequential statement edits, so final-state shape alone
+cannot authorize a forged resolution or restore.
+
+Schema 1/2 information and attachment envelope schema 1 remain readable without mutation.
+New items and changed publications write information schema 3; no-change saves keep their
+existing schema. There is no in-place migration. Strict history prefix, immutable prior
+evidence and CAS remain enforced by the existing information store. Replay is structural
+validation, not proof of the operator's factual reasoning or cryptographic human identity.
+
+Included schema 1/2 snapshots retain their original revision-local conflict labels and
+wording. The current Account view carries historical conflict attention across edits; when
+this differs even for the same stored version, the brief explicitly distinguishes current
+review from the historical labels and links to Account. Record a review to publish schema 3,
+then Refresh working snapshot and explicitly Save. Changed live information is compared
+separately; historical snapshots and their hashes are never silently reinterpreted or edited.
 
 Saved-work schema 4 holds separate versioned information attachments with their own exact
 source excerpts, metadata and custody identities. Schema 1–3 readers remain supported;
@@ -164,3 +242,39 @@ C3_TEST_REAL_HTTP=1 node --import tsx --test tests/c3/c3-account-information-ser
 If local sockets are denied, record the actual `EPERM` result and have the parent run TCP
 and Chromium verification. `C3_HISTORICAL_IN_PROCESS=1` selects the existing historical
 service fallback; it does not establish process-restart or TCP acceptance.
+
+
+## Focused retained-information preview UX
+
+Account's **Find information** searches only rendered statement, scope, trust and attached
+source text for this account. The 200-character input is processed locally as literal text;
+it is not sent to a server or stored in information records. Filtering hides cards in place,
+keeping typed review reasoning, and is reapplied after a saved review replaces its card.
+The match/total count is announced politely. Clear search restores all cards.
+
+After an Account addition, **Return to brief and Save** opens the existing account-qualified
+session draft. Adding information, refreshing snapshots and restoring conflict judgments do
+not automatically Save the brief. Saved prose and prior snapshots remain unchanged.
+
+Only the `serve-information` private launch file accepts optional top-level `preview`:
+`buildSha` must be exactly 40 lowercase hexadecimal characters supplied and independently
+verified by the operator at startup. `mode` must equal
+`Isolated operator preview · retained evidence · generation and acquisition off`.
+Both fields are required when `preview` is present; additional fields are rejected.
+Old launch files without `preview` retain their prior behavior. This display metadata is
+shown near the header and in root/account `healthz` responses; it is not a signature,
+verified runtime measurement, authentication or authorization. The compact disclosure
+states configured-operator identity and that historical replay is not fresh verification.
+The launcher still disables generation and acquisition; ordinary/replay launches do not
+acquire this preview label.
+
+Focused synthetic checks without sockets:
+
+```sh
+C3_TEST_REAL_HTTP=0 node --import tsx --test --experimental-test-isolation=none tests/c3/c3-account-information*.test.ts
+npm run build
+npm run typecheck
+```
+
+These in-process and DOM-double checks do not establish Chromium, screen-reader,
+retained-account or customer acceptance. Parent validation owns those checks.

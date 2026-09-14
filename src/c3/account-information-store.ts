@@ -1,10 +1,19 @@
 import {constants,openSync,closeSync,fstatSync,fsyncSync,readSync,writeFileSync,mkdirSync,lstatSync,realpathSync,opendirSync,unlinkSync,linkSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';import {fileURLToPath} from 'node:url';import {randomBytes} from 'node:crypto';
 import {canonicalJson} from './context.ts';import {acquireWorkStoreLock} from './work-store-lock.ts';
-import {informationHash,validateInformation,type AccountInformation} from './account-information.ts';
+import {informationHash,informationConflicts,assertInformationRestorationCapacity,validateInformation,type AccountInformation} from './account-information.ts';
 import type {WorkStoreOptions} from './work-store.ts';
 const repo=realpathSync(fileURLToPath(new URL('../../',import.meta.url)));
 const safeId=(id:string):string=>{if(!/^info_[a-f0-9]{64}$/u.test(id))throw Error('Invalid information identifier');return id;};
+const envelopeBytes=(item:AccountInformation):string=>canonicalJson({item,sha256:informationHash(item)})+'\n';
+/** Largest legal restoration strings, including JSON-escaped lone UTF-16 surrogates.
+ * Every remaining target must fit in the final envelope, in any restoration order. */
+function assertRestorationBytes(item:AccountInformation):void {
+ const targets=informationConflicts(item).filter(c=>c.resolution);
+ const history=[...item.history,...targets.map(c=>({revision:item.revision,actor:item.principal,at:'+010000-01-01T00:00:00.000Z',change:{action:'restore-conflict' as const,reason:'\ud800'.repeat(1200),contradictionId:c.id,resolutionId:c.resolution!.id}}))];
+ if(Buffer.byteLength(envelopeBytes({...item,history,version:item.version+targets.length}))>2_000_000)
+  throw Error('Information record capacity reached. Change not saved: room is required to restore each resolved conflict. Reasoning kept.');
+}
 /** Dedicated sibling of configured work root. Immutable publications, account/operator CAS.
  * Checksums detect corruption; the local filesystem owner remains trusted. */
 export class LocalInformationStore {
@@ -20,15 +29,18 @@ export class LocalInformationStore {
  private names():string[]{this.assertRoot();const names:string[]=[];const d=opendirSync(this.root);try{let e;while((e=d.readSync())){names.push(e.name);if(names.length>4096)throw Error('Information store limit');}}finally{d.closeSync();}return names.sort();}
  private filename(id:string,version:number):string {return this.prefix+safeId(id)+'.v'+String(version).padStart(6,'0')+'.json';}
  private versions(id:string):string[]{safeId(id);return this.names().filter(n=>new RegExp('^'+this.prefix+id+'\\.v[0-9]{6}\\.json$','u').test(n));}
- private read(name:string):AccountInformation {
+ private read(name:string,sharedCapacity=false):AccountInformation {
   this.assertRoot();const fd=openSync(resolve(this.root,name),constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   try{const s=fstatSync(fd);const pending=s.nlink===2&&this.names().filter(n=>/^\.information-pending-[a-f0-9]{32}$/u.test(n)).filter(n=>{const p=lstatSync(resolve(this.root,n));return p.isFile()&&!p.isSymbolicLink()&&p.ino===s.ino&&p.dev===s.dev;}).length===1;
    if(!s.isFile()||s.nlink!==1&&!pending||s.size>2_000_000||(s.mode&0o077)!==0||s.uid!==process.getuid?.())throw Error('Unsafe information record');
    const b=Buffer.alloc(s.size+1);let size=0;while(size<b.length){const n=readSync(fd,b,size,b.length-size,null);if(!n)break;size+=n;}const after=fstatSync(fd);
    if(size!==s.size||after.size!==s.size||after.mtimeMs!==s.mtimeMs)throw Error('Information changed during read');
    const bytes=new TextDecoder('utf-8',{fatal:true}).decode(b.subarray(0,size));const envelope=JSON.parse(bytes) as {item:AccountInformation;sha256:string};
-   if(Object.keys(envelope).sort().join(',')!=='item,sha256'||canonicalJson(envelope)+'\n'!==bytes||envelope.sha256!==informationHash(envelope.item)||name!==this.filename(envelope.item.id,envelope.item.version))throw Error('Information readback mismatch');
-   validateInformation(envelope.item,this.accountId,this.options.principal);return envelope.item;
+   const {accountId,principal}=envelope.item;
+   if(sharedCapacity&&(!/^[A-Za-z0-9][A-Za-z0-9_.@-]{2,127}$/u.test(principal)||!/^[A-Za-z0-9_-]{1,120}$/u.test(accountId)))throw Error('Invalid stored information authority');
+   const filename=sharedCapacity?informationHash([principal,accountId]).slice(0,32)+'-'+safeId(envelope.item.id)+'.v'+String(envelope.item.version).padStart(6,'0')+'.json':this.filename(envelope.item.id,envelope.item.version);
+   if(Object.keys(envelope).sort().join(',')!=='item,sha256'||canonicalJson(envelope)+'\n'!==bytes||envelope.sha256!==informationHash(envelope.item)||name!==filename)throw Error('Information readback mismatch');
+   validateInformation(envelope.item,sharedCapacity?accountId:this.accountId,sharedCapacity?principal:this.options.principal);return envelope.item;
   }finally{closeSync(fd);}
  }
  load(id:string):AccountInformation {const names=this.versions(id);if(!names.length)throw Error('Information unavailable for account/operator');return this.read(names.at(-1)!);}
@@ -46,8 +58,21 @@ export class LocalInformationStore {
    if(prior&&canonicalJson(prior)===canonicalJson(item))return prior;
    if(item.version!==expectedVersion+1)throw Error('Information version mismatch');
    if(prior&&(canonicalJson(item.history.slice(0,-1))!==canonicalJson(prior.history)||canonicalJson(item.origin)!==canonicalJson(prior.origin)||canonicalJson(item.statements.slice(0,prior.statements.length))!==canonicalJson(prior.statements)||!prior.evidence.every(e=>item.evidence.some(n=>canonicalJson(n)===canonicalJson(e)))))throw Error('Historical information changed');
-   if(!prior&&this.list().length>=100||this.names().length>=4090)throw Error('Information store limit');
-   const bytes=canonicalJson({item,sha256:informationHash(item)})+'\n';if(Buffer.byteLength(bytes)>2_000_000)throw Error('Information record too large');
+   assertInformationRestorationCapacity(item);
+   // The directory quota is shared by every account/operator. Derive reservations
+   // from the latest existing publications under the same lock as the new write.
+   const allNames=this.names(),latest=new Map<string,string>();
+   for(const name of allNames){const match=/^([a-f0-9]{32}-info_[a-f0-9]{64})\.v[0-9]{6}\.json$/u.exec(name);if(match)latest.set(match[1]!,name);}
+   let reserved=informationConflicts(item).filter(c=>c.resolution).length,items=0;
+   for(const name of latest.values()){
+    const current=this.read(name,true);
+    if(current.accountId===this.accountId&&current.principal===this.options.principal){items++;if(current.id===item.id)continue;}
+    reserved+=informationConflicts(current).filter(c=>c.resolution).length;
+   }
+   if(!prior&&items>=100||allNames.length+1+reserved>4090)
+    throw Error('Information store capacity reached. Change not saved: room is required to restore each resolved conflict. Reasoning kept.');
+   assertRestorationBytes(item);
+   const bytes=envelopeBytes(item);
    temp=resolve(this.root,'.information-pending-'+randomBytes(16).toString('hex'));const fd=openSync(temp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
    try{writeFileSync(fd,bytes);fsyncSync(fd);}finally{closeSync(fd);}
    this.options.fault?.('before-publish');this.assertRoot();const name=this.filename(item.id,item.version);linkSync(temp,resolve(this.root,name));this.options.fault?.('after-link');unlinkSync(temp);temp=undefined;fsyncSync(dir);this.options.fault?.('after-publish');

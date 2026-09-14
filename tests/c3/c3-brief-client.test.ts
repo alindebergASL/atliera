@@ -59,3 +59,21 @@ test('composed brief Save is explicit, binds storage and work versions, and reje
   assert.deepEqual(ui.calls[0],{route:'/accounts/cedar/api/save',body:{recordId,documentId,expectedVersion:2,workVersion:7,informationAttachmentsSha256:'digest'}});assert.equal(ui.workStatus(),'Saved');
   const bad=client(async()=>({saved:true,recordId,documentId,workVersion:99,version:3}));await bad.save();assert.match(bad.workStatus(),/not confirmed/);
 });
+
+test('orphan probe stays dirty, blocks export/save/unload and rejects Keep without discarding text',async()=>{
+  const ui=client(async()=>({recordId,exportText:'Unexpected export'}));
+  ui.fields.q1probe!.value='Keep this standalone probe';
+  await ui.copy();await ui.download.click();await ui.save();await ui.submit();
+  assert.equal(ui.calls.length,0);assert.equal(ui.reloads(),0);
+  assert.match(ui.status(),/Add a question for optional probe 2/);
+  assert.equal(ui.fields.q1probe!.value,'Keep this standalone probe');
+  let prevented=false;for(const listener of ui.events.beforeunload??[])listener({preventDefault(){prevented=true;},returnValue:undefined});
+  assert.equal(prevented,true);
+  await ui.reset.click();await ui.copy();assert.equal(ui.copied(),'Unexpected export');
+});
+
+test('orphan probe typed during Keep remains in the raw form rather than triggering reload',async()=>{
+  let finish!:(value:any)=>void;const ui=client(async()=>new Promise(resolve=>{finish=resolve;}));
+  const keeping=ui.submit();ui.fields.q2probe!.value='Newer standalone probe';finish({kept:true,recordId,authoredCopy:{}});await keeping;
+  assert.equal(ui.reloads(),0);assert.equal(ui.fields.q2probe!.value,'Newer standalone probe');assert.match(ui.status(),/Newer typing remains/);
+});

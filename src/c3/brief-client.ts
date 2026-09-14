@@ -34,8 +34,10 @@ export const BRIEF_CLIENT_SCRIPT = `
       };
     };
     let submitted = briefPage.getAttribute('data-kept-copy') ? JSON.parse(briefPage.getAttribute('data-kept-copy')) : null;
-    const initialForm = JSON.stringify(collect());
-    const dirty = () => JSON.stringify(collect()) !== initialForm;
+    const rawFields = ['title','audience','duration','purpose','facts','interpretation','opening','close','uncertainty','evidence', ...[0,1,2].flatMap(index => ['q' + index + 'question','q' + index + 'probe'])];
+    const rawForm = () => JSON.stringify(rawFields.map(name => form.querySelector('[data-authored="' + name + '"]')?.value ?? ''));
+    const initialForm = rawForm();
+    const dirty = () => rawForm() !== initialForm;
     const displayedVersion = Number(briefPage.getAttribute('data-brief-work-version'));
     let storageVersion = Number(briefPage.getAttribute('data-brief-storage-version'));
     let busy = false;
@@ -55,26 +57,28 @@ export const BRIEF_CLIENT_SCRIPT = `
       event.preventDefault();
       if (!status) return;
       if (busy) return;
-      const payload = collect(); busy = true;
+      const orphan = [0,1,2].find(index => !form.querySelector('[data-authored="q' + index + 'question"]').value.trim() && form.querySelector('[data-authored="q' + index + 'probe"]').value.trim());
+      if (orphan !== undefined) { status.textContent = 'Add a question for optional probe ' + (orphan + 1) + ', or clear the probe. Your edited text remains in the form.'; return; }
+      const payload = collect(); const before = rawForm(); busy = true;
       try {
         const result = await requestJson('/api/authored-copy', { recordId, workVersion: displayedVersion, copy: payload });
         if (result.kept !== true || result.recordId !== recordId) throw Error(result.error || 'Authored copy was not confirmed');
         submitted = result.authoredCopy;
         status.textContent = result.status || 'Authored copy kept for this session. Save the brief to retain it.';
         const clear = form.querySelector('[data-authored-clear]'); if (clear) clear.hidden = false;
-        if (JSON.stringify(collect()) !== JSON.stringify(payload)) { status.textContent = 'Submitted copy kept. Newer typing remains here; copy it before reloading.'; return; }
+        if (rawForm() !== before) { status.textContent = 'Submitted copy kept. Newer typing remains here; copy it before reloading.'; return; }
         leaving = true; window.location.reload();
       } catch (error) { status.textContent = error.message + ' Your edited text remains in the form.'; } finally { busy = false; }
     });
     form?.querySelector('[data-authored-clear]')?.addEventListener('click', async () => {
       if (!status) return;
       if (busy || !window.confirm('Clear the kept authored copy and return to the original record?')) return;
-      const before = JSON.stringify(collect()); busy = true;
+      const before = rawForm(); busy = true;
       try {
         const result = await requestJson('/api/authored-copy', { recordId, workVersion: displayedVersion, copy: null });
         if (result.kept !== true) throw Error(result.error || 'Clearing was not confirmed');
         submitted = null; status.textContent = 'Authored copy cleared. The original-record reading is shown.';
-        if (JSON.stringify(collect()) !== before) { status.textContent = 'Kept copy cleared. Newer typing remains here; copy it before reloading.'; return; }
+        if (rawForm() !== before) { status.textContent = 'Kept copy cleared. Newer typing remains here; copy it before reloading.'; return; }
         leaving = true; window.location.reload();
       } catch (error) { status.textContent = error.message; } finally { busy = false; }
     });

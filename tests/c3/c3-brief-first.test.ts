@@ -9,7 +9,7 @@ import { createC3ModelRequest, createGenerationRecord as createOriginalGeneratio
 import { createC3VerificationRequest, retainC3Verification } from '../../src/c3/generation-contract.ts';
 import { scriptedFullCoverage } from './c3-generation-scripted.ts';
 import { validateAuthoredMeetingCopy } from '../../src/c3/authored-copy.ts';
-import { formatBriefExport, generatedReading, authoredReading } from '../../src/c3/brief-first.ts';
+import { formatBriefExport, generatedReading, authoredReading, renderBriefReading } from '../../src/c3/brief-first.ts';
 import { LocalWorkStore } from '../../src/c3/work-store.ts';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
@@ -72,6 +72,22 @@ const authoredPayload = (recordId: string, refs = evidenceIds.slice(0, 2)) => ({
   close: 'Recap the priority identified and agree one next step with an owner.',
   uncertainty: 'The selected material is undated; it does not confirm current availability.',
   selectedEvidenceRefs: refs,
+});
+
+test('authored reading retains distinct original unknowns and warnings in HTML and export', () => {
+  const raw = JSON.parse(syntheticMeetingCandidate(ctx));
+  raw.risksUnknowns.push({text:'Procurement budget has not been established.',supportCategory:'unknown',evidenceRefs:[]});
+  const record = createGenerationRecord(createC3ModelRequest(ctx, request), JSON.stringify(raw), ctx);
+  assert.equal(record.outcome,'succeeded');
+  const before=JSON.stringify(record);
+  const copy=validateAuthoredMeetingCopy(authoredPayload(record.recordId),ctx,record.recordId);
+  const reading=authoredReading(copy,ctx,record), exported=formatBriefExport(reading);
+  for(const risk of record.draft!.risksUnknowns)assert.ok(exported.includes(risk.text));
+  for(const warning of record.draft!.warnings)assert.ok(exported.includes(warning.message));
+  const html=renderBriefReading(reading,record,ctx,{hasAuthoredEditor:true});
+  assert.ok(html.includes('Procurement budget has not been established.'));
+  assert.ok(reading.materialLimitations.includes('Procurement budget has not been established.'));
+  assert.equal(JSON.stringify(record),before);
 });
 
 test('validator: exact keys, provenance, bounds, context evidence and record binding', () => {

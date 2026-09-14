@@ -105,7 +105,7 @@ export function authoredReading(copy: AuthoredMeetingCopy, context: FrozenC3View
     ...(copy.selectedEvidenceRefs.length === 0 ? { factsNote: 'No evidence selected. Authored statements are not established account facts.' } : {}),
     openingLabel: 'Suggested opening',
     closeLabel: 'Suggested close',
-    materialLimitations: [...new Set([...(record?.draft?.warnings.filter(item => item.code === 'evidence_stale_for_meeting').map(item => item.message) ?? []), ...context.context.declaredContradictions.map(item => 'Unresolved context conflict: ' + item)])],
+    materialLimitations: [...new Set([...(record?.draft?.risksUnknowns.map(item => item.text) ?? []), ...(record?.draft?.warnings.map(item => item.message) ?? []), ...context.context.declaredContradictions.map(item => 'Unresolved context conflict: ' + item)])].filter(item => item !== copy.uncertainty),
     sourceDates: sources.map(source => [...new Set(context.context.admittedSources.filter(item => item.canonicalUrl === source.canonicalUrl && item.excerpts.some(excerpt => copy.selectedEvidenceRefs.includes(excerpt.evidenceId))).map(dates))].join(' / ')),
     facts: copy.facts.map(text => ({ text, evidenceIds: [] })),
     interpretation: copy.interpretation,

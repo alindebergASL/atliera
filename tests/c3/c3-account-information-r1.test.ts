@@ -29,7 +29,7 @@ test('R1 contradictions survive later support, reopening, temporal assessment an
  x=reviseInformation(x,{action:'reopen',reason:'Reconsider the report'},a);
  assert.ok(designation(x).labels.includes('Conflicting evidence'));
  assert.deepEqual(x.history[0],contradiction);
- assert.throws(()=>reviseInformation(x,{action:'resolve',reason:'Declare it true'},a),/Unknown/);
+ assert.throws(()=>reviseInformation(x,{action:'resolve',reason:'Declare it true'},a),/fields/);
  const root=mkdtempSync(join(tmpdir(),'uv1-r1-conflict-'));
  try {
   const options={root:join(root,'work'),principal:a.principal};const s=new LocalInformationStore(options,a.accountId);
@@ -84,7 +84,7 @@ test('R1 full statement/entity/time edit and does-not-resolve cannot inherit sou
  assert.ok(designation(x).labels.includes('Source-backed'));assert.ok(!designation(x).labels.includes('Independently corroborated'));
  assert.ok(designation(x).labels.includes('Needs confirmation'));assert.equal(x.origin,item.origin);
 });
-test('R1 schema 1 assessment stores and attachment bytes remain readable; explicit temporal review promotes to schema 2',()=>{
+test('R1 schema 1 assessment stores and attachment bytes remain readable; explicit temporal review promotes to schema 3',()=>{
  const {item,support,temporal}=fixture('2020-01-01','January 2020');
  const legacy:AccountInformation={...item,schemaVersion:'1'};
  const legacyReviewed:AccountInformation={...reviseInformation(legacy,support,a),schemaVersion:'1'};
@@ -97,7 +97,7 @@ test('R1 schema 1 assessment stores and attachment bytes remain readable; explic
   s.save(legacy,0);s.save(legacyReviewed,1);
   const files=readdirSync(s.root).map(name=>({name,bytes:readFileSync(join(s.root,name),'utf8')}));
   s=new LocalInformationStore(opts,a.accountId);assert.deepEqual(s.load(item.id),legacyReviewed);
-  const next=s.save(reviseInformation(s.load(item.id),temporal,a),2);assert.equal(next.schemaVersion,'2');assert.deepEqual(next.history.slice(0,-1),legacyReviewed.history);
+  const next=s.save(reviseInformation(s.load(item.id),temporal,a),2);assert.equal(next.schemaVersion,'3');assert.deepEqual(next.history.slice(0,-1),legacyReviewed.history);
   for(const f of files)assert.equal(readFileSync(join(s.root,f.name),'utf8'),f.bytes);
   assert.deepEqual(new LocalInformationStore(opts,a.accountId).load(item.id),next);
   assert.throws(()=>validateInformation({...next,schemaVersion:'1'},a.accountId,a.principal),/schema 2/);

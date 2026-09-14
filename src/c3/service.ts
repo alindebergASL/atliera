@@ -1,3 +1,4 @@
+import {validateInformationPreview,type InformationPreview} from './account-information-config.ts';
 import { LocalInformationStore } from './account-information-store.ts';
 import { sourceInformation, contextInformationEvidence, researchInformationEvidence, candidateInformation, admitRetainedInformationAttempt, type RetainedInformationAttempt } from './account-information-adapter.ts';
 import { reviseInformation, informationAttachment, informationHash, type InformationAttachment, type AccountInformation } from './account-information.ts';
@@ -56,6 +57,7 @@ interface Session {
 }
 
 export interface C3ServiceStatus {
+  readonly preview?: InformationPreview;
   readonly provider: string;
   readonly generationAttempted: number;
   readonly generationSucceeded: number;
@@ -68,6 +70,8 @@ export interface C3ServiceStatus {
 }
 
 export interface C3AccountServiceOptions {
+  /** Set only by the retained-information launcher; descriptive metadata, never authority. */
+  readonly informationPreview?: InformationPreview;
   readonly research?: AccountResearchOptions;
   /** Explicit exact retained attempts from trusted operator configuration; never scanned or browser paths. */
   readonly retainedInformationAttempts?: readonly RetainedInformationAttempt[];
@@ -292,7 +296,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
-    const state = { ...inputState, informationHtml: informationDisplay(session,inputState.page), research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    const state = { ...inputState, informationPreview: options.informationPreview, informationHtml: informationDisplay(session,inputState.page), research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
@@ -813,7 +817,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
     generationAttempted: count(events, "attempted"), generationSucceeded: count(events, "succeeded"),
     generationRefused: count(events, "refused"), generationCancelled: count(events, "cancelled"),
     generationFailed: count(events, "failed"), c2Implementation: "complete", ownerDisposition: options.context.context.ownerDecisionSource === null ? "absent" : "recorded",
-    customerAvailability: "local_prototype_only" });
+    customerAvailability: "local_prototype_only", ...(options.informationPreview?{preview:options.informationPreview}:{}) });
   return { handle: handleRequest, status, disableResearch: () => research?.disable(), close: async () => {
       await research?.close();
     const active = [...sessions.values()].flatMap(session => session.active ? [session.active] : []);
@@ -825,7 +829,12 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
 /** One listener, explicit account runtimes. Sessions/providers/stores never follow a mutable UI selection.
  * This is local operator partitioning, not multitenant authentication. */
 export async function startC3Server(options: C3ServerOptions): Promise<RunningC3Server> {
-  const entries = [options, ...(options.accounts ?? [])];
+  const entries = [options, ...(options.accounts ?? [])].map(entry => {
+    if(entry.informationPreview===undefined)return entry;
+    const informationPreview=validateInformationPreview(entry.informationPreview);
+    if(entry.provider.name!=='disabled'||entry.research?.config.enabled||entry.recordedReplay)throw Error('Retained information preview requires generation and acquisition off');
+    return {...entry,informationPreview};
+  });
   const accounts = entries.map(entry => ({ accountId: entry.context.context.account.accountId,
     accountName: entry.context.context.account.accountName }));
   if (accounts.some(account => !/^[A-Za-z0-9_-]{1,120}$/u.test(account.accountId)) ||

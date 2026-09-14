@@ -84,3 +84,33 @@ test('revision Apply, Keep, failure and cancellation preserve attachments; genui
  mode='success';generated=await generate(current,null,newRequest);assert.equal(generated.status,200,generated.text);assert.deepEqual((await b.call(accountId,'/api/work-state',{})).json().snapshot.informationAttachments,[]);
  }finally{await server.close();}
 });
+
+test('legacy conflict snapshot stays byte-exact after resolution; refresh plus explicit Save retains scoped judgment on reopen',async t=>{
+ const {informationConflicts}=await import('../../src/c3/account-information.ts');
+ const root=mkdtempSync(join(tmpdir(),'trust-loop-saved-'));t.after(()=>rmSync(root,{recursive:true,force:true}));const workStore={root:join(root,'work'),principal};
+ const store=new LocalWorkStore(workStore,context),documentId=newWorkDocumentId();const information=new LocalInformationStore(workStore,accountId);
+ const a={accountId,principal,at:'2026-09-14T12:00:00.000Z'};
+ // Public synthetic retained evidence, admitted through the normal account adapter.
+ const {sourceInformation}=await import('../../src/c3/account-information-adapter.ts');
+ let item=sourceInformation(context,a)[0]!;
+ item={...item,schemaVersion:'2'};information.save(item,0);
+ item={...reviseInformation(item,{action:'assess',reason:'Synthetic conflict retained before schema 3',evidenceIds:[item.evidence[0]!.id],entity:item.entity,timeScope:item.timeScope,effect:'contradicts',independence:'unknown',origins:[]},a),schemaVersion:'2'};information.save(item,1);
+ const snapshot=informationAttachment(item);
+ store.save(documentId,0,{record,records:[record],correctionNote:'Keep original brief',sectionNotes:{},instruction:'',pendingRevision:null,pendingRevisionToken:null,proposal:null,proposalStale:false,workVersion:1,informationAttachments:[snapshot]});
+ const name=readdirSync(workStore.root).find(n=>n.endsWith('v000001.json'))!,bytes=readFileSync(join(workStore.root,name),'utf8');
+ const options={context,provider:new DisabledC3ModelProvider(),workStore,accounts:[],listen:process.env.C3_TEST_REAL_HTTP==='1'};let server=await startC3Server(options);
+ try{
+  let b=researchBrowser(server);await b.call(accountId,'/');await b.call(accountId,'/api/reopen',{documentId});
+  const resolved=await b.call(accountId,'/api/information/change',{id:item.id,expectedVersion:item.version,additionalEvidenceIds:[],change:{action:'resolve',reason:'Distinguish the synthetic events',contradictionIds:[informationConflicts(item)[0]!.id],text:item.text,entity:item.entity,timeScope:item.timeScope,category:'firsthand',basis:'The cancelled synthetic event was a different pilot.',firsthand:'I attended the synthetic pilot named in the statement.',evidenceIds:[]}});assert.equal(resolved.status,200,resolved.text);
+  let state=(await b.call(accountId,'/api/work-state',{})).json();assert.deepEqual(state.snapshot.informationAttachments,[snapshot]);
+  const page=await b.call(accountId,'/?draft=1');assert.match(page.text,/Included snapshot[^]*?Conflicting evidence/);assert.match(page.text,/Current status changed/);
+  const refresh=await b.call(accountId,'/api/work/information',{action:'refresh',id:item.id,informationVersion:resolved.json().item.version,workVersion:state.workVersion,recordId:record.recordId});assert.equal(refresh.status,200,refresh.text);
+  assert.deepEqual(store.load(documentId).work.informationAttachments,[snapshot]);
+  state=(await b.call(accountId,'/api/work-state',{})).json();assert.equal(state.saved,false);
+  const saved=await b.call(accountId,'/api/save',{recordId:record.recordId,documentId,expectedVersion:state.version,workVersion:state.workVersion,informationAttachmentsSha256:state.attachmentDigest});assert.equal(saved.status,200,saved.text);
+  assert.equal(readFileSync(join(workStore.root,name),'utf8'),bytes);assert.equal(store.load(documentId).work.record.rawResponse,record.rawResponse);
+  await server.close();server=await startC3Server(options);b=researchBrowser(server);await b.call(accountId,'/');await b.call(accountId,'/api/reopen',{documentId});
+  state=(await b.call(accountId,'/api/work-state',{})).json();const current=state.snapshot.informationAttachments[0].snapshot;assert.equal(current.schemaVersion,'3');assert.ok(informationConflicts(current)[0]!.resolution);assert.deepEqual(current,resolved.json().item);
+  assert.equal(server.status().generationAttempted,0);
+ }finally{await server.close();}
+});

@@ -1,3 +1,4 @@
+import { readInformationLaunch } from './account-information-config.ts';
 import { modelCommandLaunchArguments, readAccountModelCommand } from './model-command-config.ts';
 import { admitResearchIntelligence } from './research-intelligence.ts';
 import { AccountResearchService } from './research-service.ts';
@@ -313,8 +314,19 @@ async function prepareTargetedRequest(args: readonly string[]): Promise<void> {
   } finally { await service.close(); }
 }
 
+async function serveInformationCommand(args:readonly string[]):Promise<void> {
+  if(args.length!==1)throw Error('usage: serve-information PRIVATE_CONFIG_JSON');
+  const accounts=readInformationLaunch(args[0]!);
+  const portText=process.env.C3_PORT??'4317';
+  if(!/^\d{1,5}$/u.test(portText)||Number(portText)<1||Number(portText)>65535)throw Error('C3_PORT refused');
+  const running=await startC3Server({...accounts[0]!,accounts:accounts.slice(1),port:Number(portText)});
+  process.stdout.write(running.origin+'\n');
+  const stop=():void=>{void running.close().then(()=>process.exit(0));};process.once('SIGINT',stop);process.once('SIGTERM',stop);
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, ...args] = argv;
+  if (command === "serve-information") return serveInformationCommand(args);
   if (command === "prepare-targeted-request") return prepareTargetedRequest(args);
   if (command === "prepare-verifier-evaluation") return prepareVerifierEvaluation(args);
   if (command === "run-verifier-evaluation") return runVerifierEvaluation(args);

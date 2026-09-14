@@ -1,3 +1,4 @@
+import { INFORMATION_CLIENT_SCRIPT } from './account-information-client.ts';
 import { renderResearchPanel, RESEARCH_CLIENT_SCRIPT } from './research-render.ts';
 import { unavailableResearchDisplay, type ResearchDisplay } from './research-service.ts';
 import { WORKING_DOCUMENT_CLIENT_SCRIPT } from './work-client.ts';
@@ -34,7 +35,7 @@ export type C3PageState = (
   | { readonly page: "workshop"; readonly hasDraft?: boolean; readonly worksheets?: readonly PlanningBrief[] }
   | { readonly page: "prepare"; readonly request: C3MeetingFormState; readonly error?: string; readonly hasDraft?: boolean;
       readonly correctionNote?: string; readonly displayedRecordId?: string | null }
-  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
+  | { readonly page: "draft"; readonly record: C3GenerationRecord; readonly correctionNote: string; readonly notice?: string; readonly sectionNotes?: SectionNotes }) & C3PendingState & { readonly informationHtml?: string; readonly research?: ResearchDisplay; readonly revisionUnavailableReason?: string; readonly instruction?: string; readonly proposalStale?: boolean; readonly proposal?: C3GenerationRecord | null; readonly work?: WorkDisplayState; readonly generation?: { readonly available: boolean; readonly explanation: string } };
 
 export interface C3RenderOptions {
   readonly correctionNote: string;
@@ -508,6 +509,7 @@ ${GENERATION_PROGRESS_CLIENT_SCRIPT}
     finally { reviewBusy = false; controls(); }
   });
 ${WORKING_DOCUMENT_CLIENT_SCRIPT}
+${INFORMATION_CLIENT_SCRIPT}
 ${RESEARCH_CLIENT_SCRIPT}
 ${PLANNING_CLIENT_SCRIPT}
   controls();
@@ -753,7 +755,7 @@ export function renderC3Page(context: FrozenC3AccountContext, state: C3PageState
   if (isCuratedContext(context) && (options !== undefined || state.page === "draft")) {
     throw new Error("Agent-curated context cannot render recorded-model claims");
   }
-  const page = renderPage(context, state, csrf, options);
+  const page = renderPage(context, state, csrf, options).replace('</main>', (state.informationHtml ?? '')+'</main>');
   if (!navigation) return page;
   if (navigation.accountId !== context.context.account.accountId) throw Error('Rendered account identity mismatch');
   const prefix = accountPath(navigation.accountId);

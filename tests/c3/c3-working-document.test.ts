@@ -273,13 +273,13 @@ test('work-state binds same-session annotations and instruction to CAS without e
  try{
   const tabs=await browser(running);const first=(await tabs.call('/api/generate',envelope())).json();
   const a=(await tabs.call('/api/work-state',{})).json();
-  assert.deepEqual(a.snapshot,{correctionNote:'',sectionNotes:{},instruction:'',pendingRevisionToken:null,proposalId:null,proposalStale:false});
+  assert.deepEqual(a.snapshot,{informationAttachments:[],correctionNote:'',sectionNotes:{},instruction:'',pendingRevisionToken:null,proposalId:null,proposalStale:false});
   await tabs.call('/api/note',{recordId:first.recordId,note:'Other tab general note',priorNote:''});
   await tabs.call('/api/section-note',{recordId:first.recordId,section:'Opening',text:'Other tab section note',priorText:''});
   await tabs.call('/api/revision-instruction',{recordId:first.recordId,instruction:'Other tab instruction',priorInstruction:''});
   const b=(await tabs.call('/api/work-state',{})).json();
   assert.equal(a.documentId,b.documentId);assert.equal(a.recordId,b.recordId);assert.equal(b.workVersion,a.workVersion+3);
-  assert.deepEqual(b.snapshot,{correctionNote:'Other tab general note',sectionNotes:{Opening:'Other tab section note'},instruction:'Other tab instruction',pendingRevisionToken:null,proposalId:null,proposalStale:false});
+  assert.deepEqual(b.snapshot,{informationAttachments:[],correctionNote:'Other tab general note',sectionNotes:{Opening:'Other tab section note'},instruction:'Other tab instruction',pendingRevisionToken:null,proposalId:null,proposalStale:false});
   assert.doesNotMatch(JSON.stringify(b),/operator-one|principal|owner/);
   assert.equal((await tabs.call('/api/save',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);
   assert.equal((await tabs.call('/api/save-copy',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);
@@ -441,7 +441,7 @@ test('versioned metadata verifies exact trusted custody, rejects forged origin, 
   const store=new LocalWorkStore({root,principal:'synthetic-operator',originReceipt,now:()=>new Date('2026-09-09T12:00:00Z')},old.context);
   assert.deepEqual(store.load(legacy.documentId),legacy);assert.equal(store.origin(legacy.work.record),'historical-replay');
   assert.equal(new LocalWorkStore({root,principal:'synthetic-operator'},old.context).origin(legacy.work.record),'unknown');
-  const saved=store.save(legacy.documentId,legacy.version,legacy.work,{title:'Preparation title'});assert.equal(saved.schemaVersion,'3');
+  const saved=store.save(legacy.documentId,legacy.version,legacy.work,{title:'Preparation title'});assert.equal(saved.schemaVersion,'4');
   assert.deepEqual(saved.work,legacy.work);assert.equal(await readFile(join(root,file.name),'utf8'),file.bytes);
   const path=join(root,(await readdir(root)).find(name=>name!==file.name)!);const bytes=await readFile(path,'utf8');
   for(const patch of [{origin:'live'},{recordId:'c3_'+'0'.repeat(24)},{contextSha256:'0'.repeat(64)},{modelRequestSha256:'0'.repeat(64)},{rawResponseSha256:'0'.repeat(64)},{recordSha256:'0'.repeat(64)},{custodyReceiptId:'forged'}]){

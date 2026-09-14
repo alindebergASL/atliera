@@ -1,3 +1,4 @@
+import { ResearchStore } from './research-store.ts';
 import { questionPassages } from './research-render.ts';
 import { relative, resolve, sep } from 'node:path';
 import { BoundedResearchExecution, type ResearchSnapshot } from './research-run.ts';
@@ -138,6 +139,10 @@ export class AccountResearchService {
     if (!latest || latest.snapshotId !== snapshotId || latest.state !== 'completed') throw Error('Completed latest snapshot required');
     const run = this.execution.latestCompletedRun(caller, latest.snapshotId);
     return run;
+  }
+  /** Account/operator scoped read only; acquisition enablement and browser selection are irrelevant. */
+  retainedRuns(): readonly import('./research-store.ts').ResearchRun[] {
+    return new ResearchStore(this.config.retentionRoot, this.config.scope).latest().filter(run => run.state === 'completed');
   }
   disable(): void { this.stopped = true; this.execution.stop(); }
   async close(): Promise<void> { this.disable(); await Promise.all([...this.completions]); }

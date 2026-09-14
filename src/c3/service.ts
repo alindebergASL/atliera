@@ -1,3 +1,7 @@
+import { LocalInformationStore } from './account-information-store.ts';
+import { sourceInformation, contextInformationEvidence, researchInformationEvidence, candidateInformation, admitRetainedInformationAttempt, type RetainedInformationAttempt } from './account-information-adapter.ts';
+import { reviseInformation, informationAttachment, informationHash, type InformationAttachment, type AccountInformation } from './account-information.ts';
+import { renderAccountInformation, renderInformationAttachments } from './account-information-render.ts';
 import { admitResearchIntelligence } from './research-intelligence.ts';
 import { AccountResearchService, validateAccountResearchConfiguration, unavailableResearchDisplay, type AccountResearchOptions } from './research-service.ts';
 import { renderResearchPanel, renderResearchSnapshot, renderResearchSource } from './research-render.ts';
@@ -40,6 +44,7 @@ interface Session {
   savedAt?: string;
   planning: Record<PlanningKind, PlanningBrief>;
   sectionNotes: Record<string, string>;
+  informationAttachments: InformationAttachment[];
 
   pendingPriorNote: string | null;
   pendingRevision: C3RevisionContext | null;
@@ -64,6 +69,8 @@ export interface C3ServiceStatus {
 
 export interface C3AccountServiceOptions {
   readonly research?: AccountResearchOptions;
+  /** Explicit exact retained attempts from trusted operator configuration; never scanned or browser paths. */
+  readonly retainedInformationAttempts?: readonly RetainedInformationAttempt[];
   readonly context: FrozenC3AccountContext;
   readonly provider: C3ModelProvider;
   /** Private durable audit sink for original generator/verifier responses, including refusals. */
@@ -146,7 +153,7 @@ function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session
   return { id: randomBytes(24).toString("base64url"), csrf: randomBytes(24).toString("base64url"),
     form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
     planning: { strategy: newPlanningBrief("strategy"), "next-steps": newPlanningBrief("next-steps") }, sectionNotes: {},
-    instruction: "", proposal: null, proposalStale: false, records: [], documentId: newWorkDocumentId(), storageVersion: 0, workVersion: 0, savedWorkVersion: -1,
+    informationAttachments: [], instruction: "", proposal: null, proposalStale: false, records: [], documentId: newWorkDocumentId(), storageVersion: 0, workVersion: 0, savedWorkVersion: -1,
     correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0, operations: new Set() };
 }
 
@@ -240,6 +247,33 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
   const events: GenerationEvent[] = [];
   const now = options.now ?? (() => new Date());
   const research = options.research ? new AccountResearchService(options.research, { accountId: options.context.context.account.accountId, principal: options.workStore?.principal, workRoot: options.workStore?.root }, now) : undefined;
+  const authority = () => ({accountId:options.context.context.account.accountId,principal:options.workStore?.principal ?? 'unavailable-operator',at:now().toISOString()});
+  const sourceItems = sourceInformation(options.context,authority());
+  let informationStore: LocalInformationStore | undefined;
+  let informationError: string | undefined;
+  if(options.workStore) try {
+    informationStore=new LocalInformationStore(options.workStore,authority().accountId);
+    for(const item of sourceItems) informationStore.admit(item);
+  } catch { informationStore=undefined;informationError='Account information storage unavailable. Review changes cannot be saved.'; }
+  if(options.retainedInformationAttempts?.length){
+    if(!informationStore)throw Error('Retained candidate admission requires information storage and operator authority');
+    for(const attempt of options.retainedInformationAttempts)for(const item of admitRetainedInformationAttempt(attempt,authority()))informationStore.admit(item);
+  }
+  const informationItems = (): readonly AccountInformation[] => informationStore ? informationStore.list() : sourceItems;
+  const informationEvidence = () => {
+    const evidence=contextInformationEvidence(options.context,authority());
+    if(research && options.workStore && research.config.principal===options.workStore.principal)for(const run of research.retainedRuns())evidence.push(...researchInformationEvidence(run,authority()));
+    return [...new Map(evidence.map(e=>[e.id,e])).values()];
+  };
+  const informationDisplay = (session:Session|undefined,page:string):string => {
+    let items:readonly AccountInformation[]=sourceItems;let available=Boolean(informationStore);let error=informationError;
+    try{items=informationItems();}catch{available=false;error='Current status unavailable. Saved working snapshots remain inspectable.';}
+    if(page==='draft')return renderInformationAttachments(session?.informationAttachments??[],available?items:null,session?.workVersion??0,Boolean(session&&session.savedWorkVersion!==session.workVersion));
+    if(!['home','research','prepare'].includes(page))return '';
+    let evidence:ReturnType<typeof informationEvidence>=[];
+    try{evidence=informationEvidence();}catch{error='Additional retained evidence unavailable. Existing information remains inspectable.';}
+    return (options.syntheticPreview?'<p class="storage-notice">Synthetic offline demonstration · authored public fixtures, no live research or real account claims.</p>':'')+renderAccountInformation(items,evidence,available,Boolean(session?.record),session?.workVersion??0,error,session?.record?.recordId);
+  };
   const { C3_SCRIPT_SHA256 } = await import("./render.ts");
   const generation = isCuratedContext(options.context) ? { available: false, explanation: "Fresh meeting generation is unavailable for this agent-curated context. Editable planning worksheets are available." } :
     options.context.context.ownerCorrections.some(item => item.text.includes("not enabled")) ? { available: false, explanation: "Preparation held pending the recorded C2 revision." } :
@@ -258,7 +292,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
-    const state = { ...inputState, research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    const state = { ...inputState, informationHtml: informationDisplay(session,inputState.page), research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
@@ -332,9 +366,47 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       json(res, 403, { error: "same-origin session guard refused request" }); return;
     }
     let body: unknown;
-    try { body = await readJson(req); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
-    if (store && session.record && url.pathname !== '/api/work-state' && req.headers['x-c3-document'] !== session.documentId) {
+    try { body = await readJson(req,url.pathname==='/api/information/change'?64*1024:16*1024); } catch (error) { json(res, 400, { error: error instanceof Error ? error.message : "invalid request" }); return; }
+    if (store && session.record && url.pathname !== '/api/work-state' && !url.pathname.startsWith('/api/information/') && req.headers['x-c3-document'] !== session.documentId) {
       json(res,409,{error:'Displayed document is stale. Local work kept; reopen the intended document before editing or saving.'}); return;
+    }
+    if(url.pathname.startsWith('/api/information/')) {
+      try {
+        if(url.search)throw Error('Unexpected query');
+        if(!informationStore||!options.workStore)throw Error('Information writes unavailable: private operator storage required');
+        if(url.pathname==='/api/information/list') {json(res,200,{items:informationItems(),evidence:informationEvidence(),operator:options.workStore.principal});return;}
+        const value=body as {id:string;expectedVersion:number;change:unknown;additionalEvidenceIds:string[]};
+        if(url.pathname!=='/api/information/change'||!value||Array.isArray(value)||Object.keys(value).sort().join(',')!=='additionalEvidenceIds,change,expectedVersion,id'||!Array.isArray(value.additionalEvidenceIds)||value.additionalEvidenceIds.length>20||new Set(value.additionalEvidenceIds).size!==value.additionalEvidenceIds.length)throw Error('Invalid information request');
+        const prior=informationStore.load(value.id);
+        if(prior.version!==value.expectedVersion)throw Error('Information save conflict. Reopen the current version; typed reasoning kept.');
+        let catalog:ReturnType<typeof informationEvidence>;
+        try{catalog=informationEvidence();}catch{if(value.additionalEvidenceIds.length)throw Error('Additional retained evidence unavailable');catalog=[...prior.evidence];}
+        const additional=value.additionalEvidenceIds.map(id=>{const e=catalog.find(e=>e.id===id);if(!e)throw Error('Evidence is not retained for this account and operator');return e;});
+        if(additional.length && (value.change as {action?:string})?.action!=='assess')throw Error('Additional evidence requires an assessment');
+        const next=reviseInformation(prior,value.change,authority(),additional);
+        const saved=informationStore.save(next,prior.version);
+        json(res,200,{saved:true,noChange:next===prior,item:saved,html:renderAccountInformation(informationItems(),catalog,true,Boolean(session.record),session.workVersion,undefined,session.record?.recordId)});
+      } catch(error) {json(res,409,{error:error instanceof Error?error.message:'Information save was not confirmed. Reasoning kept.'});}
+      return;
+    }
+    if(url.pathname==='/api/work/information') {
+      try {
+        const value=body as {action:string;id:string;informationVersion:number;workVersion:number;recordId:string};
+        if(!value||Object.keys(value).sort().join(',')!=='action,id,informationVersion,recordId,workVersion'||!['add','refresh','remove'].includes(value.action)||session.active||!session.record||session.record.recordId!==value.recordId||session.workVersion!==value.workVersion)throw Error('Displayed work is stale or active. Working context kept.');
+        let next=[...session.informationAttachments];const index=next.findIndex(a=>a.snapshot.id===value.id);
+        if(value.action==='remove'){if(index<0)throw Error('Attachment unavailable');next.splice(index,1);}
+        else {
+          if(!informationStore)throw Error('Current status unavailable');const item=informationStore.load(value.id);
+          if(item.version!==value.informationVersion)throw Error('Information changed. Inspect current information before including it.');
+          if(value.action==='refresh'&&index<0)throw Error('Attachment unavailable');
+          const attachment=informationAttachment(item);if(index<0)next.push(attachment);else next[index]=attachment;
+          if(next.length>20)throw Error('Working context limit reached');
+        }
+        let current:readonly AccountInformation[]|null=null;try{current=informationStore?.list()??null;}catch{/* Included snapshots remain usable without current storage. */}
+        const noChange=canonicalJson(next)===canonicalJson(session.informationAttachments);
+        if(!noChange){session.informationAttachments=next;session.workVersion+=1;}
+        json(res,200,{noChange,workVersion:session.workVersion,attachments:next,attachmentDigest:informationHash(next),html:renderInformationAttachments(next,current,session.workVersion,session.savedWorkVersion!==session.workVersion),saved:false,status:noChange?'Working context unchanged.':'Working context updated locally. Save the brief to retain this version.'});
+      } catch(error){json(res,409,{error:error instanceof Error?error.message:'Working context unavailable'});}return;
     }
     if (url.pathname.startsWith('/api/research/')) {
       if (!navigation || url.search) { json(res, 404, { error: 'Canonical account research route required' }); return; }
@@ -381,15 +453,15 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       json(res,200,{workVersion:session.workVersion,title:session.title});return;
     }
     if (url.pathname === '/api/work-state') {
-      json(res,200,{available:Boolean(store),recordId:session.record?.recordId ?? null, documentId:session.documentId, version:session.storageVersion, workVersion:session.workVersion, saved:Boolean(store && session.savedWorkVersion===session.workVersion), title:session.title,savedAt:session.savedAt,origin:origin(session.record),snapshot:{correctionNote:session.correctionNote,sectionNotes:session.sectionNotes,instruction:session.instruction,pendingRevisionToken:session.pendingRevisionToken,proposalId:session.proposal?.recordId ?? null,proposalStale:session.proposalStale}}); return;
+      json(res,200,{available:Boolean(store),recordId:session.record?.recordId ?? null, documentId:session.documentId, version:session.storageVersion, workVersion:session.workVersion, saved:Boolean(store && session.savedWorkVersion===session.workVersion), title:session.title,savedAt:session.savedAt,origin:origin(session.record),attachmentDigest:informationHash(session.informationAttachments),snapshot:{informationAttachments:session.informationAttachments,correctionNote:session.correctionNote,sectionNotes:session.sectionNotes,instruction:session.instruction,pendingRevisionToken:session.pendingRevisionToken,proposalId:session.proposal?.recordId ?? null,proposalStale:session.proposalStale}}); return;
     }
     if (url.pathname === '/api/save' || url.pathname === '/api/save-copy') {
       if (!store) { json(res,409,{error:'Session only. No private work store is configured.'}); return; }
       const value = body as Record<string,unknown>;
-      if (!value || session.active || !session.record?.draft || value.recordId !== session.record.recordId || value.documentId !== session.documentId || value.workVersion !== session.workVersion || value.expectedVersion !== session.storageVersion) {
+      if (!value || session.active || !session.record?.draft || value.recordId !== session.record.recordId || value.documentId !== session.documentId || value.workVersion !== session.workVersion || value.expectedVersion !== session.storageVersion || (session.informationAttachments.length>0 || value.informationAttachments!==undefined || value.informationAttachmentsSha256!==undefined) && (value.informationAttachmentsSha256!==undefined ? value.informationAttachmentsSha256!==informationHash(session.informationAttachments) : canonicalJson(value.informationAttachments??null)!==canonicalJson(session.informationAttachments))) {
         json(res,409,{error:'Save conflict or newer work. Local text kept. Reopen the saved brief or Save a copy.'}); return;
       }
-      const snapshot: WorkingBrief = {record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion};
+      const snapshot: WorkingBrief = {informationAttachments:session.informationAttachments,record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion};
       try {
         const copy=url.pathname === '/api/save-copy';
         const saved=store.save(copy ? newWorkDocumentId() : session.documentId,copy ? 0 : session.storageVersion,snapshot,{title:session.title},session.workContext);
@@ -409,6 +481,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
         const work=saved.work;
         session.title=saved.metadata?.title ?? defaultWorkTitle(work.record); session.savedAt=saved.metadata?.savedAt;
         session.preparedContext=undefined; session.workContext=context; session.record=work.record; session.records=[...work.records]; session.form=work.record.meetingRequest;
+        session.informationAttachments=[...(work.informationAttachments??[])];
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
@@ -686,12 +759,19 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       if (generation.outcome === "refused") {
         events.push({ kind: "refused", sequence });
         const failureKind = (generation.generationContractVersion === '7' || generation.generationContractVersion === '8') ? generation.refusal!.failureKind : undefined;
-        const refusalNotice = generationRefusalNotice(generation);
+        let inspectInformation: string | undefined;
+        let informationRetention: string | undefined;
+        if(informationStore)try{
+          const items=candidateInformation(generation,generationContext,authority());
+          for(const item of items)informationStore.admit(item);
+          if(items.length)inspectInformation=(navigation?accountPath(navigation.accountId):'')+'/#'+items[0]!.id;
+        }catch{informationRetention='Candidate information could not be retained; original refusal kept.';}
+        const refusalNotice = generationRefusalNotice(generation)+(inspectInformation?' Useful candidate information is retained separately in Account.':'');
         const page = render(revision !== null && session.record ? {page:"draft",record:session.record,correctionNote:session.correctionNote,notice:refusalNotice,...pendingPageState(session)} : { page: "prepare", request,
           error: refusalNotice,
           hasDraft: session.record?.draft !== undefined, correctionNote: session.correctionNote,
           ...pendingPageState(session) }, session.csrf);
-        json(res, 422, { outcome: "refused", operation, error: refusalNotice, ...(failureKind ? { failureKind } : {}), html: page, location: revision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
+        json(res, 422, { outcome: "refused", operation, inspectInformation, informationRetention, error: refusalNotice, ...(failureKind ? { failureKind } : {}), html: page, location: revision !== null ? "/?draft=1" : "/?prepare=1", history: "replace", refusal: generation.refusal }); return;
       }
       originReceipt(generation); // Validate trusted generation custody before accepting session work.
       const changed = revision && session.record ? changedSections(session.record,generation) : [];
@@ -702,7 +782,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       }
       session.title=defaultWorkTitle(generation); session.savedAt=undefined;
       session.workContext = generationContext; session.preparedContext = undefined;
-      session.sectionNotes = {}; session.record = generation; session.records = [generation];
+      session.informationAttachments=[]; session.sectionNotes = {}; session.record = generation; session.records = [generation];
       session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
       session.correctionNote = ''; session.instruction=''; session.proposal=null;
       session.pendingRevision = null; session.pendingRevisionToken = null; session.pendingPriorNote = null;

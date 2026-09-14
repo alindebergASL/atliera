@@ -56,7 +56,11 @@ test('HTTP graceful restart: historical evidence, notes, Save/copy, proposal/App
     originalEvidence((await b.call('/?draft=1')).text);
     for (const route of ['/', '/?view=research', '/?kind=strategy', '/?prepare=1']) {
       const page = await b.call(route); assert.equal(page.status, 200);
-      assert.ok(!page.text.includes(originalContext.context.admittedSources[0]!.excerpts[0]!.exactExcerpt), `${route} uses refreshed context`);
+      // UV1 independently retained information may still inspect historical excerpts. The original
+      // Account/Prepare/worksheet projection must continue to use the refreshed context.
+      const projection = page.text.split('<section class="account-section information-section"')[0]!;
+      assert.ok(!projection.includes(originalContext.context.admittedSources[0]!.excerpts[0]!.exactExcerpt), `${route} uses refreshed context`);
+      assert.ok(page.text.includes(`name="c3-context" content="${refreshedContext.sha256}"`));
     }
     assert.equal((await b.call('/api/note', { recordId: saved.recordId, note: 'Synthetic retained note', priorNote: '' })).status, 200);
     assert.equal((await b.call('/api/section-note', { recordId: saved.recordId, section: 'Opening', text: 'Synthetic section note', priorText: '' })).status, 200);

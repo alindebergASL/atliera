@@ -69,6 +69,7 @@ Status vocabulary:
 | `controlled-2b-expanded-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-2b-live-provider-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
 | `controlled-corpus-usefulness-validation.md` | consumed | Historical validation, approval, status, or assessment record retained for provenance; it is not current authorization. |
+| `c3-account-information-validation.md` | active | Local UV1 information reviews and explicit meeting-context snapshots; synthetic offline verification reference. No new source/provider execution, shared publication or deployment authority. |
 | `c3-command-deadlines.md` | active | Opt-in command deadline configuration and cancellation/accounting boundary; no dispatch, retry, spending or release authority. |
 | `c3-service-integration-execution-status.md` | active | Sanitized partial live research-to-saved-work execution status; preserves the refused revision, missing live Apply proof and consumed finite attempts. No new execution, retry, approval or release authority. |
 | `c3-targeted-source-brief.md` | active | Explicit retained-source admission, account-bound preparation and versioned work reconstruction reference; command configuration grants no spending, acquisition, retry or approval authority. |

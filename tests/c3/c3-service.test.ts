@@ -15,7 +15,7 @@ import { scriptedFullCoverage } from './c3-generation-scripted.ts';
 const createC3ModelRequest: typeof createCurrentC3ModelRequest = (context, input, revision = null, version = '5') =>
   createCurrentC3ModelRequest(context, input, revision, version);
 import { DisabledC3ModelProvider, RecordedReplayC3ModelProvider, type C3ModelProvider } from "../../src/c3/provider.ts";
-import { C3_CLIENT_SCRIPT, renderC3Page } from "../../src/c3/render.ts";
+import { C3_CLIENT_SCRIPT, conciseSourceLabel, renderC3Page } from "../../src/c3/render.ts";
 import { startC3Server, type RunningC3Server } from "../../src/c3/service.ts";
 
 const ROOT = process.cwd();
@@ -374,7 +374,19 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     assert.match(payload.html, /related evidence context/i);
     assert.match(payload.html, /Evidence behind the brief/);
     const generatedBrief = payload.html.split('<div class="draft-grid">')[1]!.split('<section data-generated-region="checks"')[0]!;
-    assert.doesNotMatch(generatedBrief.replace(/<[^>]*>/gu, ''), /evidence_[a-f0-9]+/);
+    // Raw evidence IDs stay prohibited in brief text, with one authorized exception: dedicated
+    // citation-identity nodes that disambiguate duplicate concise source labels (render.ts evidenceLinks).
+    const identityIds = new Set([...generatedBrief.matchAll(/<small class="citation-identity">Citation (evidence_[a-f0-9]+)<\/small>/gu)].map((match) => match[1]!));
+    const selectedEvidence = ctx.context.admittedSources[0]!.excerpts[0]!.evidenceId;
+    const labelsPerExcerpt = ctx.context.admittedSources.flatMap((source) => source.excerpts.map(() => conciseSourceLabel(source.title)));
+    assert.notEqual(labelsPerExcerpt.indexOf(conciseSourceLabel(ctx.context.admittedSources[0]!.title)),
+      labelsPerExcerpt.lastIndexOf(conciseSourceLabel(ctx.context.admittedSources[0]!.title)),
+      "the selected source's concise label duplicates at excerpt granularity, so citation-identity suffixes are expected");
+    assert.ok(identityIds.size > 0, "duplicate-label chips render citation-identity suffixes");
+    assert.deepEqual([...identityIds], [selectedEvidence], "citation-identity values bind to the record's actual ctx evidence ID");
+    const visibleBriefText = generatedBrief.replace(/<[^>]*>/gu, "");
+    assert.ok(visibleBriefText.includes(`Citation ${selectedEvidence}`));
+    assert.doesNotMatch(generatedBrief.replace(/<small class="citation-identity">[^<]*<\/small>/gu, "").replace(/<[^>]*>/gu, ""), /evidence_[a-f0-9]+/u);
     assert.deepEqual({ location: payload.location, history: payload.history }, { location: "/?draft=1", history: "push" });
     const reloaded = await requestTo(running, "GET", "/?draft=1", undefined, { cookie: browser.cookie });
     assert.match(reloaded.text, /<h1 data-work-title>/);
@@ -384,6 +396,33 @@ test("successful generation is proposed, source-derived, evidence-linked, and re
     assert.match(home.text, /href="\/\?draft=1"[^>]*>Reopen session draft/);
     assert.equal(running.status().generationSucceeded, 1);
   } finally { await running.close(); }
+});
+
+test("citation-identity suffixes disambiguate duplicate concise source labels only", async () => {
+  const ctx = await context();
+  const duplicateSource = ctx.context.admittedSources[0]!;
+  const uniqueSource = ctx.context.admittedSources[6]!;
+  const duplicateEvidence = duplicateSource.excerpts[0]!.evidenceId;
+  const uniqueEvidence = uniqueSource.excerpts[0]!.evidenceId;
+  const trimmed: FrozenC3AccountContext = { ...ctx, context: { ...ctx.context,
+    admittedSources: [duplicateSource, { ...uniqueSource, excerpts: uniqueSource.excerpts.slice(0, 1) }] } };
+  const labelsPerExcerpt = trimmed.context.admittedSources.flatMap((source) => source.excerpts.map(() => conciseSourceLabel(source.title)));
+  const duplicateLabel = conciseSourceLabel(duplicateSource.title);
+  const uniqueLabel = conciseSourceLabel(uniqueSource.title);
+  assert.notEqual(duplicateLabel, uniqueLabel);
+  assert.notEqual(labelsPerExcerpt.indexOf(duplicateLabel), labelsPerExcerpt.lastIndexOf(duplicateLabel), "multi-excerpt source renders a duplicate concise label");
+  assert.equal(labelsPerExcerpt.indexOf(uniqueLabel), labelsPerExcerpt.lastIndexOf(uniqueLabel), "single-excerpt source keeps a unique concise label");
+  const base = createGenerationRecord(createC3ModelRequest(ctx, meetingRequest), candidate(ctx), ctx);
+  const record = { ...base, draft: { ...base.draft!,
+    audienceThesis: { ...base.draft!.audienceThesis, evidenceRefs: [duplicateEvidence, uniqueEvidence] },
+    questions: base.draft!.questions.map((question, index) => index === 1 ? { ...question, evidenceRefs: [duplicateEvidence, uniqueEvidence] } : question),
+    selectedEvidenceRefs: [duplicateEvidence, uniqueEvidence] } };
+  const rendered = renderC3Page(trimmed, { page: "draft", record, correctionNote: "" }, "csrf");
+  const renderedBrief = rendered.split('<div class="draft-grid">')[1]!.split('<section data-generated-region="checks"')[0]!;
+  assert.match(renderedBrief, new RegExp(`<small class="citation-identity">Citation ${duplicateEvidence}</small>`));
+  assert.doesNotMatch(renderedBrief, new RegExp(`<small class="citation-identity">Citation ${uniqueEvidence}</small>`));
+  assert.match(renderedBrief, /href="#evidence-2"/u);
+  assert.doesNotMatch(renderedBrief.replace(/<small class="citation-identity">[^<]*<\/small>/gu, "").replace(/<[^>]*>/gu, ""), /evidence_[a-f0-9]+/u);
 });
 
 test("two local service ports retain independent browser-jar sessions and a restart invalidates only its session", async () => {

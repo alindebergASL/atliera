@@ -171,6 +171,84 @@ test('brief-first route: backward-compatible generated reading then authored cop
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('reopen ABA never reauthorizes stale export, Save or Keep; fresh content saves and reopens', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'c3-brief-aba-'));
+  const options = { context: ctx, provider, listen: false, workStore: { root, principal: 'operator-one' } };
+  let server = await startC3Server(options);
+  try {
+    const b = await browser(server);
+    const generated = (await b.call('/api/generate', envelope())).json();
+    const state = async () => (await b.call('/api/work-state', {})).json();
+    const keep = async (title: string) => b.call('/api/authored-copy', {
+      recordId: generated.recordId, workVersion: (await state()).workVersion,
+      copy: { ...authoredPayload(generated.recordId), title },
+    });
+    const saveBody = (s: Awaited<ReturnType<typeof state>>) => ({
+      recordId: generated.recordId, documentId: s.documentId,
+      expectedVersion: s.version, workVersion: s.workVersion,
+    });
+    // Legacy saved work has no authored copy; reopening does not rewrite its bytes.
+    assert.equal((await b.call('/api/save', saveBody(await state()))).status, 200);
+    const legacy = await state();
+    const store = new LocalWorkStore(options.workStore, ctx);
+    const originalRecord = JSON.stringify(store.load(legacy.documentId).work.record);
+    assert.equal((await b.call('/api/reopen', { documentId: legacy.documentId })).status, 200);
+    assert.equal((await state()).saved, true);
+    assert.match((await b.call('/?brief=1')).text, /original record unchanged/i);
+    assert.equal(store.load(legacy.documentId).work.authoredCopy, undefined);
+    assert.equal((await keep('A: saved')).status, 200);
+    assert.equal((await b.call('/api/save', saveBody(await state()))).status, 200);
+    const a = await state();
+    const savedA = JSON.stringify(store.load(a.documentId));
+    assert.equal((await keep('B: stale displayed copy')).status, 200);
+    const stale = await state();
+    assert.equal(stale.saved, false);
+    // Both displayed tabs share one session; retain B's request identities unchanged.
+    assert.equal((await b.call('/api/reopen', {
+      documentId: a.documentId, discardUnsaved: true, workVersion: stale.workVersion,
+    })).status, 200);
+    assert.equal((await state()).saved, true);
+    assert.equal(JSON.stringify(store.load(a.documentId)), savedA, 'reopen itself never writes');
+    assert.equal((await keep('C: current copy')).status, 200);
+    const current = await state();
+    assert.equal(current.version, stale.version, 'same durable version is not a freshness proof');
+    const oldIdentity = { recordId: generated.recordId, workVersion: stale.workVersion };
+    const refused = [
+      await b.call('/api/brief-export', oldIdentity),
+      await b.call('/api/save', saveBody(stale)),
+      await b.call('/api/authored-copy', {
+        ...oldIdentity, copy: { ...authoredPayload(generated.recordId), title: 'B: stale displayed copy' },
+      }),
+    ];
+    assert.deepEqual(refused.map(r => r.status), [409, 409, 409], 'all stale operations refuse after A-B-A-C');
+    assert.equal((await state()).workVersion, current.workVersion);
+    assert.equal((await state()).version, a.version);
+    assert.equal(JSON.stringify(store.load(a.documentId)), savedA, 'refused operations never write');
+    const exported = await b.call('/api/brief-export', { ...oldIdentity, workVersion: current.workVersion });
+    assert.equal(exported.status, 200);
+    assert.match(exported.json().exportText, /C: current copy/);
+    assert.doesNotMatch(exported.json().exportText, /B: stale displayed copy/);
+    assert.equal((await b.call('/api/save', saveBody(current))).status, 200);
+    assert.deepEqual(store.load(a.documentId).work.authoredCopy, validateAuthoredMeetingCopy({
+      ...authoredPayload(generated.recordId), title: 'C: current copy',
+    }, ctx, generated.recordId));
+    for (let i = 0; i < 2; i++) {
+      const before = await state();
+      assert.equal((await b.call('/api/reopen', { documentId: a.documentId })).status, 200);
+      assert.equal((await state()).saved, true);
+      assert.ok((await state()).workVersion > before.workVersion, 'even saved reopens mint a fresh identity');
+      assert.equal((await b.call('/api/brief-export', { ...oldIdentity, workVersion: before.workVersion })).status, 409);
+      assert.match((await b.call('/?brief=1')).text, /C: current copy/);
+    }
+    assert.equal(JSON.stringify(store.load(a.documentId).work.record), originalRecord);
+    await server.close(); server = await startC3Server(options);
+    const fresh = await browser(server);
+    assert.equal((await fresh.call('/api/reopen', { documentId: a.documentId })).status, 200);
+    assert.equal((await fresh.call('/api/work-state', {})).json().saved, true);
+    assert.match((await fresh.call('/?brief=1')).text, /C: current copy/);
+  } finally { await server.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test('store round-trips legacy briefs without the field and rejects unknown authored record binding', async () => {
   const root = await mkdtemp(join(tmpdir(), 'c3-brief-first-legacy-'));
   try {
@@ -265,7 +343,9 @@ test('Apply preserves previous authored text for explicit rebind; Save and reope
     assert.equal(saved.json().authoredCopy.priorRecordId,first.recordId);
     assert.equal((await b.call('/api/reopen',{documentId:current.documentId})).status,200);
     assert.match((await b.call('/?brief=1')).text,/previous authored text is retained/);
-    const kept=await b.call('/api/authored-copy',{recordId:current.recordId,workVersion:current.workVersion,copy:{...authored,priorRecordId:current.recordId}});assert.equal(kept.status,200);
+    assert.equal((await b.call('/api/authored-copy',{recordId:current.recordId,workVersion:current.workVersion,copy:{...authored,priorRecordId:current.recordId}})).status,409);
+    const reopened=(await b.call('/api/work-state',{})).json();assert.equal(reopened.saved,true);
+    const kept=await b.call('/api/authored-copy',{recordId:current.recordId,workVersion:reopened.workVersion,copy:{...authored,priorRecordId:current.recordId}});assert.equal(kept.status,200);
     assert.match((await b.call('/?brief=1')).text,/data-brief-mode="user-authored"/);
   }finally{await server.close();await rm(root,{recursive:true,force:true});}
 });

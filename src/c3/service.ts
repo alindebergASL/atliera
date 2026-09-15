@@ -546,7 +546,12 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
         session.informationAttachments=[...(work.informationAttachments??[])];
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
-        session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
+        session.documentId=saved.documentId; session.storageVersion=saved.version;
+        // Freshness identity must never be recycled: a saved workVersion has already been
+        // displayed before, so reopening mints a strictly greater per-session epoch. Old
+        // tabs keep stale numbers and every version-checked route refuses them; the
+        // displayed content still equals the durable store, so Saved remains truthful.
+        session.workVersion=Math.max(session.workVersion,work.workVersion)+1; session.savedWorkVersion=session.workVersion; session.sequence+=1;
         // Reopen restores optional authored copy saved with this brief; absent on legacy files.
         session.authoredCopy = work.authoredCopy ?? null;
         json(res,200,{reopened:true,recordId:work.record.recordId,documentId:saved.documentId,version:saved.version,location:'/?draft=1'});

@@ -21,6 +21,8 @@ import { assertReplayIdentity, reconstructC3ModelRequest, createC3ModelRequest, 
 import { C3CommandResponseError, generateVerifiedC3Record, type C3ModelProvider, type C3GenerationAudit, type C3GenerationStage } from "./provider.ts";
 import { boundedPlanningText, MEETING_NOTE_SECTIONS, newPlanningBrief, updatePlanningBrief, type PlanningBrief, type PlanningKind } from "./planning.ts";
 import { renderC3Page } from "./render.ts";
+import { validateAuthoredMeetingCopy, sameAuthoredCopy, type AuthoredMeetingCopy } from "./authored-copy.ts";
+import { generatedReading, authoredReading, formatBriefExport } from "./brief-first.ts";
 
 type GenerationEventKind = "attempted" | "succeeded" | "refused" | "cancelled" | "failed";
 interface GenerationEvent { readonly kind: GenerationEventKind; readonly sequence: number; }
@@ -46,6 +48,7 @@ interface Session {
   planning: Record<PlanningKind, PlanningBrief>;
   sectionNotes: Record<string, string>;
   informationAttachments: InformationAttachment[];
+  authoredCopy: unknown | null;
 
   pendingPriorNote: string | null;
   pendingRevision: C3RevisionContext | null;
@@ -158,6 +161,7 @@ function newSession(now: () => Date, initialRequest?: C3MeetingRequest): Session
     form: initialRequest ?? { audience: "", intendedOutcome: "", durationMinutes: 15, meetingDate: nextMeetingDate(now()) },
     planning: { strategy: newPlanningBrief("strategy"), "next-steps": newPlanningBrief("next-steps") }, sectionNotes: {},
     informationAttachments: [], instruction: "", proposal: null, proposalStale: false, records: [], documentId: newWorkDocumentId(), storageVersion: 0, workVersion: 0, savedWorkVersion: -1,
+    authoredCopy: null,
     correctionNote: "", pendingPriorNote: null, pendingRevision: null, pendingRevisionToken: null, revisionNumber: 0, sequence: 0, operations: new Set() };
 }
 
@@ -296,17 +300,17 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       const listing = store.listWithDiagnostics();
       if (listing.unreadableDocumentIds.length > 0) storageError = 'Some saved briefs are unavailable. Valid saved briefs are shown; local work is kept.';
       savedWorks = listing.briefs.map(item => ({documentId:item.documentId, version:item.version, audience:item.work.record.meetingRequest.audience,title:item.metadata?.title ?? defaultWorkTitle(item.work.record),intendedOutcome:item.work.record.meetingRequest.intendedOutcome,meetingDate:item.work.record.meetingRequest.meetingDate,savedAt:item.metadata?.savedAt,origin:origin(item.work.record)})); } catch { storageError = 'Saved work could not be validated. Local work is kept; check the private store before reopening.'; }
-    const state = { ...inputState, informationPreview: options.informationPreview, informationHtml: informationDisplay(session,inputState.page), research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
+    const state = { ...inputState, informationPreview: options.informationPreview, informationHtml: informationDisplay(session,inputState.page), research: inputState.page === "research" && session ? research?.display(session.id) ?? unavailableResearchDisplay() : undefined, generation, work: { available: Boolean(store), documentId: session?.documentId ?? '', version: session?.storageVersion ?? 0, workVersion: session?.workVersion ?? 0, saved: Boolean(store && session && session.savedWorkVersion === session.workVersion), savedWorks, storageError, title:session?.title, savedAt:session?.savedAt, origin:origin(session?.record), attachmentDigest:informationHash(session?.informationAttachments ?? []), authoredCopyDigest:informationHash(session?.authoredCopy ?? null) }, ...(session ? { instruction: session.instruction, proposal: session.proposal, proposalStale: session.proposalStale } : {}) };
     return renderState(state, csrf);
   };
   const renderState = (state: Parameters<typeof renderC3Page>[1], csrf: string): string => {
     const session = [...sessions.values()].find(item => item.csrf === csrf);
-    const context = state.page === "draft" ? session?.workContext ?? options.context : state.page === "prepare"
+    const context = state.page === "draft" || state.page === "brief" ? session?.workContext ?? options.context : state.page === "prepare"
       ? session?.pendingRevision ? session.workContext ?? options.context : session?.preparedContext ?? options.context
       : options.context;
     return renderC3Page(context, state.page === "draft" ? { ...state, revisionUnavailableReason: revisionUnavailableReason(state.record), sectionNotes: session?.sectionNotes ?? {} } :
       state.page === "prepare" ? { ...state, displayedRecordId: session?.record?.recordId ?? null } : state, csrf,
-      options.recordedReplay === undefined || (state.page === "draft" && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
+      options.recordedReplay === undefined || ((state.page === "draft" || state.page === "brief") && origin(state.record) !== "historical-replay" && !(options.syntheticPreview && origin(state.record) === "synthetic")) ? undefined : { correctionNote: options.recordedReplay.correctionNote,
         initialRequest: options.recordedReplay.initialRequest, syntheticPreview: options.syntheticPreview }, navigation);
   };
 
@@ -350,6 +354,21 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
           ...(kind === "next-steps" && url.searchParams.get("from") === "strategy" ? { strategySuggestion: session.planning.strategy.sections.find((section) => section.id === "decision")! } : {}) }, session.csrf), C3_SCRIPT_SHA256); return;
       }
       const pending = pendingPageState(session);
+      if (url.searchParams.get("brief") === "1") {
+        if (!hasDraft) {
+          html(res, 409, render({ page: "prepare", request: session.form,
+            error: "No session brief is available yet. Keep or edit these inputs and prepare a new draft." }, session.csrf), C3_SCRIPT_SHA256);
+          return;
+        }
+        // Reading surface only: never a provider call. Renders authored copy when present,
+        // otherwise an honest projection of the unchanged record. Backward compatible.
+        const authored = session.authoredCopy as AuthoredMeetingCopy | null;
+        const savedState = !store ? 'Session only · this brief is not durably stored' : session.savedWorkVersion === session.workVersion
+          ? 'Saved' : 'Unsaved changes · use Save in the brief to retain them';
+        html(res, 200, render({ page: "brief", record: session.record!, authoredCopy: authored,
+          savedState, hasDraft, ...pending }, session.csrf), C3_SCRIPT_SHA256);
+        return;
+      }
       if (url.searchParams.get("draft") === "1") {
         if (!hasDraft) {
           html(res, 409, render({ page: "prepare", request: session.form,
@@ -456,8 +475,46 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       if(session.title !== title){session.title=title;session.workVersion+=1;}
       json(res,200,{workVersion:session.workVersion,title:session.title});return;
     }
+    if (url.pathname === '/api/authored-copy' || url.pathname === '/api/brief-export') {
+      if (url.search) { json(res, 400, { error: 'Unexpected brief request query' }); return; }
+      const value = body as Record<string, unknown>;
+      if (!session.record?.draft) { json(res, 409, { error: 'No session brief is available. Prepare a draft first.' }); return; }
+      if (value?.recordId !== session.record.recordId) { json(res, 409, { error: 'Displayed brief is stale. Reopen the current brief before editing authored copy.' }); return; }
+      if (url.pathname === '/api/brief-export') {
+        if (Object.keys(value).sort().join(',') !== 'recordId,workVersion' || value.workVersion !== session.workVersion || session.active) {
+          json(res, 409, { error: 'Displayed work changed. Reload to inspect it before exporting.' }); return;
+        }
+        // Export only the version displayed when this page was opened.
+        const authored = session.authoredCopy !== null && (session.authoredCopy as AuthoredMeetingCopy).priorRecordId === session.record.recordId
+          ? session.authoredCopy as AuthoredMeetingCopy : null;
+        const context = session.workContext ?? options.context;
+        const reading = authored ? authoredReading(authored, context, session.record) : generatedReading(session.record, context, origin(session.record));
+        json(res, 200, { recordId: session.record.recordId, mode: reading.mode, exportText: formatBriefExport({ ...reading, ...(session.pendingRevision || session.proposal ? { pendingNote: 'Revision pending; this reading shows the current record.' } : {}) }) });
+        return;
+      }
+      // Keep authored copy locally: version-checked, never a provider call, never durable alone.
+      try {
+        if (!value || Object.keys(value).sort().join(',') !== 'copy,recordId,workVersion' || session.active || value.workVersion !== session.workVersion) {
+          throw Error('Displayed work is stale or active. No change was kept; reopen the current brief before editing.');
+        }
+        let validated: AuthoredMeetingCopy | null = null;
+        if (value.copy !== null) validated = validateAuthoredMeetingCopy(value.copy, session.workContext ?? options.context, session.record.recordId);
+        if (sameAuthoredCopy(session.authoredCopy, validated)) {
+          json(res, 200, { kept: true, noChange: true, workVersion: session.workVersion, recordId: session.record.recordId, authoredCopy: session.authoredCopy,
+            status: 'Authored copy unchanged. Already kept for this session.' });
+          return;
+        }
+        session.authoredCopy = validated;
+        session.workVersion += 1;
+        json(res, 200, { kept: true, noChange: false, recordId: session.record.recordId, authoredCopy: validated,
+          workVersion: session.workVersion,
+          status: validated === null ? 'Authored copy cleared. The unchanged original record reading is shown.' :
+            'Authored copy kept for this session. Save the brief to retain it; the original record is unchanged.' });
+      } catch (error) { json(res, 409, { error: error instanceof Error ? error.message : 'Authored copy was not kept. Local text kept.' }); }
+      return;
+    }
     if (url.pathname === '/api/work-state') {
-      json(res,200,{available:Boolean(store),recordId:session.record?.recordId ?? null, documentId:session.documentId, version:session.storageVersion, workVersion:session.workVersion, saved:Boolean(store && session.savedWorkVersion===session.workVersion), title:session.title,savedAt:session.savedAt,origin:origin(session.record),attachmentDigest:informationHash(session.informationAttachments),snapshot:{informationAttachments:session.informationAttachments,correctionNote:session.correctionNote,sectionNotes:session.sectionNotes,instruction:session.instruction,pendingRevisionToken:session.pendingRevisionToken,proposalId:session.proposal?.recordId ?? null,proposalStale:session.proposalStale}}); return;
+      json(res,200,{available:Boolean(store),recordId:session.record?.recordId ?? null, documentId:session.documentId, version:session.storageVersion, workVersion:session.workVersion, saved:Boolean(store && session.savedWorkVersion===session.workVersion), title:session.title,savedAt:session.savedAt,origin:origin(session.record),attachmentDigest:informationHash(session.informationAttachments),snapshot:{authoredCopyDigest:informationHash(session.authoredCopy),informationAttachments:session.informationAttachments,correctionNote:session.correctionNote,sectionNotes:session.sectionNotes,instruction:session.instruction,pendingRevisionToken:session.pendingRevisionToken,proposalId:session.proposal?.recordId ?? null,proposalStale:session.proposalStale}}); return;
     }
     if (url.pathname === '/api/save' || url.pathname === '/api/save-copy') {
       if (!store) { json(res,409,{error:'Session only. No private work store is configured.'}); return; }
@@ -465,12 +522,13 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       if (!value || session.active || !session.record?.draft || value.recordId !== session.record.recordId || value.documentId !== session.documentId || value.workVersion !== session.workVersion || value.expectedVersion !== session.storageVersion || (session.informationAttachments.length>0 || value.informationAttachments!==undefined || value.informationAttachmentsSha256!==undefined) && (value.informationAttachmentsSha256!==undefined ? value.informationAttachmentsSha256!==informationHash(session.informationAttachments) : canonicalJson(value.informationAttachments??null)!==canonicalJson(session.informationAttachments))) {
         json(res,409,{error:'Save conflict or newer work. Local text kept. Reopen the saved brief or Save a copy.'}); return;
       }
-      const snapshot: WorkingBrief = {informationAttachments:session.informationAttachments,record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion};
+      const snapshot: WorkingBrief = {informationAttachments:session.informationAttachments,record:session.record,records:session.records,correctionNote:session.correctionNote,sectionNotes:{...session.sectionNotes},instruction:session.instruction,pendingRevision:session.pendingRevision,pendingRevisionToken:session.pendingRevisionToken,proposal:session.proposal,proposalStale:session.proposalStale,workVersion:session.workVersion,
+        ...(session.authoredCopy !== null ? { authoredCopy: session.authoredCopy } : {})};
       try {
         const copy=url.pathname === '/api/save-copy';
         const saved=store.save(copy ? newWorkDocumentId() : session.documentId,copy ? 0 : session.storageVersion,snapshot,{title:session.title},session.workContext);
         session.documentId=saved.documentId; session.storageVersion=saved.version; session.savedWorkVersion=saved.work.workVersion; session.savedAt=saved.metadata?.savedAt; session.title=saved.metadata?.title;
-        json(res,200,{saved:true,documentId:saved.documentId,version:saved.version,workVersion:saved.work.workVersion,recordId:session.record.recordId,title:session.title,savedAt:session.savedAt,origin:origin(session.record)});
+        json(res,200,{saved:true,documentId:saved.documentId,version:saved.version,workVersion:saved.work.workVersion,recordId:session.record.recordId,title:session.title,savedAt:session.savedAt,origin:origin(session.record),authoredCopy:snapshot.authoredCopy ?? null});
       } catch(error) { json(res,409,{error:error instanceof Error ? error.message : 'Save could not be confirmed. Local work kept; reopen or Save a copy.'}); }
       return;
     }
@@ -488,7 +546,14 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
         session.informationAttachments=[...(work.informationAttachments??[])];
         session.correctionNote=work.correctionNote; session.sectionNotes={...work.sectionNotes}; session.instruction=work.instruction;
         session.pendingRevision=work.pendingRevision; session.pendingRevisionToken=work.pendingRevisionToken; session.proposal=work.proposal; session.proposalStale=work.proposalStale;
-        session.documentId=saved.documentId; session.storageVersion=saved.version; session.workVersion=work.workVersion; session.savedWorkVersion=work.workVersion; session.sequence+=1;
+        session.documentId=saved.documentId; session.storageVersion=saved.version;
+        // Freshness identity must never be recycled: a saved workVersion has already been
+        // displayed before, so reopening mints a strictly greater per-session epoch. Old
+        // tabs keep stale numbers and every version-checked route refuses them; the
+        // displayed content still equals the durable store, so Saved remains truthful.
+        session.workVersion=Math.max(session.workVersion,work.workVersion)+1; session.savedWorkVersion=session.workVersion; session.sequence+=1;
+        // Reopen restores optional authored copy saved with this brief; absent on legacy files.
+        session.authoredCopy = work.authoredCopy ?? null;
         json(res,200,{reopened:true,recordId:work.record.recordId,documentId:saved.documentId,version:saved.version,location:'/?draft=1'});
       } catch { json(res,409,{error:'Saved work could not be validated for this account and operator. Current work kept.'}); }
       return;
@@ -524,7 +589,10 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       if(!value || session.active || !session.record || !session.proposal || session.proposalStale || !session.pendingRevision || value.recordId!==session.record.recordId || value.proposalId!==session.proposal.recordId || value.pendingRevisionToken!==session.pendingRevisionToken || value.instruction!==session.instruction || session.instruction!==session.pendingRevision.correctionNote || session.proposal.revision?.priorRecordId!==session.record.recordId) {json(res,409,{error:'Proposal is stale or unavailable. Current brief kept; regenerate from the current instruction.'});return;}
       const previous=session.record; session.record=session.proposal; session.records.push(session.proposal);
       session.proposal=null; session.pendingRevision=null; session.pendingRevisionToken=null; session.pendingPriorNote=null; session.instruction=''; session.workVersion+=1;
-      json(res,200,{applied:true,outcome:'succeeded',recordId:session.record.recordId,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changedSections(previous,session.record),html:render({page:'draft',record:session.record,correctionNote:session.correctionNote,revisionPending:false},session.csrf)});return;
+      // Preserve authored text against its original record; explicit Keep on the reading page rebinds it.
+      const authoredCopyNeedsReview = session.authoredCopy !== null;
+      json(res,200,{applied:true,outcome:'succeeded',recordId:session.record.recordId,savedNote:session.correctionNote,sectionNotes:session.sectionNotes,changedSections:changedSections(previous,session.record),
+        ...(authoredCopyNeedsReview ? { authoredCopyNeedsReview: true } : {}),html:render({page:'draft',record:session.record,correctionNote:session.correctionNote,revisionPending:false},session.csrf)});return;
     }
     if (url.pathname.startsWith("/api/planning/")) {
       const kind = url.pathname.slice("/api/planning/".length);
@@ -789,6 +857,7 @@ async function createAccountRuntime(options: C3AccountServiceOptions, host: () =
       session.informationAttachments=[]; session.sectionNotes = {}; session.record = generation; session.records = [generation];
       session.documentId=newWorkDocumentId(); session.storageVersion=0; session.savedWorkVersion=-1; session.workVersion+=1;
       session.correctionNote = ''; session.instruction=''; session.proposal=null;
+      session.authoredCopy = null;
       session.pendingRevision = null; session.pendingRevisionToken = null; session.pendingPriorNote = null;
       events.push({ kind: "succeeded", sequence });
       json(res, 200, { outcome: "succeeded", operation, recordId: generation.recordId, savedNote: session.correctionNote, sectionNotes: session.sectionNotes, changedSections: changed, status: "Brief ready.", html: render({ page: "draft", record: generation, correctionNote: session.correctionNote,

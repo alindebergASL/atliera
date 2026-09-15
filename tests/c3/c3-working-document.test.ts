@@ -273,13 +273,13 @@ test('work-state binds same-session annotations and instruction to CAS without e
  try{
   const tabs=await browser(running);const first=(await tabs.call('/api/generate',envelope())).json();
   const a=(await tabs.call('/api/work-state',{})).json();
-  assert.deepEqual(a.snapshot,{informationAttachments:[],correctionNote:'',sectionNotes:{},instruction:'',pendingRevisionToken:null,proposalId:null,proposalStale:false});
+  assert.deepEqual(a.snapshot,{authoredCopyDigest:'74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b',informationAttachments:[],correctionNote:'',sectionNotes:{},instruction:'',pendingRevisionToken:null,proposalId:null,proposalStale:false});
   await tabs.call('/api/note',{recordId:first.recordId,note:'Other tab general note',priorNote:''});
   await tabs.call('/api/section-note',{recordId:first.recordId,section:'Opening',text:'Other tab section note',priorText:''});
   await tabs.call('/api/revision-instruction',{recordId:first.recordId,instruction:'Other tab instruction',priorInstruction:''});
   const b=(await tabs.call('/api/work-state',{})).json();
   assert.equal(a.documentId,b.documentId);assert.equal(a.recordId,b.recordId);assert.equal(b.workVersion,a.workVersion+3);
-  assert.deepEqual(b.snapshot,{informationAttachments:[],correctionNote:'Other tab general note',sectionNotes:{Opening:'Other tab section note'},instruction:'Other tab instruction',pendingRevisionToken:null,proposalId:null,proposalStale:false});
+  assert.deepEqual(b.snapshot,{authoredCopyDigest:'74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b',informationAttachments:[],correctionNote:'Other tab general note',sectionNotes:{Opening:'Other tab section note'},instruction:'Other tab instruction',pendingRevisionToken:null,proposalId:null,proposalStale:false});
   assert.doesNotMatch(JSON.stringify(b),/operator-one|principal|owner/);
   assert.equal((await tabs.call('/api/save',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);
   assert.equal((await tabs.call('/api/save-copy',{recordId:a.recordId,documentId:a.documentId,expectedVersion:a.version,workVersion:a.workVersion})).status,409);

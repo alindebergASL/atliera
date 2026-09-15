@@ -13,13 +13,17 @@ export function accountPath(accountId: string): string {
 export type WorkspaceRoute =
   | { readonly destination: "overview" }
   | { readonly destination: "research"; readonly topic: ResearchTopic; readonly reading?: string }
-  | { readonly destination: "workshop"; readonly task?: "prepare" | "draft" | "strategy" | "next-steps" };
+  | { readonly destination: "workshop"; readonly task?: "prepare" | "draft" | "brief" | "strategy" | "next-steps" };
 
 export function parseWorkspaceRoute(params: URLSearchParams): WorkspaceRoute {
   for (const key of params.keys()) {
-    if (!['kind', 'draft', 'prepare', 'view', 'topic', 'reading', 'from'].includes(key) || params.getAll(key).length !== 1) {
+    if (!['kind', 'brief', 'draft', 'prepare', 'view', 'topic', 'reading', 'from'].includes(key) || params.getAll(key).length !== 1) {
       throw new Error("Unknown or duplicate workspace parameter");
     }
+  }
+  if (params.has("brief")) {
+    if (params.get("brief") !== "1" || [...params.keys()].some(key => key !== "brief")) throw new Error("Invalid brief location");
+    return { destination: "workshop", task: "brief" };
   }
   const kind = params.get("kind");
   if (kind !== null) {

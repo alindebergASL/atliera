@@ -2,14 +2,14 @@
   "buildProposal": {
     "kind": "atliera.decision-proposal",
     "schemaVersion": "3",
-    "recordId": "c3-bounded-review-ux-polish-20260914",
+    "recordId": "c3-brief-first-clean-export-20260914",
     "state": "proposed",
     "proposedBy": "agent",
-    "decision": "Implement the bounded C3 review-UX fixes: truthful replay and recorded review provenance, concise local uncertainty with inspectable evidence and meaningful search/citation labels, and explicit review-versus-brief Save with existing session-qualified return and pending status.",
-    "scope": "Build permission under the adopted standing development policy for a bounded C3 UI and regression-test sprint, not a redesign. Preserve stored review actors/timestamps/actions and original reasons without inferring authorship; keep unknown origin unknown and Historical replay visually distinct. Retain local uncertainty/status and evidence dates while expanding repetitive detail; literal local search covers meaningful statement/scope/source material, and citation labels use existing identifiers with complete evidence inspectable. Explain separate information-review and brief Save, preflight missing evidence/firsthand basis, retain cancel/refusal reasoning, and render account-qualified working-brief return and pending/saved status only from existing server-session state. No autosave, durable schema, trust designation, quota, source/generation identity or as-saved history changes. Includes relevant offline tests, exact-head independent technical review, disposable retained-account browser checks, authorized subscription GLM simulated-user/native-image reviews, documentation and ordinary PR/CI/merge. No product model generation, source acquisition, original retained-data mutation, production deployment, public ingress, external sends, new private-data scope, paid fallback, budget reset or customer acceptance. Engineering review use grants no product effect. Existing scope, budgets, raw-response identity, source custody, persistence and approval boundaries remain unchanged. Proposal stays agent-proposed and does not impersonate Andrew or ratify product content.",
+    "decision": "Implement the bounded C3 brief-first reading surface, generic explicitly authored meeting copy, and clean clipboard and file export while preserving evidence and immutable generated history.",
+    "scope": "Build permission under the standing development policy and explicit brief-first implementation and bounded Astra repair authorization. Includes account-qualified brief entry; purpose, facts, hypothesis, questions, close and uncertainty; exact source/passages and unknown-date truth; generic user-authored copy beside original records; existing explicit Save, reopen, version and conflict protections; current-displayed clean copy and Markdown/text download; regression tests, disposable localhost browser QA, independent exact-head technical and bounded subscription visual review, documentation and ordinary PR/CI/merge. No acquisition, product generation, paid fallback, historical/source mutation, lab/private-preview changes, deployment, public ingress, external sends, sharing, approval or customer acceptance. Proposal remains agent-proposed, not Andrew ratification. The code uses existing local Save semantics; this release performs no new operational durable-write effect or product effect.",
     "purpose": "build-permission",
-    "proposedAt": "2026-09-14T16:50:25.127Z",
+    "proposedAt": "2026-09-14T23:39:54.408442Z",
     "referenceUri": "https://github.com/alindebergASL/atliera/blob/main/docs/strategy/standing-development-policy.md",
-    "proposalDigest": "sha256:590ccaa46442ce3e697696a9ab032f0960c39a94381fb46fec58d5e525f7c978"
+    "proposalDigest": "sha256:ffcd6474864a0d271561c3e57ad5d7497e6a7fd3c31b0b88eaf04a8c081f45ac"
   }
 }
